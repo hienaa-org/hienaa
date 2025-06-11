@@ -17,21 +17,35 @@ type Modulus struct {
 	// modulus is the raw modulus value.
 	modulus uint64
 
-	// modulusInv is the modular inverse of modulus modulo 2^64.
+	// inv is a constant used for Montgomery multiplication.
+	// Equals to the modular inverse of modulus modulo 2^64.
 	// Zero if modulus is even.
-	modulusInv uint64
+	inv uint64
 
-	// barConst is a constant used for Barrett reduction.
+	// divHi is a constant used for Barrett reduction.
 	// Equals to floor(2^128 / modulus).
-	barConstHi uint64
-	// barConst is a constant used for Barrett reduction.
+	divHi uint64
+	// divLo is a constant used for Barrett reduction.
 	// Equals to floor(2^128 / modulus).
-	barConstLo uint64
+	divLo uint64
 }
 
 // Value returns the modulus value.
 func (q Modulus) Value() uint64 {
 	return q.modulus
+}
+
+// Inv is a constant used for Montgomery multiplication.
+// Equals to the modular inverse of modulus modulo 2^64.
+// Zero if modulus is even.
+func (q Modulus) Inv() uint64 {
+	return q.inv
+}
+
+// Div is a constant used for Barrett reduction.
+// Equals to floor(2^128 / modulus).
+func (q Modulus) Div() (hi, lo uint64) {
+	return q.divHi, q.divLo
 }
 
 // NewModulus creates a new Modulus.
@@ -61,45 +75,58 @@ func NewModulus(modulus uint64) *Modulus {
 	return &Modulus{
 		modulus: modulus,
 
-		modulusInv: modulusInvBig.Uint64(),
+		inv: modulusInvBig.Uint64(),
 
-		barConstHi: binary.BigEndian.Uint64(barConstBytes[:8]),
-		barConstLo: binary.BigEndian.Uint64(barConstBytes[8:]),
+		divHi: binary.BigEndian.Uint64(barConstBytes[:8]),
+		divLo: binary.BigEndian.Uint64(barConstBytes[8:]),
 	}
 }
 
 // Add computes x + y mod q.
 func Add(x, y uint64, q *Modulus) uint64 {
-	rem := x + y
-	if rem >= q.modulus {
-		rem -= q.modulus
+	z := x + y
+	if z >= q.modulus {
+		z -= q.modulus
 	}
-	return rem
+	return z
 }
 
 // Sub computes x - y mod q.
 func Sub(x, y uint64, q *Modulus) uint64 {
-	rem := x - y
-	if rem >= q.modulus {
-		rem += q.modulus
+	z := x - y
+	if z >= q.modulus {
+		z += q.modulus
 	}
-	return rem
+	return z
+}
+
+// BMul computes x * y mod q using Barrett reduction.
+func BMul(x, y uint64, q *Modulus) uint64 {
+	zHi, zLo := bits.Mul64(x, y)
+	return BMod(zHi, zLo, q)
+}
+
+// BMulLazy computes x * y mod q using Barrett reduction,
+// but the result is in [0, 2q).
+func BMulLazy(x, y uint64, q *Modulus) uint64 {
+	zHi, zLo := bits.Mul64(x, y)
+	return BModLazy(zHi, zLo, q)
 }
 
 // BMod computes x mod q using Barrett reduction.
 func BMod(xHi, xLo uint64, q *Modulus) uint64 {
-	quo := xHi * q.barConstHi
+	quo := xHi * q.divHi
 
-	quoLo, _ := bits.Mul64(xLo, q.barConstLo)
+	quoLo, _ := bits.Mul64(xLo, q.divLo)
 
-	quoMid0, quoMid0Lo := bits.Mul64(xLo, q.barConstHi)
+	quoMid0, quoMid0Lo := bits.Mul64(xLo, q.divHi)
 	quo += quoMid0
+
+	quoMid1, quoMid1Lo := bits.Mul64(xHi, q.divLo)
+	quo += quoMid1
 
 	quoMidSum, quoMidCarry := bits.Add64(quoMid0Lo, quoLo, 0)
 	quo += quoMidCarry
-
-	quoMid1, quoMid1Lo := bits.Mul64(xHi, q.barConstLo)
-	quo += quoMid1
 
 	_, quoMidCarry = bits.Add64(quoMid1Lo, quoMidSum, 0)
 	quo += quoMidCarry
@@ -111,16 +138,32 @@ func BMod(xHi, xLo uint64, q *Modulus) uint64 {
 	return rem
 }
 
-// BMul computes x * y mod q using Barrett reduction.
-func BMul(x, y uint64, q *Modulus) uint64 {
-	zHi, zLo := bits.Mul64(x, y)
-	return BMod(zHi, zLo, q)
+// BModLazy computes x mod q using Barret reduction,
+// but the result is in [0, 2q).
+func BModLazy(xHi, xLo uint64, q *Modulus) uint64 {
+	quo := xHi * q.divHi
+
+	quoLo, _ := bits.Mul64(xLo, q.divLo)
+
+	quoMid0, quoMid0Lo := bits.Mul64(xLo, q.divHi)
+	quo += quoMid0
+
+	quoMid1, quoMid1Lo := bits.Mul64(xHi, q.divLo)
+	quo += quoMid1
+
+	quoMidSum, quoMidCarry := bits.Add64(quoMid0Lo, quoLo, 0)
+	quo += quoMidCarry
+
+	_, quoMidCarry = bits.Add64(quoMid1Lo, quoMidSum, 0)
+	quo += quoMidCarry
+
+	return xLo - quo*q.modulus
 }
 
 // MForm transforms x into Montgomery form.
 func MForm(x uint64, q *Modulus) uint64 {
-	xM, _ := bits.Mul64(x, q.barConstLo)
-	xM += x * q.barConstHi
+	xM, _ := bits.Mul64(x, q.divLo)
+	xM += x * q.divHi
 
 	rem := -xM * q.modulus
 	if rem >= q.modulus {
@@ -131,7 +174,7 @@ func MForm(x uint64, q *Modulus) uint64 {
 
 // InvMForm transforms xM to Normal form.
 func InvMForm(xM uint64, q *Modulus) uint64 {
-	x, _ := bits.Mul64(xM*q.modulusInv, q.modulus)
+	x, _ := bits.Mul64(xM*q.inv, q.modulus)
 	rem := q.modulus - x
 	if rem >= q.modulus {
 		rem -= q.modulus
@@ -143,11 +186,21 @@ func InvMForm(xM uint64, q *Modulus) uint64 {
 func MMul(xM, yM uint64, q *Modulus) uint64 {
 	zMHi, zMLo := bits.Mul64(xM, yM)
 
-	wHi, _ := bits.Mul64(zMLo*q.modulusInv, q.modulus)
+	wHi, _ := bits.Mul64(zMLo*q.inv, q.modulus)
 
 	rem := zMHi - wHi + q.modulus
 	if rem >= q.modulus {
 		rem -= q.modulus
 	}
 	return rem
+}
+
+// MMulLazy computes x * y mod q in Montgomery form,
+// but the result is in [0, 2q).
+func MMulLazy(xM, yM uint64, q *Modulus) uint64 {
+	zMHi, zMLo := bits.Mul64(xM, yM)
+
+	wHi, _ := bits.Mul64(zMLo*q.inv, q.modulus)
+
+	return zMHi - wHi + q.modulus
 }
