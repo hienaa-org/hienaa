@@ -3,6 +3,8 @@
 package vec
 
 import (
+	"unsafe"
+
 	"github.com/hienaa-org/hienaa/math/num"
 	"golang.org/x/sys/cpu"
 )
@@ -14,28 +16,28 @@ func AddTo(v0, v1 []uint64, q *num.Modulus, vOut []uint64) {
 		return
 	}
 
-	N := len(vOut)
-	M := (N >> 3) << 3
+	M := (len(vOut) >> 3) << 3
 
-	var w0, w1, wOut []uint64
+	qv := q.Value()
+
 	for i := 0; i < M; i += 8 {
-		w0 = v0[i : i+8 : i+8]
-		w1 = v1[i : i+8 : i+8]
-		wOut = vOut[i : i+8 : i+8]
+		w0 := (*[8]uint64)(unsafe.Pointer(&v0[i]))
+		w1 := (*[8]uint64)(unsafe.Pointer(&v1[i]))
+		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
 
-		wOut[0] = num.Add(w0[0], w1[0], q)
-		wOut[1] = num.Add(w0[1], w1[1], q)
-		wOut[2] = num.Add(w0[2], w1[2], q)
-		wOut[3] = num.Add(w0[3], w1[3], q)
+		wOut[0] = addMod(w0[0], w1[0], qv)
+		wOut[1] = addMod(w0[1], w1[1], qv)
+		wOut[2] = addMod(w0[2], w1[2], qv)
+		wOut[3] = addMod(w0[3], w1[3], qv)
 
-		wOut[4] = num.Add(w0[4], w1[4], q)
-		wOut[5] = num.Add(w0[5], w1[5], q)
-		wOut[6] = num.Add(w0[6], w1[6], q)
-		wOut[7] = num.Add(w0[7], w1[7], q)
+		wOut[4] = addMod(w0[4], w1[4], qv)
+		wOut[5] = addMod(w0[5], w1[5], qv)
+		wOut[6] = addMod(w0[6], w1[6], qv)
+		wOut[7] = addMod(w0[7], w1[7], qv)
 	}
 
-	for i := M; i < N; i++ {
-		vOut[i] = num.Add(v0[i], v1[i], q)
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = addMod(v0[i], v1[i], qv)
 	}
 }
 
@@ -46,14 +48,12 @@ func AddLazyTo(v0, v1, vOut []uint64) {
 		return
 	}
 
-	N := len(vOut)
-	M := (N >> 3) << 3
+	M := (len(vOut) >> 3) << 3
 
-	var w0, w1, wOut []uint64
 	for i := 0; i < M; i += 8 {
-		w0 = v0[i : i+8 : i+8]
-		w1 = v1[i : i+8 : i+8]
-		wOut = vOut[i : i+8 : i+8]
+		w0 := (*[8]uint64)(unsafe.Pointer(&v0[i]))
+		w1 := (*[8]uint64)(unsafe.Pointer(&v1[i]))
+		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
 
 		wOut[0] = w0[0] + w1[0]
 		wOut[1] = w0[1] + w1[1]
@@ -66,7 +66,7 @@ func AddLazyTo(v0, v1, vOut []uint64) {
 		wOut[7] = w0[7] + w1[7]
 	}
 
-	for i := M; i < N; i++ {
+	for i := M; i < len(vOut); i++ {
 		vOut[i] = v0[i] + v1[i]
 	}
 }
@@ -78,28 +78,28 @@ func SubTo(v0, v1 []uint64, q *num.Modulus, vOut []uint64) {
 		return
 	}
 
-	N := len(vOut)
-	M := (N >> 3) << 3
+	M := (len(vOut) >> 3) << 3
 
-	var w0, w1, wOut []uint64
+	qv := q.Value()
+
 	for i := 0; i < M; i += 8 {
-		w0 = v0[i : i+8 : i+8]
-		w1 = v1[i : i+8 : i+8]
-		wOut = vOut[i : i+8 : i+8]
+		w0 := (*[8]uint64)(unsafe.Pointer(&v0[i]))
+		w1 := (*[8]uint64)(unsafe.Pointer(&v1[i]))
+		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
 
-		wOut[0] = num.Sub(w0[0], w1[0], q)
-		wOut[1] = num.Sub(w0[1], w1[1], q)
-		wOut[2] = num.Sub(w0[2], w1[2], q)
-		wOut[3] = num.Sub(w0[3], w1[3], q)
+		wOut[0] = subMod(w0[0], w1[0], qv)
+		wOut[1] = subMod(w0[1], w1[1], qv)
+		wOut[2] = subMod(w0[2], w1[2], qv)
+		wOut[3] = subMod(w0[3], w1[3], qv)
 
-		wOut[4] = num.Sub(w0[4], w1[4], q)
-		wOut[5] = num.Sub(w0[5], w1[5], q)
-		wOut[6] = num.Sub(w0[6], w1[6], q)
-		wOut[7] = num.Sub(w0[7], w1[7], q)
+		wOut[4] = subMod(w0[4], w1[4], qv)
+		wOut[5] = subMod(w0[5], w1[5], qv)
+		wOut[6] = subMod(w0[6], w1[6], qv)
+		wOut[7] = subMod(w0[7], w1[7], qv)
 	}
 
-	for i := M; i < N; i++ {
-		vOut[i] = num.Sub(v0[i], v1[i], q)
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = subMod(v0[i], v1[i], qv)
 	}
 }
 
@@ -110,14 +110,12 @@ func SubLazyTo(v0, v1, vOut []uint64) {
 		return
 	}
 
-	N := len(vOut)
-	M := (N >> 3) << 3
+	M := (len(vOut) >> 3) << 3
 
-	var w0, w1, wOut []uint64
 	for i := 0; i < M; i += 8 {
-		w0 = v0[i : i+8 : i+8]
-		w1 = v1[i : i+8 : i+8]
-		wOut = vOut[i : i+8 : i+8]
+		w0 := (*[8]uint64)(unsafe.Pointer(&v0[i]))
+		w1 := (*[8]uint64)(unsafe.Pointer(&v1[i]))
+		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
 
 		wOut[0] = w0[0] - w1[0]
 		wOut[1] = w0[1] - w1[1]
@@ -130,74 +128,57 @@ func SubLazyTo(v0, v1, vOut []uint64) {
 		wOut[7] = w0[7] - w1[7]
 	}
 
-	for i := M; i < N; i++ {
+	for i := M; i < len(vOut); i++ {
 		vOut[i] = v0[i] - v1[i]
 	}
 }
 
 // BMulTo computes vOut = v0 * v1 mod q using Barrett reduction.
 func BMulTo(v0, v1 []uint64, q *num.Modulus, vOut []uint64) {
-	if cpu.X86.HasAVX2 {
-		divHi, divLo := q.Div()
-		bMulToAVX2(v0, v1, q.Value(), divHi, divLo, vOut)
-		return
-	}
+	divHi, divLo := q.Div()
+	bMulToX86(v0, v1, q.Value(), divHi, divLo, vOut)
+}
 
-	N := len(vOut)
-	M := (N >> 3) << 3
+// BMulAddTo computes vOut += v0 * v1 mod q using Barrett reduction.
+func BMulAddTo(v0, v1 []uint64, q *num.Modulus, vOut []uint64) {
+	divHi, divLo := q.Div()
+	bMulAddToX86(v0, v1, q.Value(), divHi, divLo, vOut)
+}
 
-	var w0, w1, wOut []uint64
-	for i := 0; i < M; i += 8 {
-		w0 = v0[i : i+8 : i+8]
-		w1 = v1[i : i+8 : i+8]
-		wOut = vOut[i : i+8 : i+8]
-
-		wOut[0] = num.BMul(w0[0], w1[0], q)
-		wOut[1] = num.BMul(w0[1], w1[1], q)
-		wOut[2] = num.BMul(w0[2], w1[2], q)
-		wOut[3] = num.BMul(w0[3], w1[3], q)
-
-		wOut[4] = num.BMul(w0[4], w1[4], q)
-		wOut[5] = num.BMul(w0[5], w1[5], q)
-		wOut[6] = num.BMul(w0[6], w1[6], q)
-		wOut[7] = num.BMul(w0[7], w1[7], q)
-	}
-
-	for i := M; i < N; i++ {
-		vOut[i] = num.BMul(v0[i], v1[i], q)
-	}
+// BMulSubTo computes vOut -= v0 * v1 mod q using Barrett reduction.
+func BMulSubTo(v0, v1 []uint64, q *num.Modulus, vOut []uint64) {
+	divHi, divLo := q.Div()
+	bMulSubToX86(v0, v1, q.Value(), divHi, divLo, vOut)
 }
 
 // BMulLazyTo computes vOut = v0 * v1 mod q using Barrett reduction,
 // but the result is in [0, 2q).
 func BMulLazyTo(v0, v1 []uint64, q *num.Modulus, vOut []uint64) {
-	if cpu.X86.HasAVX2 {
-		divHi, divLo := q.Div()
-		bMulLazyToAVX2(v0, v1, q.Value(), divHi, divLo, vOut)
-		return
-	}
+	divHi, divLo := q.Div()
+	bMulLazyToX86(v0, v1, q.Value(), divHi, divLo, vOut)
+}
 
-	N := len(vOut)
-	M := (N >> 3) << 3
+// BMulAddLazyTo computes vOut += v0 * v1 mod q using Barrett reduction,
+// but the result is in [0, 2q).
+func BMulAddLazyTo(v0, v1 []uint64, q *num.Modulus, vOut []uint64) {
+	divHi, divLo := q.Div()
+	bMulAddLazyToX86(v0, v1, q.Value(), divHi, divLo, vOut)
+}
 
-	var w0, w1, wOut []uint64
-	for i := 0; i < M; i += 8 {
-		w0 = v0[i : i+8 : i+8]
-		w1 = v1[i : i+8 : i+8]
-		wOut = vOut[i : i+8 : i+8]
+// BMulSubLazyTo computes vOut -= v0 * v1 mod q using Barrett reduction,
+// but the result is in [0, 2q).
+func BMulSubLazyTo(v0, v1 []uint64, q *num.Modulus, vOut []uint64) {
+	divHi, divLo := q.Div()
+	bMulSubLazyToX86(v0, v1, q.Value(), divHi, divLo, vOut)
+}
 
-		wOut[0] = num.BMulLazy(w0[0], w1[0], q)
-		wOut[1] = num.BMulLazy(w0[1], w1[1], q)
-		wOut[2] = num.BMulLazy(w0[2], w1[2], q)
-		wOut[3] = num.BMulLazy(w0[3], w1[3], q)
+// MMulTo computes vOut = v0 * v1 mod q in Montgomery form,
+func MMulTo(v0, v1 []uint64, q *num.Modulus, vOut []uint64) {
+	mMulToX86(v0, v1, q.Value(), q.Inv(), vOut)
+}
 
-		wOut[4] = num.BMulLazy(w0[4], w1[4], q)
-		wOut[5] = num.BMulLazy(w0[5], w1[5], q)
-		wOut[6] = num.BMulLazy(w0[6], w1[6], q)
-		wOut[7] = num.BMulLazy(w0[7], w1[7], q)
-	}
-
-	for i := M; i < N; i++ {
-		vOut[i] = num.BMulLazy(v0[i], v1[i], q)
-	}
+// MMulLazyTo computes vOut = v0 * v1 mod q in Montgomery form,
+// but the result is in [0, 2q).
+func MMulLazyTo(v0, v1 []uint64, q *num.Modulus, vOut []uint64) {
+	mMulLazyToX86(v0, v1, q.Value(), q.Inv(), vOut)
 }

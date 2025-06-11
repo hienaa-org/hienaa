@@ -80,11 +80,11 @@ func VecAddToAVX2(isLazy bool) {
 	ADDQ(y1, y0)
 
 	if !isLazy {
-		ySubQ := GP64()
-		MOVQ(y0, ySubQ)
-		SUBQ(q, ySubQ)
+		subQ := GP64()
+		MOVQ(y0, subQ)
+		SUBQ(q, subQ)
 		CMPQ(y0, q)
-		CMOVQGT(ySubQ, y0)
+		CMOVQGE(subQ, y0)
 	}
 
 	MOVQ(y0, Mem{Base: vOut, Index: i, Scale: 8})
@@ -165,11 +165,11 @@ func VecSubToAVX2(isLazy bool) {
 	SUBQ(y1, y0)
 
 	if !isLazy {
-		ySubQ := GP64()
-		MOVQ(y0, ySubQ)
-		ADDQ(q, ySubQ)
+		subQ := GP64()
+		MOVQ(y0, subQ)
+		ADDQ(q, subQ)
 		CMPQ(y0, Imm(0))
-		CMOVQLT(ySubQ, y0)
+		CMOVQLT(subQ, y0)
 	}
 
 	MOVQ(y0, Mem{Base: vOut, Index: i, Scale: 8})
@@ -183,22 +183,34 @@ func VecSubToAVX2(isLazy bool) {
 	RET()
 }
 
-func VecBMulToAVX2(isLazy bool) {
-	if isLazy {
-		TEXT("bMulLazyToAVX2", NOSPLIT, "func(v0, v1 []uint64, q, divHi, divLo uint64, vOut []uint64)")
-	} else {
-		TEXT("bMulToAVX2", NOSPLIT, "func(v0, v1 []uint64, q, divHi, divLo uint64, vOut []uint64)")
+func VecBMulToX86(isLazy bool, opType OpType) {
+	funcSignature := "func(v0, v1 []uint64, q, divHi, divLo uint64, vOut []uint64)"
+	switch opType {
+	case Mul:
+		if isLazy {
+			TEXT("bMulLazyToX86", NOSPLIT, funcSignature)
+		} else {
+			TEXT("bMulToX86", NOSPLIT, funcSignature)
+		}
+	case MulAdd:
+		if isLazy {
+			TEXT("bMulAddLazyToX86", NOSPLIT, funcSignature)
+		} else {
+			TEXT("bMulAddToX86", NOSPLIT, funcSignature)
+		}
+	case MulSub:
+		if isLazy {
+			TEXT("bMulSubLazyToX86", NOSPLIT, funcSignature)
+		} else {
+			TEXT("bMulSubToX86", NOSPLIT, funcSignature)
+		}
 	}
+
 	Pragma("noescape")
 
-	// q := Load(Param("q"), GP64())
-	// divHi := Load(Param("divHi"), GP64())
-	// divLo := Load(Param("divLo"), GP64())
-
-	q, divHi, divLo := YMM(), YMM(), YMM()
-	VPBROADCASTQ(NewParamAddr("q", 48), q)
-	VPBROADCASTQ(NewParamAddr("divHi", 48+8), divHi)
-	VPBROADCASTQ(NewParamAddr("divLo", 48+16), divLo)
+	q := Load(Param("q"), GP64())
+	divHi := Load(Param("divHi"), GP64())
+	divLo := Load(Param("divLo"), GP64())
 
 	v0 := Load(Param("v0").Base(), GP64())
 	v1 := Load(Param("v1").Base(), GP64())
@@ -210,39 +222,155 @@ func VecBMulToAVX2(isLazy bool) {
 	JMP(LabelRef("loop_end"))
 	Label("loop_body")
 
-	// x0, x1 := reg.RAX, GP64()
-	// MOVQ(Mem{Base: v0, Index: i, Scale: 8}, x0)
-	// MOVQ(Mem{Base: v1, Index: i, Scale: 8}, x1)
+	x0, x1 := reg.RAX, GP64()
+	MOVQ(Mem{Base: v0, Index: i, Scale: 8}, x0)
+	MOVQ(Mem{Base: v1, Index: i, Scale: 8}, x1)
 
-	// MULQ(x1)
-
-	// xOutHi, xOutLo, xOut := GP64(), GP64(), GP64()
-	// MOVQ(reg.RDX, xOutHi)
-	// MOVQ(reg.RAX, xOutLo)
-
-	// if isLazy {
-	// 	BModLazy(xOutHi, xOutLo, q, divHi, divLo, xOut)
-	// } else {
-	// 	BMod(xOutHi, xOutLo, q, divHi, divLo, xOut)
-	// }
-
-	// MOVQ(xOut, Mem{Base: vOut, Index: i, Scale: 8})
-	// ADDQ(Imm(1), i)
-
-	x0, x1 := YMM(), YMM()
-	VMOVDQU(Mem{Base: v0, Index: i, Scale: 8}, x0)
-	VMOVDQU(Mem{Base: v1, Index: i, Scale: 8}, x1)
-
-	xOutHi, xOutLo, xOut := YMM(), YMM(), YMM()
-	Mul64AVX2(x0, x1, xOutHi, xOutLo)
-	if isLazy {
-		BModLazyAVX2(xOutHi, xOutLo, q, divHi, divLo, xOut)
-	} else {
-		BModAVX2(xOutHi, xOutLo, q, divHi, divLo, xOut)
+	xOut := GP64()
+	switch opType {
+	case MulAdd, MulSub:
+		MOVQ(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
 	}
 
-	VMOVDQU(xOut, Mem{Base: vOut, Index: i, Scale: 8})
-	ADDQ(Imm(4), i)
+	MULQ(x1)
+
+	xMulHi, xMulLo, xMul := GP64(), GP64(), GP64()
+	MOVQ(reg.RDX, xMulHi)
+	MOVQ(reg.RAX, xMulLo)
+
+	if isLazy {
+		BModLazy(xMulHi, xMulLo, q, divHi, divLo, xMul)
+	} else {
+		BMod(xMulHi, xMulLo, q, divHi, divLo, xMul)
+	}
+
+	switch opType {
+	case Mul:
+		xOut = xMul
+	case MulAdd:
+		ADDQ(xMul, xOut)
+		if !isLazy {
+			subQ := GP64()
+			MOVQ(xOut, subQ)
+			SUBQ(q, subQ)
+			CMPQ(xOut, q)
+			CMOVQGE(subQ, xOut)
+		}
+	case MulSub:
+		if !isLazy {
+			SUBQ(xMul, xOut)
+			subQ := GP64()
+			MOVQ(xOut, subQ)
+			ADDQ(q, subQ)
+			CMPQ(xOut, Imm(0))
+			CMOVQLT(subQ, xOut)
+		} else {
+			neg := GP64()
+			MOVQ(q, neg)
+			ADDQ(q, neg)
+			SUBQ(xMul, neg)
+			ADDQ(neg, xOut)
+		}
+	}
+
+	MOVQ(xOut, Mem{Base: vOut, Index: i, Scale: 8})
+
+	ADDQ(Imm(1), i)
+
+	Label("loop_end")
+	CMPQ(i, N)
+	JL(LabelRef("loop_body"))
+
+	RET()
+}
+
+func VecMMulToX86(isLazy bool, opType OpType) {
+	funcSignature := "func(v0, v1 []uint64, q, inv uint64, vOut []uint64)"
+	switch opType {
+	case Mul:
+		if isLazy {
+			TEXT("mMulLazyToX86", NOSPLIT, funcSignature)
+		} else {
+			TEXT("mMulToX86", NOSPLIT, funcSignature)
+		}
+	case MulAdd:
+		if isLazy {
+			TEXT("mMulAddLazyToX86", NOSPLIT, funcSignature)
+		} else {
+			TEXT("mMulAddToX86", NOSPLIT, funcSignature)
+		}
+	case MulSub:
+		if isLazy {
+			TEXT("mMulSubLazyToX86", NOSPLIT, funcSignature)
+		} else {
+			TEXT("mMulSubToX86", NOSPLIT, funcSignature)
+		}
+	}
+
+	Pragma("noescape")
+
+	q := Load(Param("q"), GP64())
+	inv := Load(Param("inv"), GP64())
+
+	v0 := Load(Param("v0").Base(), GP64())
+	v1 := Load(Param("v1").Base(), GP64())
+	vOut := Load(Param("vOut").Base(), GP64())
+	N := Load(Param("vOut").Len(), GP64())
+
+	i := GP64()
+	XORQ(i, i)
+	JMP(LabelRef("loop_end"))
+	Label("loop_body")
+
+	x0, x1 := GP64(), GP64()
+	MOVQ(Mem{Base: v0, Index: i, Scale: 8}, x0)
+	MOVQ(Mem{Base: v1, Index: i, Scale: 8}, x1)
+
+	xOut := GP64()
+	switch opType {
+	case MulAdd, MulSub:
+		MOVQ(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
+	}
+
+	xMul := GP64()
+	if isLazy {
+		MMulLazy(x0, x1, q, inv, xMul)
+	} else {
+		MMul(x0, x1, q, inv, xMul)
+	}
+
+	switch opType {
+	case Mul:
+		xOut = xMul
+	case MulAdd:
+		ADDQ(xMul, xOut)
+		if !isLazy {
+			subQ := GP64()
+			MOVQ(xOut, subQ)
+			SUBQ(q, subQ)
+			CMPQ(xOut, q)
+			CMOVQGE(subQ, xOut)
+		}
+	case MulSub:
+		if !isLazy {
+			SUBQ(xMul, xOut)
+			subQ := GP64()
+			MOVQ(xOut, subQ)
+			ADDQ(q, subQ)
+			CMPQ(xOut, Imm(0))
+			CMOVQLT(subQ, xOut)
+		} else {
+			neg := GP64()
+			MOVQ(q, neg)
+			ADDQ(q, neg)
+			SUBQ(xMul, neg)
+			ADDQ(neg, xOut)
+		}
+	}
+
+	MOVQ(xOut, Mem{Base: vOut, Index: i, Scale: 8})
+
+	ADDQ(Imm(1), i)
 
 	Label("loop_end")
 	CMPQ(i, N)

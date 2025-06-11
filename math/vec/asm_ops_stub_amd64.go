@@ -17,7 +17,37 @@ func subToAVX2(v0 []uint64, v1 []uint64, q uint64, vOut []uint64)
 func subLazyToAVX2(v0 []uint64, v1 []uint64, vOut []uint64)
 
 //go:noescape
-func bMulToAVX2(v0 []uint64, v1 []uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
+func bMulToX86(v0 []uint64, v1 []uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
 
 //go:noescape
-func bMulLazyToAVX2(v0 []uint64, v1 []uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
+func bMulAddToX86(v0 []uint64, v1 []uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
+
+//go:noescape
+func bMulSubToX86(v0 []uint64, v1 []uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
+
+//go:noescape
+func bMulLazyToX86(v0 []uint64, v1 []uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
+
+//go:noescape
+func bMulAddLazyToX86(v0 []uint64, v1 []uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
+
+//go:noescape
+func bMulSubLazyToX86(v0 []uint64, v1 []uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
+
+//go:noescape
+func mMulToX86(v0 []uint64, v1 []uint64, q uint64, inv uint64, vOut []uint64)
+
+//go:noescape
+func mMulAddToX86(v0 []uint64, v1 []uint64, q uint64, inv uint64, vOut []uint64)
+
+//go:noescape
+func mMulSubToX86(v0 []uint64, v1 []uint64, q uint64, inv uint64, vOut []uint64)
+
+//go:noescape
+func mMulLazyToX86(v0 []uint64, v1 []uint64, q uint64, inv uint64, vOut []uint64)
+
+//go:noescape
+func mMulAddLazyToX86(v0 []uint64, v1 []uint64, q uint64, inv uint64, vOut []uint64)
+
+//go:noescape
+func mMulSubLazyToX86(v0 []uint64, v1 []uint64, q uint64, inv uint64, vOut []uint64)

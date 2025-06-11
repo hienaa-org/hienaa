@@ -31,20 +31,20 @@ type Modulus struct {
 }
 
 // Value returns the modulus value.
-func (q Modulus) Value() uint64 {
+func (q *Modulus) Value() uint64 {
 	return q.modulus
 }
 
 // Inv is a constant used for Montgomery multiplication.
 // Equals to the modular inverse of modulus modulo 2^64.
 // Zero if modulus is even.
-func (q Modulus) Inv() uint64 {
+func (q *Modulus) Inv() uint64 {
 	return q.inv
 }
 
 // Div is a constant used for Barrett reduction.
 // Equals to floor(2^128 / modulus).
-func (q Modulus) Div() (hi, lo uint64) {
+func (q *Modulus) Div() (hi, lo uint64) {
 	return q.divHi, q.divLo
 }
 

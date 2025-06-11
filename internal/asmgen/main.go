@@ -8,6 +8,14 @@ import (
 	"github.com/mmcloughlin/avo/buildtags"
 )
 
+type OpType int
+
+const (
+	Mul OpType = iota
+	MulAdd
+	MulSub
+)
+
 var (
 	vec = flag.Bool("vec", false, "asm_vec_amd64.s")
 )
@@ -27,8 +35,21 @@ func main() {
 		VecSubToAVX2(false)
 		VecSubToAVX2(true)
 
-		VecBMulToAVX2(false)
-		VecBMulToAVX2(true)
+		VecBMulToX86(false, Mul)
+		VecBMulToX86(false, MulAdd)
+		VecBMulToX86(false, MulSub)
+
+		VecBMulToX86(true, Mul)
+		VecBMulToX86(true, MulAdd)
+		VecBMulToX86(true, MulSub)
+
+		VecMMulToX86(false, Mul)
+		VecMMulToX86(false, MulAdd)
+		VecMMulToX86(false, MulSub)
+
+		VecMMulToX86(true, Mul)
+		VecMMulToX86(true, MulAdd)
+		VecMMulToX86(true, MulSub)
 	}
 
 	Generate()

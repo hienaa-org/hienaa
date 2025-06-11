@@ -60,31 +60,28 @@ func BModLazy(xHi, xLo, q, divHi, divLo, xOut reg.Register) {
 	SUBQ(quo, xOut)
 }
 
-func MMul(xHi, xLo, q, inv, xOut reg.Register) {
-	MMulLazy(xHi, xLo, q, inv, xOut)
+func MMul(x0M, x1M, q, inv, xOutM reg.Register) {
+	MMulLazy(x0M, x1M, q, inv, xOutM)
 
 	xOutSubQ := GP64()
-	MOVQ(xOut, xOutSubQ)
+	MOVQ(xOutM, xOutSubQ)
 	SUBQ(q, xOutSubQ)
-	CMPQ(xOut, q)
-	CMOVQGE(xOutSubQ, xOut)
+	CMPQ(xOutM, q)
+	CMOVQGE(xOutSubQ, xOutM)
 }
 
-func MMulLazy(xHi, xLo, q, inv, xOut reg.Register) {
-	xOutMHi := GP64()
-	MOVQ(xLo, reg.RAX)
-	MULQ(xHi)
-	MOVQ(reg.RDX, xOutMHi)
+func MMulLazy(x0M, x1M, q, inv, xOutM reg.Register) {
+	MOVQ(x0M, reg.RAX)
+	MULQ(x1M)
+	MOVQ(reg.RDX, xOutM)
 
 	// RAX = xOutMLo
-	MULQ(inv)
+	IMULQ(inv, reg.RAX)
 	MULQ(q)
 
 	// RDX = wHi
-	SUBQ(reg.RDX, xOutMHi)
-	ADDQ(q, xOutMHi)
-
-	MOVQ(xOutMHi, xOut)
+	SUBQ(reg.RDX, xOutM)
+	ADDQ(q, xOutM)
 }
 
 func BModAVX2(xHi, xLo, q, divHi, divLo, xOut reg.VecVirtual) {
@@ -130,4 +127,24 @@ func BModLazyAVX2(xHi, xLo, q, divHi, divLo, xOut reg.VecVirtual) {
 
 	Mul64LoAVX2(q, quo, quo)
 	VPSUBQ(quo, xLo, xOut)
+}
+
+func MMulAVX2(x0M, x1M, q, inv, xOutM reg.VecVirtual) {
+	MMulLazyAVX2(x0M, x1M, q, inv, xOutM)
+
+	subQ := YMM()
+	GreaterOrEqualThanAVX2(xOutM, q, subQ)
+	VPAND(q, subQ, subQ)
+	VPSUBQ(subQ, xOutM, xOutM)
+}
+
+func MMulLazyAVX2(x0M, x1M, q, inv, xOutM reg.VecVirtual) {
+	xOutMHi, xOutMLo := YMM(), YMM()
+	Mul64AVX2(x0M, x1M, xOutMLo, xOutMHi)
+
+	Mul64LoAVX2(xOutMLo, inv, xOutMLo)
+	Mul64HiAVX2(xOutMLo, q, xOutMLo)
+
+	VPSUBQ(xOutMLo, xOutMHi, xOutM)
+	VPADDQ(q, xOutMHi, xOutMHi)
 }
