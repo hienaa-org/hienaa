@@ -4,11 +4,16 @@
 
 #include "textflag.h"
 
+DATA ONE<>+0(SB)/8, $0x0000000000000001
+GLOBL ONE<>(SB), RODATA|NOPTR, $8
+
 // func addToAVX2(v0 []uint64, v1 []uint64, q uint64, vOut []uint64)
 // Requires: AVX, AVX2, CMOV
 TEXT ·addToAVX2(SB), NOSPLIT, $0-80
 	MOVQ         q+48(FP), AX
 	VPBROADCASTQ q+48(FP), Y0
+	VPBROADCASTQ ONE<>+0(SB), Y1
+	VPSUBQ       Y1, Y0, Y1
 	MOVQ         v0_base+0(FP), CX
 	MOVQ         v1_base+24(FP), DX
 	MOVQ         vOut_base+56(FP), BX
@@ -20,15 +25,13 @@ TEXT ·addToAVX2(SB), NOSPLIT, $0-80
 	JMP          loop_end
 
 loop_body:
-	VMOVDQU  (CX)(R8*8), Y1
-	VMOVDQU  (DX)(R8*8), Y2
-	VPADDQ   Y2, Y1, Y1
-	VPCMPGTQ Y0, Y1, Y2
-	VPCMPEQQ Y1, Y0, Y3
-	VPOR     Y2, Y3, Y2
-	VPAND    Y0, Y2, Y2
-	VPSUBQ   Y2, Y1, Y1
-	VMOVDQU  Y1, (BX)(R8*8)
+	VMOVDQU  (CX)(R8*8), Y2
+	VMOVDQU  (DX)(R8*8), Y3
+	VPADDQ   Y3, Y2, Y2
+	VPCMPGTQ Y1, Y2, Y3
+	VPAND    Y0, Y3, Y3
+	VPSUBQ   Y3, Y2, Y2
+	VMOVDQU  Y2, (BX)(R8*8)
 	ADDQ     $0x04, R8
 
 loop_end:
@@ -40,10 +43,10 @@ leftover_loop_body:
 	MOVQ    (CX)(R8*8), DI
 	MOVQ    (DX)(R8*8), R9
 	ADDQ    R9, DI
-	XORQ    R9, R9
+	MOVQ    DI, R9
+	SUBQ    AX, R9
 	CMPQ    DI, AX
-	CMOVQGE AX, R9
-	SUBQ    R9, DI
+	CMOVQGT R9, DI
 	MOVQ    DI, (BX)(R8*8)
 	ADDQ    $0x01, R8
 
@@ -124,10 +127,10 @@ leftover_loop_body:
 	MOVQ    (CX)(R8*8), DI
 	MOVQ    (DX)(R8*8), R9
 	SUBQ    R9, DI
-	XORQ    R9, R9
+	MOVQ    DI, R9
+	ADDQ    AX, R9
 	CMPQ    DI, $0x00
-	CMOVQLT AX, R9
-	ADDQ    R9, DI
+	CMOVQLT R9, DI
 	MOVQ    DI, (BX)(R8*8)
 	ADDQ    $0x01, R8
 
@@ -172,4 +175,225 @@ leftover_loop_body:
 leftover_loop_end:
 	CMPQ DI, BX
 	JL   leftover_loop_body
+	RET
+
+// func bMulToAVX2(v0 []uint64, v1 []uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
+// Requires: AVX, AVX2
+TEXT ·bMulToAVX2(SB), NOSPLIT, $0-96
+	VPBROADCASTQ q+48(FP), Y0
+	VPBROADCASTQ divHi+56(FP), Y1
+	VPBROADCASTQ divLo+64(FP), Y2
+	MOVQ         v0_base+0(FP), AX
+	MOVQ         v1_base+24(FP), CX
+	MOVQ         vOut_base+72(FP), DX
+	MOVQ         vOut_len+80(FP), BX
+	XORQ         SI, SI
+	JMP          loop_end
+
+loop_body:
+	VMOVDQU  (AX)(SI*8), Y3
+	VMOVDQU  (CX)(SI*8), Y3
+	VPSHUFD  $0xb1, Y4, Y3
+	VPMULLD  Y3, Y1, Y3
+	VPSRLQ   $0x20, Y3, Y5
+	VPADDQ   Y3, Y5, Y5
+	VPSLLQ   $0x20, Y5, Y5
+	VPMULUDQ Y4, Y1, Y3
+	VPADDQ   Y5, Y3, Y3
+	VPSHUFD  $0xb1, Y4, Y5
+	VPSHUFD  $0xb1, Y1, Y9
+	VPMULUDQ Y4, Y1, Y6
+	VPSRLQ   $0x20, Y6, Y10
+	VPMULUDQ Y5, Y1, Y8
+	VPSLLQ   $0x20, Y8, Y11
+	VPADDQ   Y11, Y6, Y6
+	VPADDQ   Y10, Y8, Y8
+	VPSLLQ   $0x20, Y8, Y7
+	VPSRLQ   $0x20, Y7, Y7
+	VPSRLQ   $0x20, Y8, Y8
+	VPMULUDQ Y4, Y9, Y10
+	VPSLLQ   $0x20, Y10, Y11
+	VPADDQ   Y11, Y6, Y6
+	VPADDQ   Y10, Y7, Y7
+	VPSRLQ   $0x20, Y7, Y7
+	VPMULUDQ Y5, Y9, Y5
+	VPADDQ   Y8, Y5, Y5
+	VPADDQ   Y7, Y5, Y5
+	VPADDQ   Y5, Y3, Y3
+	VPSHUFD  $0xb1, Y4, Y5
+	VPSHUFD  $0xb1, Y2, Y10
+	VPMULUDQ Y4, Y2, Y7
+	VPSRLQ   $0x20, Y7, Y11
+	VPMULUDQ Y5, Y2, Y9
+	VPSLLQ   $0x20, Y9, Y12
+	VPADDQ   Y12, Y7, Y7
+	VPADDQ   Y11, Y9, Y9
+	VPSLLQ   $0x20, Y9, Y8
+	VPSRLQ   $0x20, Y8, Y8
+	VPSRLQ   $0x20, Y9, Y9
+	VPMULUDQ Y4, Y10, Y11
+	VPSLLQ   $0x20, Y11, Y12
+	VPADDQ   Y12, Y7, Y7
+	VPADDQ   Y11, Y8, Y8
+	VPSRLQ   $0x20, Y8, Y8
+	VPMULUDQ Y5, Y10, Y5
+	VPADDQ   Y9, Y5, Y5
+	VPADDQ   Y8, Y5, Y5
+	VPADDQ   Y5, Y3, Y3
+	VPSHUFD  $0xb1, Y4, Y5
+	VPSHUFD  $0xb1, Y2, Y10
+	VPMULUDQ Y4, Y2, Y11
+	VPSRLQ   $0x20, Y11, Y11
+	VPMULUDQ Y5, Y2, Y9
+	VPADDQ   Y11, Y9, Y9
+	VPSLLQ   $0x20, Y9, Y8
+	VPSRLQ   $0x20, Y8, Y8
+	VPSRLQ   $0x20, Y9, Y9
+	VPMULUDQ Y4, Y10, Y11
+	VPADDQ   Y11, Y8, Y8
+	VPSRLQ   $0x20, Y8, Y8
+	VPMULUDQ Y5, Y10, Y5
+	VPADDQ   Y9, Y5, Y5
+	VPADDQ   Y8, Y5, Y5
+	VPAND    Y6, Y5, Y8
+	VPOR     Y6, Y5, Y9
+	VPADDQ   Y6, Y5, Y5
+	VPANDN   Y9, Y5, Y6
+	VPOR     Y8, Y6, Y6
+	VPSRLQ   $0x3f, Y6, Y6
+	VPADDQ   Y6, Y3, Y3
+	VPAND    Y7, Y5, Y8
+	VPOR     Y7, Y5, Y6
+	VPADDQ   Y7, Y5, Y5
+	VPANDN   Y6, Y5, Y6
+	VPOR     Y8, Y6, Y6
+	VPSRLQ   $0x3f, Y6, Y6
+	VPADDQ   Y6, Y3, Y3
+	VPSHUFD  $0xb1, Y0, Y5
+	VPMULLD  Y5, Y3, Y5
+	VPSRLQ   $0x20, Y5, Y6
+	VPADDQ   Y5, Y6, Y5
+	VPSLLQ   $0x20, Y5, Y5
+	VPMULUDQ Y0, Y3, Y3
+	VPADDQ   Y5, Y3, Y3
+	VPSUBQ   Y3, Y4, Y3
+	VPCMPGTQ Y0, Y3, Y5
+	VPCMPEQQ Y3, Y0, Y6
+	VPOR     Y5, Y6, Y5
+	VPAND    Y0, Y5, Y5
+	VPSUBQ   Y5, Y3, Y3
+	VMOVDQU  Y3, (DX)(SI*8)
+	ADDQ     $0x04, SI
+
+loop_end:
+	CMPQ SI, BX
+	JL   loop_body
+	RET
+
+// func bMulLazyToAVX2(v0 []uint64, v1 []uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
+// Requires: AVX, AVX2
+TEXT ·bMulLazyToAVX2(SB), NOSPLIT, $0-96
+	VPBROADCASTQ q+48(FP), Y0
+	VPBROADCASTQ divHi+56(FP), Y1
+	VPBROADCASTQ divLo+64(FP), Y2
+	MOVQ         v0_base+0(FP), AX
+	MOVQ         v1_base+24(FP), CX
+	MOVQ         vOut_base+72(FP), DX
+	MOVQ         vOut_len+80(FP), BX
+	XORQ         SI, SI
+	JMP          loop_end
+
+loop_body:
+	VMOVDQU  (AX)(SI*8), Y3
+	VMOVDQU  (CX)(SI*8), Y3
+	VPSHUFD  $0xb1, Y4, Y3
+	VPMULLD  Y3, Y1, Y3
+	VPSRLQ   $0x20, Y3, Y5
+	VPADDQ   Y3, Y5, Y5
+	VPSLLQ   $0x20, Y5, Y5
+	VPMULUDQ Y4, Y1, Y3
+	VPADDQ   Y5, Y3, Y3
+	VPSHUFD  $0xb1, Y4, Y5
+	VPSHUFD  $0xb1, Y1, Y9
+	VPMULUDQ Y4, Y1, Y6
+	VPSRLQ   $0x20, Y6, Y10
+	VPMULUDQ Y5, Y1, Y8
+	VPSLLQ   $0x20, Y8, Y11
+	VPADDQ   Y11, Y6, Y6
+	VPADDQ   Y10, Y8, Y8
+	VPSLLQ   $0x20, Y8, Y7
+	VPSRLQ   $0x20, Y7, Y7
+	VPSRLQ   $0x20, Y8, Y8
+	VPMULUDQ Y4, Y9, Y10
+	VPSLLQ   $0x20, Y10, Y11
+	VPADDQ   Y11, Y6, Y6
+	VPADDQ   Y10, Y7, Y7
+	VPSRLQ   $0x20, Y7, Y7
+	VPMULUDQ Y5, Y9, Y5
+	VPADDQ   Y8, Y5, Y5
+	VPADDQ   Y7, Y5, Y5
+	VPADDQ   Y5, Y3, Y3
+	VPSHUFD  $0xb1, Y4, Y5
+	VPSHUFD  $0xb1, Y2, Y10
+	VPMULUDQ Y4, Y2, Y7
+	VPSRLQ   $0x20, Y7, Y11
+	VPMULUDQ Y5, Y2, Y9
+	VPSLLQ   $0x20, Y9, Y12
+	VPADDQ   Y12, Y7, Y7
+	VPADDQ   Y11, Y9, Y9
+	VPSLLQ   $0x20, Y9, Y8
+	VPSRLQ   $0x20, Y8, Y8
+	VPSRLQ   $0x20, Y9, Y9
+	VPMULUDQ Y4, Y10, Y11
+	VPSLLQ   $0x20, Y11, Y12
+	VPADDQ   Y12, Y7, Y7
+	VPADDQ   Y11, Y8, Y8
+	VPSRLQ   $0x20, Y8, Y8
+	VPMULUDQ Y5, Y10, Y5
+	VPADDQ   Y9, Y5, Y5
+	VPADDQ   Y8, Y5, Y5
+	VPADDQ   Y5, Y3, Y3
+	VPSHUFD  $0xb1, Y4, Y5
+	VPSHUFD  $0xb1, Y2, Y10
+	VPMULUDQ Y4, Y2, Y11
+	VPSRLQ   $0x20, Y11, Y11
+	VPMULUDQ Y5, Y2, Y9
+	VPADDQ   Y11, Y9, Y9
+	VPSLLQ   $0x20, Y9, Y8
+	VPSRLQ   $0x20, Y8, Y8
+	VPSRLQ   $0x20, Y9, Y9
+	VPMULUDQ Y4, Y10, Y11
+	VPADDQ   Y11, Y8, Y8
+	VPSRLQ   $0x20, Y8, Y8
+	VPMULUDQ Y5, Y10, Y5
+	VPADDQ   Y9, Y5, Y5
+	VPADDQ   Y8, Y5, Y5
+	VPAND    Y6, Y5, Y8
+	VPOR     Y6, Y5, Y9
+	VPADDQ   Y6, Y5, Y5
+	VPANDN   Y9, Y5, Y6
+	VPOR     Y8, Y6, Y6
+	VPSRLQ   $0x3f, Y6, Y6
+	VPADDQ   Y6, Y3, Y3
+	VPAND    Y7, Y5, Y8
+	VPOR     Y7, Y5, Y6
+	VPADDQ   Y7, Y5, Y5
+	VPANDN   Y6, Y5, Y6
+	VPOR     Y8, Y6, Y6
+	VPSRLQ   $0x3f, Y6, Y6
+	VPADDQ   Y6, Y3, Y3
+	VPSHUFD  $0xb1, Y0, Y5
+	VPMULLD  Y5, Y3, Y5
+	VPSRLQ   $0x20, Y5, Y6
+	VPADDQ   Y5, Y6, Y5
+	VPSLLQ   $0x20, Y5, Y5
+	VPMULUDQ Y0, Y3, Y3
+	VPADDQ   Y5, Y3, Y3
+	VPSUBQ   Y3, Y4, Y3
+	VMOVDQU  Y3, (DX)(SI*8)
+	ADDQ     $0x04, SI
+
+loop_end:
+	CMPQ SI, BX
+	JL   loop_body
 	RET

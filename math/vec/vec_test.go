@@ -34,7 +34,7 @@ func TestOps(t *testing.T) {
 				vOutCheck[i] -= q.Value()
 			}
 		}
-		assert.EqualValues(t, vOut, vOutCheck)
+		assert.EqualValues(t, vOutCheck, vOut)
 	})
 
 	t.Run("AddLazy", func(t *testing.T) {
@@ -42,7 +42,7 @@ func TestOps(t *testing.T) {
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = v0[i] + v1[i]
 		}
-		assert.EqualValues(t, vOut, vOutCheck)
+		assert.EqualValues(t, vOutCheck, vOut)
 	})
 
 	t.Run("Sub", func(t *testing.T) {
@@ -53,7 +53,7 @@ func TestOps(t *testing.T) {
 				vOutCheck[i] += q.Value()
 			}
 		}
-		assert.EqualValues(t, vOut, vOutCheck)
+		assert.EqualValues(t, vOutCheck, vOut)
 	})
 
 	t.Run("SubLazy", func(t *testing.T) {
@@ -61,7 +61,23 @@ func TestOps(t *testing.T) {
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = v0[i] - v1[i]
 		}
-		assert.EqualValues(t, vOut, vOutCheck)
+		assert.EqualValues(t, vOutCheck, vOut)
+	})
+
+	t.Run("BMul", func(t *testing.T) {
+		BMulTo(v0, v1, q, vOut)
+		for i := 0; i < N; i++ {
+			vOutCheck[i] = num.BMul(v0[i], v1[i], q)
+		}
+		assert.EqualValues(t, vOutCheck, vOut)
+	})
+
+	t.Run("BMulLazy", func(t *testing.T) {
+		BMulLazyTo(v0, v1, q, vOut)
+		for i := 0; i < N; i++ {
+			vOutCheck[i] = num.BMulLazy(v0[i], v1[i], q)
+		}
+		assert.EqualValues(t, vOutCheck, vOut)
 	})
 }
 
@@ -99,6 +115,18 @@ func BenchmarkOps(b *testing.B) {
 	b.Run("SubLazy", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			SubLazyTo(v0, v1, vOut)
+		}
+	})
+
+	b.Run("BMul", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			BMulTo(v0, v1, q, vOut)
+		}
+	})
+
+	b.Run("BMulLazy", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			BMulLazyTo(v0, v1, q, vOut)
 		}
 	})
 }

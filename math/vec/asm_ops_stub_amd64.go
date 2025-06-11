@@ -15,3 +15,9 @@ func subToAVX2(v0 []uint64, v1 []uint64, q uint64, vOut []uint64)
 
 //go:noescape
 func subLazyToAVX2(v0 []uint64, v1 []uint64, vOut []uint64)
+
+//go:noescape
+func bMulToAVX2(v0 []uint64, v1 []uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
+
+//go:noescape
+func bMulLazyToAVX2(v0 []uint64, v1 []uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)

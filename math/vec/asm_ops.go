@@ -2,7 +2,9 @@
 
 package vec
 
-import "github.com/hienaa-org/hienaa/math/num"
+import (
+	"github.com/hienaa-org/hienaa/math/num"
+)
 
 // AddTo computes vOut = v0 + v1 mod q.
 func AddTo(v0, v1 []uint64, q *num.Modulus, vOut []uint64) {
@@ -109,5 +111,60 @@ func SubLazyTo(v0, v1, vOut []uint64) {
 
 	for i := M; i < N; i++ {
 		vOut[i] = v0[i] - v1[i]
+	}
+}
+
+// BMulTo computes vOut = v0 * v1 mod q using Barrett reduction.
+func BMulTo(v0, v1 []uint64, q *num.Modulus, vOut []uint64) {
+	N := len(vOut)
+	M := (N >> 3) << 3
+
+	var w0, w1, wOut []uint64
+	for i := 0; i < M; i += 8 {
+		w0 = v0[i : i+8 : i+8]
+		w1 = v1[i : i+8 : i+8]
+		wOut = vOut[i : i+8 : i+8]
+
+		wOut[0] = num.BMul(w0[0], w1[0], q)
+		wOut[1] = num.BMul(w0[1], w1[1], q)
+		wOut[2] = num.BMul(w0[2], w1[2], q)
+		wOut[3] = num.BMul(w0[3], w1[3], q)
+
+		wOut[4] = num.BMul(w0[4], w1[4], q)
+		wOut[5] = num.BMul(w0[5], w1[5], q)
+		wOut[6] = num.BMul(w0[6], w1[6], q)
+		wOut[7] = num.BMul(w0[7], w1[7], q)
+	}
+
+	for i := M; i < N; i++ {
+		vOut[i] = num.BMul(v0[i], v1[i], q)
+	}
+}
+
+// BMulLazyTo computes vOut = v0 * v1 mod q using Barrett reduction,
+// but the result is in [0, 2q).
+func BMulLazyTo(v0, v1 []uint64, q *num.Modulus, vOut []uint64) {
+	N := len(vOut)
+	M := (N >> 3) << 3
+
+	var w0, w1, wOut []uint64
+	for i := 0; i < M; i += 8 {
+		w0 = v0[i : i+8 : i+8]
+		w1 = v1[i : i+8 : i+8]
+		wOut = vOut[i : i+8 : i+8]
+
+		wOut[0] = num.BMulLazy(w0[0], w1[0], q)
+		wOut[1] = num.BMulLazy(w0[1], w1[1], q)
+		wOut[2] = num.BMulLazy(w0[2], w1[2], q)
+		wOut[3] = num.BMulLazy(w0[3], w1[3], q)
+
+		wOut[4] = num.BMulLazy(w0[4], w1[4], q)
+		wOut[5] = num.BMulLazy(w0[5], w1[5], q)
+		wOut[6] = num.BMulLazy(w0[6], w1[6], q)
+		wOut[7] = num.BMulLazy(w0[7], w1[7], q)
+	}
+
+	for i := M; i < N; i++ {
+		vOut[i] = num.BMulLazy(v0[i], v1[i], q)
 	}
 }

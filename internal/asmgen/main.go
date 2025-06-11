@@ -19,11 +19,16 @@ func main() {
 	Constraint(buildtags.Not("purego"))
 
 	if *vec {
+		VecOpConstants()
+
 		VecAddToAVX2(false)
 		VecAddToAVX2(true)
 
 		VecSubToAVX2(false)
 		VecSubToAVX2(true)
+
+		VecBMulToAVX2(false)
+		VecBMulToAVX2(true)
 	}
 
 	Generate()
