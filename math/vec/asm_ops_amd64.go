@@ -5,6 +5,7 @@ package vec
 import (
 	"unsafe"
 
+	"github.com/hienaa-org/hienaa/internal/mod"
 	"github.com/hienaa-org/hienaa/math/num"
 	"golang.org/x/sys/cpu"
 )
@@ -25,19 +26,19 @@ func AddTo(v0, v1 []uint64, q *num.Modulus, vOut []uint64) {
 		w1 := (*[8]uint64)(unsafe.Pointer(&v1[i]))
 		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
 
-		wOut[0] = addMod(w0[0], w1[0], qv)
-		wOut[1] = addMod(w0[1], w1[1], qv)
-		wOut[2] = addMod(w0[2], w1[2], qv)
-		wOut[3] = addMod(w0[3], w1[3], qv)
+		wOut[0] = mod.Add(w0[0], w1[0], qv)
+		wOut[1] = mod.Add(w0[1], w1[1], qv)
+		wOut[2] = mod.Add(w0[2], w1[2], qv)
+		wOut[3] = mod.Add(w0[3], w1[3], qv)
 
-		wOut[4] = addMod(w0[4], w1[4], qv)
-		wOut[5] = addMod(w0[5], w1[5], qv)
-		wOut[6] = addMod(w0[6], w1[6], qv)
-		wOut[7] = addMod(w0[7], w1[7], qv)
+		wOut[4] = mod.Add(w0[4], w1[4], qv)
+		wOut[5] = mod.Add(w0[5], w1[5], qv)
+		wOut[6] = mod.Add(w0[6], w1[6], qv)
+		wOut[7] = mod.Add(w0[7], w1[7], qv)
 	}
 
 	for i := M; i < len(vOut); i++ {
-		vOut[i] = addMod(v0[i], v1[i], qv)
+		vOut[i] = mod.Add(v0[i], v1[i], qv)
 	}
 }
 
@@ -87,19 +88,19 @@ func SubTo(v0, v1 []uint64, q *num.Modulus, vOut []uint64) {
 		w1 := (*[8]uint64)(unsafe.Pointer(&v1[i]))
 		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
 
-		wOut[0] = subMod(w0[0], w1[0], qv)
-		wOut[1] = subMod(w0[1], w1[1], qv)
-		wOut[2] = subMod(w0[2], w1[2], qv)
-		wOut[3] = subMod(w0[3], w1[3], qv)
+		wOut[0] = mod.Sub(w0[0], w1[0], qv)
+		wOut[1] = mod.Sub(w0[1], w1[1], qv)
+		wOut[2] = mod.Sub(w0[2], w1[2], qv)
+		wOut[3] = mod.Sub(w0[3], w1[3], qv)
 
-		wOut[4] = subMod(w0[4], w1[4], qv)
-		wOut[5] = subMod(w0[5], w1[5], qv)
-		wOut[6] = subMod(w0[6], w1[6], qv)
-		wOut[7] = subMod(w0[7], w1[7], qv)
+		wOut[4] = mod.Sub(w0[4], w1[4], qv)
+		wOut[5] = mod.Sub(w0[5], w1[5], qv)
+		wOut[6] = mod.Sub(w0[6], w1[6], qv)
+		wOut[7] = mod.Sub(w0[7], w1[7], qv)
 	}
 
 	for i := M; i < len(vOut); i++ {
-		vOut[i] = subMod(v0[i], v1[i], qv)
+		vOut[i] = mod.Sub(v0[i], v1[i], qv)
 	}
 }
 

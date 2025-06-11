@@ -3,7 +3,8 @@ package num
 import (
 	"encoding/binary"
 	"math/big"
-	"math/bits"
+
+	"github.com/hienaa-org/hienaa/internal/mod"
 )
 
 const (
@@ -84,123 +85,53 @@ func NewModulus(modulus uint64) *Modulus {
 
 // Add computes x0 + x1 mod q.
 func Add(x0, x1 uint64, q *Modulus) uint64 {
-	xOut := x0 + x1
-	if xOut >= q.modulus {
-		xOut -= q.modulus
-	}
-	return xOut
+	return mod.Add(x0, x1, q.modulus)
 }
 
 // Sub computes x0 - x1 mod q.
 func Sub(x0, x1 uint64, q *Modulus) uint64 {
-	xOut := x0 - x1
-	if xOut >= q.modulus {
-		xOut += q.modulus
-	}
-	return xOut
+	return mod.Sub(x0, x1, q.modulus)
 }
 
 // BMul computes x * y mod q using Barrett reduction.
 func BMul(x0, y0 uint64, q *Modulus) uint64 {
-	xOutHi, xOutLo := bits.Mul64(x0, y0)
-	return BMod(xOutHi, xOutLo, q)
+	return mod.BMul(x0, y0, q.modulus, q.divHi, q.divLo)
 }
 
 // BMulLazy computes x * y mod q using Barrett reduction,
 // but the result is in [0, 2q).
 func BMulLazy(x0, y0 uint64, q *Modulus) uint64 {
-	xOutHi, xOutLo := bits.Mul64(x0, y0)
-	return BModLazy(xOutHi, xOutLo, q)
+	return mod.BMulLazy(x0, y0, q.modulus, q.divHi, q.divLo)
 }
 
 // BMod computes x mod q using Barrett reduction.
 func BMod(xHi, xLo uint64, q *Modulus) uint64 {
-	quo := xHi * q.divHi
-
-	quoLo, _ := bits.Mul64(xLo, q.divLo)
-
-	quoMid0, quoMid0Lo := bits.Mul64(xLo, q.divHi)
-	quo += quoMid0
-
-	quoMid1, quoMid1Lo := bits.Mul64(xHi, q.divLo)
-	quo += quoMid1
-
-	quoMidSum, quoMidCarry := bits.Add64(quoMid0Lo, quoLo, 0)
-	quo += quoMidCarry
-
-	_, quoMidCarry = bits.Add64(quoMid1Lo, quoMidSum, 0)
-	quo += quoMidCarry
-
-	xOut := xLo - quo*q.modulus
-	if xOut >= q.modulus {
-		xOut -= q.modulus
-	}
-	return xOut
+	return mod.BMod(xHi, xLo, q.modulus, q.divHi, q.divLo)
 }
 
 // BModLazy computes x mod q using Barret reduction,
 // but the result is in [0, 2q).
 func BModLazy(xHi, xLo uint64, q *Modulus) uint64 {
-	quo := xHi * q.divHi
-
-	quoLo, _ := bits.Mul64(xLo, q.divLo)
-
-	quoMid0, quoMid0Lo := bits.Mul64(xLo, q.divHi)
-	quo += quoMid0
-
-	quoMid1, quoMid1Lo := bits.Mul64(xHi, q.divLo)
-	quo += quoMid1
-
-	quoMidSum, quoMidCarry := bits.Add64(quoMid0Lo, quoLo, 0)
-	quo += quoMidCarry
-
-	_, quoMidCarry = bits.Add64(quoMid1Lo, quoMidSum, 0)
-	quo += quoMidCarry
-
-	return xLo - quo*q.modulus
+	return mod.BModLazy(xHi, xLo, q.modulus, q.divHi, q.divLo)
 }
 
 // MForm transforms x into Montgomery form.
 func MForm(x uint64, q *Modulus) uint64 {
-	xM, _ := bits.Mul64(x, q.divLo)
-	xM += x * q.divHi
-
-	xMOut := -xM * q.modulus
-	if xMOut >= q.modulus {
-		xMOut -= q.modulus
-	}
-	return xMOut
+	return mod.MForm(x, q.modulus, q.divHi, q.divLo)
 }
 
 // InvMForm transforms xM to Normal form.
 func InvMForm(xM uint64, q *Modulus) uint64 {
-	x, _ := bits.Mul64(xM*q.inv, q.modulus)
-	xOut := q.modulus - x
-	if xOut >= q.modulus {
-		xOut -= q.modulus
-	}
-	return xOut
+	return mod.InvMForm(xM, q.modulus, q.inv)
 }
 
 // MMul computes x0 * x1 mod q in Montgomery form.
 func MMul(x0M, x1M uint64, q *Modulus) uint64 {
-	xOutMHi, xOutMLo := bits.Mul64(x0M, x1M)
-
-	wHi, _ := bits.Mul64(xOutMLo*q.inv, q.modulus)
-
-	xOutM := xOutMHi - wHi + q.modulus
-	if xOutM >= q.modulus {
-		xOutM -= q.modulus
-	}
-	return xOutM
+	return mod.MMul(x0M, x1M, q.modulus, q.inv)
 }
 
 // MMulLazy computes x0 * x1 mod q in Montgomery form,
 // but the result is in [0, 2q).
 func MMulLazy(x0M, y0M uint64, q *Modulus) uint64 {
-	zMHi, zMLo := bits.Mul64(x0M, y0M)
-
-	wHi, _ := bits.Mul64(zMLo*q.inv, q.modulus)
-
-	return zMHi - wHi + q.modulus
+	return mod.MMulLazy(x0M, y0M, q.modulus, q.inv)
 }
