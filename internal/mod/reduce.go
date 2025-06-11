@@ -34,10 +34,10 @@ func BMul(x0, y0, q, divHi, divLo uint64) uint64 {
 	quoMid1, quoMid1Lo := bits.Mul64(xOutHi, divLo)
 	quo += quoMid1
 
-	quoMidSum, quoMidCarry := bits.Add64(quoMid0Lo, quoLo, 0)
+	quoMidSum, quoMidCarry := bits.Add64(quoMid0Lo, quoMid1Lo, 0)
 	quo += quoMidCarry
 
-	_, quoMidCarry = bits.Add64(quoMid1Lo, quoMidSum, 0)
+	_, quoMidCarry = bits.Add64(quoMidSum, quoLo, 0)
 	quo += quoMidCarry
 
 	xOut := xOutLo - quo*q
@@ -62,10 +62,10 @@ func BMulLazy(x0, y0, q, divHi, divLo uint64) uint64 {
 	quoMid1, quoMid1Lo := bits.Mul64(xOutHi, divLo)
 	quo += quoMid1
 
-	quoMidSum, quoMidCarry := bits.Add64(quoMid0Lo, quoLo, 0)
+	quoMidSum, quoMidCarry := bits.Add64(quoMid0Lo, quoMid1Lo, 0)
 	quo += quoMidCarry
 
-	_, quoMidCarry = bits.Add64(quoMid1Lo, quoMidSum, 0)
+	_, quoMidCarry = bits.Add64(quoMidSum, quoLo, 0)
 	quo += quoMidCarry
 
 	return xOutLo - quo*q
@@ -83,10 +83,10 @@ func BMod(xHi, xLo, q, divHi, divLo uint64) uint64 {
 	quoMid1, quoMid1Lo := bits.Mul64(xHi, divLo)
 	quo += quoMid1
 
-	quoMidSum, quoMidCarry := bits.Add64(quoMid0Lo, quoLo, 0)
+	quoMidSum, quoMidCarry := bits.Add64(quoMid0Lo, quoMid1Lo, 0)
 	quo += quoMidCarry
 
-	_, quoMidCarry = bits.Add64(quoMid1Lo, quoMidSum, 0)
+	_, quoMidCarry = bits.Add64(quoMidSum, quoLo, 0)
 	quo += quoMidCarry
 
 	xOut := xLo - quo*q
@@ -109,10 +109,10 @@ func BModLazy(xHi, xLo, q, divHi, divLo uint64) uint64 {
 	quoMid1, quoMid1Lo := bits.Mul64(xHi, divLo)
 	quo += quoMid1
 
-	quoMidSum, quoMidCarry := bits.Add64(quoMid0Lo, quoLo, 0)
+	quoMidSum, quoMidCarry := bits.Add64(quoMid0Lo, quoMid1Lo, 0)
 	quo += quoMidCarry
 
-	_, quoMidCarry = bits.Add64(quoMid1Lo, quoMidSum, 0)
+	_, quoMidCarry = bits.Add64(quoMidSum, quoLo, 0)
 	quo += quoMidCarry
 
 	return xLo - quo*q

@@ -24,35 +24,30 @@ func BModLazy(xHi, xLo, q, divHi, divLo, xOut reg.Register) {
 
 	// quoMid0, quoMid0Lo := xLo * divHi
 	// quo += quoMid0
-	MOVQ(xLo, reg.RAX)
-	MULQ(divHi)
-	ADDQ(reg.RDX, quo)
+	quoMid0, quoMid0Lo := GP64(), GP64()
+	MOVQ(xLo, reg.RDX)
+	MULXQ(divHi, quoMid0Lo, quoMid0)
+	ADDQ(quoMid0, quo)
 
-	quoMid0Lo := GP64()
-	MOVQ(reg.RAX, quoMid0Lo)
+	// quoLo, _ := xLo * divLo
+	quoLo := GP64()
+	MULXQ(divLo, xOut, quoLo) // xOut = tmp
 
 	// quoMid1, quoMid1Lo := xHi * divLo
 	// quo += quoMid1
-	MOVQ(xHi, reg.RAX)
-	MULQ(divLo)
-	ADDQ(reg.RDX, quo)
-
-	quoMid1Lo := GP64()
-	MOVQ(reg.RAX, quoMid1Lo)
-
-	// quoLo, _ := xLo * divLo
-	// RDX = quoLo
-	MOVQ(xLo, reg.RAX)
-	MULQ(divLo)
+	quoMid1, quoMid1Lo := GP64(), GP64()
+	MOVQ(xHi, reg.RDX)
+	MULXQ(divLo, quoMid1Lo, quoMid1)
+	ADDQ(quoMid1, quo)
 
 	// quoMidSum = quoMid0Lo + quoLo
 	// quo += carry
-	ADDQ(quoMid0Lo, reg.RDX)
+	ADDQ(quoMid0Lo, quoLo)
 	ADCQ(Imm(0), quo)
 
 	// quoMidSum = quoMid1Lo + quoMidSum
 	// quo += carry
-	ADDQ(quoMid1Lo, reg.RDX)
+	ADDQ(quoMid1Lo, quoLo)
 	ADCQ(Imm(0), quo)
 
 	IMULQ(q, quo)
@@ -71,15 +66,13 @@ func MMul(x0M, x1M, q, inv, xOutM reg.Register) {
 }
 
 func MMulLazy(x0M, x1M, q, inv, xOutM reg.Register) {
-	MOVQ(x0M, reg.RAX)
-	MULQ(x1M)
-	MOVQ(reg.RDX, xOutM)
+	MOVQ(x0M, reg.RDX)
+	MULXQ(x1M, reg.RDX, xOutM)
 
-	// RAX = xOutMLo
-	IMULQ(inv, reg.RAX)
-	MULQ(q)
+	tmp := GP64()
+	IMULQ(inv, reg.RDX)
+	MULXQ(q, tmp, reg.RDX)
 
-	// RDX = wHi
 	SUBQ(reg.RDX, xOutM)
 	ADDQ(q, xOutM)
 }

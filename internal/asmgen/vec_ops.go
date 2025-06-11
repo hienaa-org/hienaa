@@ -222,7 +222,7 @@ func VecBMulToX86(isLazy bool, opType OpType) {
 	JMP(LabelRef("loop_end"))
 	Label("loop_body")
 
-	x0, x1 := reg.RAX, GP64()
+	x0, x1 := reg.RDX, GP64()
 	MOVQ(Mem{Base: v0, Index: i, Scale: 8}, x0)
 	MOVQ(Mem{Base: v1, Index: i, Scale: 8}, x1)
 
@@ -232,11 +232,8 @@ func VecBMulToX86(isLazy bool, opType OpType) {
 		MOVQ(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
 	}
 
-	MULQ(x1)
-
 	xMulHi, xMulLo, xMul := GP64(), GP64(), GP64()
-	MOVQ(reg.RDX, xMulHi)
-	MOVQ(reg.RAX, xMulLo)
+	MULXQ(x1, xMulLo, xMulHi)
 
 	if isLazy {
 		BModLazy(xMulHi, xMulLo, q, divHi, divLo, xMul)
