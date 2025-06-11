@@ -19,7 +19,7 @@ func VecAddToAVX2(isLazy bool) {
 	if !isLazy {
 		q = Load(Param("q"), GP64())
 		qv = YMM()
-		VPBROADCASTQ(q, qv)
+		VPBROADCASTQ(NewParamAddr("q", 48), qv)
 	}
 
 	v0 := Load(Param("v0").Base(), GP64())

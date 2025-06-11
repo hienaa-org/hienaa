@@ -8,7 +8,7 @@
 // Requires: AVX, AVX2, AVX512F, AVX512VL, CMOV
 TEXT ·addToAVX2(SB), NOSPLIT, $0-80
 	MOVQ         q+48(FP), AX
-	VPBROADCASTQ AX, Y0
+	VPBROADCASTQ q+48(FP), Y0
 	MOVQ         v0_base+0(FP), CX
 	MOVQ         v1_base+24(FP), DX
 	MOVQ         vOut_base+56(FP), BX
