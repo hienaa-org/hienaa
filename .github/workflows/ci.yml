@@ -1,0 +1,31 @@
+name: CI Tests
+on:
+  push:
+
+jobs:
+  tests:
+    name: Run Go ${{ matrix.go }} Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go: [ '1.21', '1.24' ]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+
+      - name: Test math/num
+        run: |
+          go test ./math/num -timeout=0 -count=1
+          go test ./math/num -timeout=0 -count=1 -tags=purego
+          GODEBUG=cpu.all=off go test ./math/num -count=1
+
+      - name: Test math/vec
+        run: |
+          go test ./math/vec -timeout=0 -count=1
+          go test ./math/vec -timeout=0 -count=1 -tags=purego
+          GODEBUG=cpu.all=off go test ./math/vec -count=1
