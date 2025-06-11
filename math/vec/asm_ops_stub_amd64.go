@@ -33,21 +33,3 @@ func bMulAddLazyToX86(v0 []uint64, v1 []uint64, q uint64, divHi uint64, divLo ui
 
 //go:noescape
 func bMulSubLazyToX86(v0 []uint64, v1 []uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
-
-//go:noescape
-func mMulToX86(v0 []uint64, v1 []uint64, q uint64, inv uint64, vOut []uint64)
-
-//go:noescape
-func mMulAddToX86(v0 []uint64, v1 []uint64, q uint64, inv uint64, vOut []uint64)
-
-//go:noescape
-func mMulSubToX86(v0 []uint64, v1 []uint64, q uint64, inv uint64, vOut []uint64)
-
-//go:noescape
-func mMulLazyToX86(v0 []uint64, v1 []uint64, q uint64, inv uint64, vOut []uint64)
-
-//go:noescape
-func mMulAddLazyToX86(v0 []uint64, v1 []uint64, q uint64, inv uint64, vOut []uint64)
-
-//go:noescape
-func mMulSubLazyToX86(v0 []uint64, v1 []uint64, q uint64, inv uint64, vOut []uint64)

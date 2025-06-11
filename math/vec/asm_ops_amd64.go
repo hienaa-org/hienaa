@@ -171,14 +171,3 @@ func BMulSubLazyTo(v0, v1 []uint64, q *num.Modulus, vOut []uint64) {
 	divHi, divLo := q.Div()
 	bMulSubLazyToX86(v0, v1, q.Value(), divHi, divLo, vOut)
 }
-
-// MMulTo computes vOut = v0 * v1 mod q in Montgomery form,
-func MMulTo(v0, v1 []uint64, q *num.Modulus, vOut []uint64) {
-	mMulToX86(v0, v1, q.Value(), q.Inv(), vOut)
-}
-
-// MMulLazyTo computes vOut = v0 * v1 mod q in Montgomery form,
-// but the result is in [0, 2q).
-func MMulLazyTo(v0, v1 []uint64, q *num.Modulus, vOut []uint64) {
-	mMulLazyToX86(v0, v1, q.Value(), q.Inv(), vOut)
-}

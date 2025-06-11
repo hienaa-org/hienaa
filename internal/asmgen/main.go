@@ -42,14 +42,6 @@ func main() {
 		VecBMulToX86(true, Mul)
 		VecBMulToX86(true, MulAdd)
 		VecBMulToX86(true, MulSub)
-
-		VecMMulToX86(false, Mul)
-		VecMMulToX86(false, MulAdd)
-		VecMMulToX86(false, MulSub)
-
-		VecMMulToX86(true, Mul)
-		VecMMulToX86(true, MulAdd)
-		VecMMulToX86(true, MulSub)
 	}
 
 	Generate()
