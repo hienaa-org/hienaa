@@ -47,7 +47,7 @@ func VecAddToAVX2(isLazy bool) {
 	if !isLazy {
 		leftOver := YMM()
 		GreaterOrEqualThanAVX2(xOut, qv, leftOver)
-		VPANDQ(qv, leftOver, leftOver)
+		VPAND(qv, leftOver, leftOver)
 		VPSUBQ(leftOver, xOut, xOut)
 	}
 
@@ -131,7 +131,7 @@ func VecSubToAVX2(isLazy bool) {
 	if !isLazy {
 		leftOver := YMM()
 		LessThanAVX2(xOut, zero, leftOver)
-		VPANDQ(qv, leftOver, leftOver)
+		VPAND(qv, leftOver, leftOver)
 		VPADDQ(leftOver, xOut, xOut)
 	}
 

@@ -5,7 +5,7 @@
 #include "textflag.h"
 
 // func addToAVX2(v0 []uint64, v1 []uint64, q uint64, vOut []uint64)
-// Requires: AVX, AVX2, AVX512F, AVX512VL, CMOV
+// Requires: AVX, AVX2, CMOV
 TEXT ·addToAVX2(SB), NOSPLIT, $0-80
 	MOVQ         q+48(FP), AX
 	VPBROADCASTQ q+48(FP), Y0
@@ -25,8 +25,8 @@ loop_body:
 	VPADDQ   Y2, Y1, Y1
 	VPCMPGTQ Y0, Y1, Y2
 	VPCMPEQQ Y1, Y0, Y3
-	VPORQ    Y2, Y3, Y2
-	VPANDQ   Y0, Y2, Y2
+	VPOR     Y2, Y3, Y2
+	VPAND    Y0, Y2, Y2
 	VPSUBQ   Y2, Y1, Y1
 	VMOVDQU  Y1, (BX)(R8*8)
 	ADDQ     $0x04, R8
@@ -90,7 +90,7 @@ leftover_loop_end:
 	RET
 
 // func subToAVX2(v0 []uint64, v1 []uint64, q uint64, vOut []uint64)
-// Requires: AVX, AVX2, AVX512F, AVX512VL, CMOV
+// Requires: AVX, AVX2, CMOV
 TEXT ·subToAVX2(SB), NOSPLIT, $0-80
 	MOVQ         q+48(FP), AX
 	VPBROADCASTQ q+48(FP), Y0
@@ -110,7 +110,7 @@ loop_body:
 	VMOVDQU  (DX)(R8*8), Y3
 	VPSUBQ   Y3, Y2, Y2
 	VPCMPGTQ Y2, Y1, Y3
-	VPANDQ   Y0, Y3, Y3
+	VPAND    Y0, Y3, Y3
 	VPADDQ   Y3, Y2, Y2
 	VMOVDQU  Y2, (BX)(R8*8)
 	ADDQ     $0x04, R8
