@@ -6,8 +6,13 @@ import (
 	"github.com/mmcloughlin/avo/reg"
 )
 
-func BMod(xHi, xLo, q, divHi, divLo, xOut reg.Register) {
-	BModLazy(xHi, xLo, q, divHi, divLo, xOut)
+func BMod64(x, q, divHi, xOut reg.Register) {
+	MOVQ(x, reg.RDX)
+	MULXQ(divHi, reg.RDX, xOut) // xOut = tmp
+
+	IMULQ(q, reg.RDX)
+	MOVQ(x, xOut)
+	SUBQ(reg.RDX, xOut)
 
 	xOutSubQ := GP64()
 	MOVQ(xOut, xOutSubQ)
@@ -16,7 +21,17 @@ func BMod(xHi, xLo, q, divHi, divLo, xOut reg.Register) {
 	CMOVQGE(xOutSubQ, xOut)
 }
 
-func BModLazy(xHi, xLo, q, divHi, divLo, xOut reg.Register) {
+func BMod128(xHi, xLo, q, divHi, divLo, xOut reg.Register) {
+	BMod128Lazy(xHi, xLo, q, divHi, divLo, xOut)
+
+	xOutSubQ := GP64()
+	MOVQ(xOut, xOutSubQ)
+	SUBQ(q, xOutSubQ)
+	CMPQ(xOut, q)
+	CMOVQGE(xOutSubQ, xOut)
+}
+
+func BMod128Lazy(xHi, xLo, q, divHi, divLo, xOut reg.Register) {
 	// quo := xHi * divHi
 	quo := GP64()
 	MOVQ(xHi, quo)
@@ -77,8 +92,8 @@ func MMulLazy(x0M, x1M, q, inv, xOutM reg.Register) {
 	ADDQ(q, xOutM)
 }
 
-func BModAVX2(xHi, xLo, q, divHi, divLo, xOut reg.VecVirtual) {
-	BModLazyAVX2(xHi, xLo, q, divHi, divLo, xOut)
+func BMod128AVX2(xHi, xLo, q, divHi, divLo, xOut reg.VecVirtual) {
+	BMod128LazyAVX2(xHi, xLo, q, divHi, divLo, xOut)
 
 	subQ := YMM()
 	GreaterOrEqualThanAVX2(xOut, q, subQ)
@@ -86,7 +101,7 @@ func BModAVX2(xHi, xLo, q, divHi, divLo, xOut reg.VecVirtual) {
 	VPSUBQ(subQ, xOut, xOut)
 }
 
-func BModLazyAVX2(xHi, xLo, q, divHi, divLo, xOut reg.VecVirtual) {
+func BMod128LazyAVX2(xHi, xLo, q, divHi, divLo, xOut reg.VecVirtual) {
 	// quo := xHi * divHi
 	quo := YMM()
 	Mul64LoAVX2(xHi, divHi, quo)

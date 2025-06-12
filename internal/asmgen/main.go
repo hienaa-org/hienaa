@@ -1,4 +1,4 @@
-//go:generate go run . -vec -out ../../math/vec/asm_ops_amd64.s -stubs ../../math/vec/asm_ops_stub_amd64.go -pkg=vec
+//go:generate go run . -vec -out ../../math/mod/asm_vec_ops_amd64.s -stubs ../../math/mod/asm_vec_ops_stub_amd64.go -pkg=mod
 package main
 
 import (
@@ -17,7 +17,7 @@ const (
 )
 
 var (
-	vec = flag.Bool("vec", false, "asm_vec_amd64.s")
+	vec = flag.Bool("vec", false, "asm_vec_ops_amd64.s")
 )
 
 func main() {
@@ -29,27 +29,27 @@ func main() {
 	if *vec {
 		VecOpConstants()
 
-		VecAddToAVX2(false)
-		VecAddToAVX2(true)
+		AddVecToAVX2(false)
+		AddVecToAVX2(true)
 
-		VecSubToAVX2(false)
-		VecSubToAVX2(true)
+		SubVecToAVX2(false)
+		SubVecToAVX2(true)
 
-		VecScalarBMulToX86(false, Mul)
-		VecScalarBMulToX86(false, MulAdd)
-		VecScalarBMulToX86(false, MulSub)
+		ScalarMulVecToX86(false, Mul)
+		ScalarMulVecToX86(false, MulAdd)
+		ScalarMulVecToX86(false, MulSub)
 
-		VecScalarBMulToX86(true, Mul)
-		VecScalarBMulToX86(true, MulAdd)
-		VecScalarBMulToX86(true, MulSub)
+		ScalarMulVecToX86(true, Mul)
+		ScalarMulVecToX86(true, MulAdd)
+		ScalarMulVecToX86(true, MulSub)
 
-		VecBMulToX86(false, Mul)
-		VecBMulToX86(false, MulAdd)
-		VecBMulToX86(false, MulSub)
+		MulVecToX86(false, Mul)
+		MulVecToX86(false, MulAdd)
+		MulVecToX86(false, MulSub)
 
-		VecBMulToX86(true, Mul)
-		VecBMulToX86(true, MulAdd)
-		VecBMulToX86(true, MulSub)
+		MulVecToX86(true, Mul)
+		MulVecToX86(true, MulAdd)
+		MulVecToX86(true, MulSub)
 	}
 
 	Generate()

@@ -1,11 +1,11 @@
-package num_test
+package mod_test
 
 import (
 	"math/big"
 	"math/rand"
 	"testing"
 
-	"github.com/hienaa-org/hienaa/math/num"
+	"github.com/hienaa-org/hienaa/math/mod"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -13,8 +13,27 @@ var (
 	rSrc = rand.New(rand.NewSource(0))
 )
 
+func TestReduce(t *testing.T) {
+	q := mod.NewModulus((rSrc.Uint64()>>10)<<1 + 1)
+
+	x64 := rSrc.Uint64()
+	x128Hi := rSrc.Uint64()
+	x128Lo := rSrc.Uint64()
+	x128 := new(big.Int).Lsh(new(big.Int).SetUint64(x128Hi), 64)
+	x128.Add(x128, new(big.Int).SetUint64(x128Lo))
+
+	t.Run("Reduce", func(t *testing.T) {
+		assert.Equal(t, mod.Reduce(x64, q), x64%q.Value())
+	})
+
+	t.Run("Reduce128", func(t *testing.T) {
+		x128.Mod(x128, new(big.Int).SetUint64(q.Value()))
+		assert.Equal(t, mod.Reduce128(x128Hi, x128Lo, q), x128.Uint64())
+	})
+}
+
 func TestOps(t *testing.T) {
-	q := num.NewModulus((rSrc.Uint64()>>4)<<1 + 1)
+	q := mod.NewModulus((rSrc.Uint64()>>4)<<1 + 1)
 	x0 := rSrc.Uint64() % q.Value()
 	x1 := rSrc.Uint64() % q.Value()
 
@@ -32,32 +51,32 @@ func TestOps(t *testing.T) {
 	xMulBig.Mod(xMulBig, qBig)
 
 	t.Run("Add", func(t *testing.T) {
-		xAdd := num.Add(x0, x1, q)
+		xAdd := mod.Add(x0, x1, q)
 		assert.Equal(t, xAdd, xAddBig.Uint64())
 	})
 
 	t.Run("Sub", func(t *testing.T) {
-		xSub := num.Sub(x0, x1, q)
+		xSub := mod.Sub(x0, x1, q)
 		assert.Equal(t, xSub, xSubBig.Uint64())
 	})
 
 	t.Run("Barrett", func(t *testing.T) {
-		xMul := num.BMul(x0, x1, q)
+		xMul := mod.Mul(x0, x1, q)
 		assert.Equal(t, xMul, xMulBig.Uint64())
 	})
 
 	t.Run("Montgomery", func(t *testing.T) {
-		x0M := num.MForm(x0, q)
-		x1M := num.MForm(x1, q)
-		xMulM := num.MMul(x0M, x1M, q)
-		xMul := num.InvMForm(xMulM, q)
+		x0M := mod.MForm(x0, q)
+		x1M := mod.MForm(x1, q)
+		xMulM := mod.MMul(x0M, x1M, q)
+		xMul := mod.InvMForm(xMulM, q)
 		assert.Equal(t, xMul, xMulBig.Uint64())
 	})
 }
 
 func BenchmarkMul(b *testing.B) {
 	N := 1 << 15
-	q := num.NewModulus(rSrc.Uint64() >> 3)
+	q := mod.NewModulus(rSrc.Uint64() >> 3)
 
 	v0 := make([]uint64, N)
 	v1 := make([]uint64, N)
@@ -70,7 +89,15 @@ func BenchmarkMul(b *testing.B) {
 	b.Run("Barrett", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			for j := 0; j < N; j++ {
-				vOut[j] = num.BMul(v0[j], v1[j], q)
+				vOut[j] = mod.Mul(v0[j], v1[j], q)
+			}
+		}
+	})
+
+	b.Run("BarrettLazy", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for j := 0; j < N; j++ {
+				vOut[j] = mod.MulLazy(v0[j], v1[j], q)
 			}
 		}
 	})
@@ -78,7 +105,15 @@ func BenchmarkMul(b *testing.B) {
 	b.Run("Montgomery", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			for j := 0; j < N; j++ {
-				vOut[j] = num.MMul(v0[j], v1[j], q)
+				vOut[j] = mod.MMul(v0[j], v1[j], q)
+			}
+		}
+	})
+
+	b.Run("MontgomeryLazy", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for j := 0; j < N; j++ {
+				vOut[j] = mod.MMulLazy(v0[j], v1[j], q)
 			}
 		}
 	})

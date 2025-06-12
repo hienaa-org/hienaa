@@ -2,26 +2,26 @@ package mod
 
 import "math/bits"
 
-// Add computes x0 + x1 mod q.
-func Add(x0, x1, q uint64) uint64 {
-	xOut := x0 + x1
+// add computes x + y mod q.
+func add(x, y, q uint64) uint64 {
+	xOut := x + y
 	if xOut >= q {
 		xOut -= q
 	}
 	return xOut
 }
 
-// Sub computes x0 - x1 mod q.
-func Sub(x0, x1, q uint64) uint64 {
-	xOut := x0 - x1
+// sub computes x - y mod q.
+func sub(x, y, q uint64) uint64 {
+	xOut := x - y
 	if xOut >= q {
 		xOut += q
 	}
 	return xOut
 }
 
-// BMul computes x * y mod q using Barrett reduction.
-func BMul(x0, y0, q, divHi, divLo uint64) uint64 {
+// bMul computes x * y mod q using Barrett reduction.
+func bMul(x0, y0, q, divHi, divLo uint64) uint64 {
 	xOutHi, xOutLo := bits.Mul64(x0, y0)
 
 	quo := xOutHi * divHi
@@ -47,9 +47,9 @@ func BMul(x0, y0, q, divHi, divLo uint64) uint64 {
 	return xOut
 }
 
-// BMulLazy computes x * y mod q using Barrett reduction,
+// bMulLazy computes x * y mod q using Barrett reduction,
 // but the result is in [0, 2q).
-func BMulLazy(x0, y0, q, divHi, divLo uint64) uint64 {
+func bMulLazy(x0, y0, q, divHi, divLo uint64) uint64 {
 	xOutHi, xOutLo := bits.Mul64(x0, y0)
 
 	quo := xOutHi * divHi
@@ -71,8 +71,8 @@ func BMulLazy(x0, y0, q, divHi, divLo uint64) uint64 {
 	return xOutLo - quo*q
 }
 
-// BMod computes x mod q using Barrett reduction.
-func BMod(xHi, xLo, q, divHi, divLo uint64) uint64 {
+// bMod128 computes x mod q using Barrett reduction.
+func bMod128(xHi, xLo, q, divHi, divLo uint64) uint64 {
 	quo := xHi * divHi
 
 	quoLo, _ := bits.Mul64(xLo, divLo)
@@ -96,9 +96,19 @@ func BMod(xHi, xLo, q, divHi, divLo uint64) uint64 {
 	return xOut
 }
 
-// BModLazy computes x mod q using Barrett reduction,
+// bMod64 computes x mod q using Barrett reduction.
+func bMod64(x, q, divHi uint64) uint64 {
+	quo, _ := bits.Mul64(x, divHi)
+	xOut := x - quo*q
+	if xOut >= q {
+		xOut -= q
+	}
+	return xOut
+}
+
+// bMod128Lazy computes x mod q using Barrett reduction,
 // but the result is in [0, 2q).
-func BModLazy(xHi, xLo, q, divHi, divLo uint64) uint64 {
+func bMod128Lazy(xHi, xLo, q, divHi, divLo uint64) uint64 {
 	quo := xHi * divHi
 
 	quoLo, _ := bits.Mul64(xLo, divLo)
@@ -118,8 +128,8 @@ func BModLazy(xHi, xLo, q, divHi, divLo uint64) uint64 {
 	return xLo - quo*q
 }
 
-// MForm transforms x into Montgomery form.
-func MForm(x, q, divHi, divLo uint64) uint64 {
+// mForm transforms x into Montgomery form.
+func mForm(x, q, divHi, divLo uint64) uint64 {
 	xM, _ := bits.Mul64(x, divLo)
 	xM += x * divHi
 
@@ -130,8 +140,8 @@ func MForm(x, q, divHi, divLo uint64) uint64 {
 	return xMOut
 }
 
-// InvMForm transforms xM to Normal form.
-func InvMForm(xM, q, inv uint64) uint64 {
+// invMForm transforms xM to Normal form.
+func invMForm(xM, q, inv uint64) uint64 {
 	x, _ := bits.Mul64(xM*inv, q)
 	xOut := q - x
 	if xOut >= q {
@@ -140,8 +150,8 @@ func InvMForm(xM, q, inv uint64) uint64 {
 	return xOut
 }
 
-// MMul computes x0 * x1 mod q in Montgomery form.
-func MMul(x0M, x1M, q, inv uint64) uint64 {
+// mMul computes x0 * x1 mod q in Montgomery form.
+func mMul(x0M, x1M, q, inv uint64) uint64 {
 	xOutMHi, xOutMLo := bits.Mul64(x0M, x1M)
 
 	wHi, _ := bits.Mul64(xOutMLo*inv, q)
@@ -153,9 +163,9 @@ func MMul(x0M, x1M, q, inv uint64) uint64 {
 	return xOutM
 }
 
-// MMulLazy computes x0 * x1 mod q in Montgomery form,
+// mMulLazy computes x0 * x1 mod q in Montgomery form,
 // but the result is in [0, 2q).
-func MMulLazy(x0M, x1M, q, inv uint64) uint64 {
+func mMulLazy(x0M, x1M, q, inv uint64) uint64 {
 	xOutMHi, xOutMLo := bits.Mul64(x0M, x1M)
 
 	wHi, _ := bits.Mul64(xOutMLo*inv, q)

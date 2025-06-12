@@ -10,11 +10,11 @@ func VecOpConstants() {
 	ConstData("ONE", U64(1))
 }
 
-func VecAddToAVX2(isLazy bool) {
+func AddVecToAVX2(isLazy bool) {
 	if isLazy {
-		TEXT("addLazyToAVX2", NOSPLIT, "func(v0, v1, vOut []uint64)")
+		TEXT("addLazyVecToAVX2", NOSPLIT, "func(v0, v1, vOut []uint64)")
 	} else {
-		TEXT("addToAVX2", NOSPLIT, "func(v0, v1 []uint64, q uint64, vOut []uint64)")
+		TEXT("addVecToAVX2", NOSPLIT, "func(v0, v1 []uint64, q uint64, vOut []uint64)")
 	}
 	Pragma("noescape")
 
@@ -98,11 +98,11 @@ func VecAddToAVX2(isLazy bool) {
 	RET()
 }
 
-func VecSubToAVX2(isLazy bool) {
+func SubVecToAVX2(isLazy bool) {
 	if isLazy {
-		TEXT("subLazyToAVX2", NOSPLIT, "func(v0, v1, vOut []uint64)")
+		TEXT("subLazyVecToAVX2", NOSPLIT, "func(v0, v1, vOut []uint64)")
 	} else {
-		TEXT("subToAVX2", NOSPLIT, "func(v0, v1 []uint64, q uint64, vOut []uint64)")
+		TEXT("subVecToAVX2", NOSPLIT, "func(v0, v1 []uint64, q uint64, vOut []uint64)")
 	}
 	Pragma("noescape")
 
@@ -183,26 +183,26 @@ func VecSubToAVX2(isLazy bool) {
 	RET()
 }
 
-func VecScalarBMulToX86(isLazy bool, opType OpType) {
+func ScalarMulVecToX86(isLazy bool, opType OpType) {
 	funcSignature := "func(v0 []uint64, c, q, divHi, divLo uint64, vOut []uint64)"
 	switch opType {
 	case Mul:
 		if isLazy {
-			TEXT("scalarBMulLazyToX86", NOSPLIT, funcSignature)
+			TEXT("scalarMulLazyVecToX86", NOSPLIT, funcSignature)
 		} else {
-			TEXT("scalarBMulToX86", NOSPLIT, funcSignature)
+			TEXT("scalarMulVecToX86", NOSPLIT, funcSignature)
 		}
 	case MulAdd:
 		if isLazy {
-			TEXT("scalarBMulAddLazyToX86", NOSPLIT, funcSignature)
+			TEXT("scalarMulAddLazyVecToX86", NOSPLIT, funcSignature)
 		} else {
-			TEXT("scalarBMulAddToX86", NOSPLIT, funcSignature)
+			TEXT("scalarMulVecAddToX86", NOSPLIT, funcSignature)
 		}
 	case MulSub:
 		if isLazy {
-			TEXT("scalarBMulSubLazyToX86", NOSPLIT, funcSignature)
+			TEXT("scalarMulSubLazyVecToX86", NOSPLIT, funcSignature)
 		} else {
-			TEXT("scalarBMulSubToX86", NOSPLIT, funcSignature)
+			TEXT("scalarMulVecSubToX86", NOSPLIT, funcSignature)
 		}
 	}
 
@@ -241,9 +241,9 @@ func VecScalarBMulToX86(isLazy bool, opType OpType) {
 	MULXQ(c, xMulLo, xMulHi)
 
 	if isLazy {
-		BModLazy(xMulHi, xMulLo, q, divHi, divLo, xMul)
+		BMod128Lazy(xMulHi, xMulLo, q, divHi, divLo, xMul)
 	} else {
-		BMod(xMulHi, xMulLo, q, divHi, divLo, xMul)
+		BMod128(xMulHi, xMulLo, q, divHi, divLo, xMul)
 	}
 
 	switch opType {
@@ -282,26 +282,26 @@ func VecScalarBMulToX86(isLazy bool, opType OpType) {
 	RET()
 }
 
-func VecBMulToX86(isLazy bool, opType OpType) {
+func MulVecToX86(isLazy bool, opType OpType) {
 	funcSignature := "func(v0, v1 []uint64, q, divHi, divLo uint64, vOut []uint64)"
 	switch opType {
 	case Mul:
 		if isLazy {
-			TEXT("bMulLazyToX86", NOSPLIT, funcSignature)
+			TEXT("mulLazyVecToX86", NOSPLIT, funcSignature)
 		} else {
-			TEXT("bMulToX86", NOSPLIT, funcSignature)
+			TEXT("mulVecToX86", NOSPLIT, funcSignature)
 		}
 	case MulAdd:
 		if isLazy {
-			TEXT("bMulAddLazyToX86", NOSPLIT, funcSignature)
+			TEXT("mulAddLazyVecToX86", NOSPLIT, funcSignature)
 		} else {
-			TEXT("bMulAddToX86", NOSPLIT, funcSignature)
+			TEXT("mulAddVecToX86", NOSPLIT, funcSignature)
 		}
 	case MulSub:
 		if isLazy {
-			TEXT("bMulSubLazyToX86", NOSPLIT, funcSignature)
+			TEXT("mulSubLazyVecToX86", NOSPLIT, funcSignature)
 		} else {
-			TEXT("bMulSubToX86", NOSPLIT, funcSignature)
+			TEXT("mulSubVecToX86", NOSPLIT, funcSignature)
 		}
 	}
 
@@ -340,9 +340,9 @@ func VecBMulToX86(isLazy bool, opType OpType) {
 	MULXQ(x1, xMulLo, xMulHi)
 
 	if isLazy {
-		BModLazy(xMulHi, xMulLo, q, divHi, divLo, xMul)
+		BMod128Lazy(xMulHi, xMulLo, q, divHi, divLo, xMul)
 	} else {
-		BMod(xMulHi, xMulLo, q, divHi, divLo, xMul)
+		BMod128(xMulHi, xMulLo, q, divHi, divLo, xMul)
 	}
 
 	switch opType {
