@@ -226,6 +226,11 @@ func VecBMulToX86(isLazy bool, opType OpType) {
 	MOVQ(Mem{Base: v0, Index: i, Scale: 8}, x0)
 	MOVQ(Mem{Base: v1, Index: i, Scale: 8}, x1)
 
+	if opType == MulSub && isLazy {
+		NEGQ(x0)
+		ADDQ(q, x0)
+	}
+
 	xOut := GP64()
 	switch opType {
 	case MulAdd, MulSub:
@@ -262,11 +267,7 @@ func VecBMulToX86(isLazy bool, opType OpType) {
 			CMPQ(xOut, Imm(0))
 			CMOVQLT(subQ, xOut)
 		} else {
-			neg := GP64()
-			MOVQ(q, neg)
-			ADDQ(q, neg)
-			SUBQ(xMul, neg)
-			ADDQ(neg, xOut)
+			ADDQ(xMul, xOut)
 		}
 	}
 

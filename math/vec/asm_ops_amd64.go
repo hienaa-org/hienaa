@@ -325,18 +325,18 @@ func BMulSubLazyTo(v0, v1 []uint64, q *num.Modulus, vOut []uint64) {
 		w1 := (*[8]uint64)(unsafe.Pointer(&v1[i]))
 		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
 
-		wOut[0] += qv<<1 - mod.BMulLazy(w0[0], w1[0], qv, divHi, divLo)
-		wOut[1] += qv<<1 - mod.BMulLazy(w0[1], w1[1], qv, divHi, divLo)
-		wOut[2] += qv<<1 - mod.BMulLazy(w0[2], w1[2], qv, divHi, divLo)
-		wOut[3] += qv<<1 - mod.BMulLazy(w0[3], w1[3], qv, divHi, divLo)
+		wOut[0] += mod.BMulLazy(qv-w0[0], w1[0], qv, divHi, divLo)
+		wOut[1] += mod.BMulLazy(qv-w0[1], w1[1], qv, divHi, divLo)
+		wOut[2] += mod.BMulLazy(qv-w0[2], w1[2], qv, divHi, divLo)
+		wOut[3] += mod.BMulLazy(qv-w0[3], w1[3], qv, divHi, divLo)
 
-		wOut[4] += qv<<1 - mod.BMulLazy(w0[4], w1[4], qv, divHi, divLo)
-		wOut[5] += qv<<1 - mod.BMulLazy(w0[5], w1[5], qv, divHi, divLo)
-		wOut[6] += qv<<1 - mod.BMulLazy(w0[6], w1[6], qv, divHi, divLo)
-		wOut[7] += qv<<1 - mod.BMulLazy(w0[7], w1[7], qv, divHi, divLo)
+		wOut[4] += mod.BMulLazy(qv-w0[4], w1[4], qv, divHi, divLo)
+		wOut[5] += mod.BMulLazy(qv-w0[5], w1[5], qv, divHi, divLo)
+		wOut[6] += mod.BMulLazy(qv-w0[6], w1[6], qv, divHi, divLo)
+		wOut[7] += mod.BMulLazy(qv-w0[7], w1[7], qv, divHi, divLo)
 	}
 
 	for i := M; i < len(vOut); i++ {
-		vOut[i] += qv<<1 - mod.BMulLazy(v0[i], v1[i], qv, divHi, divLo)
+		vOut[i] += mod.BMulLazy(qv-v0[i], v1[i], qv, divHi, divLo)
 	}
 }
