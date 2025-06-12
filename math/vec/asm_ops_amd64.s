@@ -177,6 +177,276 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
+// func scalarBMulToX86(v0 []uint64, c uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
+// Requires: BMI2, CMOV
+TEXT ·scalarBMulToX86(SB), NOSPLIT, $0-80
+	MOVQ q+32(FP), AX
+	MOVQ divHi+40(FP), CX
+	MOVQ divLo+48(FP), BX
+	MOVQ c+24(FP), SI
+	MOVQ v0_base+0(FP), DI
+	MOVQ vOut_base+56(FP), R8
+	MOVQ vOut_len+64(FP), R9
+	XORQ R10, R10
+	JMP  loop_end
+
+loop_body:
+	MOVQ    (DI)(R10*8), DX
+	MULXQ   SI, R12, R11
+	MOVQ    R11, R13
+	IMULQ   CX, R13
+	MOVQ    R12, DX
+	MULXQ   CX, R15, R14
+	ADDQ    R14, R13
+	MULXQ   BX, DX, R14
+	MOVQ    R11, DX
+	MULXQ   BX, R11, DX
+	ADDQ    DX, R13
+	ADDQ    R15, R14
+	ADCQ    $0x00, R13
+	ADDQ    R11, R14
+	ADCQ    $0x00, R13
+	IMULQ   AX, R13
+	MOVQ    R12, DX
+	SUBQ    R13, DX
+	MOVQ    DX, R11
+	SUBQ    AX, R11
+	CMPQ    DX, AX
+	CMOVQGE R11, DX
+	MOVQ    DX, (R8)(R10*8)
+	ADDQ    $0x01, R10
+
+loop_end:
+	CMPQ R10, R9
+	JL   loop_body
+	RET
+
+// func scalarBMulAddToX86(v0 []uint64, c uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
+// Requires: BMI2, CMOV
+TEXT ·scalarBMulAddToX86(SB), NOSPLIT, $8-80
+	MOVQ q+32(FP), AX
+	MOVQ divHi+40(FP), CX
+	MOVQ divLo+48(FP), BX
+	MOVQ c+24(FP), SI
+	MOVQ v0_base+0(FP), DI
+	MOVQ vOut_base+56(FP), R8
+	MOVQ vOut_len+64(FP), R9
+	XORQ R10, R10
+	JMP  loop_end
+
+loop_body:
+	MOVQ    (DI)(R10*8), DX
+	MOVQ    (R8)(R10*8), R11
+	MULXQ   SI, R13, R12
+	MOVQ    R12, R14
+	IMULQ   CX, R14
+	MOVQ    R13, DX
+	MULXQ   CX, BP, R15
+	ADDQ    R15, R14
+	MULXQ   BX, DX, R15
+	MOVQ    R12, DX
+	MULXQ   BX, R12, DX
+	ADDQ    DX, R14
+	ADDQ    BP, R15
+	ADCQ    $0x00, R14
+	ADDQ    R12, R15
+	ADCQ    $0x00, R14
+	IMULQ   AX, R14
+	MOVQ    R13, DX
+	SUBQ    R14, DX
+	MOVQ    DX, R12
+	SUBQ    AX, R12
+	CMPQ    DX, AX
+	CMOVQGE R12, DX
+	ADDQ    DX, R11
+	MOVQ    R11, DX
+	SUBQ    AX, DX
+	CMPQ    R11, AX
+	CMOVQGE DX, R11
+	MOVQ    R11, (R8)(R10*8)
+	ADDQ    $0x01, R10
+
+loop_end:
+	CMPQ R10, R9
+	JL   loop_body
+	RET
+
+// func scalarBMulSubToX86(v0 []uint64, c uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
+// Requires: BMI2, CMOV
+TEXT ·scalarBMulSubToX86(SB), NOSPLIT, $8-80
+	MOVQ q+32(FP), AX
+	MOVQ divHi+40(FP), CX
+	MOVQ divLo+48(FP), BX
+	MOVQ c+24(FP), SI
+	MOVQ v0_base+0(FP), DI
+	MOVQ vOut_base+56(FP), R8
+	MOVQ vOut_len+64(FP), R9
+	XORQ R10, R10
+	JMP  loop_end
+
+loop_body:
+	MOVQ    (DI)(R10*8), DX
+	MOVQ    (R8)(R10*8), R11
+	MULXQ   SI, R13, R12
+	MOVQ    R12, R14
+	IMULQ   CX, R14
+	MOVQ    R13, DX
+	MULXQ   CX, BP, R15
+	ADDQ    R15, R14
+	MULXQ   BX, DX, R15
+	MOVQ    R12, DX
+	MULXQ   BX, R12, DX
+	ADDQ    DX, R14
+	ADDQ    BP, R15
+	ADCQ    $0x00, R14
+	ADDQ    R12, R15
+	ADCQ    $0x00, R14
+	IMULQ   AX, R14
+	MOVQ    R13, DX
+	SUBQ    R14, DX
+	MOVQ    DX, R12
+	SUBQ    AX, R12
+	CMPQ    DX, AX
+	CMOVQGE R12, DX
+	SUBQ    DX, R11
+	MOVQ    R11, DX
+	ADDQ    AX, DX
+	CMPQ    R11, $0x00
+	CMOVQLT DX, R11
+	MOVQ    R11, (R8)(R10*8)
+	ADDQ    $0x01, R10
+
+loop_end:
+	CMPQ R10, R9
+	JL   loop_body
+	RET
+
+// func scalarBMulLazyToX86(v0 []uint64, c uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
+// Requires: BMI2
+TEXT ·scalarBMulLazyToX86(SB), NOSPLIT, $0-80
+	MOVQ q+32(FP), AX
+	MOVQ divHi+40(FP), CX
+	MOVQ divLo+48(FP), BX
+	MOVQ c+24(FP), SI
+	MOVQ v0_base+0(FP), DI
+	MOVQ vOut_base+56(FP), R8
+	MOVQ vOut_len+64(FP), R9
+	XORQ R10, R10
+	JMP  loop_end
+
+loop_body:
+	MOVQ  (DI)(R10*8), DX
+	MULXQ SI, R12, R11
+	MOVQ  R11, R13
+	IMULQ CX, R13
+	MOVQ  R12, DX
+	MULXQ CX, R15, R14
+	ADDQ  R14, R13
+	MULXQ BX, DX, R14
+	MOVQ  R11, DX
+	MULXQ BX, R11, DX
+	ADDQ  DX, R13
+	ADDQ  R15, R14
+	ADCQ  $0x00, R13
+	ADDQ  R11, R14
+	ADCQ  $0x00, R13
+	IMULQ AX, R13
+	MOVQ  R12, DX
+	SUBQ  R13, DX
+	MOVQ  DX, (R8)(R10*8)
+	ADDQ  $0x01, R10
+
+loop_end:
+	CMPQ R10, R9
+	JL   loop_body
+	RET
+
+// func scalarBMulAddLazyToX86(v0 []uint64, c uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
+// Requires: BMI2
+TEXT ·scalarBMulAddLazyToX86(SB), NOSPLIT, $8-80
+	MOVQ q+32(FP), AX
+	MOVQ divHi+40(FP), CX
+	MOVQ divLo+48(FP), BX
+	MOVQ c+24(FP), SI
+	MOVQ v0_base+0(FP), DI
+	MOVQ vOut_base+56(FP), R8
+	MOVQ vOut_len+64(FP), R9
+	XORQ R10, R10
+	JMP  loop_end
+
+loop_body:
+	MOVQ  (DI)(R10*8), DX
+	MOVQ  (R8)(R10*8), R11
+	MULXQ SI, R13, R12
+	MOVQ  R12, R14
+	IMULQ CX, R14
+	MOVQ  R13, DX
+	MULXQ CX, BP, R15
+	ADDQ  R15, R14
+	MULXQ BX, DX, R15
+	MOVQ  R12, DX
+	MULXQ BX, R12, DX
+	ADDQ  DX, R14
+	ADDQ  BP, R15
+	ADCQ  $0x00, R14
+	ADDQ  R12, R15
+	ADCQ  $0x00, R14
+	IMULQ AX, R14
+	MOVQ  R13, DX
+	SUBQ  R14, DX
+	ADDQ  DX, R11
+	MOVQ  R11, (R8)(R10*8)
+	ADDQ  $0x01, R10
+
+loop_end:
+	CMPQ R10, R9
+	JL   loop_body
+	RET
+
+// func scalarBMulSubLazyToX86(v0 []uint64, c uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
+// Requires: BMI2
+TEXT ·scalarBMulSubLazyToX86(SB), NOSPLIT, $8-80
+	MOVQ q+32(FP), AX
+	MOVQ divHi+40(FP), CX
+	MOVQ divLo+48(FP), BX
+	MOVQ c+24(FP), SI
+	NEGQ SI
+	ADDQ AX, SI
+	MOVQ v0_base+0(FP), DI
+	MOVQ vOut_base+56(FP), R8
+	MOVQ vOut_len+64(FP), R9
+	XORQ R10, R10
+	JMP  loop_end
+
+loop_body:
+	MOVQ  (DI)(R10*8), DX
+	MOVQ  (R8)(R10*8), R11
+	MULXQ SI, R13, R12
+	MOVQ  R12, R14
+	IMULQ CX, R14
+	MOVQ  R13, DX
+	MULXQ CX, BP, R15
+	ADDQ  R15, R14
+	MULXQ BX, DX, R15
+	MOVQ  R12, DX
+	MULXQ BX, R12, DX
+	ADDQ  DX, R14
+	ADDQ  BP, R15
+	ADCQ  $0x00, R14
+	ADDQ  R12, R15
+	ADCQ  $0x00, R14
+	IMULQ AX, R14
+	MOVQ  R13, DX
+	SUBQ  R14, DX
+	ADDQ  DX, R11
+	MOVQ  R11, (R8)(R10*8)
+	ADDQ  $0x01, R10
+
+loop_end:
+	CMPQ R10, R9
+	JL   loop_body
+	RET
+
 // func bMulToX86(v0 []uint64, v1 []uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
 // Requires: BMI2, CMOV
 TEXT ·bMulToX86(SB), NOSPLIT, $0-96

@@ -35,6 +35,14 @@ func main() {
 		VecSubToAVX2(false)
 		VecSubToAVX2(true)
 
+		VecScalarBMulToX86(false, Mul)
+		VecScalarBMulToX86(false, MulAdd)
+		VecScalarBMulToX86(false, MulSub)
+
+		VecScalarBMulToX86(true, Mul)
+		VecScalarBMulToX86(true, MulAdd)
+		VecScalarBMulToX86(true, MulSub)
+
 		VecBMulToX86(false, Mul)
 		VecBMulToX86(false, MulAdd)
 		VecBMulToX86(false, MulSub)

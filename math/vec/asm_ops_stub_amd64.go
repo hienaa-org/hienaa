@@ -17,6 +17,24 @@ func subToAVX2(v0 []uint64, v1 []uint64, q uint64, vOut []uint64)
 func subLazyToAVX2(v0 []uint64, v1 []uint64, vOut []uint64)
 
 //go:noescape
+func scalarBMulToX86(v0 []uint64, c uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
+
+//go:noescape
+func scalarBMulAddToX86(v0 []uint64, c uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
+
+//go:noescape
+func scalarBMulSubToX86(v0 []uint64, c uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
+
+//go:noescape
+func scalarBMulLazyToX86(v0 []uint64, c uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
+
+//go:noescape
+func scalarBMulAddLazyToX86(v0 []uint64, c uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
+
+//go:noescape
+func scalarBMulSubLazyToX86(v0 []uint64, c uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
+
+//go:noescape
 func bMulToX86(v0 []uint64, v1 []uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
 
 //go:noescape

@@ -183,6 +183,105 @@ func VecSubToAVX2(isLazy bool) {
 	RET()
 }
 
+func VecScalarBMulToX86(isLazy bool, opType OpType) {
+	funcSignature := "func(v0 []uint64, c, q, divHi, divLo uint64, vOut []uint64)"
+	switch opType {
+	case Mul:
+		if isLazy {
+			TEXT("scalarBMulLazyToX86", NOSPLIT, funcSignature)
+		} else {
+			TEXT("scalarBMulToX86", NOSPLIT, funcSignature)
+		}
+	case MulAdd:
+		if isLazy {
+			TEXT("scalarBMulAddLazyToX86", NOSPLIT, funcSignature)
+		} else {
+			TEXT("scalarBMulAddToX86", NOSPLIT, funcSignature)
+		}
+	case MulSub:
+		if isLazy {
+			TEXT("scalarBMulSubLazyToX86", NOSPLIT, funcSignature)
+		} else {
+			TEXT("scalarBMulSubToX86", NOSPLIT, funcSignature)
+		}
+	}
+
+	Pragma("noescape")
+
+	q := Load(Param("q"), GP64())
+	divHi := Load(Param("divHi"), GP64())
+	divLo := Load(Param("divLo"), GP64())
+
+	c := Load(Param("c"), GP64())
+
+	if opType == MulSub && isLazy {
+		NEGQ(c)
+		ADDQ(q, c)
+	}
+
+	v0 := Load(Param("v0").Base(), GP64())
+	vOut := Load(Param("vOut").Base(), GP64())
+	N := Load(Param("vOut").Len(), GP64())
+
+	i := GP64()
+	XORQ(i, i)
+	JMP(LabelRef("loop_end"))
+	Label("loop_body")
+
+	x0 := reg.RDX
+	MOVQ(Mem{Base: v0, Index: i, Scale: 8}, x0)
+
+	xOut := GP64()
+	switch opType {
+	case MulAdd, MulSub:
+		MOVQ(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
+	}
+
+	xMulHi, xMulLo, xMul := GP64(), GP64(), GP64()
+	MULXQ(c, xMulLo, xMulHi)
+
+	if isLazy {
+		BModLazy(xMulHi, xMulLo, q, divHi, divLo, xMul)
+	} else {
+		BMod(xMulHi, xMulLo, q, divHi, divLo, xMul)
+	}
+
+	switch opType {
+	case Mul:
+		xOut = xMul
+	case MulAdd:
+		ADDQ(xMul, xOut)
+		if !isLazy {
+			subQ := GP64()
+			MOVQ(xOut, subQ)
+			SUBQ(q, subQ)
+			CMPQ(xOut, q)
+			CMOVQGE(subQ, xOut)
+		}
+	case MulSub:
+		if !isLazy {
+			SUBQ(xMul, xOut)
+			subQ := GP64()
+			MOVQ(xOut, subQ)
+			ADDQ(q, subQ)
+			CMPQ(xOut, Imm(0))
+			CMOVQLT(subQ, xOut)
+		} else {
+			ADDQ(xMul, xOut)
+		}
+	}
+
+	MOVQ(xOut, Mem{Base: vOut, Index: i, Scale: 8})
+
+	ADDQ(Imm(1), i)
+
+	Label("loop_end")
+	CMPQ(i, N)
+	JL(LabelRef("loop_body"))
+
+	RET()
+}
+
 func VecBMulToX86(isLazy bool, opType OpType) {
 	funcSignature := "func(v0, v1 []uint64, q, divHi, divLo uint64, vOut []uint64)"
 	switch opType {

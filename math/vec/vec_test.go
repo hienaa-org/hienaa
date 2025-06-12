@@ -73,6 +73,96 @@ func TestOps(t *testing.T) {
 		assert.Equal(t, vOutCheck, vOut)
 	})
 
+	t.Run("ScalarBMul", func(t *testing.T) {
+		ScalarBMulTo(v0, v1[0], q, vOut)
+		for i := 0; i < N; i++ {
+			vOutCheck[i] = num.BMul(v0[i], v1[0], q)
+		}
+		assert.Equal(t, vOutCheck, vOut)
+
+		assert.Less(t, slices.Max(vOut), q.Value())
+	})
+
+	t.Run("ScalarBMulAdd", func(t *testing.T) {
+		copy(vOut, vOutInit)
+		copy(vOutCheck, vOutInit)
+
+		ScalarBMulAddTo(v0, v1[0], q, vOut)
+		for i := 0; i < N; i++ {
+			vOutCheck[i] = num.Add(vOutCheck[i], num.BMul(v0[i], v1[0], q), q)
+		}
+		assert.Equal(t, vOutCheck, vOut)
+
+		assert.Less(t, slices.Max(vOut), q.Value())
+	})
+
+	t.Run("ScalarBMulSub", func(t *testing.T) {
+		copy(vOut, vOutInit)
+		copy(vOutCheck, vOutInit)
+
+		ScalarBMulSubTo(v0, v1[0], q, vOut)
+		for i := 0; i < N; i++ {
+			vOutCheck[i] = num.Sub(vOutCheck[i], num.BMul(v0[i], v1[0], q), q)
+		}
+		assert.Equal(t, vOutCheck, vOut)
+
+		assert.Less(t, slices.Max(vOut), q.Value())
+	})
+
+	t.Run("ScalarBMulLazy", func(t *testing.T) {
+		ScalarBMulLazyTo(v0, v1[0], q, vOut)
+		for i := 0; i < N; i++ {
+			vOutCheck[i] = num.BMulLazy(v0[i], v1[0], q)
+		}
+		assert.Equal(t, vOutCheck, vOut)
+
+		assert.Less(t, slices.Max(vOut), 2*q.Value())
+
+		for i := 0; i < N; i++ {
+			vOut[i] %= q.Value()
+			vOutCheck[i] = num.BMul(v0[i], v1[0], q)
+		}
+		assert.Equal(t, vOutCheck, vOut)
+	})
+
+	t.Run("ScalarBMulAddLazy", func(t *testing.T) {
+		copy(vOut, vOutInit)
+		copy(vOutCheck, vOutInit)
+
+		ScalarBMulAddLazyTo(v0, v1[0], q, vOut)
+		for i := 0; i < N; i++ {
+			vOutCheck[i] += num.BMulLazy(v0[i], v1[0], q)
+		}
+		assert.Equal(t, vOutCheck, vOut)
+
+		assert.Less(t, slices.Max(vOut), 3*q.Value())
+
+		for i := 0; i < N; i++ {
+			vOut[i] %= q.Value()
+			vOutCheck[i] = num.Add(vOutInit[i], num.BMul(v0[i], v1[0], q), q)
+		}
+		assert.Equal(t, vOutCheck, vOut)
+	})
+
+	t.Run("ScalarBMulSubLazy", func(t *testing.T) {
+		copy(vOut, vOutInit)
+		copy(vOutCheck, vOutInit)
+
+		ScalarBMulSubLazyTo(v0, v1[0], q, vOut)
+		for i := 0; i < N; i++ {
+			vOutCheck[i] += num.BMulLazy(v0[i], q.Value()-v1[0], q)
+		}
+		assert.Equal(t, vOutCheck, vOut)
+
+		assert.Less(t, slices.Max(vOut), 3*q.Value())
+
+		for i := 0; i < N; i++ {
+			vOut[i] %= q.Value()
+			vOutCheck[i] = num.Sub(vOutInit[i], num.BMul(v0[i], v1[0], q), q)
+		}
+		assert.Equal(t, vOutCheck, vOut)
+	})
+
 	t.Run("BMul", func(t *testing.T) {
 		BMulTo(v0, v1, q, vOut)
 		for i := 0; i < N; i++ {
@@ -378,6 +468,42 @@ func BenchmarkOps(b *testing.B) {
 	b.Run("SubLazy", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			SubLazyTo(v0, v1, vOut)
+		}
+	})
+
+	b.Run("ScalarBMul", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			ScalarBMulTo(v0, v1[0], q, vOut)
+		}
+	})
+
+	b.Run("ScalarBMulAdd", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			ScalarBMulAddTo(v0, v1[0], q, vOut)
+		}
+	})
+
+	b.Run("ScalarBMulSub", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			ScalarBMulSubTo(v0, v1[0], q, vOut)
+		}
+	})
+
+	b.Run("ScalarBMulLazy", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			ScalarBMulLazyTo(v0, v1[0], q, vOut)
+		}
+	})
+
+	b.Run("ScalarBMulAddLazy", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			ScalarBMulAddLazyTo(v0, v1[0], q, vOut)
+		}
+	})
+
+	b.Run("ScalarBMulSubLazy", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			ScalarBMulSubLazyTo(v0, v1[0], q, vOut)
 		}
 	})
 
