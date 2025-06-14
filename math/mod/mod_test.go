@@ -2,23 +2,23 @@ package mod_test
 
 import (
 	"math/big"
-	"math/rand"
 	"testing"
 
+	"github.com/hienaa-org/hienaa/math/csprng"
 	"github.com/hienaa-org/hienaa/math/mod"
 	"github.com/stretchr/testify/assert"
 )
 
 var (
-	rSrc = rand.New(rand.NewSource(0))
+	rSrc = csprng.NewUniformSamplerWithSeed(nil)
 )
 
 func TestReduce(t *testing.T) {
-	q := mod.NewModulus((rSrc.Uint64()>>10)<<1 + 1)
+	q := mod.NewModulus(rSrc.SampleN(mod.MaxModulus) | 1)
 
-	x64 := rSrc.Uint64()
-	x128Hi := rSrc.Uint64()
-	x128Lo := rSrc.Uint64()
+	x64 := rSrc.Sample()
+	x128Hi := rSrc.Sample()
+	x128Lo := rSrc.Sample()
 	x128 := new(big.Int).Lsh(new(big.Int).SetUint64(x128Hi), 64)
 	x128.Add(x128, new(big.Int).SetUint64(x128Lo))
 
@@ -33,9 +33,9 @@ func TestReduce(t *testing.T) {
 }
 
 func TestOps(t *testing.T) {
-	q := mod.NewModulus((rSrc.Uint64()>>4)<<1 + 1)
-	x0 := rSrc.Uint64() % q.Value()
-	x1 := rSrc.Uint64() % q.Value()
+	q := mod.NewModulus(rSrc.SampleN(mod.MaxModulus) | 1)
+	x0 := rSrc.SampleN(q.Value())
+	x1 := rSrc.SampleN(q.Value())
 
 	x0Big := new(big.Int).SetUint64(x0)
 	x1Big := new(big.Int).SetUint64(x1)
@@ -76,14 +76,14 @@ func TestOps(t *testing.T) {
 
 func BenchmarkMul(b *testing.B) {
 	N := 1 << 15
-	q := mod.NewModulus(rSrc.Uint64() >> 3)
+	q := mod.NewModulus(rSrc.SampleN(mod.MaxModulus) | 1)
 
 	v0 := make([]uint64, N)
 	v1 := make([]uint64, N)
 	vOut := make([]uint64, N)
 	for i := 0; i < N; i++ {
-		v0[i] = rSrc.Uint64()
-		v1[i] = rSrc.Uint64()
+		v0[i] = rSrc.SampleN(q.Value())
+		v1[i] = rSrc.SampleN(q.Value())
 	}
 
 	b.Run("Barrett", func(b *testing.B) {

@@ -6,8 +6,6 @@ import (
 	"crypto/rand"
 	"crypto/sha512"
 	"math"
-
-	"github.com/hienaa-org/hienaa/math/mod"
 )
 
 // bufSize is the default buffer size of [UniformSampler].
@@ -55,6 +53,13 @@ func NewUniformSamplerWithSeed(seed []byte) *UniformSampler {
 	}
 }
 
+// Read implements the [io.Reader] interface.
+// It always succeeds, with n == len(p) and err == nil.
+func (s *UniformSampler) Read(p []byte) (n int, err error) {
+	s.prng.XORKeyStream(p, p)
+	return len(p), nil
+}
+
 // Sample uniformly samples a random uint64 value.
 func (s *UniformSampler) Sample() uint64 {
 	if s.ptr == bufSize {
@@ -76,13 +81,13 @@ func (s *UniformSampler) Sample() uint64 {
 	return res
 }
 
-// SampleN uniformly samples a random uint64 value modulo q.
-func (s *UniformSampler) SampleMod(q *mod.Modulus) uint64 {
-	bound := math.MaxUint64 - mod.Reduce(math.MaxUint64, q)
+// SampleN uniformly samples a random uint64 value in [0, n).
+func (s *UniformSampler) SampleN(n uint64) uint64 {
+	bound := math.MaxUint64 - math.MaxUint64%n
 	for {
 		res := s.Sample()
 		if res < bound {
-			return mod.Reduce(res, q)
+			return res % n
 		}
 	}
 }

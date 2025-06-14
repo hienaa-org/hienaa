@@ -17,10 +17,13 @@ import (
 )
 
 const (
+	// MaxModulusBits equals to log2(MaxModulus).
+	// See [MaxModulus] for details.
+	MaxModulusBits = 62
 	// MaxModulus is the maximum possible modulus value for the reduction.
 	// All numbers in HEINAA are assumed to be less than this value.
 	// Currently, this is set to 60 bits, due to various lazy reduction used in NTT/InvNTT.
-	MaxModulus = 1 << 62
+	MaxModulus = 1 << MaxModulusBits
 )
 
 // Modulus holds precomputed constants for efficient modulus reduction.

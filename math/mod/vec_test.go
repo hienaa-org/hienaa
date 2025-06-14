@@ -9,9 +9,9 @@ import (
 )
 
 func TestVecOps(t *testing.T) {
-	q := mod.NewModulus(((rSrc.Uint64()%mod.MaxModulus)>>1)<<1 + 1)
+	q := mod.NewModulus(rSrc.SampleN(mod.MaxModulus) | 1)
 
-	N := rSrc.Int() % (1 << 16)
+	N := int(rSrc.SampleN(1 << 16))
 	v0 := make([]uint64, N)
 	v1 := make([]uint64, N)
 	vOut := make([]uint64, N)
@@ -19,9 +19,9 @@ func TestVecOps(t *testing.T) {
 	vOutInit := make([]uint64, N)
 
 	for i := 0; i < N; i++ {
-		v0[i] = rSrc.Uint64() % q.Value()
-		v1[i] = rSrc.Uint64() % q.Value()
-		vOutInit[i] = rSrc.Uint64() % q.Value()
+		v0[i] = rSrc.SampleN(q.Value())
+		v1[i] = rSrc.SampleN(q.Value())
+		vOutInit[i] = rSrc.SampleN(q.Value())
 	}
 
 	t.Run("Add", func(t *testing.T) {
@@ -430,7 +430,7 @@ func TestVecOps(t *testing.T) {
 
 	t.Run("Reduce", func(t *testing.T) {
 		for i := 0; i < N; i++ {
-			v0[i] = rSrc.Uint64()
+			v0[i] = rSrc.Sample()
 		}
 
 		mod.ReduceVecTo(v0, q, vOut)
@@ -442,7 +442,7 @@ func TestVecOps(t *testing.T) {
 }
 
 func BenchmarkVecOps(b *testing.B) {
-	q := mod.NewModulus(rSrc.Uint64() >> 3)
+	q := mod.NewModulus(rSrc.SampleN(mod.MaxModulus) | 1)
 
 	N := 1 << 15
 	v0 := make([]uint64, N)
@@ -450,8 +450,8 @@ func BenchmarkVecOps(b *testing.B) {
 	vOut := make([]uint64, N)
 
 	for i := 0; i < N; i++ {
-		v0[i] = rSrc.Uint64() % q.Value()
-		v1[i] = rSrc.Uint64() % q.Value()
+		v0[i] = rSrc.SampleN(q.Value())
+		v1[i] = rSrc.SampleN(q.Value())
 	}
 
 	b.Run("Add", func(b *testing.B) {

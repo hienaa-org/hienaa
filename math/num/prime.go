@@ -117,11 +117,7 @@ func factorRecurse(x uint64, factors map[uint64]uint64) {
 		}
 	}
 
-	if IsPrime(g) {
-		factors[g] += 1
-	} else {
-		factorRecurse(g, factors)
-	}
+	factorRecurse(g, factors)
 	factorRecurse(x/g, factors)
 }
 
