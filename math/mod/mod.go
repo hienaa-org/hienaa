@@ -18,6 +18,7 @@ import (
 
 const (
 	// MaxModulus is the maximum possible modulus value for the reduction.
+	// All numbers in HEINAA are assumed to be less than this value.
 	// Currently, this is set to 60 bits, due to various lazy reduction used in NTT/InvNTT.
 	MaxModulus = 1 << 62
 )
@@ -148,4 +149,24 @@ func MMul(x0M, x1M uint64, q *Modulus) uint64 {
 // but the result is in [0, 2q).
 func MMulLazy(x0M, y0M uint64, q *Modulus) uint64 {
 	return mMulLazy(x0M, y0M, q.modulus, q.inv)
+}
+
+// Exp computes x ** e mod q.
+func Exp(x, e uint64, q *Modulus) uint64 {
+	switch e {
+	case 0:
+		return 1
+	case 1:
+		return x
+	}
+
+	r := uint64(1)
+	for e > 0 {
+		if e&1 == 1 {
+			r = Mul(r, x, q)
+		}
+		e >>= 1
+		x = Mul(x, x, q)
+	}
+	return r
 }

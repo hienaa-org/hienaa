@@ -2,27 +2,27 @@ package mod
 
 import "math/bits"
 
-// add computes x + y mod q.
-func add(x, y, q uint64) uint64 {
-	xOut := x + y
+// add computes x0 + x1 mod q.
+func add(x0, x1, q uint64) uint64 {
+	xOut := x0 + x1
 	if xOut >= q {
 		xOut -= q
 	}
 	return xOut
 }
 
-// sub computes x - y mod q.
-func sub(x, y, q uint64) uint64 {
-	xOut := x - y
+// sub computes x0 - x1 mod q.
+func sub(x0, x1, q uint64) uint64 {
+	xOut := x0 - x1
 	if xOut >= q {
 		xOut += q
 	}
 	return xOut
 }
 
-// bMul computes x * y mod q using Barrett reduction.
-func bMul(x0, y0, q, divHi, divLo uint64) uint64 {
-	xOutHi, xOutLo := bits.Mul64(x0, y0)
+// bMul computes x0 * x1 mod q using Barrett reduction.
+func bMul(x0, x1, q, divHi, divLo uint64) uint64 {
+	xOutHi, xOutLo := bits.Mul64(x0, x1)
 
 	quo := xOutHi * divHi
 
@@ -47,10 +47,10 @@ func bMul(x0, y0, q, divHi, divLo uint64) uint64 {
 	return xOut
 }
 
-// bMulLazy computes x * y mod q using Barrett reduction,
+// bMulLazy computes x0 * x1 mod q using Barrett reduction,
 // but the result is in [0, 2q).
-func bMulLazy(x0, y0, q, divHi, divLo uint64) uint64 {
-	xOutHi, xOutLo := bits.Mul64(x0, y0)
+func bMulLazy(x0, x1, q, divHi, divLo uint64) uint64 {
+	xOutHi, xOutLo := bits.Mul64(x0, x1)
 
 	quo := xOutHi * divHi
 
