@@ -22,7 +22,7 @@ const (
 	MaxModulusBits = 62
 	// MaxModulus is the maximum possible modulus value for the reduction.
 	// All numbers in HEINAA are assumed to be less than this value.
-	// Currently, this is set to 60 bits, due to various lazy reduction used in NTT/InvNTT.
+	// Currently, this is set to 62 bits, due to various lazy reduction used in NTT/InvNTT.
 	MaxModulus = 1 << MaxModulusBits
 )
 
