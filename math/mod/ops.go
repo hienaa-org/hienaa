@@ -143,6 +143,7 @@ func mForm(x, q, divHi, divLo uint64) uint64 {
 // invMForm transforms xM to Normal form.
 func invMForm(xM, q, inv uint64) uint64 {
 	x, _ := bits.Mul64(xM*inv, q)
+
 	xOut := q - x
 	if xOut >= q {
 		xOut -= q
@@ -153,7 +154,6 @@ func invMForm(xM, q, inv uint64) uint64 {
 // mMul computes x0 * x1 mod q in Montgomery form.
 func mMul(x0M, x1M, q, inv uint64) uint64 {
 	xOutMHi, xOutMLo := bits.Mul64(x0M, x1M)
-
 	wHi, _ := bits.Mul64(xOutMLo*inv, q)
 
 	xOutM := xOutMHi - wHi + q
@@ -167,7 +167,6 @@ func mMul(x0M, x1M, q, inv uint64) uint64 {
 // but the result is in [0, 2q).
 func mMulLazy(x0M, x1M, q, inv uint64) uint64 {
 	xOutMHi, xOutMLo := bits.Mul64(x0M, x1M)
-
 	wHi, _ := bits.Mul64(xOutMLo*inv, q)
 
 	return xOutMHi - wHi + q
