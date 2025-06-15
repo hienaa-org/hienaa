@@ -24,7 +24,7 @@ jobs:
           go test ./math/mod -timeout=0 -count=1 -tags=purego
           GODEBUG=cpu.all=off go test ./math/mod -count=1
 
-      - name: Test math/mod
+      - name: Test math/num
         run: |
           go test ./math/num -timeout=0 -count=1
           go test ./math/num -timeout=0 -count=1 -tags=purego

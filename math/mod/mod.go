@@ -179,10 +179,10 @@ func Exp(x, e uint64, q *Modulus) uint64 {
 }
 
 // xgcd returns the extended GCD of x0 and x1.
-func xgcd(x0, x1 uint64) (g, s, t uint64) {
+func xgcd(x0, x1 int64) (g, s, t int64) {
 	rr, r := x0, x1
-	ss, s := uint64(1), uint64(0)
-	tt, t := uint64(0), uint64(1)
+	ss, s := int64(1), int64(0)
+	tt, t := int64(0), int64(1)
 
 	for r != 0 {
 		quo := rr / r
@@ -195,11 +195,12 @@ func xgcd(x0, x1 uint64) (g, s, t uint64) {
 
 // Inv returns the modular inverse of x modulo q.
 func Inv(x uint64, q *Modulus) uint64 {
-	g, s, _ := xgcd(x, q.modulus)
+	qs := int64(q.modulus)
+	g, s, _ := xgcd(int64(Reduce(x, q)), qs)
 	if g != 1 {
 		panic("Inv: x is not coprime to modulus")
 	}
 
-	r := Add(Reduce(s, q), q.modulus, q)
-	return r
+	r := ((s % qs) + qs) % qs
+	return uint64(r)
 }

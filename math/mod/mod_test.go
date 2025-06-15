@@ -48,14 +48,14 @@ func TestOps(t *testing.T) {
 		xAdd := mod.Add(x0, x1, q)
 		xAddBig := new(big.Int).Add(x0Big, x1Big)
 		xAddBig.Mod(xAddBig, qBig)
-		assert.Equal(t, xAdd, xAddBig.Uint64())
+		assert.Equal(t, xAddBig.Uint64(), xAdd)
 	})
 
 	t.Run("Sub", func(t *testing.T) {
 		xSub := mod.Sub(x0, x1, q)
 		xSubBig := new(big.Int).Sub(x0Big, x1Big)
 		xSubBig.Mod(xSubBig, qBig)
-		assert.Equal(t, xSub, xSubBig.Uint64())
+		assert.Equal(t, xSubBig.Uint64(), xSub)
 	})
 
 	xMulBig := new(big.Int).Mul(x0Big, x1Big)
@@ -63,7 +63,7 @@ func TestOps(t *testing.T) {
 
 	t.Run("Barrett", func(t *testing.T) {
 		xMul := mod.Mul(x0, x1, q)
-		assert.Equal(t, xMul, xMulBig.Uint64())
+		assert.Equal(t, xMulBig.Uint64(), xMul)
 	})
 
 	t.Run("Montgomery", func(t *testing.T) {
@@ -71,19 +71,19 @@ func TestOps(t *testing.T) {
 		x1M := mod.MForm(x1, q)
 		xMulM := mod.MMul(x0M, x1M, q)
 		xMul := mod.InvMForm(xMulM, q)
-		assert.Equal(t, xMul, xMulBig.Uint64())
+		assert.Equal(t, xMulBig.Uint64(), xMul)
 	})
 
 	t.Run("Exp", func(t *testing.T) {
 		xExp := mod.Exp(x0, x1, q)
 		xExpBig := new(big.Int).Exp(x0Big, x1Big, qBig)
-		assert.Equal(t, xExp, xExpBig.Uint64())
+		assert.Equal(t, xExpBig.Uint64(), xExp)
 	})
 
 	t.Run("Inv", func(t *testing.T) {
 		xInv := mod.Inv(x0, q)
 		xInvBig := new(big.Int).ModInverse(x0Big, qBig)
-		assert.Equal(t, xInv, xInvBig.Uint64())
+		assert.Equal(t, xInvBig.Uint64(), xInv)
 	})
 }
 
