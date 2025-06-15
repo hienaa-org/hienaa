@@ -16,27 +16,34 @@ var (
 // IsPrime checks if x is prime.
 // 0 and 1 are not considered prime.
 func IsPrime(x uint64) bool {
-	if x == 0 || x == 1 {
+	return IsPrimeModulus(mod.NewModulus(x))
+}
+
+// IsPrimeModulus checks of x is prime.
+// 0 and 1 are not considered prime.
+func IsPrimeModulus(x *mod.Modulus) bool {
+	xv := x.Value()
+
+	if xv == 0 || xv == 1 {
 		return false
 	}
 
 	for _, p := range smallPrimes {
-		if x%p == 0 {
+		if xv%p == 0 {
 			return false
 		}
 	}
 
-	s := bits.TrailingZeros64(x - 1)
-	d := (x - 1) >> s
-	m := mod.NewModulus(x)
+	s := bits.TrailingZeros64(xv - 1)
+	d := (xv - 1) >> s
 
 	tests := []uint64{2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37}
 	for _, a := range tests {
-		n := mod.Exp(a, d, m)
+		n := mod.Exp(a, d, x)
 		var y uint64
 		for i := 0; i < s; i++ {
-			y = mod.Mul(n, n, m)
-			if y == 1 && n != 1 && n != x-1 {
+			y = mod.Mul(n, n, x)
+			if y == 1 && n != 1 && n != xv-1 {
 				return false
 			}
 			n = y
@@ -47,6 +54,29 @@ func IsPrime(x uint64) bool {
 	}
 
 	return true
+}
+
+// IsPowerOf checks if x can be expressed as a product of the powers of given factors.
+func IsPowerOf(x uint64, factors []uint64) bool {
+	for _, f := range factors {
+		if f == 0 {
+			continue
+		}
+		for x%f == 0 {
+			x /= f
+		}
+	}
+	return x == 1
+}
+
+// NextPower returns the next number of x that can be expressed as
+// a product of the powers of given factors.
+func NextPower(x uint64, factors []uint64) uint64 {
+	xNext := x + 1
+	for !IsPowerOf(xNext, factors) {
+		xNext++
+	}
+	return xNext
 }
 
 // Factor factors x.
@@ -132,4 +162,28 @@ func subAbs(x, y uint64) uint64 {
 // randUint64n returns random uint64 in [0, n).
 func randUint64n(n uint64) uint64 {
 	return uint64(rand.Int63n(int64(n)))
+}
+
+// Order returns the multiplicative order of x modulo q.
+func Order(x uint64, q *mod.Modulus) uint64 {
+	ord := uint64(1)
+	acc := mod.Reduce(x, q)
+	for acc != 1 {
+		acc = mod.Mul(acc, x, q)
+		ord += 1
+	}
+	return ord
+}
+
+// EulerPhi returns the Euler-Phi function of x.
+func EulerPhi(x uint64) uint64 {
+	if x == 0 || x == 1 {
+		return x
+	}
+
+	phi := x
+	for f := range Factor(x) {
+		phi -= phi / f
+	}
+	return phi
 }

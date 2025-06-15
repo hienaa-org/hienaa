@@ -12,8 +12,7 @@
 package mod
 
 import (
-	"encoding/binary"
-	"math/big"
+	"math/bits"
 )
 
 const (
@@ -70,28 +69,34 @@ func NewModulus(modulus uint64) *Modulus {
 		panic("NewModulus: modulus exceeds MaxModulus")
 	}
 
-	exp128, exp64 := big.NewInt(1), big.NewInt(1)
-	exp128.Lsh(exp128, 128)
-	exp64.Lsh(exp64, 64)
+	// 2^64 = q * x + r
+	// 2^128 = 2^64 * q * x + 2^64 * r
+	//       = 2^64 * q * x + (q * x + r) * r
+	//       = (2^64 * q + q * r) * x + r^2
+	divHi, rem := bits.Div64(1, 0, modulus)
+	quoRemHi, divLo := bits.Mul64(divHi, rem)
+	divHi += quoRemHi
+	remSqHi, remSqLo := bits.Mul64(rem, rem)
+	remSqQuo, _ := bits.Div64(remSqHi, remSqLo, modulus)
+	divLo += remSqQuo
 
-	modulusbig := new(big.Int).SetUint64(modulus)
-
-	modulusInvBig := big.NewInt(0)
+	var inv uint64
 	if modulus%2 != 0 {
-		modulusInvBig.ModInverse(modulusbig, exp64)
+		inv = 1
+		acc := modulus
+		for i := 0; i < 63; i++ {
+			inv *= acc
+			acc *= acc
+		}
 	}
-
-	var barConstBytes [16]byte
-	barConstBig := new(big.Int).Div(exp128, modulusbig)
-	barConstBig.FillBytes(barConstBytes[:])
 
 	return &Modulus{
 		modulus: modulus,
 
-		inv: modulusInvBig.Uint64(),
+		inv: inv,
 
-		divHi: binary.BigEndian.Uint64(barConstBytes[:8]),
-		divLo: binary.BigEndian.Uint64(barConstBytes[8:]),
+		divHi: divHi,
+		divLo: divLo,
 	}
 }
 
@@ -153,7 +158,7 @@ func MMulLazy(x0M, y0M uint64, q *Modulus) uint64 {
 	return mMulLazy(x0M, y0M, q.modulus, q.inv)
 }
 
-// Exp computes x ** e mod q.
+// Exp returns x ** e mod q.
 func Exp(x, e uint64, q *Modulus) uint64 {
 	switch e {
 	case 0:
@@ -170,5 +175,31 @@ func Exp(x, e uint64, q *Modulus) uint64 {
 		e >>= 1
 		x = Mul(x, x, q)
 	}
+	return r
+}
+
+// xgcd returns the extended GCD of x0 and x1.
+func xgcd(x0, x1 uint64) (g, s, t uint64) {
+	rr, r := x0, x1
+	ss, s := uint64(1), uint64(0)
+	tt, t := uint64(0), uint64(1)
+
+	for r != 0 {
+		quo := rr / r
+		rr, r = r, rr-quo*r
+		ss, s = s, ss-quo*s
+		tt, t = t, tt-quo*t
+	}
+	return rr, ss, tt
+}
+
+// Inv returns the modular inverse of x modulo q.
+func Inv(x uint64, q *Modulus) uint64 {
+	g, s, _ := xgcd(x, q.modulus)
+	if g != 1 {
+		panic("Inv: x is not coprime to modulus")
+	}
+
+	r := Add(Reduce(s, q), q.modulus, q)
 	return r
 }

@@ -19,7 +19,7 @@ func Log2(x uint64) int {
 	return int(bits.Len64(x)) - 1
 }
 
-// GCD computes the greatest common divisor of x0 and x1.
+// GCD returns the greatest common divisor of x0 and x1.
 func GCD(x0, x1 uint64) uint64 {
 	switch {
 	case x0 == 0:

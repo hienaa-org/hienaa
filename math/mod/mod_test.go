@@ -1,6 +1,7 @@
 package mod_test
 
 import (
+	"crypto/rand"
 	"math/big"
 	"testing"
 
@@ -33,32 +34,32 @@ func TestReduce(t *testing.T) {
 }
 
 func TestOps(t *testing.T) {
-	q := mod.NewModulus(rSrc.SampleN(mod.MaxModulus) | 1)
+	qBig, err := rand.Prime(rSrc, mod.MaxModulusBits)
+	assert.NoError(t, err)
+
+	q := mod.NewModulus(qBig.Uint64())
 	x0 := rSrc.SampleN(q.Value())
 	x1 := rSrc.SampleN(q.Value())
 
 	x0Big := new(big.Int).SetUint64(x0)
 	x1Big := new(big.Int).SetUint64(x1)
-	qBig := new(big.Int).SetUint64(q.Value())
-
-	xAddBig := new(big.Int).Add(x0Big, x1Big)
-	xAddBig.Mod(xAddBig, qBig)
-
-	xSubBig := new(big.Int).Sub(x0Big, x1Big)
-	xSubBig.Mod(xSubBig, qBig)
-
-	xMulBig := new(big.Int).Mul(x0Big, x1Big)
-	xMulBig.Mod(xMulBig, qBig)
 
 	t.Run("Add", func(t *testing.T) {
 		xAdd := mod.Add(x0, x1, q)
+		xAddBig := new(big.Int).Add(x0Big, x1Big)
+		xAddBig.Mod(xAddBig, qBig)
 		assert.Equal(t, xAdd, xAddBig.Uint64())
 	})
 
 	t.Run("Sub", func(t *testing.T) {
 		xSub := mod.Sub(x0, x1, q)
+		xSubBig := new(big.Int).Sub(x0Big, x1Big)
+		xSubBig.Mod(xSubBig, qBig)
 		assert.Equal(t, xSub, xSubBig.Uint64())
 	})
+
+	xMulBig := new(big.Int).Mul(x0Big, x1Big)
+	xMulBig.Mod(xMulBig, qBig)
 
 	t.Run("Barrett", func(t *testing.T) {
 		xMul := mod.Mul(x0, x1, q)
@@ -71,6 +72,18 @@ func TestOps(t *testing.T) {
 		xMulM := mod.MMul(x0M, x1M, q)
 		xMul := mod.InvMForm(xMulM, q)
 		assert.Equal(t, xMul, xMulBig.Uint64())
+	})
+
+	t.Run("Exp", func(t *testing.T) {
+		xExp := mod.Exp(x0, x1, q)
+		xExpBig := new(big.Int).Exp(x0Big, x1Big, qBig)
+		assert.Equal(t, xExp, xExpBig.Uint64())
+	})
+
+	t.Run("Inv", func(t *testing.T) {
+		xInv := mod.Inv(x0, q)
+		xInvBig := new(big.Int).ModInverse(x0Big, qBig)
+		assert.Equal(t, xInv, xInvBig.Uint64())
 	})
 }
 
