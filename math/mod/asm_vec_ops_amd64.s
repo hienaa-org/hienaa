@@ -4,16 +4,12 @@
 
 #include "textflag.h"
 
-DATA ONE<>+0(SB)/8, $0x0000000000000001
-GLOBL ONE<>(SB), RODATA|NOPTR, $8
-
 // func addVecToAVX2(v0 []uint64, v1 []uint64, q uint64, vOut []uint64)
 // Requires: AVX, AVX2, CMOV
 TEXT ·addVecToAVX2(SB), NOSPLIT, $0-80
+	VPCMPEQQ     Y0, Y0, Y0
 	MOVQ         q+48(FP), AX
-	VPBROADCASTQ q+48(FP), Y0
-	VPBROADCASTQ ONE<>+0(SB), Y1
-	VPSUBQ       Y1, Y0, Y1
+	VPBROADCASTQ q+48(FP), Y1
 	MOVQ         v0_base+0(FP), CX
 	MOVQ         v1_base+24(FP), DX
 	MOVQ         vOut_base+56(FP), BX
@@ -28,8 +24,9 @@ loop_body:
 	VMOVDQU  (CX)(R8*8), Y2
 	VMOVDQU  (DX)(R8*8), Y3
 	VPADDQ   Y3, Y2, Y2
-	VPCMPGTQ Y1, Y2, Y3
-	VPAND    Y0, Y3, Y3
+	VPCMPGTQ Y2, Y1, Y3
+	VPXOR    Y0, Y3, Y3
+	VPAND    Y1, Y3, Y3
 	VPSUBQ   Y3, Y2, Y2
 	VMOVDQU  Y2, (BX)(R8*8)
 	ADDQ     $0x04, R8
@@ -58,15 +55,16 @@ leftover_loop_end:
 // func addLazyVecToAVX2(v0 []uint64, v1 []uint64, vOut []uint64)
 // Requires: AVX, AVX2
 TEXT ·addLazyVecToAVX2(SB), NOSPLIT, $0-72
-	MOVQ v0_base+0(FP), AX
-	MOVQ v1_base+24(FP), CX
-	MOVQ vOut_base+48(FP), DX
-	MOVQ vOut_len+56(FP), BX
-	MOVQ BX, SI
-	SHRQ $0x02, SI
-	SHLQ $0x02, SI
-	XORQ DI, DI
-	JMP  loop_end
+	VPCMPEQQ Y0, Y0, Y0
+	MOVQ     v0_base+0(FP), AX
+	MOVQ     v1_base+24(FP), CX
+	MOVQ     vOut_base+48(FP), DX
+	MOVQ     vOut_len+56(FP), BX
+	MOVQ     BX, SI
+	SHRQ     $0x02, SI
+	SHLQ     $0x02, SI
+	XORQ     DI, DI
+	JMP      loop_end
 
 loop_body:
 	VMOVDQU (AX)(DI*8), Y0
@@ -95,8 +93,9 @@ leftover_loop_end:
 // func subVecToAVX2(v0 []uint64, v1 []uint64, q uint64, vOut []uint64)
 // Requires: AVX, AVX2, CMOV
 TEXT ·subVecToAVX2(SB), NOSPLIT, $0-80
+	VPXOR        Y0, Y0, Y0
 	MOVQ         q+48(FP), AX
-	VPBROADCASTQ q+48(FP), Y0
+	VPBROADCASTQ q+48(FP), Y1
 	MOVQ         v0_base+0(FP), CX
 	MOVQ         v1_base+24(FP), DX
 	MOVQ         vOut_base+56(FP), BX
@@ -104,7 +103,6 @@ TEXT ·subVecToAVX2(SB), NOSPLIT, $0-80
 	MOVQ         SI, DI
 	SHRQ         $0x02, DI
 	SHLQ         $0x02, DI
-	VPXOR        Y1, Y1, Y1
 	XORQ         R8, R8
 	JMP          loop_end
 
@@ -112,8 +110,8 @@ loop_body:
 	VMOVDQU  (CX)(R8*8), Y2
 	VMOVDQU  (DX)(R8*8), Y3
 	VPSUBQ   Y3, Y2, Y2
-	VPCMPGTQ Y2, Y1, Y3
-	VPAND    Y0, Y3, Y3
+	VPCMPGTQ Y2, Y0, Y3
+	VPAND    Y1, Y3, Y3
 	VPADDQ   Y3, Y2, Y2
 	VMOVDQU  Y2, (BX)(R8*8)
 	ADDQ     $0x04, R8
@@ -142,6 +140,7 @@ leftover_loop_end:
 // func subLazyVecToAVX2(v0 []uint64, v1 []uint64, vOut []uint64)
 // Requires: AVX, AVX2
 TEXT ·subLazyVecToAVX2(SB), NOSPLIT, $0-72
+	VPXOR Y0, Y0, Y0
 	MOVQ  v0_base+0(FP), AX
 	MOVQ  v1_base+24(FP), CX
 	MOVQ  vOut_base+48(FP), DX
@@ -149,7 +148,6 @@ TEXT ·subLazyVecToAVX2(SB), NOSPLIT, $0-72
 	MOVQ  BX, SI
 	SHRQ  $0x02, SI
 	SHLQ  $0x02, SI
-	VPXOR Y0, Y0, Y0
 	XORQ  DI, DI
 	JMP   loop_end
 

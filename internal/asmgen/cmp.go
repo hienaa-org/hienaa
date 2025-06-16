@@ -13,20 +13,16 @@ func LessThanAVX2(x, y, cmpOut reg.VecVirtual) {
 	VPCMPGTQ(x, y, cmpOut)
 }
 
-func LessOrEqualThanAVX2(x, y, cmpOut reg.VecVirtual) {
-	ltOut, eqOut := YMM(), YMM()
-	LessThanAVX2(x, y, ltOut)
-	EqualAVX2(x, y, eqOut)
-	VPOR(ltOut, eqOut, cmpOut)
+func LessOrEqualThanAVX2(x, y, allOne, cmpOut reg.VecVirtual) {
+	GreaterThanAVX2(x, y, cmpOut)
+	VPXOR(allOne, cmpOut, cmpOut)
 }
 
 func GreaterThanAVX2(x, y, cmpOut reg.VecVirtual) {
 	VPCMPGTQ(y, x, cmpOut)
 }
 
-func GreaterOrEqualThanAVX2(x, y, cmpOut reg.VecVirtual) {
-	gtOut, eqOut := YMM(), YMM()
-	GreaterThanAVX2(x, y, gtOut)
-	EqualAVX2(x, y, eqOut)
-	VPOR(gtOut, eqOut, cmpOut)
+func GreaterOrEqualThanAVX2(x, y, allOne, cmpOut reg.VecVirtual) {
+	LessThanAVX2(x, y, cmpOut)
+	VPXOR(allOne, cmpOut, cmpOut)
 }

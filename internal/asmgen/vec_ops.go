@@ -6,10 +6,6 @@ import (
 	"github.com/mmcloughlin/avo/reg"
 )
 
-func VecOpConstants() {
-	ConstData("ONE", U64(1))
-}
-
 func AddVecToAVX2(isLazy bool) {
 	if isLazy {
 		TEXT("addLazyVecToAVX2", NOSPLIT, "func(v0, v1, vOut []uint64)")
@@ -18,19 +14,15 @@ func AddVecToAVX2(isLazy bool) {
 	}
 	Pragma("noescape")
 
+	allOne := YMM()
+	VPCMPEQQ(allOne, allOne, allOne)
+
 	var q reg.Register
-	var qv, qvNegOne reg.VecVirtual
+	var qv reg.VecVirtual
 	if !isLazy {
 		q = Load(Param("q"), GP64())
-
 		qv = YMM()
 		VPBROADCASTQ(NewParamAddr("q", 48), qv)
-
-		one := YMM()
-		VPBROADCASTQ(NewDataAddr(NewStaticSymbol("ONE"), 0), one)
-
-		qvNegOne = YMM()
-		VPSUBQ(one, qv, qvNegOne)
 	}
 
 	v0 := Load(Param("v0").Base(), GP64())
@@ -57,7 +49,7 @@ func AddVecToAVX2(isLazy bool) {
 
 	if !isLazy {
 		subQ := YMM()
-		GreaterThanAVX2(xOut, qvNegOne, subQ)
+		GreaterOrEqualThanAVX2(xOut, qv, allOne, subQ)
 		VPAND(qv, subQ, subQ)
 		VPSUBQ(subQ, xOut, xOut)
 	}
@@ -106,11 +98,13 @@ func SubVecToAVX2(isLazy bool) {
 	}
 	Pragma("noescape")
 
+	zero := YMM()
+	VPXOR(zero, zero, zero)
+
 	var q reg.Register
 	var qv reg.VecVirtual
 	if !isLazy {
 		q = Load(Param("q"), GP64())
-
 		qv = YMM()
 		VPBROADCASTQ(NewParamAddr("q", 48), qv)
 	}
@@ -124,9 +118,6 @@ func SubVecToAVX2(isLazy bool) {
 	MOVQ(N, M)
 	SHRQ(Imm(2), M)
 	SHLQ(Imm(2), M)
-
-	zero := YMM()
-	VPXOR(zero, zero, zero)
 
 	i := GP64()
 	XORQ(i, i)

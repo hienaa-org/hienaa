@@ -27,8 +27,6 @@ func main() {
 	Constraint(buildtags.Not("purego"))
 
 	if *vec {
-		VecOpConstants()
-
 		AddVecToAVX2(false)
 		AddVecToAVX2(true)
 
