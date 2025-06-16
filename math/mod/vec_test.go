@@ -107,7 +107,7 @@ func TestVecOps(t *testing.T) {
 	t.Run("ScalarMulLazy", func(t *testing.T) {
 		mod.ScalarMulLazyVecTo(v0, v1[0], q, vOut)
 		for i := 0; i < N; i++ {
-			vOutCheck[i] = mod.MulLazy(v0[i], v1[0], q)
+			vOutCheck[i] = mod.SMulLazy(v0[i], v1[0], mod.SForm(v1[0], q), q)
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
@@ -126,7 +126,7 @@ func TestVecOps(t *testing.T) {
 
 		mod.ScalarMulAddLazyVecTo(v0, v1[0], q, vOut)
 		for i := 0; i < N; i++ {
-			vOutCheck[i] += mod.MulLazy(v0[i], v1[0], q)
+			vOutCheck[i] += mod.SMulLazy(v0[i], v1[0], mod.SForm(v1[0], q), q)
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
@@ -145,7 +145,7 @@ func TestVecOps(t *testing.T) {
 
 		mod.ScalarMulSubLazyVecTo(v0, v1[0], q, vOut)
 		for i := 0; i < N; i++ {
-			vOutCheck[i] += mod.MulLazy(v0[i], q.Value()-v1[0], q)
+			vOutCheck[i] += mod.SMulLazy(v0[i], q.Value()-v1[0], mod.SForm(q.Value()-v1[0], q), q)
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
@@ -154,96 +154,6 @@ func TestVecOps(t *testing.T) {
 		for i := 0; i < N; i++ {
 			vOut[i] %= q.Value()
 			vOutCheck[i] = mod.Sub(vOutInit[i], mod.Mul(v0[i], v1[0], q), q)
-		}
-		assert.Equal(t, vOutCheck, vOut)
-	})
-
-	t.Run("Mul", func(t *testing.T) {
-		mod.MulVecTo(v0, v1, q, vOut)
-		for i := 0; i < N; i++ {
-			vOutCheck[i] = mod.Mul(v0[i], v1[i], q)
-		}
-		assert.Equal(t, vOutCheck, vOut)
-
-		assert.Less(t, slices.Max(vOut), q.Value())
-	})
-
-	t.Run("MulAdd", func(t *testing.T) {
-		copy(vOut, vOutInit)
-		copy(vOutCheck, vOutInit)
-
-		mod.MulAddVecTo(v0, v1, q, vOut)
-		for i := 0; i < N; i++ {
-			vOutCheck[i] = mod.Add(vOutCheck[i], mod.Mul(v0[i], v1[i], q), q)
-		}
-		assert.Equal(t, vOutCheck, vOut)
-
-		assert.Less(t, slices.Max(vOut), 2*q.Value())
-	})
-
-	t.Run("MulSub", func(t *testing.T) {
-		copy(vOut, vOutInit)
-		copy(vOutCheck, vOutInit)
-
-		mod.MulSubVecTo(v0, v1, q, vOut)
-		for i := 0; i < N; i++ {
-			vOutCheck[i] = mod.Sub(vOutCheck[i], mod.Mul(v0[i], v1[i], q), q)
-		}
-		assert.Equal(t, vOutCheck, vOut)
-
-		assert.Less(t, slices.Max(vOut), 2*q.Value())
-	})
-
-	t.Run("MulLazy", func(t *testing.T) {
-		mod.MulLazyVecTo(v0, v1, q, vOut)
-		for i := 0; i < N; i++ {
-			vOutCheck[i] = mod.MulLazy(v0[i], v1[i], q)
-		}
-		assert.Equal(t, vOutCheck, vOut)
-
-		assert.Less(t, slices.Max(vOut), 2*q.Value())
-
-		for i := 0; i < N; i++ {
-			vOut[i] %= q.Value()
-			vOutCheck[i] = mod.Mul(v0[i], v1[i], q)
-		}
-		assert.Equal(t, vOutCheck, vOut)
-	})
-
-	t.Run("MulAddLazy", func(t *testing.T) {
-		copy(vOut, vOutInit)
-		copy(vOutCheck, vOutInit)
-
-		mod.MulAddLazyVecTo(v0, v1, q, vOut)
-		for i := 0; i < N; i++ {
-			vOutCheck[i] += mod.MulLazy(v0[i], v1[i], q)
-		}
-		assert.Equal(t, vOutCheck, vOut)
-
-		assert.Less(t, slices.Max(vOut), 3*q.Value())
-
-		for i := 0; i < N; i++ {
-			vOut[i] %= q.Value()
-			vOutCheck[i] = mod.Add(vOutInit[i], mod.Mul(v0[i], v1[i], q), q)
-		}
-		assert.Equal(t, vOutCheck, vOut)
-	})
-
-	t.Run("MulSubLazy", func(t *testing.T) {
-		copy(vOut, vOutInit)
-		copy(vOutCheck, vOutInit)
-
-		mod.MulSubLazyVecTo(v0, v1, q, vOut)
-		for i := 0; i < N; i++ {
-			vOutCheck[i] += mod.MulLazy(q.Value()-v0[i], v1[i], q)
-		}
-		assert.Equal(t, vOutCheck, vOut)
-
-		assert.Less(t, slices.Max(vOut), 3*q.Value())
-
-		for i := 0; i < N; i++ {
-			vOut[i] %= q.Value()
-			vOutCheck[i] = mod.Sub(vOutInit[i], mod.Mul(v0[i], v1[i], q), q)
 		}
 		assert.Equal(t, vOutCheck, vOut)
 	})
@@ -334,6 +244,96 @@ func TestVecOps(t *testing.T) {
 		for i := 0; i < N; i++ {
 			vOut[i] %= q.Value()
 			vOutCheck[i] = mod.Sub(vOutInit[i], mod.MMul(v0[i], v1[0], q), q)
+		}
+		assert.Equal(t, vOutCheck, vOut)
+	})
+
+	t.Run("Mul", func(t *testing.T) {
+		mod.MulVecTo(v0, v1, q, vOut)
+		for i := 0; i < N; i++ {
+			vOutCheck[i] = mod.Mul(v0[i], v1[i], q)
+		}
+		assert.Equal(t, vOutCheck, vOut)
+
+		assert.Less(t, slices.Max(vOut), q.Value())
+	})
+
+	t.Run("MulAdd", func(t *testing.T) {
+		copy(vOut, vOutInit)
+		copy(vOutCheck, vOutInit)
+
+		mod.MulAddVecTo(v0, v1, q, vOut)
+		for i := 0; i < N; i++ {
+			vOutCheck[i] = mod.Add(vOutCheck[i], mod.Mul(v0[i], v1[i], q), q)
+		}
+		assert.Equal(t, vOutCheck, vOut)
+
+		assert.Less(t, slices.Max(vOut), 2*q.Value())
+	})
+
+	t.Run("MulSub", func(t *testing.T) {
+		copy(vOut, vOutInit)
+		copy(vOutCheck, vOutInit)
+
+		mod.MulSubVecTo(v0, v1, q, vOut)
+		for i := 0; i < N; i++ {
+			vOutCheck[i] = mod.Sub(vOutCheck[i], mod.Mul(v0[i], v1[i], q), q)
+		}
+		assert.Equal(t, vOutCheck, vOut)
+
+		assert.Less(t, slices.Max(vOut), 2*q.Value())
+	})
+
+	t.Run("MulLazy", func(t *testing.T) {
+		mod.MulLazyVecTo(v0, v1, q, vOut)
+		for i := 0; i < N; i++ {
+			vOutCheck[i] = mod.MulLazy(v0[i], v1[i], q)
+		}
+		assert.Equal(t, vOutCheck, vOut)
+
+		assert.Less(t, slices.Max(vOut), 2*q.Value())
+
+		for i := 0; i < N; i++ {
+			vOut[i] %= q.Value()
+			vOutCheck[i] = mod.Mul(v0[i], v1[i], q)
+		}
+		assert.Equal(t, vOutCheck, vOut)
+	})
+
+	t.Run("MulAddLazy", func(t *testing.T) {
+		copy(vOut, vOutInit)
+		copy(vOutCheck, vOutInit)
+
+		mod.MulAddLazyVecTo(v0, v1, q, vOut)
+		for i := 0; i < N; i++ {
+			vOutCheck[i] += mod.MulLazy(v0[i], v1[i], q)
+		}
+		assert.Equal(t, vOutCheck, vOut)
+
+		assert.Less(t, slices.Max(vOut), 3*q.Value())
+
+		for i := 0; i < N; i++ {
+			vOut[i] %= q.Value()
+			vOutCheck[i] = mod.Add(vOutInit[i], mod.Mul(v0[i], v1[i], q), q)
+		}
+		assert.Equal(t, vOutCheck, vOut)
+	})
+
+	t.Run("MulSubLazy", func(t *testing.T) {
+		copy(vOut, vOutInit)
+		copy(vOutCheck, vOutInit)
+
+		mod.MulSubLazyVecTo(v0, v1, q, vOut)
+		for i := 0; i < N; i++ {
+			vOutCheck[i] += mod.MulLazy(q.Value()-v0[i], v1[i], q)
+		}
+		assert.Equal(t, vOutCheck, vOut)
+
+		assert.Less(t, slices.Max(vOut), 3*q.Value())
+
+		for i := 0; i < N; i++ {
+			vOut[i] %= q.Value()
+			vOutCheck[i] = mod.Sub(vOutInit[i], mod.Mul(v0[i], v1[i], q), q)
 		}
 		assert.Equal(t, vOutCheck, vOut)
 	})
@@ -514,42 +514,6 @@ func BenchmarkVecOps(b *testing.B) {
 		}
 	})
 
-	b.Run("Mul", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.MulVecTo(v0, v1, q, vOut)
-		}
-	})
-
-	b.Run("MulAdd", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.MulAddVecTo(v0, v1, q, vOut)
-		}
-	})
-
-	b.Run("MulSub", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.MulSubVecTo(v0, v1, q, vOut)
-		}
-	})
-
-	b.Run("MulLazy", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.MulLazyVecTo(v0, v1, q, vOut)
-		}
-	})
-
-	b.Run("MulAddLazy", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.MulAddLazyVecTo(v0, v1, q, vOut)
-		}
-	})
-
-	b.Run("MulSubLazy", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.MulSubLazyVecTo(v0, v1, q, vOut)
-		}
-	})
-
 	b.Run("ScalarMMul", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			mod.ScalarMMulVecTo(v0, v1[0], q, vOut)
@@ -583,6 +547,42 @@ func BenchmarkVecOps(b *testing.B) {
 	b.Run("ScalarMMulSubLazy", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			mod.ScalarMMulSubLazyVecTo(v0, v1[0], q, vOut)
+		}
+	})
+
+	b.Run("Mul", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			mod.MulVecTo(v0, v1, q, vOut)
+		}
+	})
+
+	b.Run("MulAdd", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			mod.MulAddVecTo(v0, v1, q, vOut)
+		}
+	})
+
+	b.Run("MulSub", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			mod.MulSubVecTo(v0, v1, q, vOut)
+		}
+	})
+
+	b.Run("MulLazy", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			mod.MulLazyVecTo(v0, v1, q, vOut)
+		}
+	})
+
+	b.Run("MulAddLazy", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			mod.MulAddLazyVecTo(v0, v1, q, vOut)
+		}
+	})
+
+	b.Run("MulSubLazy", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			mod.MulSubLazyVecTo(v0, v1, q, vOut)
 		}
 	})
 

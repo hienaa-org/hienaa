@@ -35,14 +35,6 @@ func main() {
 		SubVecToAVX2(false)
 		SubVecToAVX2(true)
 
-		ScalarMulVecToX86(false, Mul)
-		ScalarMulVecToX86(false, MulAdd)
-		ScalarMulVecToX86(false, MulSub)
-
-		ScalarMulVecToX86(true, Mul)
-		ScalarMulVecToX86(true, MulAdd)
-		ScalarMulVecToX86(true, MulSub)
-
 		MulVecToX86(false, Mul)
 		MulVecToX86(false, MulAdd)
 		MulVecToX86(false, MulSub)

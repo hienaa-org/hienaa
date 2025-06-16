@@ -158,6 +158,22 @@ func MMulLazy(x0M, y0M uint64, q *Modulus) uint64 {
 	return mMulLazy(x0M, y0M, q.modulus, q.inv)
 }
 
+// SForm transforms x into Shoup form.
+func SForm(x uint64, q *Modulus) uint64 {
+	return sForm(x, q.modulus)
+}
+
+// SMul computes x0 * x1 mod q using Shoup multiplication.
+func SMul(x0, x1, x1S uint64, q *Modulus) uint64 {
+	return sMul(x0, x1, x1S, q.modulus)
+}
+
+// SMulLazy computes x0 * x1 mod q using Shoup multiplication,
+// but the result is in [0, 2q).
+func SMulLazy(x0, x1, x1S uint64, q *Modulus) uint64 {
+	return sMulLazy(x0, x1, x1S, q.modulus)
+}
+
 // Exp returns x ** e mod q.
 func Exp(x, e uint64, q *Modulus) uint64 {
 	switch e {

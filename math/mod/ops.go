@@ -171,3 +171,28 @@ func mMulLazy(x0M, x1M, q, inv uint64) uint64 {
 
 	return xOutMHi - wHi + q
 }
+
+// sForm transforms x into Shoup form.
+func sForm(x, q uint64) uint64 {
+	xS, _ := bits.Div64(x, 0, q)
+	return xS
+}
+
+// sMul returns x0 * x1 mod q using Shoup multiplication.
+func sMul(x0, x1, x1S, q uint64) uint64 {
+	quo, _ := bits.Mul64(x0, x1S)
+
+	xOut := x0*x1 - quo*q
+	if xOut >= q {
+		xOut -= q
+	}
+	return xOut
+}
+
+// sMulLazy returns x0 * x1 mod q using Shoup multiplication,
+// but the result is in [0, 2q).
+func sMulLazy(x0, x1, x1S, q uint64) uint64 {
+	quo, _ := bits.Mul64(x0, x1S)
+
+	return x0*x1 - quo*q
+}
