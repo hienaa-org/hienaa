@@ -283,23 +283,23 @@ func ScalarMulSubLazyVecTo(v0 []uint64, c uint64, q *Modulus, vOut []uint64) {
 
 // ScalarMMulVec returns c * v mod q using Montgomery multiplication.
 // When c is in Motgomery form, the output is the same form as v.
-func ScalarMMulVec(v0 []uint64, cM uint64, q *Modulus) []uint64 {
-	vOut := make([]uint64, len(v0))
-	ScalarMMulVecTo(v0, cM, q, vOut)
-	return vOut
+func ScalarMMulVec(v0M []uint64, cM uint64, q *Modulus) []uint64 {
+	vOutM := make([]uint64, len(v0M))
+	ScalarMMulVecTo(v0M, cM, q, vOutM)
+	return vOutM
 }
 
 // ScalarMMulVecTo computes vOut = c * v mod q using Montgomery multiplication.
 // When c is in Motgomery form, vOut is the same form as v.
-func ScalarMMulVecTo(v0 []uint64, cM uint64, q *Modulus, vOut []uint64) {
-	M := (len(vOut) >> 3) << 3
+func ScalarMMulVecTo(v0M []uint64, cM uint64, q *Modulus, vOutM []uint64) {
+	M := (len(vOutM) >> 3) << 3
 
 	qv := q.Value()
 	inv := q.Inv()
 
 	for i := 0; i < M; i += 8 {
-		w0 := (*[8]uint64)(unsafe.Pointer(&v0[i]))
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
+		w0 := (*[8]uint64)(unsafe.Pointer(&v0M[i]))
+		wOut := (*[8]uint64)(unsafe.Pointer(&vOutM[i]))
 
 		wOut[0] = mMul(w0[0], cM, qv, inv)
 		wOut[1] = mMul(w0[1], cM, qv, inv)
@@ -312,22 +312,22 @@ func ScalarMMulVecTo(v0 []uint64, cM uint64, q *Modulus, vOut []uint64) {
 		wOut[7] = mMul(w0[7], cM, qv, inv)
 	}
 
-	for i := M; i < len(vOut); i++ {
-		vOut[i] = mMul(v0[i], cM, qv, inv)
+	for i := M; i < len(vOutM); i++ {
+		vOutM[i] = mMul(v0M[i], cM, qv, inv)
 	}
 }
 
 // ScalarMMulAddVecTo computes vOut += c * v mod q using Montgomery multiplication.
 // When c is in Motgomery form, vOut is the same form as v.
-func ScalarMMulAddVecTo(v0 []uint64, cM uint64, q *Modulus, vOut []uint64) {
-	M := (len(vOut) >> 3) << 3
+func ScalarMMulAddVecTo(v0M []uint64, cM uint64, q *Modulus, vOutM []uint64) {
+	M := (len(vOutM) >> 3) << 3
 
 	qv := q.Value()
 	inv := q.Inv()
 
 	for i := 0; i < M; i += 8 {
-		w0 := (*[8]uint64)(unsafe.Pointer(&v0[i]))
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
+		w0 := (*[8]uint64)(unsafe.Pointer(&v0M[i]))
+		wOut := (*[8]uint64)(unsafe.Pointer(&vOutM[i]))
 
 		wOut[0] = add(wOut[0], mMul(w0[0], cM, qv, inv), qv)
 		wOut[1] = add(wOut[1], mMul(w0[1], cM, qv, inv), qv)
@@ -340,22 +340,22 @@ func ScalarMMulAddVecTo(v0 []uint64, cM uint64, q *Modulus, vOut []uint64) {
 		wOut[7] = add(wOut[7], mMul(w0[7], cM, qv, inv), qv)
 	}
 
-	for i := M; i < len(vOut); i++ {
-		vOut[i] = add(vOut[i], mMul(v0[i], cM, qv, inv), qv)
+	for i := M; i < len(vOutM); i++ {
+		vOutM[i] = add(vOutM[i], mMul(v0M[i], cM, qv, inv), qv)
 	}
 }
 
 // ScalarMMulSubVecTo computes vOut -= c * v mod q using Montgomery multiplication.
 // When c is in Motgomery form, vOut is the same form as v.
-func ScalarMMulSubVecTo(v0 []uint64, cM uint64, q *Modulus, vOut []uint64) {
-	M := (len(vOut) >> 3) << 3
+func ScalarMMulSubVecTo(v0M []uint64, cM uint64, q *Modulus, vOutM []uint64) {
+	M := (len(vOutM) >> 3) << 3
 
 	qv := q.Value()
 	inv := q.Inv()
 
 	for i := 0; i < M; i += 8 {
-		w0 := (*[8]uint64)(unsafe.Pointer(&v0[i]))
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
+		w0 := (*[8]uint64)(unsafe.Pointer(&v0M[i]))
+		wOut := (*[8]uint64)(unsafe.Pointer(&vOutM[i]))
 
 		wOut[0] = sub(wOut[0], mMul(w0[0], cM, qv, inv), qv)
 		wOut[1] = sub(wOut[1], mMul(w0[1], cM, qv, inv), qv)
@@ -368,32 +368,32 @@ func ScalarMMulSubVecTo(v0 []uint64, cM uint64, q *Modulus, vOut []uint64) {
 		wOut[7] = sub(wOut[7], mMul(w0[7], cM, qv, inv), qv)
 	}
 
-	for i := M; i < len(vOut); i++ {
-		vOut[i] = sub(vOut[i], mMul(v0[i], cM, qv, inv), qv)
+	for i := M; i < len(vOutM); i++ {
+		vOutM[i] = sub(vOutM[i], mMul(v0M[i], cM, qv, inv), qv)
 	}
 }
 
 // ScalarMMulLazyVec returns c * v mod q using Montgomery multiplication,
 // but the result is in [0, 2q).
 // When c is in Motgomery form, the output is the same form as v.
-func ScalarMMulLazyVec(v0 []uint64, cM uint64, q *Modulus) []uint64 {
-	vOut := make([]uint64, len(v0))
-	ScalarMMulLazyVecTo(v0, cM, q, vOut)
-	return vOut
+func ScalarMMulLazyVec(v0M []uint64, cM uint64, q *Modulus) []uint64 {
+	vOutM := make([]uint64, len(v0M))
+	ScalarMMulLazyVecTo(v0M, cM, q, vOutM)
+	return vOutM
 }
 
 // ScalarMMulLazyVecTo computes vOut = c * v mod q using Montgomery multiplication,
 // but the result is in [0, 2q).
 // When c is in Motgomery form, vOut is the same form as v.
-func ScalarMMulLazyVecTo(v0 []uint64, cM uint64, q *Modulus, vOut []uint64) {
-	M := (len(vOut) >> 3) << 3
+func ScalarMMulLazyVecTo(v0M []uint64, cM uint64, q *Modulus, vOutM []uint64) {
+	M := (len(vOutM) >> 3) << 3
 
 	qv := q.Value()
 	inv := q.Inv()
 
 	for i := 0; i < M; i += 8 {
-		w0 := (*[8]uint64)(unsafe.Pointer(&v0[i]))
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
+		w0 := (*[8]uint64)(unsafe.Pointer(&v0M[i]))
+		wOut := (*[8]uint64)(unsafe.Pointer(&vOutM[i]))
 
 		wOut[0] = mMulLazy(w0[0], cM, qv, inv)
 		wOut[1] = mMulLazy(w0[1], cM, qv, inv)
@@ -406,23 +406,23 @@ func ScalarMMulLazyVecTo(v0 []uint64, cM uint64, q *Modulus, vOut []uint64) {
 		wOut[7] = mMulLazy(w0[7], cM, qv, inv)
 	}
 
-	for i := M; i < len(vOut); i++ {
-		vOut[i] = mMulLazy(v0[i], cM, qv, inv)
+	for i := M; i < len(vOutM); i++ {
+		vOutM[i] = mMulLazy(v0M[i], cM, qv, inv)
 	}
 }
 
 // ScalarMMulAddLazyVecTo computes vOut += c * v mod q using Montgomery multiplication,
 // but the result is in [0, 3q).
 // When c is in Motgomery form, vOut is the same form as v.
-func ScalarMMulAddLazyVecTo(v0 []uint64, cM uint64, q *Modulus, vOut []uint64) {
-	M := (len(vOut) >> 3) << 3
+func ScalarMMulAddLazyVecTo(v0M []uint64, cM uint64, q *Modulus, vOutM []uint64) {
+	M := (len(vOutM) >> 3) << 3
 
 	qv := q.Value()
 	inv := q.Inv()
 
 	for i := 0; i < M; i += 8 {
-		w0 := (*[8]uint64)(unsafe.Pointer(&v0[i]))
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
+		w0 := (*[8]uint64)(unsafe.Pointer(&v0M[i]))
+		wOut := (*[8]uint64)(unsafe.Pointer(&vOutM[i]))
 
 		wOut[0] += mMulLazy(w0[0], cM, qv, inv)
 		wOut[1] += mMulLazy(w0[1], cM, qv, inv)
@@ -435,16 +435,16 @@ func ScalarMMulAddLazyVecTo(v0 []uint64, cM uint64, q *Modulus, vOut []uint64) {
 		wOut[7] += mMulLazy(w0[7], cM, qv, inv)
 	}
 
-	for i := M; i < len(vOut); i++ {
-		vOut[i] += mMulLazy(v0[i], cM, qv, inv)
+	for i := M; i < len(vOutM); i++ {
+		vOutM[i] += mMulLazy(v0M[i], cM, qv, inv)
 	}
 }
 
 // ScalarMMulSubLazyVecTo computes vOut -= c * v mod q using Montgomery multiplication,
 // but the result is in [0, 3q).
 // When c is in Motgomery form, vOut is the same form as v.
-func ScalarMMulSubLazyVecTo(v0 []uint64, cM uint64, q *Modulus, vOut []uint64) {
-	M := (len(vOut) >> 3) << 3
+func ScalarMMulSubLazyVecTo(v0M []uint64, cM uint64, q *Modulus, vOutM []uint64) {
+	M := (len(vOutM) >> 3) << 3
 
 	qv := q.Value()
 	inv := q.Inv()
@@ -452,8 +452,8 @@ func ScalarMMulSubLazyVecTo(v0 []uint64, cM uint64, q *Modulus, vOut []uint64) {
 	cMNeg := qv - cM
 
 	for i := 0; i < M; i += 8 {
-		w0 := (*[8]uint64)(unsafe.Pointer(&v0[i]))
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
+		w0 := (*[8]uint64)(unsafe.Pointer(&v0M[i]))
+		wOut := (*[8]uint64)(unsafe.Pointer(&vOutM[i]))
 
 		wOut[0] += mMulLazy(w0[0], cMNeg, qv, inv)
 		wOut[1] += mMulLazy(w0[1], cMNeg, qv, inv)
@@ -466,8 +466,8 @@ func ScalarMMulSubLazyVecTo(v0 []uint64, cM uint64, q *Modulus, vOut []uint64) {
 		wOut[7] += mMulLazy(w0[7], cMNeg, qv, inv)
 	}
 
-	for i := M; i < len(vOut); i++ {
-		vOut[i] += mMulLazy(v0[i], cMNeg, qv, inv)
+	for i := M; i < len(vOutM); i++ {
+		vOutM[i] += mMulLazy(v0M[i], cMNeg, qv, inv)
 	}
 }
 
