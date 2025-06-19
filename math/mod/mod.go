@@ -60,7 +60,7 @@ func (q *Modulus) Div() (hi, lo uint64) {
 	return q.divHi, q.divLo
 }
 
-// NewModulus creates a new Modulus.
+// NewModulus creates a new [Modulus].
 func NewModulus(modulus uint64) *Modulus {
 	switch {
 	case modulus == 0:

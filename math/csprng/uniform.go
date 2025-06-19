@@ -20,7 +20,7 @@ type UniformSampler struct {
 	ptr uint64
 }
 
-// NewUniformSampler creates a new UniformSampler.
+// NewUniformSampler creates a new [UniformSampler].
 //
 // Panics when read from crypto/rand or AES initialization fails.
 func NewUniformSampler() *UniformSampler {
@@ -32,7 +32,7 @@ func NewUniformSampler() *UniformSampler {
 	return NewUniformSamplerWithSeed(seed[:])
 }
 
-// NewUniformSamplerWithSeed creates a new UniformSampler, with user supplied seed.
+// NewUniformSamplerWithSeed creates a new [UniformSampler], with user supplied seed.
 //
 // Panics when AES initialization fails.
 func NewUniformSamplerWithSeed(seed []byte) *UniformSampler {

@@ -1,6 +1,7 @@
 package mod_test
 
 import (
+	"fmt"
 	"slices"
 	"testing"
 
@@ -444,187 +445,191 @@ func TestVecOps(t *testing.T) {
 func BenchmarkVecOps(b *testing.B) {
 	q := mod.NewModulus(rSrc.SampleN(mod.MaxModulus) | 1)
 
-	N := 1 << 15
-	v0 := make([]uint64, N)
-	v1 := make([]uint64, N)
-	vOut := make([]uint64, N)
+	for _, logN := range []int{12, 13, 14, 15, 16, 17} {
+		N := 1 << logN
+		v0 := make([]uint64, N)
+		v1 := make([]uint64, N)
+		vOut := make([]uint64, N)
 
-	for i := 0; i < N; i++ {
-		v0[i] = rSrc.SampleN(q.Value())
-		v1[i] = rSrc.SampleN(q.Value())
+		for i := 0; i < N; i++ {
+			v0[i] = rSrc.SampleN(q.Value())
+			v1[i] = rSrc.SampleN(q.Value())
+		}
+
+		b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
+			b.Run("Add", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					mod.AddVecTo(v0, v1, q, vOut)
+				}
+			})
+
+			b.Run("AddLazy", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					mod.AddLazyVecTo(v0, v1, vOut)
+				}
+			})
+
+			b.Run("Sub", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					mod.SubVecTo(v0, v1, q, vOut)
+				}
+			})
+
+			b.Run("SubLazy", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					mod.SubLazyVecTo(v0, v1, vOut)
+				}
+			})
+
+			b.Run("ScalarMul", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					mod.ScalarMulVecTo(v0, v1[0], q, vOut)
+				}
+			})
+
+			b.Run("ScalarMulAdd", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					mod.ScalarMulAddVecTo(v0, v1[0], q, vOut)
+				}
+			})
+
+			b.Run("ScalarMulSub", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					mod.ScalarMulSubVecTo(v0, v1[0], q, vOut)
+				}
+			})
+
+			b.Run("ScalarMulLazy", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					mod.ScalarMulLazyVecTo(v0, v1[0], q, vOut)
+				}
+			})
+
+			b.Run("ScalarMulAddLazy", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					mod.ScalarMulAddLazyVecTo(v0, v1[0], q, vOut)
+				}
+			})
+
+			b.Run("ScalarMulSubLazy", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					mod.ScalarMulSubLazyVecTo(v0, v1[0], q, vOut)
+				}
+			})
+
+			b.Run("ScalarMMul", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					mod.ScalarMMulVecTo(v0, v1[0], q, vOut)
+				}
+			})
+
+			b.Run("ScalarMMulAdd", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					mod.ScalarMMulAddVecTo(v0, v1[0], q, vOut)
+				}
+			})
+
+			b.Run("ScalarMMulSub", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					mod.ScalarMMulSubVecTo(v0, v1[0], q, vOut)
+				}
+			})
+
+			b.Run("ScalarMMulLazy", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					mod.ScalarMMulLazyVecTo(v0, v1[0], q, vOut)
+				}
+			})
+
+			b.Run("ScalarMMulAddLazy", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					mod.ScalarMMulAddLazyVecTo(v0, v1[0], q, vOut)
+				}
+			})
+
+			b.Run("ScalarMMulSubLazy", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					mod.ScalarMMulSubLazyVecTo(v0, v1[0], q, vOut)
+				}
+			})
+
+			b.Run("Mul", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					mod.MulVecTo(v0, v1, q, vOut)
+				}
+			})
+
+			b.Run("MulAdd", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					mod.MulAddVecTo(v0, v1, q, vOut)
+				}
+			})
+
+			b.Run("MulSub", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					mod.MulSubVecTo(v0, v1, q, vOut)
+				}
+			})
+
+			b.Run("MulLazy", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					mod.MulLazyVecTo(v0, v1, q, vOut)
+				}
+			})
+
+			b.Run("MulAddLazy", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					mod.MulAddLazyVecTo(v0, v1, q, vOut)
+				}
+			})
+
+			b.Run("MulSubLazy", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					mod.MulSubLazyVecTo(v0, v1, q, vOut)
+				}
+			})
+
+			b.Run("MMul", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					mod.MMulVecTo(v0, v1, q, vOut)
+				}
+			})
+
+			b.Run("MMulAdd", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					mod.MMulAddVecTo(v0, v1, q, vOut)
+				}
+			})
+
+			b.Run("MMulSub", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					mod.MMulSubVecTo(v0, v1, q, vOut)
+				}
+			})
+
+			b.Run("MMulLazy", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					mod.MMulLazyVecTo(v0, v1, q, vOut)
+				}
+			})
+
+			b.Run("MMulAddLazy", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					mod.MMulAddLazyVecTo(v0, v1, q, vOut)
+				}
+			})
+
+			b.Run("MMulSubLazy", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					mod.MMulSubLazyVecTo(v0, v1, q, vOut)
+				}
+			})
+
+			b.Run("Reduce", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					mod.ReduceVecTo(v0, q, vOut)
+				}
+			})
+		})
 	}
-
-	b.Run("Add", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.AddVecTo(v0, v1, q, vOut)
-		}
-	})
-
-	b.Run("AddLazy", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.AddLazyVecTo(v0, v1, vOut)
-		}
-	})
-
-	b.Run("Sub", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.SubVecTo(v0, v1, q, vOut)
-		}
-	})
-
-	b.Run("SubLazy", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.SubLazyVecTo(v0, v1, vOut)
-		}
-	})
-
-	b.Run("ScalarMul", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.ScalarMulVecTo(v0, v1[0], q, vOut)
-		}
-	})
-
-	b.Run("ScalarMulAdd", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.ScalarMulAddVecTo(v0, v1[0], q, vOut)
-		}
-	})
-
-	b.Run("ScalarMulSub", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.ScalarMulSubVecTo(v0, v1[0], q, vOut)
-		}
-	})
-
-	b.Run("ScalarMulLazy", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.ScalarMulLazyVecTo(v0, v1[0], q, vOut)
-		}
-	})
-
-	b.Run("ScalarMulAddLazy", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.ScalarMulAddLazyVecTo(v0, v1[0], q, vOut)
-		}
-	})
-
-	b.Run("ScalarMulSubLazy", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.ScalarMulSubLazyVecTo(v0, v1[0], q, vOut)
-		}
-	})
-
-	b.Run("ScalarMMul", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.ScalarMMulVecTo(v0, v1[0], q, vOut)
-		}
-	})
-
-	b.Run("ScalarMMulAdd", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.ScalarMMulAddVecTo(v0, v1[0], q, vOut)
-		}
-	})
-
-	b.Run("ScalarMMulSub", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.ScalarMMulSubVecTo(v0, v1[0], q, vOut)
-		}
-	})
-
-	b.Run("ScalarMMulLazy", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.ScalarMMulLazyVecTo(v0, v1[0], q, vOut)
-		}
-	})
-
-	b.Run("ScalarMMulAddLazy", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.ScalarMMulAddLazyVecTo(v0, v1[0], q, vOut)
-		}
-	})
-
-	b.Run("ScalarMMulSubLazy", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.ScalarMMulSubLazyVecTo(v0, v1[0], q, vOut)
-		}
-	})
-
-	b.Run("Mul", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.MulVecTo(v0, v1, q, vOut)
-		}
-	})
-
-	b.Run("MulAdd", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.MulAddVecTo(v0, v1, q, vOut)
-		}
-	})
-
-	b.Run("MulSub", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.MulSubVecTo(v0, v1, q, vOut)
-		}
-	})
-
-	b.Run("MulLazy", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.MulLazyVecTo(v0, v1, q, vOut)
-		}
-	})
-
-	b.Run("MulAddLazy", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.MulAddLazyVecTo(v0, v1, q, vOut)
-		}
-	})
-
-	b.Run("MulSubLazy", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.MulSubLazyVecTo(v0, v1, q, vOut)
-		}
-	})
-
-	b.Run("MMul", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.MMulVecTo(v0, v1, q, vOut)
-		}
-	})
-
-	b.Run("MMulAdd", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.MMulAddVecTo(v0, v1, q, vOut)
-		}
-	})
-
-	b.Run("MMulSub", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.MMulSubVecTo(v0, v1, q, vOut)
-		}
-	})
-
-	b.Run("MMulLazy", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.MMulLazyVecTo(v0, v1, q, vOut)
-		}
-	})
-
-	b.Run("MMulAddLazy", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.MMulAddLazyVecTo(v0, v1, q, vOut)
-		}
-	})
-
-	b.Run("MMulSubLazy", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.MMulSubLazyVecTo(v0, v1, q, vOut)
-		}
-	})
-
-	b.Run("Reduce", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			mod.ReduceVecTo(v0, q, vOut)
-		}
-	})
 }

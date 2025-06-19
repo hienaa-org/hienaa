@@ -11,7 +11,11 @@
 // If length mismatch happens, it may panic or produce wrong results.
 package vec
 
-import "github.com/hienaa-org/hienaa/math/num"
+import (
+	"math"
+
+	"github.com/hienaa-org/hienaa/math/num"
+)
 
 // Cast casts vector v of type []T1 to []T2.
 func Cast[T1, T2 num.Real](v []T1) []T2 {
@@ -27,16 +31,32 @@ func CastTo[T1, T2 num.Real](v []T1, vOut []T2) {
 	}
 }
 
-// BitReverseInPlace reorders v into bit-reversal order in-place.
-func BitReverseInPlace[T any](v []T) {
-	var bit, j int
-	for i := 1; i < len(v); i++ {
-		bit = len(v) >> 1
-		for j >= bit {
-			j -= bit
-			bit >>= 1
+// RadixReverseInPlace computes the radix-r reverse of v in-place.
+// Assumes len(v) is a power of r.
+func RadixReverseInPlace(v []uint64, r int) {
+	if r == 2 {
+		var bit, j int
+		for i := 1; i < len(v); i++ {
+			bit = len(v) >> 1
+			for j >= bit {
+				j -= bit
+				bit >>= 1
+			}
+			j += bit
+			if i < j {
+				v[i], v[j] = v[j], v[i]
+			}
 		}
-		j += bit
+		return
+	}
+
+	logN := int(math.Log(float64(len(v))) / math.Log(float64(r)))
+	for i := 0; i < len(v); i++ {
+		idx, j := i, 0
+		for t := 1; t < logN; t++ {
+			j = j*r + (idx % r)
+			idx /= r
+		}
 		if i < j {
 			v[i], v[j] = v[j], v[i]
 		}

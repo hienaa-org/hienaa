@@ -163,27 +163,3 @@ func subAbs(x, y uint64) uint64 {
 func randUint64n(n uint64) uint64 {
 	return uint64(rand.Int63n(int64(n)))
 }
-
-// Order returns the multiplicative order of x modulo q.
-func Order(x uint64, q *mod.Modulus) uint64 {
-	ord := uint64(1)
-	acc := mod.Reduce(x, q)
-	for acc != 1 {
-		acc = mod.Mul(acc, x, q)
-		ord += 1
-	}
-	return ord
-}
-
-// EulerPhi returns the Euler-Phi function of x.
-func EulerPhi(x uint64) uint64 {
-	if x == 0 || x == 1 {
-		return x
-	}
-
-	phi := x
-	for f := range Factor(x) {
-		phi -= phi / f
-	}
-	return phi
-}

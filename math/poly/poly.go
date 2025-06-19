@@ -5,8 +5,8 @@ package poly
 //
 // A polynomial can have two forms:
 //
-//   - Standard form, where the coefficients are stored in a [][]uint64 slice.
-//   - NTT form, where the NTT coefficients are stored in a [][]uint64 slice.
+//   - Standard form, where the coefficients are stored in a [][]uint64 slice in normal order.
+//   - NTT form, where the NTT coefficients are stored in a [][]uint64 slice in radix-r reversed order.
 //     All coefficients in NTT form are also in Montgomery form.
 type Poly struct {
 	// Coeffs are the coefficients of the polynomial.
@@ -20,21 +20,21 @@ type Poly struct {
 	IsNTT bool
 }
 
-// NewPoly creates a new polynomial with the given degree and rnsLen.
-func NewPoly(N, rnsLen int) *Poly {
-	return NewPolyCustom(N, rnsLen, false)
+// NewPoly creates a new [Poly] with the given degree and modLen.
+func NewPoly(deg, modLen int) *Poly {
+	return NewPolyCustom(deg, modLen, false)
 }
 
-// NewNTTPoly creates a new polynomial in NTT form with the given degree and rnsLen.
-func NewNTTPoly(N, rnsLen int) *Poly {
-	return NewPolyCustom(N, rnsLen, true)
+// NewNTTPoly creates a new [Poly] in NTT form with the given degree and modLen.
+func NewNTTPoly(deg, modLen int) *Poly {
+	return NewPolyCustom(deg, modLen, true)
 }
 
-// NewPolyCustom creates a new polynomial with the given degree, rnsLen and NTT flag.
-func NewPolyCustom(N, rnsLen int, isNTT bool) *Poly {
-	coeffs := make([][]uint64, rnsLen)
-	for i := 0; i < rnsLen; i++ {
-		coeffs[i] = make([]uint64, N)
+// NewPolyCustom creates a new [Poly] with the given degree, modLen and NTT flag.
+func NewPolyCustom(deg, modLen int, isNTT bool) *Poly {
+	coeffs := make([][]uint64, modLen)
+	for i := 0; i < modLen; i++ {
+		coeffs[i] = make([]uint64, deg)
 	}
 	return &Poly{
 		Coeffs: coeffs,
@@ -42,16 +42,16 @@ func NewPolyCustom(N, rnsLen int, isNTT bool) *Poly {
 	}
 }
 
-// N returns the ring degree of p.
-func (p *Poly) N() int {
+// Degree returns the degree of p.
+func (p *Poly) Degree() int {
 	if len(p.Coeffs) == 0 {
 		return 0
 	}
 	return len(p.Coeffs[0])
 }
 
-// RNSLen returns the number of RNS moduli of p.
-func (p *Poly) RNSLen() int {
+// ModLen returns the number of RNS moduli of p.
+func (p *Poly) ModLen() int {
 	return len(p.Coeffs)
 }
 
@@ -64,7 +64,7 @@ func (p *Poly) Clear() {
 
 // Copy returns a copy of p.
 func (p *Poly) Copy() *Poly {
-	pOut := NewPolyCustom(p.N(), p.RNSLen(), p.IsNTT)
+	pOut := NewPolyCustom(p.Degree(), p.ModLen(), p.IsNTT)
 	for i := range p.Coeffs {
 		copy(pOut.Coeffs[i], p.Coeffs[i])
 	}

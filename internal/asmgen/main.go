@@ -1,4 +1,5 @@
 //go:generate go run . -vec -out ../../math/mod/asm_vec_ops_amd64.s -stubs ../../math/mod/asm_vec_ops_stub_amd64.go -pkg=mod
+//go:generate go run . -ntt -out ../../math/poly/asm_ntt_pow2.s -stubs ../../math/poly/asm_ntt_pow2_stub_amd64.go -pkg=poly
 package main
 
 import (
@@ -18,6 +19,7 @@ const (
 
 var (
 	vec = flag.Bool("vec", false, "asm_vec_ops_amd64.s")
+	ntt = flag.Bool("ntt", false, "asm_ntt_pow2.s")
 )
 
 func main() {
@@ -40,6 +42,16 @@ func main() {
 		MulVecToX86(true, Mul)
 		MulVecToX86(true, MulAdd)
 		MulVecToX86(true, MulSub)
+	}
+
+	if *ntt {
+		NTTConstants()
+
+		NTTInPlacePow2Deg16AVX2()
+		NTTInPlacePow2Deg16AVX512()
+
+		InvNTTInPlacePow2Deg16AVX2()
+		InvNTTInPlacePow2Deg16AVX512()
 	}
 
 	Generate()
