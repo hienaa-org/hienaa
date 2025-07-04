@@ -1,25 +1,14 @@
-//go:build amd64 && !purego
+//go:build !(amd64 && !purego)
 
-package poly
+package rns
 
 import (
 	"unsafe"
-
-	"golang.org/x/sys/cpu"
 )
 
 // nttInPlacePow2Deg16 computes the NTT transform in-place for power-of-two length coefficients.
-// Assumes len(coeffs) >= 16.
+// Assumes len(coeffs) >= 32.
 func nttInPlacePow2Deg16(coeffs, tw, twS []uint64, q uint64) {
-	switch {
-	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasAVX512VL:
-		nttInPlacePow2Deg16AVX512(coeffs, tw, twS, q)
-		return
-	case cpu.X86.HasAVX2:
-		nttInPlacePow2Deg16AVX2(coeffs, tw, twS, q)
-		return
-	}
-
 	N := len(coeffs)
 	twoQ := q << 1
 	var w, wS uint64
@@ -111,15 +100,6 @@ func nttInPlacePow2Deg16(coeffs, tw, twS []uint64, q uint64) {
 // inttInPlacePow2Deg16 computes the Inverse NTT transform in-place for power-of-two length coefficients.
 // Assumes len(coeffs) >= 32.
 func inttInPlacePow2Deg16(coeffs, twInv, twInvS []uint64, q uint64) {
-	switch {
-	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasAVX512VL:
-		inttInPlacePow2Deg16AVX512(coeffs, twInv, twInvS, q)
-		return
-	case cpu.X86.HasAVX2:
-		inttInPlacePow2Deg16AVX2(coeffs, twInv, twInvS, q)
-		return
-	}
-
 	N := len(coeffs)
 	twoQ := q << 1
 	var w, wS uint64

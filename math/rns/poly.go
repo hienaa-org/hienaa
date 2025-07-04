@@ -1,5 +1,5 @@
 // Package poly implements polynomial and its operations.
-package poly
+package rns
 
 // Poly represents a polynomial with "Double-CRT" representation.
 //

@@ -48,6 +48,15 @@ func GCD(x0, x1 uint64) uint64 {
 	}
 }
 
+// LCM returns the least common multiple of x0 and x1.
+func LCM(x0, x1 uint64) uint64 {
+	if x0 == 0 || x1 == 0 {
+		return 0
+	}
+
+	return (x0 / GCD(x0, x1)) * x1
+}
+
 // Exp returns x**e.
 func Exp(x, e uint64) uint64 {
 	switch x {

@@ -1,4 +1,4 @@
-package poly
+package rns
 
 import (
 	"math/big"

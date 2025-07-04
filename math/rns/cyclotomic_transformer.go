@@ -1,4 +1,4 @@
-package poly
+package rns
 
 import (
 	"github.com/hienaa-org/hienaa/math/mod"
@@ -8,8 +8,8 @@ import (
 
 // cyclotomicPow2Transformer is a transformer for power-of-two cyclotomic NTT.
 type cyclotomicPow2Transformer struct {
-	ringParams RingParameters
-	mod        *mod.Modulus
+	params  RingParameters
+	modulus *mod.Modulus
 
 	// tw is the twiddle factor for NTT.
 	tw []uint64
@@ -53,8 +53,8 @@ func newCyclotomicPow2Transformer(ringParams RingParameters, modulus *mod.Modulu
 	degInv := mod.InvMForm(mod.Inv(uint64(ringParams.degree), modulus), modulus)
 
 	return &cyclotomicPow2Transformer{
-		ringParams: ringParams,
-		mod:        modulus,
+		params:  ringParams,
+		modulus: modulus,
 
 		tw:     tw,
 		twS:    twS,
@@ -65,20 +65,12 @@ func newCyclotomicPow2Transformer(ringParams RingParameters, modulus *mod.Modulu
 	}
 }
 
-func (ntt *cyclotomicPow2Transformer) RingParameters() RingParameters {
-	return ntt.ringParams
+func (ntt *cyclotomicPow2Transformer) nttInPlace(coeffs []uint64) {
+	nttInPlacePow2(coeffs, ntt.tw, ntt.twS, ntt.modulus.Value())
+	mod.MFormVecTo(coeffs, ntt.modulus, coeffs)
 }
 
-func (ntt *cyclotomicPow2Transformer) NTTInPlace(coeffs []uint64) {
-	nttInPlacePow2(coeffs, ntt.tw, ntt.twS, ntt.mod.Value())
-	mod.MFormVecTo(coeffs, ntt.mod, coeffs)
-}
-
-func (ntt *cyclotomicPow2Transformer) InvNTTInPlace(coeffs []uint64) {
-	inttInPlacePow2(coeffs, ntt.twInv, ntt.twInvS, ntt.mod.Value())
-	mod.ScalarMulVecTo(coeffs, ntt.degInv, ntt.mod, coeffs)
-}
-
-func (ntt *cyclotomicPow2Transformer) Type() TransformType {
-	return PowerOfTwo
+func (ntt *cyclotomicPow2Transformer) invNTTInPlace(coeffs []uint64) {
+	inttInPlacePow2(coeffs, ntt.twInv, ntt.twInvS, ntt.modulus.Value())
+	mod.ScalarMulVecTo(coeffs, ntt.degInv, ntt.modulus, coeffs)
 }

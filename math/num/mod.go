@@ -15,17 +15,17 @@ func Order(x uint64, q *mod.Modulus) uint64 {
 	return ord
 }
 
-// EulerPhi returns the Euler-Phi function of x.
-func EulerPhi(x uint64) uint64 {
+// Totient returns the Euler-Phi function of x.
+func Totient(x uint64) uint64 {
 	if x == 0 || x == 1 {
 		return x
 	}
 
-	return eulerPhiWithFactors(x, Factor(x))
+	return totientWithFactors(x, Factor(x))
 }
 
-// eulerPhiWithFactors returns the Euler-Phi function of x, given its prime factors.
-func eulerPhiWithFactors(x uint64, factors map[uint64]uint64) uint64 {
+// totientWithFactors returns the Euler-Phi function of x, given its prime factors.
+func totientWithFactors(x uint64, factors map[uint64]uint64) uint64 {
 	phi := x
 	for f := range factors {
 		phi -= phi / f
@@ -42,7 +42,7 @@ func PrimitiveRoot(q *mod.Modulus) uint64 {
 	}
 
 	if len(factorPows) == 1 {
-		phiQ := eulerPhiWithFactors(q.Value(), factors)
+		phiQ := totientWithFactors(q.Value(), factors)
 		phiQFactors := Factor(phiQ)
 		testPows := make([]uint64, 0, len(phiQFactors))
 		for f := range phiQFactors {

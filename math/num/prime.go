@@ -56,8 +56,23 @@ func IsPrimeModulus(x *mod.Modulus) bool {
 	return true
 }
 
-// IsPowerOf checks if x can be expressed as a product of the powers of given factors.
-func IsPowerOf(x uint64, factors []uint64) bool {
+// NextPrime returns the next prime number of x with skip.
+// If skip == 0, it panics.
+// If skip < 0, it finds a previous prime.
+func NextPrime(x uint64, skip uint64) uint64 {
+	if skip == 0 {
+		panic("NextPrime: skip must be nonzero.")
+	}
+
+	for t := x + skip; ; t += skip {
+		if IsPrime(t) {
+			return t
+		}
+	}
+}
+
+// IsProdPowerOf checks if x can be expressed as a product of the powers of given factors.
+func IsProdPowerOf(x uint64, factors []uint64) bool {
 	for _, f := range factors {
 		if f == 0 {
 			continue
@@ -69,11 +84,11 @@ func IsPowerOf(x uint64, factors []uint64) bool {
 	return x == 1
 }
 
-// NextPower returns the next number of x that can be expressed as
+// NextProdPower returns the next number of x that can be expressed as
 // a product of the powers of given factors.
-func NextPower(x uint64, factors []uint64) uint64 {
+func NextProdPower(x uint64, factors []uint64) uint64 {
 	xNext := x + 1
-	for !IsPowerOf(xNext, factors) {
+	for !IsProdPowerOf(xNext, factors) {
 		xNext++
 	}
 	return xNext

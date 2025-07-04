@@ -1,5 +1,5 @@
 //go:generate go run . -vec -out ../../math/mod/asm_vec_ops_amd64.s -stubs ../../math/mod/asm_vec_ops_stub_amd64.go -pkg=mod
-//go:generate go run . -ntt -out ../../math/poly/asm_ntt_pow2.s -stubs ../../math/poly/asm_ntt_pow2_stub_amd64.go -pkg=poly
+//go:generate go run . -ntt -out ../../math/rns/asm_ntt_pow2.s -stubs ../../math/rns/asm_ntt_pow2_stub_amd64.go -pkg=rns
 package main
 
 import (
