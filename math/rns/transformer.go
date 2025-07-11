@@ -29,7 +29,7 @@ func NewTransformer(ringParams RingParameters, modulus []*mod.Modulus) *Transfor
 // NTTTo computes pOut = NTT(p).
 func (ntt *Transformer) NTTTo(p, pOut *Poly) {
 	if p.IsNTT {
-		panic("NTTInPlace: input polynomial is in NTT form")
+		panic("NTTTo: input polynomial is in NTT form")
 	}
 
 	copy(pOut.Coeffs, p.Coeffs)
@@ -42,7 +42,7 @@ func (ntt *Transformer) NTTTo(p, pOut *Poly) {
 // InvNTTTo computes pOut = InvNTT(p).
 func (ntt *Transformer) InvNTTTo(p, pOut *Poly) {
 	if !p.IsNTT {
-		panic("InvNTTInPlace: input polynomial is in Standard form")
+		panic("InvNTTTo: input polynomial is in Standard form")
 	}
 
 	copy(pOut.Coeffs, p.Coeffs)
