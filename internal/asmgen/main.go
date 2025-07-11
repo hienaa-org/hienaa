@@ -47,11 +47,11 @@ func main() {
 	if *ntt {
 		NTTConstants()
 
-		NTTInPlacePow2Deg16AVX2()
-		NTTInPlacePow2Deg16AVX512()
+		NTTInPlacePow2UnrollAVX2()
+		NTTInPlacePow2UnrollAVX512()
 
-		InvNTTInPlacePow2Deg16AVX2()
-		InvNTTInPlacePow2Deg16AVX512()
+		InvNTTInPlacePow2UnrollAVX2()
+		InvNTTInPlacePow2UnrollAVX512()
 	}
 
 	Generate()

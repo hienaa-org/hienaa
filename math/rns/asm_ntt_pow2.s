@@ -7,9 +7,9 @@
 DATA MASK_LO<>+0(SB)/8, $0x00000000ffffffff
 GLOBL MASK_LO<>(SB), RODATA|NOPTR, $8
 
-// func nttInPlacePow2Deg16AVX2(coeffs []uint64, tw []uint64, twS []uint64, q uint64)
+// func nttInPlacePow2UnrollAVX2(coeffs []uint64, tw []uint64, twS []uint64, q uint64)
 // Requires: AVX, AVX2, BMI2, CMOV
-TEXT ·nttInPlacePow2Deg16AVX2(SB), NOSPLIT, $0-80
+TEXT ·nttInPlacePow2UnrollAVX2(SB), NOSPLIT, $0-80
 	VPCMPEQQ     Y0, Y0, Y0
 	VPBROADCASTQ MASK_LO<>+0(SB), Y1
 	VPSLLQ       $0x20, Y1, Y2
@@ -298,9 +298,9 @@ t_1_loop_end:
 	JL   t_1_loop_body
 	RET
 
-// func nttInPlacePow2Deg16AVX512(coeffs []uint64, tw []uint64, twS []uint64, q uint64)
+// func nttInPlacePow2UnrollAVX512(coeffs []uint64, tw []uint64, twS []uint64, q uint64)
 // Requires: AVX2, AVX512DQ, AVX512F, AVX512VL, BMI2, CMOV
-TEXT ·nttInPlacePow2Deg16AVX512(SB), NOSPLIT, $0-80
+TEXT ·nttInPlacePow2UnrollAVX512(SB), NOSPLIT, $0-80
 	VPBROADCASTQ MASK_LO<>+0(SB), Z0
 	VPBROADCASTQ MASK_LO<>+0(SB), Y1
 	MOVQ         coeffs_base+0(FP), AX
@@ -605,9 +605,9 @@ t_1_loop_end:
 	JL   t_1_loop_body
 	RET
 
-// func inttInPlacePow2Deg16AVX2(coeffs []uint64, twInv []uint64, twInvS []uint64, q uint64)
+// func inttInPlacePow2UnrollAVX2(coeffs []uint64, twInv []uint64, twInvS []uint64, q uint64)
 // Requires: AVX, AVX2, BMI2, CMOV
-TEXT ·inttInPlacePow2Deg16AVX2(SB), NOSPLIT, $0-80
+TEXT ·inttInPlacePow2UnrollAVX2(SB), NOSPLIT, $0-80
 	VPCMPEQQ     Y0, Y0, Y0
 	VPBROADCASTQ MASK_LO<>+0(SB), Y1
 	VPSLLQ       $0x20, Y1, Y2
@@ -888,9 +888,9 @@ last_loop_end:
 	JL   last_loop_body
 	RET
 
-// func inttInPlacePow2Deg16AVX512(coeffs []uint64, twInv []uint64, twInvS []uint64, q uint64)
+// func inttInPlacePow2UnrollAVX512(coeffs []uint64, twInv []uint64, twInvS []uint64, q uint64)
 // Requires: AVX2, AVX512DQ, AVX512F, AVX512VL, BMI2, CMOV
-TEXT ·inttInPlacePow2Deg16AVX512(SB), NOSPLIT, $0-80
+TEXT ·inttInPlacePow2UnrollAVX512(SB), NOSPLIT, $0-80
 	VPBROADCASTQ MASK_LO<>+0(SB), Z0
 	VPBROADCASTQ MASK_LO<>+0(SB), Y1
 	MOVQ         coeffs_base+0(FP), AX

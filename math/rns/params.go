@@ -73,26 +73,14 @@ func (p RingParameters) Type() RingType {
 	return p.ringType
 }
 
-// isNTTFriendly checks if the given modulus is NTT-friendly with respect to the ring parameters.
-func isNTTFriendly(ringParams RingParameters, modulus *mod.Modulus) bool {
-	switch ringParams.ringType {
-	case Cyclotomic:
-		return isCyclotomicNTTFriendly(uint64(ringParams.cycloDegree), uint64(ringParams.degree), modulus)
-	case Cyclic:
-		return isCyclicNTTFriendly(uint64(ringParams.degree), modulus)
-	case AutFixed:
-		return isAutFixedNTTFriendly(uint64(ringParams.cycloDegree), uint64(ringParams.degree), modulus)
-	}
-	return false
-}
+// cyclotomicGap finds the "gap" of the NTT-friendly modulus for cyclotomic rings.
+func cyclotomicGap(cycloDeg, deg uint64) uint64 {
+	var gap uint64
 
-// isCyclotomicNTTFriendly checks if the given modulus is NTT-friendly for Cyclotomic rings.
-func isCyclotomicNTTFriendly(cycloDeg, deg uint64, modulus *mod.Modulus) bool {
-	var step uint64
 	if num.IsPowerOfTwo(cycloDeg) {
-		step = cycloDeg
+		gap = cycloDeg
 	} else {
-		bluesteinDeg := num.NextProdPower(2*cycloDeg-1, cyclicNTTFactors)
+		bluesteinDeg := num.NextProdPower(2*cycloDeg-1, []uint64{2})
 
 		var p uint64
 		for f := range num.Factor(cycloDeg) {
@@ -104,52 +92,83 @@ func isCyclotomicNTTFriendly(cycloDeg, deg uint64, modulus *mod.Modulus) bool {
 
 		redDeg := cycloDeg - cycloDeg/p
 		if redDeg == deg {
-			step = num.LCM(cycloDeg, bluesteinDeg)
+			gap = num.LCM(cycloDeg, bluesteinDeg)
 		} else {
-			degNext := num.NextProdPower(deg, ambientDegreeFactors)
-			diffDegNext := num.NextProdPower(2*(redDeg-deg)+1, ambientDegreeFactors)
-			step = num.LCM(num.LCM(degNext, diffDegNext), num.LCM(cycloDeg, bluesteinDeg))
+			degNext := num.NextProdPower(deg, []uint64{2})
+			diffDegNext := num.NextProdPower(2*(redDeg-deg)+1, []uint64{2})
+			gap = num.LCM(num.LCM(degNext, diffDegNext), num.LCM(cycloDeg, bluesteinDeg))
 		}
 	}
 
+	return gap
+}
+
+// cyclicGap finds the "gap" of the NTT-friendly modulus for cyclic rings.
+func cyclicGap(deg uint64) uint64 {
+	var gap uint64
+
+	if num.IsProdPowerOf(deg, cyclicNTTFactors) {
+		gap = deg
+	} else {
+		gap = num.LCM(num.NextProdPower(2*deg-1, cyclicNTTFactors), deg)
+	}
+
+	return gap
+}
+
+// autFixedGap finds the "gap" of the NTT-friendly modulus for AutFixed rings.
+func autFixedGap(cycloDeg, deg uint64) uint64 {
+	var gap uint64
+
+	if num.IsProdPowerOf(deg, cyclicNTTFactors) {
+		gap = num.LCM(cycloDeg, deg)
+	} else {
+		gap = num.LCM(num.NextProdPower(2*deg-1, cyclicNTTFactors), cycloDeg)
+	}
+
+	return gap
+}
+
+// isNTTFriendly checks if the given modulus is NTT-friendly with respect to the ring parameters.
+func isNTTFriendly(ringParams RingParameters, modulus *mod.Modulus) bool {
+	var gap uint64
+
+	switch ringParams.ringType {
+	case Cyclotomic:
+		gap = cyclotomicGap(uint64(ringParams.cycloDegree), uint64(ringParams.degree))
+	case Cyclic:
+		gap = cyclicGap(uint64(ringParams.degree))
+	case AutFixed:
+		gap = autFixedGap(uint64(ringParams.cycloDegree), uint64(ringParams.degree))
+	}
+
 	for f := range num.Factor(modulus.Value()) {
-		if f%step != 1 {
+		if f%gap != 1 {
 			return false
 		}
 	}
 	return true
 }
 
-// isCyclicNTTFriendly checks if the given modulus is NTT-friendly for Cyclic rings.
-func isCyclicNTTFriendly(deg uint64, modulus *mod.Modulus) bool {
-	var step uint64
-	if num.IsProdPowerOf(deg, cyclicNTTFactors) {
-		step = deg
-	} else {
-		step = num.LCM(num.NextProdPower(2*deg-1, cyclicNTTFactors), deg)
+// FindNTTPrimes finds a list of prime moduli that are NTT-friendly with respect to the given ring parameters.
+func FindNTTPrimes(ringParams RingParameters, start uint64, cnt int) []*mod.Modulus {
+	var gap uint64
+
+	switch ringParams.ringType {
+	case Cyclotomic:
+		gap = cyclotomicGap(uint64(ringParams.cycloDegree), uint64(ringParams.degree))
+	case Cyclic:
+		gap = cyclicGap(uint64(ringParams.degree))
+	case AutFixed:
+		gap = autFixedGap(uint64(ringParams.cycloDegree), uint64(ringParams.degree))
 	}
 
-	for f := range num.Factor(modulus.Value()) {
-		if f%step != 1 {
-			return false
-		}
-	}
-	return true
-}
-
-// isAutFixedNTTFriendly checks if the given modulus is NTT-friendly for AutFixed rings.
-func isAutFixedNTTFriendly(cycloDeg, deg uint64, modulus *mod.Modulus) bool {
-	var step uint64
-	if num.IsProdPowerOf(deg, cyclicNTTFactors) {
-		step = num.LCM(cycloDeg, deg)
-	} else {
-		step = num.LCM(num.NextProdPower(2*deg-1, cyclicNTTFactors), cycloDeg)
+	start = (start/gap)*gap + gap + 1
+	primes := make([]*mod.Modulus, cnt)
+	primes[0] = mod.NewModulus(num.NextPrime(start, gap))
+	for i := 1; i < cnt; i++ {
+		primes[i] = mod.NewModulus(num.NextPrime(primes[i-1].Value(), gap))
 	}
 
-	for f := range num.Factor(modulus.Value()) {
-		if f%step != 1 {
-			return false
-		}
-	}
-	return true
+	return primes
 }

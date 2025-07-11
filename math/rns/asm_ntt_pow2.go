@@ -6,9 +6,9 @@ import (
 	"unsafe"
 )
 
-// nttInPlacePow2Deg16 computes the NTT transform in-place for power-of-two length coefficients.
+// nttInPlacePow2Unroll computes the NTT transform in-place for power-of-two length coefficients.
 // Assumes len(coeffs) >= 32.
-func nttInPlacePow2Deg16(coeffs, tw, twS []uint64, q uint64) {
+func nttInPlacePow2Unroll(coeffs, tw, twS []uint64, q uint64) {
 	N := len(coeffs)
 	twoQ := q << 1
 	var w, wS uint64
@@ -19,15 +19,15 @@ func nttInPlacePow2Deg16(coeffs, tw, twS []uint64, q uint64) {
 		c0 := (*[8]uint64)(unsafe.Pointer(&coeffs[j]))
 		c1 := (*[8]uint64)(unsafe.Pointer(&coeffs[j+t]))
 
-		c0[0], c1[0] = butterflyNoCmp(c0[0], c1[0], w, wS, q, twoQ)
-		c0[1], c1[1] = butterflyNoCmp(c0[1], c1[1], w, wS, q, twoQ)
-		c0[2], c1[2] = butterflyNoCmp(c0[2], c1[2], w, wS, q, twoQ)
-		c0[3], c1[3] = butterflyNoCmp(c0[3], c1[3], w, wS, q, twoQ)
+		c0[0], c1[0] = butterflyPow2NoCmp(c0[0], c1[0], w, wS, q, twoQ)
+		c0[1], c1[1] = butterflyPow2NoCmp(c0[1], c1[1], w, wS, q, twoQ)
+		c0[2], c1[2] = butterflyPow2NoCmp(c0[2], c1[2], w, wS, q, twoQ)
+		c0[3], c1[3] = butterflyPow2NoCmp(c0[3], c1[3], w, wS, q, twoQ)
 
-		c0[4], c1[4] = butterflyNoCmp(c0[4], c1[4], w, wS, q, twoQ)
-		c0[5], c1[5] = butterflyNoCmp(c0[5], c1[5], w, wS, q, twoQ)
-		c0[6], c1[6] = butterflyNoCmp(c0[6], c1[6], w, wS, q, twoQ)
-		c0[7], c1[7] = butterflyNoCmp(c0[7], c1[7], w, wS, q, twoQ)
+		c0[4], c1[4] = butterflyPow2NoCmp(c0[4], c1[4], w, wS, q, twoQ)
+		c0[5], c1[5] = butterflyPow2NoCmp(c0[5], c1[5], w, wS, q, twoQ)
+		c0[6], c1[6] = butterflyPow2NoCmp(c0[6], c1[6], w, wS, q, twoQ)
+		c0[7], c1[7] = butterflyPow2NoCmp(c0[7], c1[7], w, wS, q, twoQ)
 	}
 
 	for m := 2; m <= N/16; m <<= 1 {
@@ -42,15 +42,15 @@ func nttInPlacePow2Deg16(coeffs, tw, twS []uint64, q uint64) {
 				c0 := (*[8]uint64)(unsafe.Pointer(&coeffs[j]))
 				c1 := (*[8]uint64)(unsafe.Pointer(&coeffs[j+t]))
 
-				c0[0], c1[0] = butterfly(c0[0], c1[0], w, wS, q, twoQ)
-				c0[1], c1[1] = butterfly(c0[1], c1[1], w, wS, q, twoQ)
-				c0[2], c1[2] = butterfly(c0[2], c1[2], w, wS, q, twoQ)
-				c0[3], c1[3] = butterfly(c0[3], c1[3], w, wS, q, twoQ)
+				c0[0], c1[0] = butterflyPow2(c0[0], c1[0], w, wS, q, twoQ)
+				c0[1], c1[1] = butterflyPow2(c0[1], c1[1], w, wS, q, twoQ)
+				c0[2], c1[2] = butterflyPow2(c0[2], c1[2], w, wS, q, twoQ)
+				c0[3], c1[3] = butterflyPow2(c0[3], c1[3], w, wS, q, twoQ)
 
-				c0[4], c1[4] = butterfly(c0[4], c1[4], w, wS, q, twoQ)
-				c0[5], c1[5] = butterfly(c0[5], c1[5], w, wS, q, twoQ)
-				c0[6], c1[6] = butterfly(c0[6], c1[6], w, wS, q, twoQ)
-				c0[7], c1[7] = butterfly(c0[7], c1[7], w, wS, q, twoQ)
+				c0[4], c1[4] = butterflyPow2(c0[4], c1[4], w, wS, q, twoQ)
+				c0[5], c1[5] = butterflyPow2(c0[5], c1[5], w, wS, q, twoQ)
+				c0[6], c1[6] = butterflyPow2(c0[6], c1[6], w, wS, q, twoQ)
+				c0[7], c1[7] = butterflyPow2(c0[7], c1[7], w, wS, q, twoQ)
 			}
 		}
 	}
@@ -63,10 +63,10 @@ func nttInPlacePow2Deg16(coeffs, tw, twS []uint64, q uint64) {
 
 		c := (*[8]uint64)(unsafe.Pointer(&coeffs[j]))
 
-		c[0], c[4] = butterfly(c[0], c[4], w, wS, q, twoQ)
-		c[1], c[5] = butterfly(c[1], c[5], w, wS, q, twoQ)
-		c[2], c[6] = butterfly(c[2], c[6], w, wS, q, twoQ)
-		c[3], c[7] = butterfly(c[3], c[7], w, wS, q, twoQ)
+		c[0], c[4] = butterflyPow2(c[0], c[4], w, wS, q, twoQ)
+		c[1], c[5] = butterflyPow2(c[1], c[5], w, wS, q, twoQ)
+		c[2], c[6] = butterflyPow2(c[2], c[6], w, wS, q, twoQ)
+		c[3], c[7] = butterflyPow2(c[3], c[7], w, wS, q, twoQ)
 	}
 
 	// t = 2, m = N / 4
@@ -76,12 +76,12 @@ func nttInPlacePow2Deg16(coeffs, tw, twS []uint64, q uint64) {
 		c := (*[8]uint64)(unsafe.Pointer(&coeffs[j]))
 
 		w, wS = tw[i+N/4], twS[i+N/4]
-		c[0], c[2] = butterfly(c[0], c[2], w, wS, q, twoQ)
-		c[1], c[3] = butterfly(c[1], c[3], w, wS, q, twoQ)
+		c[0], c[2] = butterflyPow2(c[0], c[2], w, wS, q, twoQ)
+		c[1], c[3] = butterflyPow2(c[1], c[3], w, wS, q, twoQ)
 
 		w, wS = tw[i+N/4+1], twS[i+N/4+1]
-		c[4], c[6] = butterfly(c[4], c[6], w, wS, q, twoQ)
-		c[5], c[7] = butterfly(c[5], c[7], w, wS, q, twoQ)
+		c[4], c[6] = butterflyPow2(c[4], c[6], w, wS, q, twoQ)
+		c[5], c[7] = butterflyPow2(c[5], c[7], w, wS, q, twoQ)
 	}
 
 	// t = 1, m = N / 2
@@ -90,16 +90,16 @@ func nttInPlacePow2Deg16(coeffs, tw, twS []uint64, q uint64) {
 
 		c := (*[8]uint64)(unsafe.Pointer(&coeffs[j]))
 
-		c[0], c[1] = butterfly(c[0], c[1], tw[i+N/2+0], twS[i+N/2+0], q, twoQ)
-		c[2], c[3] = butterfly(c[2], c[3], tw[i+N/2+1], twS[i+N/2+1], q, twoQ)
-		c[4], c[5] = butterfly(c[4], c[5], tw[i+N/2+2], twS[i+N/2+2], q, twoQ)
-		c[6], c[7] = butterfly(c[6], c[7], tw[i+N/2+3], twS[i+N/2+3], q, twoQ)
+		c[0], c[1] = butterflyPow2(c[0], c[1], tw[i+N/2+0], twS[i+N/2+0], q, twoQ)
+		c[2], c[3] = butterflyPow2(c[2], c[3], tw[i+N/2+1], twS[i+N/2+1], q, twoQ)
+		c[4], c[5] = butterflyPow2(c[4], c[5], tw[i+N/2+2], twS[i+N/2+2], q, twoQ)
+		c[6], c[7] = butterflyPow2(c[6], c[7], tw[i+N/2+3], twS[i+N/2+3], q, twoQ)
 	}
 }
 
-// inttInPlacePow2Deg16 computes the Inverse NTT transform in-place for power-of-two length coefficients.
+// inttInPlacePow2Unroll computes the Inverse NTT transform in-place for power-of-two length coefficients.
 // Assumes len(coeffs) >= 32.
-func inttInPlacePow2Deg16(coeffs, twInv, twInvS []uint64, q uint64) {
+func inttInPlacePow2Unroll(coeffs, twInv, twInvS []uint64, q uint64) {
 	N := len(coeffs)
 	twoQ := q << 1
 	var w, wS uint64
@@ -110,10 +110,10 @@ func inttInPlacePow2Deg16(coeffs, twInv, twInvS []uint64, q uint64) {
 
 		c := (*[8]uint64)(unsafe.Pointer(&coeffs[j]))
 
-		c[0], c[1] = invButterflyNoCmp(c[0], c[1], twInv[i+N/2+0], twInvS[i+N/2+0], q, twoQ)
-		c[2], c[3] = invButterflyNoCmp(c[2], c[3], twInv[i+N/2+1], twInvS[i+N/2+1], q, twoQ)
-		c[4], c[5] = invButterflyNoCmp(c[4], c[5], twInv[i+N/2+2], twInvS[i+N/2+2], q, twoQ)
-		c[6], c[7] = invButterflyNoCmp(c[6], c[7], twInv[i+N/2+3], twInvS[i+N/2+3], q, twoQ)
+		c[0], c[1] = invButterflyPow2NoCmp(c[0], c[1], twInv[i+N/2+0], twInvS[i+N/2+0], q, twoQ)
+		c[2], c[3] = invButterflyPow2NoCmp(c[2], c[3], twInv[i+N/2+1], twInvS[i+N/2+1], q, twoQ)
+		c[4], c[5] = invButterflyPow2NoCmp(c[4], c[5], twInv[i+N/2+2], twInvS[i+N/2+2], q, twoQ)
+		c[6], c[7] = invButterflyPow2NoCmp(c[6], c[7], twInv[i+N/2+3], twInvS[i+N/2+3], q, twoQ)
 	}
 
 	// t = 2, m = N / 4
@@ -123,12 +123,12 @@ func inttInPlacePow2Deg16(coeffs, twInv, twInvS []uint64, q uint64) {
 		c := (*[8]uint64)(unsafe.Pointer(&coeffs[j]))
 
 		w, wS = twInv[i+N/4], twInvS[i+N/4]
-		c[0], c[2] = invButterfly(c[0], c[2], w, wS, q, twoQ)
-		c[1], c[3] = invButterfly(c[1], c[3], w, wS, q, twoQ)
+		c[0], c[2] = invButterflyPow2(c[0], c[2], w, wS, q, twoQ)
+		c[1], c[3] = invButterflyPow2(c[1], c[3], w, wS, q, twoQ)
 
 		w, wS = twInv[i+N/4+1], twInvS[i+N/4+1]
-		c[4], c[6] = invButterfly(c[4], c[6], w, wS, q, twoQ)
-		c[5], c[7] = invButterfly(c[5], c[7], w, wS, q, twoQ)
+		c[4], c[6] = invButterflyPow2(c[4], c[6], w, wS, q, twoQ)
+		c[5], c[7] = invButterflyPow2(c[5], c[7], w, wS, q, twoQ)
 	}
 
 	// t = 4, m = N / 8
@@ -139,10 +139,10 @@ func inttInPlacePow2Deg16(coeffs, twInv, twInvS []uint64, q uint64) {
 
 		c := (*[8]uint64)(unsafe.Pointer(&coeffs[j]))
 
-		c[0], c[4] = invButterfly(c[0], c[4], w, wS, q, twoQ)
-		c[1], c[5] = invButterfly(c[1], c[5], w, wS, q, twoQ)
-		c[2], c[6] = invButterfly(c[2], c[6], w, wS, q, twoQ)
-		c[3], c[7] = invButterfly(c[3], c[7], w, wS, q, twoQ)
+		c[0], c[4] = invButterflyPow2(c[0], c[4], w, wS, q, twoQ)
+		c[1], c[5] = invButterflyPow2(c[1], c[5], w, wS, q, twoQ)
+		c[2], c[6] = invButterflyPow2(c[2], c[6], w, wS, q, twoQ)
+		c[3], c[7] = invButterflyPow2(c[3], c[7], w, wS, q, twoQ)
 	}
 
 	t := 8
@@ -157,15 +157,15 @@ func inttInPlacePow2Deg16(coeffs, twInv, twInvS []uint64, q uint64) {
 				c0 := (*[8]uint64)(unsafe.Pointer(&coeffs[j]))
 				c1 := (*[8]uint64)(unsafe.Pointer(&coeffs[j+t]))
 
-				c0[0], c1[0] = invButterfly(c0[0], c1[0], w, wS, q, twoQ)
-				c0[1], c1[1] = invButterfly(c0[1], c1[1], w, wS, q, twoQ)
-				c0[2], c1[2] = invButterfly(c0[2], c1[2], w, wS, q, twoQ)
-				c0[3], c1[3] = invButterfly(c0[3], c1[3], w, wS, q, twoQ)
+				c0[0], c1[0] = invButterflyPow2(c0[0], c1[0], w, wS, q, twoQ)
+				c0[1], c1[1] = invButterflyPow2(c0[1], c1[1], w, wS, q, twoQ)
+				c0[2], c1[2] = invButterflyPow2(c0[2], c1[2], w, wS, q, twoQ)
+				c0[3], c1[3] = invButterflyPow2(c0[3], c1[3], w, wS, q, twoQ)
 
-				c0[4], c1[4] = invButterfly(c0[4], c1[4], w, wS, q, twoQ)
-				c0[5], c1[5] = invButterfly(c0[5], c1[5], w, wS, q, twoQ)
-				c0[6], c1[6] = invButterfly(c0[6], c1[6], w, wS, q, twoQ)
-				c0[7], c1[7] = invButterfly(c0[7], c1[7], w, wS, q, twoQ)
+				c0[4], c1[4] = invButterflyPow2(c0[4], c1[4], w, wS, q, twoQ)
+				c0[5], c1[5] = invButterflyPow2(c0[5], c1[5], w, wS, q, twoQ)
+				c0[6], c1[6] = invButterflyPow2(c0[6], c1[6], w, wS, q, twoQ)
+				c0[7], c1[7] = invButterflyPow2(c0[7], c1[7], w, wS, q, twoQ)
 			}
 		}
 		t <<= 1
@@ -176,14 +176,14 @@ func inttInPlacePow2Deg16(coeffs, twInv, twInvS []uint64, q uint64) {
 		c0 := (*[8]uint64)(unsafe.Pointer(&coeffs[j]))
 		c1 := (*[8]uint64)(unsafe.Pointer(&coeffs[j+t]))
 
-		c0[0], c1[0] = invButterfly(c0[0], c1[0], w, wS, q, twoQ)
-		c0[1], c1[1] = invButterfly(c0[1], c1[1], w, wS, q, twoQ)
-		c0[2], c1[2] = invButterfly(c0[2], c1[2], w, wS, q, twoQ)
-		c0[3], c1[3] = invButterfly(c0[3], c1[3], w, wS, q, twoQ)
+		c0[0], c1[0] = invButterflyPow2(c0[0], c1[0], w, wS, q, twoQ)
+		c0[1], c1[1] = invButterflyPow2(c0[1], c1[1], w, wS, q, twoQ)
+		c0[2], c1[2] = invButterflyPow2(c0[2], c1[2], w, wS, q, twoQ)
+		c0[3], c1[3] = invButterflyPow2(c0[3], c1[3], w, wS, q, twoQ)
 
-		c0[4], c1[4] = invButterfly(c0[4], c1[4], w, wS, q, twoQ)
-		c0[5], c1[5] = invButterfly(c0[5], c1[5], w, wS, q, twoQ)
-		c0[6], c1[6] = invButterfly(c0[6], c1[6], w, wS, q, twoQ)
-		c0[7], c1[7] = invButterfly(c0[7], c1[7], w, wS, q, twoQ)
+		c0[4], c1[4] = invButterflyPow2(c0[4], c1[4], w, wS, q, twoQ)
+		c0[5], c1[5] = invButterflyPow2(c0[5], c1[5], w, wS, q, twoQ)
+		c0[6], c1[6] = invButterflyPow2(c0[6], c1[6], w, wS, q, twoQ)
+		c0[7], c1[7] = invButterflyPow2(c0[7], c1[7], w, wS, q, twoQ)
 	}
 }

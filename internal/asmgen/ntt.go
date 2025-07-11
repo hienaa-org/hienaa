@@ -9,8 +9,8 @@ func NTTConstants() {
 	ConstData("MASK_LO", U64(1<<32-1))
 }
 
-func NTTInPlacePow2Deg16AVX2() {
-	TEXT("nttInPlacePow2Deg16AVX2", NOSPLIT, "func(coeffs, tw, twS []uint64, q uint64)")
+func NTTInPlacePow2UnrollAVX2() {
+	TEXT("nttInPlacePow2UnrollAVX2", NOSPLIT, "func(coeffs, tw, twS []uint64, q uint64)")
 	Pragma("noescape")
 
 	allOne := YMM()
@@ -237,8 +237,8 @@ func NTTInPlacePow2Deg16AVX2() {
 	RET()
 }
 
-func NTTInPlacePow2Deg16AVX512() {
-	TEXT("nttInPlacePow2Deg16AVX512", NOSPLIT, "func(coeffs, tw, twS []uint64, q uint64)")
+func NTTInPlacePow2UnrollAVX512() {
+	TEXT("nttInPlacePow2UnrollAVX512", NOSPLIT, "func(coeffs, tw, twS []uint64, q uint64)")
 	Pragma("noescape")
 
 	maskLo := ZMM()

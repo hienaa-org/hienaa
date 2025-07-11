@@ -10,18 +10,18 @@ func nttInPlacePow2(coeffs, tw, twS []uint64, q uint64) {
 		nttInPlacePow2Ref(coeffs, tw, twS, q)
 		return
 	}
-	nttInPlacePow2Deg16(coeffs, tw, twS, q)
+	nttInPlacePow2Unroll(coeffs, tw, twS, q)
 }
 
-// butterflyNoCmp returns the Harvey butterfly without reduction.
-func butterflyNoCmp(u, v, w, wS, q, twoQ uint64) (uint64, uint64) {
+// butterflyPow2NoCmp returns the Harvey butterfly without reduction.
+func butterflyPow2NoCmp(u, v, w, wS, q, twoQ uint64) (uint64, uint64) {
 	quo, _ := bits.Mul64(v, wS)
 	t := v*w - quo*q
 	return u + t, u - t + twoQ
 }
 
-// butterfly returns the Harvey butterfly.
-func butterfly(u, v, w, wS, q, twoQ uint64) (uint64, uint64) {
+// butterflyPow2 returns the Harvey butterfly.
+func butterflyPow2(u, v, w, wS, q, twoQ uint64) (uint64, uint64) {
 	if u >= twoQ {
 		u -= twoQ
 	}
@@ -43,21 +43,21 @@ func nttInPlacePow2Ref(coeffs, tw, twS []uint64, q uint64) {
 			j2 := j1 + t
 			w, wS := tw[m+i], twS[m+i]
 			for j := j1; j < j2; j++ {
-				coeffs[j], coeffs[j+t] = butterfly(coeffs[j], coeffs[j+t], w, wS, q, twoQ)
+				coeffs[j], coeffs[j+t] = butterflyPow2(coeffs[j], coeffs[j+t], w, wS, q, twoQ)
 			}
 		}
 	}
 }
 
-// invButterflyNoCmp returns the inverse Harvey butterfly without reduction.
-func invButterflyNoCmp(u, v, w, wS, q, twoQ uint64) (uint64, uint64) {
+// invButterflyPow2NoCmp returns the inverse Harvey butterfly without reduction.
+func invButterflyPow2NoCmp(u, v, w, wS, q, twoQ uint64) (uint64, uint64) {
 	u, v = u+v, u-v+twoQ
 	quo, _ := bits.Mul64(v, wS)
 	return u, v*w - quo*q
 }
 
-// invButterfly returns the inverse Harvey butterfly.
-func invButterfly(u, v, w, wS, q, twoQ uint64) (uint64, uint64) {
+// invButterflyPow2 returns the inverse Harvey butterfly.
+func invButterflyPow2(u, v, w, wS, q, twoQ uint64) (uint64, uint64) {
 	u, v = u+v, u-v+twoQ
 	if u >= twoQ {
 		u -= twoQ
@@ -72,7 +72,7 @@ func inttInPlacePow2(coeffs, twInv, twInvS []uint64, q uint64) {
 		inttInPlacePow2Ref(coeffs, twInv, twInvS, q)
 		return
 	}
-	inttInPlacePow2Deg16(coeffs, twInv, twInvS, q)
+	inttInPlacePow2Unroll(coeffs, twInv, twInvS, q)
 }
 
 // inttInPlacePow2Ref computes the inverse NTT transform in-place for power-of-two length coefficients.
@@ -87,7 +87,7 @@ func inttInPlacePow2Ref(coeffs, twInv, twInvS []uint64, q uint64) {
 			j2 := j1 + t
 			w, wS := twInv[m+i], twInvS[m+i]
 			for j := j1; j < j2; j++ {
-				coeffs[j], coeffs[j+t] = invButterfly(coeffs[j], coeffs[j+t], w, wS, q, twoQ)
+				coeffs[j], coeffs[j+t] = invButterflyPow2(coeffs[j], coeffs[j+t], w, wS, q, twoQ)
 			}
 		}
 		t <<= 1

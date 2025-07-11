@@ -26,16 +26,12 @@ type cyclotomicPow2Transformer struct {
 
 // newCyclotomicPow2Transformer creates a new [pow2CyclotomicTransformer] for the given ringParams and modulus.
 func newCyclotomicPow2Transformer(ringParams RingParameters, modulus *mod.Modulus) *cyclotomicPow2Transformer {
-	if (modulus.Value()-1)%uint64(ringParams.cycloDegree) != 0 {
-		panic("newCyclotomicPow2Transformer: modulus not NTT-friendly")
-	}
-
-	g := num.PrimitiveRoot(modulus)
+	root := num.PrimitiveRoot(modulus)
 
 	tw := make([]uint64, ringParams.degree)
 	twInv := make([]uint64, ringParams.degree)
-	tw[1] = num.NthRoot(ringParams.cycloDegree, g, modulus)
-	twInv[1] = mod.Inv(tw[1], modulus)
+	tw[0], tw[1] = 1, num.NthRoot(ringParams.cycloDegree, root, modulus)
+	twInv[0], twInv[1] = 1, mod.Inv(tw[1], modulus)
 	for i := 2; i < ringParams.degree; i++ {
 		tw[i] = mod.Mul(tw[i-1], tw[1], modulus)
 		twInv[i] = mod.Mul(twInv[i-1], twInv[1], modulus)
@@ -73,4 +69,8 @@ func (ntt *cyclotomicPow2Transformer) nttInPlace(coeffs []uint64) {
 func (ntt *cyclotomicPow2Transformer) invNTTInPlace(coeffs []uint64) {
 	inttInPlacePow2(coeffs, ntt.twInv, ntt.twInvS, ntt.modulus.Value())
 	mod.ScalarMulVecTo(coeffs, ntt.degInv, ntt.modulus, coeffs)
+}
+
+func (ntt *cyclotomicPow2Transformer) shallowCopy() singleTransformer {
+	return ntt
 }

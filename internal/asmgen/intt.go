@@ -5,8 +5,8 @@ import (
 	. "github.com/mmcloughlin/avo/operand"
 )
 
-func InvNTTInPlacePow2Deg16AVX2() {
-	TEXT("inttInPlacePow2Deg16AVX2", NOSPLIT, "func(coeffs, twInv, twInvS []uint64, q uint64)")
+func InvNTTInPlacePow2UnrollAVX2() {
+	TEXT("inttInPlacePow2UnrollAVX2", NOSPLIT, "func(coeffs, twInv, twInvS []uint64, q uint64)")
 	Pragma("noescape")
 
 	allOne := YMM()
@@ -235,8 +235,8 @@ func InvNTTInPlacePow2Deg16AVX2() {
 	RET()
 }
 
-func InvNTTInPlacePow2Deg16AVX512() {
-	TEXT("inttInPlacePow2Deg16AVX512", NOSPLIT, "func(coeffs, twInv, twInvS []uint64, q uint64)")
+func InvNTTInPlacePow2UnrollAVX512() {
+	TEXT("inttInPlacePow2UnrollAVX512", NOSPLIT, "func(coeffs, twInv, twInvS []uint64, q uint64)")
 	Pragma("noescape")
 
 	maskLo := ZMM()

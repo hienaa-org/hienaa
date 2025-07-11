@@ -7,7 +7,8 @@ import (
 
 // Transformer computes NTT/InvNTT transform.
 type Transformer struct {
-	modulus      []*mod.Modulus
+	Params       RingParameters
+	Modulus      []*mod.Modulus
 	transformers []singleTransformer
 }
 
@@ -19,9 +20,35 @@ func NewTransformer(ringParams RingParameters, modulus []*mod.Modulus) *Transfor
 	}
 
 	return &Transformer{
-		modulus:      modulus,
+		Params:       ringParams,
+		Modulus:      modulus,
 		transformers: transformers,
 	}
+}
+
+// NTTTo computes pOut = NTT(p).
+func (ntt *Transformer) NTTTo(p, pOut *Poly) {
+	if p.IsNTT {
+		panic("NTTInPlace: input polynomial is in NTT form")
+	}
+
+	copy(pOut.Coeffs, p.Coeffs)
+	for i := range ntt.transformers {
+		ntt.transformers[i].nttInPlace(pOut.Coeffs[i])
+	}
+	pOut.IsNTT = true
+}
+
+// InvNTTInPlace transforms the input coefficients to Standard form in-place.
+func (ntt *Transformer) InvNTTInPlace(p *Poly) {
+	if !p.IsNTT {
+		panic("InvNTTInPlace: input polynomial is in Standard form")
+	}
+
+	for i := range ntt.transformers {
+		ntt.transformers[i].invNTTInPlace(p.Coeffs[i])
+	}
+	p.IsNTT = false
 }
 
 // singleTransformer is an interface for NTT/InvNTT transforms for a single modulus.
@@ -30,12 +57,14 @@ type singleTransformer interface {
 	nttInPlace([]uint64)
 	// invNTTInPlace transforms the uint64 vector to Standard form.
 	invNTTInPlace([]uint64)
+	// shallowCopy creates a thread-safe copy of the singleTransformer.
+	shallowCopy() singleTransformer
 }
 
 // newSingleTransformer creates a new [singleTransformer] for the given ring parameters and modulus.
 func newSingleTransformer(ringParams RingParameters, modulus *mod.Modulus) singleTransformer {
-	if isNTTFriendly(ringParams, modulus) {
-		return newTrivialTransformer(ringParams, modulus)
+	if !isNTTFriendly(ringParams, modulus) {
+		return newTrivialTransformer(modulus)
 	}
 
 	switch ringParams.ringType {
@@ -43,34 +72,14 @@ func newSingleTransformer(ringParams RingParameters, modulus *mod.Modulus) singl
 		switch {
 		case num.IsPowerOfTwo(uint64(ringParams.cycloDegree)):
 			return newCyclotomicPow2Transformer(ringParams, modulus)
-		default:
-
 		}
 	case Cyclic:
-
+		switch {
+		case num.IsProdPowerOf(uint64(ringParams.degree), cyclicNTTFactors):
+			return newCyclicPow235Transformer(ringParams, modulus)
+		}
 	case AutFixed:
 	}
 
 	panic("newSingleTransformer: unsupported ring type or parameters")
-}
-
-// trivialTransformer is a no-op transformer that does nothing.
-type trivialTransformer struct {
-	params  RingParameters
-	modulus *mod.Modulus
-}
-
-func newTrivialTransformer(ringParams RingParameters, modulus *mod.Modulus) *trivialTransformer {
-	return &trivialTransformer{
-		params:  ringParams,
-		modulus: modulus,
-	}
-}
-
-func (t *trivialTransformer) nttInPlace(coeffs []uint64) {
-	mod.MFormVecTo(coeffs, t.modulus, coeffs)
-}
-
-func (t *trivialTransformer) invNTTInPlace(coeffs []uint64) {
-	mod.InvMFormVecTo(coeffs, t.modulus, coeffs)
 }

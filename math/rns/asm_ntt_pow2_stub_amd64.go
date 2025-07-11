@@ -5,13 +5,13 @@
 package rns
 
 //go:noescape
-func nttInPlacePow2Deg16AVX2(coeffs []uint64, tw []uint64, twS []uint64, q uint64)
+func nttInPlacePow2UnrollAVX2(coeffs []uint64, tw []uint64, twS []uint64, q uint64)
 
 //go:noescape
-func nttInPlacePow2Deg16AVX512(coeffs []uint64, tw []uint64, twS []uint64, q uint64)
+func nttInPlacePow2UnrollAVX512(coeffs []uint64, tw []uint64, twS []uint64, q uint64)
 
 //go:noescape
-func inttInPlacePow2Deg16AVX2(coeffs []uint64, twInv []uint64, twInvS []uint64, q uint64)
+func inttInPlacePow2UnrollAVX2(coeffs []uint64, twInv []uint64, twInvS []uint64, q uint64)
 
 //go:noescape
-func inttInPlacePow2Deg16AVX512(coeffs []uint64, twInv []uint64, twInvS []uint64, q uint64)
+func inttInPlacePow2UnrollAVX512(coeffs []uint64, twInv []uint64, twInvS []uint64, q uint64)

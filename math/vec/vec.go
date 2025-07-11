@@ -50,7 +50,7 @@ func RadixReverseInPlace(v []uint64, r int) {
 		return
 	}
 
-	logN := int(math.Log(float64(len(v))) / math.Log(float64(r)))
+	logN := int(math.Ceil(math.Log(float64(len(v))) / math.Log(float64(r))))
 	for i := 0; i < len(v); i++ {
 		idx, j := i, 0
 		for t := 1; t < logN; t++ {

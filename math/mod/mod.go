@@ -12,6 +12,7 @@
 package mod
 
 import (
+	"fmt"
 	"math/bits"
 )
 
@@ -58,6 +59,11 @@ func (q *Modulus) Inv() uint64 {
 // Equals to floor(2^128 / modulus).
 func (q *Modulus) Div() (hi, lo uint64) {
 	return q.divHi, q.divLo
+}
+
+// String implements the [fmt.Stringer] interface.
+func (q *Modulus) String() string {
+	return fmt.Sprintf("%v", q.modulus)
 }
 
 // NewModulus creates a new [Modulus].

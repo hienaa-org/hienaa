@@ -39,7 +39,7 @@ func MFormVec(v []uint64, q *Modulus) []uint64 {
 	return vOut
 }
 
-// MFormVecTo computes vOutM as v in Montgomery form.
+// MFormVecTo transforms v to Montgomery form to vOutM.
 func MFormVecTo(v []uint64, q *Modulus, vOutM []uint64) {
 	M := (len(vOutM) >> 3) << 3
 
@@ -654,6 +654,39 @@ func MMulSubLazyVecTo(v0M, v1M []uint64, q *Modulus, vOutM []uint64) {
 
 	for i := M; i < len(vOutM); i++ {
 		vOutM[i] += mMulLazy(qv-v0M[i], v1M[i], qv, inv)
+	}
+}
+
+// SFormVec returns v in Shoup form.
+func SFormVec(v []uint64, q *Modulus) []uint64 {
+	vOut := make([]uint64, len(v))
+	SFormVecTo(v, q, vOut)
+	return vOut
+}
+
+// SFormVecTo transforms v to Shoup form to vOutS.
+func SFormVecTo(v []uint64, q *Modulus, vOutS []uint64) {
+	M := (len(vOutS) >> 3) << 3
+
+	qv := q.Value()
+
+	for i := 0; i < M; i += 8 {
+		w0 := (*[8]uint64)(unsafe.Pointer(&v[i]))
+		wOut := (*[8]uint64)(unsafe.Pointer(&vOutS[i]))
+
+		wOut[0] = sForm(w0[0], qv)
+		wOut[1] = sForm(w0[1], qv)
+		wOut[2] = sForm(w0[2], qv)
+		wOut[3] = sForm(w0[3], qv)
+
+		wOut[4] = sForm(w0[4], qv)
+		wOut[5] = sForm(w0[5], qv)
+		wOut[6] = sForm(w0[6], qv)
+		wOut[7] = sForm(w0[7], qv)
+	}
+
+	for i := M; i < len(vOutS); i++ {
+		vOutS[i] = sForm(v[i], qv)
 	}
 }
 
