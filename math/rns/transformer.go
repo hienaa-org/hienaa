@@ -39,16 +39,17 @@ func (ntt *Transformer) NTTTo(p, pOut *Poly) {
 	pOut.IsNTT = true
 }
 
-// InvNTTInPlace transforms the input coefficients to Standard form in-place.
-func (ntt *Transformer) InvNTTInPlace(p *Poly) {
+// InvNTTTo computes pOut = InvNTT(p).
+func (ntt *Transformer) InvNTTTo(p, pOut *Poly) {
 	if !p.IsNTT {
 		panic("InvNTTInPlace: input polynomial is in Standard form")
 	}
 
+	copy(pOut.Coeffs, p.Coeffs)
 	for i := range ntt.transformers {
-		ntt.transformers[i].invNTTInPlace(p.Coeffs[i])
+		ntt.transformers[i].invNTTInPlace(pOut.Coeffs[i])
 	}
-	p.IsNTT = false
+	pOut.IsNTT = false
 }
 
 // singleTransformer is an interface for NTT/InvNTT transforms for a single modulus.
