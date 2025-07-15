@@ -25,15 +25,15 @@ func cyclicTwiddleFactor(deg, radix int, root uint64, modulus *mod.Modulus) (tw,
 		return []uint64{1}, []uint64{1}
 	}
 
-	g := num.NthRoot(deg, root, modulus)
-	gInv := mod.Inv(g, modulus)
+	z := num.NthRoot(deg, root, modulus)
+	gInv := mod.Inv(z, modulus)
 
 	tw = make([]uint64, deg)
 	twInv = make([]uint64, deg)
 	tw[0] = 1
 	twInv[0] = 1
 	for i := 1; i < deg/radix; i++ {
-		tw[i] = mod.Mul(tw[i-1], g, modulus)
+		tw[i] = mod.Mul(tw[i-1], z, modulus)
 		twInv[i] = mod.Mul(twInv[i-1], gInv, modulus)
 	}
 

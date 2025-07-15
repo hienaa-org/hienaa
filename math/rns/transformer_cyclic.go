@@ -202,3 +202,127 @@ func (ntt *cyclicPow235Transformer) shallowCopy() singleTransformer {
 		buf: newCyclicTransformerBuffer(ntt.params.degree),
 	}
 }
+
+// cyclicBluesteinTransformer is a transformer for arbitrary degrees.
+// Internally, it uses the Bluestein NTT.
+type cyclicBluesteinTransformer struct {
+	params  RingParameters
+	modulus *mod.Modulus
+
+	*cyclicPow235Transformer
+
+	// z is the factor for Z-transform.
+	z []uint64
+	// zS is the Shoup form of z.
+	zS []uint64
+	// zInv is the inverse factor for Z-transform.
+	zInv []uint64
+	// zInvS is the Shoup form of zInv.
+	zInvS []uint64
+
+	// chirpM is the chirp factor for Bluestein NTT in Montgomery form.
+	chirpM []uint64
+	// chirpMS is the Shoup form of chirpM.
+	chirpMS []uint64
+	// chirpInv is the inverse chirp factor for Bluestein NTT.
+	chirpInv []uint64
+}
+
+// newCyclicBluesteinTransformer creates a new [cyclicBluesteinTransformer] for the given ringParams and modulus.
+func newCyclicBluesteinTransformer(params RingParameters, modulus *mod.Modulus) *cyclicBluesteinTransformer {
+	embedDeg := int(num.NextProdPower(uint64(2*params.degree-1), []uint64{2}))
+	embedParams := NewCyclicParameters(embedDeg)
+
+	root := num.PrimitiveRoot(modulus)
+	zz := num.NthRoot(2*params.degree, root, modulus)
+	zzInv := mod.Inv(zz, modulus)
+
+	z := make([]uint64, params.degree)
+	zInv := make([]uint64, params.degree)
+	for i := 0; i < params.degree; i++ {
+		idx := (i * i) % (2 * params.degree)
+		z[i] = mod.Exp(zz, uint64(idx), modulus)
+		zInv[i] = mod.Exp(zzInv, uint64(idx), modulus)
+	}
+
+	embedNTT := newCyclicPow235Transformer(embedParams, modulus)
+
+	chirpM := make([]uint64, embedDeg)
+	copy(chirpM, zInv)
+	copy(chirpM[embedDeg-params.degree+1:], zInv[1:])
+	slices.Reverse(chirpM[embedDeg-params.degree+1:])
+
+	mod.ScalarMulVecTo(chirpM, mod.Inv(uint64(embedDeg), modulus), modulus, chirpM)
+	nttInPlacePow2(chirpM, embedNTT.tw[0], embedNTT.twS[0], modulus.Value())
+	mod.MFormVecTo(chirpM, modulus, chirpM)
+
+	chirpInv := make([]uint64, embedDeg)
+	copy(chirpInv, z)
+	copy(chirpInv[embedDeg-params.degree+1:], z[1:])
+	slices.Reverse(chirpInv[embedDeg-params.degree+1:])
+
+	mod.ScalarMulVecTo(chirpInv, mod.Inv(uint64(embedDeg*params.degree), modulus), modulus, chirpInv)
+	nttInPlacePow2(chirpInv, embedNTT.tw[0], embedNTT.twS[0], modulus.Value())
+	mod.ReduceVecTo(chirpInv, modulus, chirpInv)
+
+	return &cyclicBluesteinTransformer{
+		params:  params,
+		modulus: modulus,
+
+		cyclicPow235Transformer: embedNTT,
+
+		z:     z,
+		zS:    mod.SFormVec(z, modulus),
+		zInv:  zInv,
+		zInvS: mod.SFormVec(zInv, modulus),
+
+		chirpM:   chirpM,
+		chirpMS:  mod.SFormVec(chirpM, modulus),
+		chirpInv: chirpInv,
+	}
+}
+
+func (ntt *cyclicBluesteinTransformer) nttInPlace(coeffs []uint64) {
+	mod.SMulVecTo(coeffs, ntt.z, ntt.zS, ntt.modulus, ntt.buf.coeffs[:ntt.params.degree])
+	clear(ntt.buf.coeffs[ntt.params.degree:])
+
+	nttInPlacePow2(ntt.buf.coeffs, ntt.tw[0], ntt.twS[0], ntt.modulus.Value())
+
+	mod.SMulVecTo(ntt.buf.coeffs, ntt.chirpM, ntt.chirpMS, ntt.modulus, ntt.buf.coeffs)
+
+	inttInPlacePow2(ntt.buf.coeffs, ntt.twInv[0], ntt.twInvS[0], ntt.modulus.Value())
+
+	mod.SMulVecTo(ntt.buf.coeffs[:ntt.params.degree], ntt.z, ntt.zS, ntt.modulus, coeffs)
+}
+
+func (ntt *cyclicBluesteinTransformer) invNTTInPlace(coeffs []uint64) {
+	mod.SMulVecTo(coeffs, ntt.zInv, ntt.zInvS, ntt.modulus, ntt.buf.coeffs[:ntt.params.degree])
+	clear(ntt.buf.coeffs[ntt.params.degree:])
+
+	nttInPlacePow2(ntt.buf.coeffs, ntt.tw[0], ntt.twS[0], ntt.modulus.Value())
+
+	mod.MMulVecTo(ntt.buf.coeffs, ntt.chirpInv, ntt.modulus, ntt.buf.coeffs)
+
+	inttInPlacePow2(ntt.buf.coeffs, ntt.twInv[0], ntt.twInvS[0], ntt.modulus.Value())
+
+	mod.SMulVecTo(ntt.buf.coeffs[:ntt.params.degree], ntt.zInv, ntt.zInvS, ntt.modulus, coeffs)
+}
+
+func (ntt *cyclicBluesteinTransformer) shallowCopy() singleTransformer {
+	embedNTTCopy := ntt.cyclicPow235Transformer.shallowCopy().(*cyclicPow235Transformer)
+	return &cyclicBluesteinTransformer{
+		params:  ntt.params,
+		modulus: ntt.modulus,
+
+		cyclicPow235Transformer: embedNTTCopy,
+
+		z:     ntt.z,
+		zS:    ntt.zS,
+		zInv:  ntt.zInv,
+		zInvS: ntt.zInvS,
+
+		chirpM:   ntt.chirpM,
+		chirpMS:  ntt.chirpMS,
+		chirpInv: ntt.chirpInv,
+	}
+}

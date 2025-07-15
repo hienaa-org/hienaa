@@ -15,21 +15,3 @@ func subVecToAVX2(v0 []uint64, v1 []uint64, q uint64, vOut []uint64)
 
 //go:noescape
 func subLazyVecToAVX2(v0 []uint64, v1 []uint64, vOut []uint64)
-
-//go:noescape
-func mulVecToX86(v0 []uint64, v1 []uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
-
-//go:noescape
-func mulAddVecToX86(v0 []uint64, v1 []uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
-
-//go:noescape
-func mulSubVecToX86(v0 []uint64, v1 []uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
-
-//go:noescape
-func mulLazyVecToX86(v0 []uint64, v1 []uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
-
-//go:noescape
-func mulAddLazyVecToX86(v0 []uint64, v1 []uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)
-
-//go:noescape
-func mulSubLazyVecToX86(v0 []uint64, v1 []uint64, q uint64, divHi uint64, divLo uint64, vOut []uint64)

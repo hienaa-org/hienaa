@@ -26,17 +26,31 @@ func NewTransformer(ringParams RingParameters, modulus []*mod.Modulus) *Transfor
 	}
 }
 
+// NTT returns NTT(p).
+func (ntt *Transformer) NTT(p *Poly) *Poly {
+	pOut := NewNTTPoly(ntt.Params.degree, len(ntt.Modulus))
+	ntt.NTTTo(p, pOut)
+	return pOut
+}
+
 // NTTTo computes pOut = NTT(p).
 func (ntt *Transformer) NTTTo(p, pOut *Poly) {
 	if p.IsNTT {
 		panic("NTTTo: input polynomial is in NTT form")
 	}
 
-	copy(pOut.Coeffs, p.Coeffs)
 	for i := range ntt.transformers {
+		copy(pOut.Coeffs[i], p.Coeffs[i])
 		ntt.transformers[i].nttInPlace(pOut.Coeffs[i])
 	}
 	pOut.IsNTT = true
+}
+
+// InvNTT returns InvNTT(p).
+func (ntt *Transformer) InvNTT(p *Poly) *Poly {
+	pOut := NewPoly(ntt.Params.degree, len(ntt.Modulus))
+	ntt.InvNTTTo(p, pOut)
+	return pOut
 }
 
 // InvNTTTo computes pOut = InvNTT(p).
@@ -45,8 +59,8 @@ func (ntt *Transformer) InvNTTTo(p, pOut *Poly) {
 		panic("InvNTTTo: input polynomial is in Standard form")
 	}
 
-	copy(pOut.Coeffs, p.Coeffs)
 	for i := range ntt.transformers {
+		copy(pOut.Coeffs[i], p.Coeffs[i])
 		ntt.transformers[i].invNTTInPlace(pOut.Coeffs[i])
 	}
 	pOut.IsNTT = false
@@ -78,6 +92,8 @@ func newSingleTransformer(ringParams RingParameters, modulus *mod.Modulus) singl
 		switch {
 		case num.IsProdPowerOf(uint64(ringParams.degree), cyclicNTTFactors):
 			return newCyclicPow235Transformer(ringParams, modulus)
+		default:
+			return newCyclicBluesteinTransformer(ringParams, modulus)
 		}
 	case AutFixed:
 	}

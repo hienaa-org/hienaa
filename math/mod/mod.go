@@ -21,7 +21,7 @@ const (
 	// See [MaxModulus] for details.
 	MaxModulusBits = 61
 	// MaxModulus is the maximum possible modulus value for the reduction.
-	// All numbers in HEINAA are assumed to be less than this value.
+	// All numbers in HIENAA are assumed to be less than this value.
 	MaxModulus = 1 << MaxModulusBits
 )
 
@@ -71,7 +71,7 @@ func NewModulus(modulus uint64) *Modulus {
 	switch {
 	case modulus == 0:
 		panic("NewModulus: modulus cannot be zero")
-	case modulus > MaxModulus:
+	case modulus >= MaxModulus:
 		panic("NewModulus: modulus exceeds MaxModulus")
 	}
 

@@ -74,6 +74,12 @@ func TestOps(t *testing.T) {
 		assert.Equal(t, xMulBig.Uint64(), xMul)
 	})
 
+	t.Run("Shoup", func(t *testing.T) {
+		x1S := mod.SForm(x1, q)
+		xMul := mod.SMul(x0, x1, x1S, q)
+		assert.Equal(t, xMulBig.Uint64(), xMul)
+	})
+
 	t.Run("Exp", func(t *testing.T) {
 		xExp := mod.Exp(x0, x1, q)
 		xExpBig := new(big.Int).Exp(x0Big, x1Big, qBig)

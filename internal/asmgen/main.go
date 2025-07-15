@@ -34,14 +34,6 @@ func main() {
 
 		SubVecToAVX2(false)
 		SubVecToAVX2(true)
-
-		MulVecToX86(false, Mul)
-		MulVecToX86(false, MulAdd)
-		MulVecToX86(false, MulSub)
-
-		MulVecToX86(true, Mul)
-		MulVecToX86(true, MulAdd)
-		MulVecToX86(true, MulSub)
 	}
 
 	if *ntt {

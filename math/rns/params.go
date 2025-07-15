@@ -33,8 +33,8 @@ type RingParameters struct {
 
 // NewCyclotomicParameters creates a new [RingParameters] for a cyclotomic ring.
 func NewCyclotomicParameters(cycloDeg int) RingParameters {
-	if cycloDeg <= 0 {
-		panic("NewCyclotomicParameters: cycloDegree must be positive")
+	if cycloDeg < 4 {
+		panic("NewCyclotomicParameters: cycloDegree must be larger or equal than 4")
 	}
 
 	return RingParameters{
@@ -46,8 +46,8 @@ func NewCyclotomicParameters(cycloDeg int) RingParameters {
 
 // NewCyclicParameters creates a new [RingParameters] for a cyclic ring.
 func NewCyclicParameters(deg int) RingParameters {
-	if deg <= 0 {
-		panic("NewCyclicParameters: degree must be positive")
+	if deg < 2 {
+		panic("NewCyclicParameters: degree must be larger or equal than 2")
 	}
 
 	return RingParameters{
@@ -110,7 +110,7 @@ func cyclicGap(deg uint64) uint64 {
 	if num.IsProdPowerOf(deg, cyclicNTTFactors) {
 		gap = deg
 	} else {
-		gap = num.LCM(num.NextProdPower(2*deg-1, cyclicNTTFactors), deg)
+		gap = num.LCM(num.NextProdPower(2*deg-1, []uint64{2}), deg)
 	}
 
 	return gap
@@ -123,7 +123,7 @@ func autFixedGap(cycloDeg, deg uint64) uint64 {
 	if num.IsProdPowerOf(deg, cyclicNTTFactors) {
 		gap = num.LCM(cycloDeg, deg)
 	} else {
-		gap = num.LCM(num.NextProdPower(2*deg-1, cyclicNTTFactors), cycloDeg)
+		gap = num.LCM(num.NextProdPower(2*deg-1, []uint64{2}), cycloDeg)
 	}
 
 	return gap
