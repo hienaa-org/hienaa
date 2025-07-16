@@ -71,6 +71,6 @@ func (ntt *cyclotomicPow2Transformer) invNTTInPlace(coeffs []uint64) {
 	mod.ScalarMulVecTo(coeffs, coeffs, ntt.degInv, ntt.modulus)
 }
 
-func (ntt *cyclotomicPow2Transformer) shallowCopy() singleTransformer {
+func (ntt *cyclotomicPow2Transformer) safeCopy() singleTransformer {
 	return ntt
 }

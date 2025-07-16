@@ -181,7 +181,7 @@ func (ntt *cyclicPow235Transformer) invNTTInPlace(coeffs []uint64) {
 	mod.ScalarMulVecTo(coeffs, coeffs, ntt.degInv, ntt.modulus)
 }
 
-func (ntt *cyclicPow235Transformer) shallowCopy() singleTransformer {
+func (ntt *cyclicPow235Transformer) safeCopy() singleTransformer {
 	return &cyclicPow235Transformer{
 		params:     ntt.params,
 		modulus:    ntt.modulus,
@@ -308,8 +308,8 @@ func (ntt *cyclicBluesteinTransformer) invNTTInPlace(coeffs []uint64) {
 	mod.SMulVecTo(coeffs, ntt.buf.coeffs[:ntt.params.degree], ntt.zInv, ntt.zInvS, ntt.modulus)
 }
 
-func (ntt *cyclicBluesteinTransformer) shallowCopy() singleTransformer {
-	embedNTTCopy := ntt.cyclicPow235Transformer.shallowCopy().(*cyclicPow235Transformer)
+func (ntt *cyclicBluesteinTransformer) safeCopy() singleTransformer {
+	embedNTTCopy := ntt.cyclicPow235Transformer.safeCopy().(*cyclicPow235Transformer)
 	return &cyclicBluesteinTransformer{
 		params:  ntt.params,
 		modulus: ntt.modulus,

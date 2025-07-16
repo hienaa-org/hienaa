@@ -66,14 +66,28 @@ func (ntt *Transformer) InvNTTTo(pOut, p *Poly) {
 	pOut.IsNTT = false
 }
 
+// SafeCopy returns a thread-safe copy.
+func (ntt *Transformer) SafeCopy() *Transformer {
+	transformers := make([]singleTransformer, len(ntt.transformers))
+	for i := range ntt.transformers {
+		transformers[i] = ntt.transformers[i].safeCopy()
+	}
+
+	return &Transformer{
+		Params:       ntt.Params,
+		Modulus:      ntt.Modulus,
+		transformers: transformers,
+	}
+}
+
 // singleTransformer is an interface for NTT/InvNTT transforms for a single modulus.
 type singleTransformer interface {
 	// nttInPlace transforms the uint64 vector to NTT form.
 	nttInPlace([]uint64)
 	// invNTTInPlace transforms the uint64 vector to Standard form.
 	invNTTInPlace([]uint64)
-	// shallowCopy creates a thread-safe copy of the singleTransformer.
-	shallowCopy() singleTransformer
+	// safeCopy returns a thread-safe copy.
+	safeCopy() singleTransformer
 }
 
 // newSingleTransformer creates a new [singleTransformer] for the given ring parameters and modulus.

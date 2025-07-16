@@ -25,6 +25,6 @@ func (t *trivialTransformer) invNTTInPlace(coeffs []uint64) {
 	}
 }
 
-func (t *trivialTransformer) shallowCopy() singleTransformer {
+func (t *trivialTransformer) safeCopy() singleTransformer {
 	return t
 }
