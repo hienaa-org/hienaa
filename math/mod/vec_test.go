@@ -9,6 +9,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var (
+	benchLogN = []int{12, 13, 14, 15, 16, 17}
+)
+
 func TestVecOps(t *testing.T) {
 	q := mod.NewModulus(rSrc.SampleN(mod.MaxModulus) | 1)
 
@@ -26,7 +30,7 @@ func TestVecOps(t *testing.T) {
 	}
 
 	t.Run("Add", func(t *testing.T) {
-		mod.AddVecTo(v0, v1, q, vOut)
+		mod.AddVecTo(vOut, v0, v1, q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = v0[i] + v1[i]
 			if vOutCheck[i] >= q.Value() {
@@ -39,7 +43,7 @@ func TestVecOps(t *testing.T) {
 	})
 
 	t.Run("AddLazy", func(t *testing.T) {
-		mod.AddLazyVecTo(v0, v1, vOut)
+		mod.AddLazyVecTo(vOut, v0, v1)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = v0[i] + v1[i]
 		}
@@ -49,7 +53,7 @@ func TestVecOps(t *testing.T) {
 	})
 
 	t.Run("Sub", func(t *testing.T) {
-		mod.SubVecTo(v0, v1, q, vOut)
+		mod.SubVecTo(vOut, v0, v1, q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = v0[i] - v1[i]
 			if vOutCheck[i] >= q.Value() {
@@ -62,7 +66,7 @@ func TestVecOps(t *testing.T) {
 	})
 
 	t.Run("SubLazy", func(t *testing.T) {
-		mod.SubLazyVecTo(v0, v1, vOut)
+		mod.SubLazyVecTo(vOut, v0, v1)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = v0[i] - v1[i]
 		}
@@ -70,7 +74,7 @@ func TestVecOps(t *testing.T) {
 	})
 
 	t.Run("ScalarMul", func(t *testing.T) {
-		mod.ScalarMulVecTo(v0, v1[0], q, vOut)
+		mod.ScalarMulVecTo(vOut, v0, v1[0], q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = mod.Mul(v0[i], v1[0], q)
 		}
@@ -83,7 +87,7 @@ func TestVecOps(t *testing.T) {
 		copy(vOut, vOutInit)
 		copy(vOutCheck, vOutInit)
 
-		mod.ScalarMulAddVecTo(v0, v1[0], q, vOut)
+		mod.ScalarMulAddVecTo(vOut, v0, v1[0], q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = mod.Add(vOutCheck[i], mod.Mul(v0[i], v1[0], q), q)
 		}
@@ -96,7 +100,7 @@ func TestVecOps(t *testing.T) {
 		copy(vOut, vOutInit)
 		copy(vOutCheck, vOutInit)
 
-		mod.ScalarMulSubVecTo(v0, v1[0], q, vOut)
+		mod.ScalarMulSubVecTo(vOut, v0, v1[0], q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = mod.Sub(vOutCheck[i], mod.Mul(v0[i], v1[0], q), q)
 		}
@@ -106,7 +110,7 @@ func TestVecOps(t *testing.T) {
 	})
 
 	t.Run("ScalarMulLazy", func(t *testing.T) {
-		mod.ScalarMulLazyVecTo(v0, v1[0], q, vOut)
+		mod.ScalarMulLazyVecTo(vOut, v0, v1[0], q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = mod.SMulLazy(v0[i], v1[0], mod.SForm(v1[0], q), q)
 		}
@@ -125,7 +129,7 @@ func TestVecOps(t *testing.T) {
 		copy(vOut, vOutInit)
 		copy(vOutCheck, vOutInit)
 
-		mod.ScalarMulAddLazyVecTo(v0, v1[0], q, vOut)
+		mod.ScalarMulAddLazyVecTo(vOut, v0, v1[0], q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] += mod.SMulLazy(v0[i], v1[0], mod.SForm(v1[0], q), q)
 		}
@@ -144,7 +148,7 @@ func TestVecOps(t *testing.T) {
 		copy(vOut, vOutInit)
 		copy(vOutCheck, vOutInit)
 
-		mod.ScalarMulSubLazyVecTo(v0, v1[0], q, vOut)
+		mod.ScalarMulSubLazyVecTo(vOut, v0, v1[0], q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] += mod.SMulLazy(v0[i], q.Value()-v1[0], mod.SForm(q.Value()-v1[0], q), q)
 		}
@@ -160,7 +164,7 @@ func TestVecOps(t *testing.T) {
 	})
 
 	t.Run("ScalarMMul", func(t *testing.T) {
-		mod.ScalarMMulVecTo(v0, v1[0], q, vOut)
+		mod.ScalarMMulVecTo(vOut, v0, v1[0], q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = mod.MMul(v0[i], v1[0], q)
 		}
@@ -173,7 +177,7 @@ func TestVecOps(t *testing.T) {
 		copy(vOut, vOutInit)
 		copy(vOutCheck, vOutInit)
 
-		mod.ScalarMMulAddVecTo(v0, v1[0], q, vOut)
+		mod.ScalarMMulAddVecTo(vOut, v0, v1[0], q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = mod.Add(vOutCheck[i], mod.MMul(v0[i], v1[0], q), q)
 		}
@@ -186,7 +190,7 @@ func TestVecOps(t *testing.T) {
 		copy(vOut, vOutInit)
 		copy(vOutCheck, vOutInit)
 
-		mod.ScalarMMulSubVecTo(v0, v1[0], q, vOut)
+		mod.ScalarMMulSubVecTo(vOut, v0, v1[0], q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = mod.Sub(vOutCheck[i], mod.MMul(v0[i], v1[0], q), q)
 		}
@@ -196,7 +200,7 @@ func TestVecOps(t *testing.T) {
 	})
 
 	t.Run("ScalarMMulLazy", func(t *testing.T) {
-		mod.ScalarMMulLazyVecTo(v0, v1[0], q, vOut)
+		mod.ScalarMMulLazyVecTo(vOut, v0, v1[0], q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = mod.MMulLazy(v0[i], v1[0], q)
 		}
@@ -215,7 +219,7 @@ func TestVecOps(t *testing.T) {
 		copy(vOut, vOutInit)
 		copy(vOutCheck, vOutInit)
 
-		mod.ScalarMMulAddLazyVecTo(v0, v1[0], q, vOut)
+		mod.ScalarMMulAddLazyVecTo(vOut, v0, v1[0], q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] += mod.MMulLazy(v0[i], v1[0], q)
 		}
@@ -234,7 +238,7 @@ func TestVecOps(t *testing.T) {
 		copy(vOut, vOutInit)
 		copy(vOutCheck, vOutInit)
 
-		mod.ScalarMMulSubLazyVecTo(v0, v1[0], q, vOut)
+		mod.ScalarMMulSubLazyVecTo(vOut, v0, v1[0], q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] += mod.MMulLazy(v0[i], q.Value()-v1[0], q)
 		}
@@ -250,7 +254,7 @@ func TestVecOps(t *testing.T) {
 	})
 
 	t.Run("Mul", func(t *testing.T) {
-		mod.MulVecTo(v0, v1, q, vOut)
+		mod.MulVecTo(vOut, v0, v1, q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = mod.Mul(v0[i], v1[i], q)
 		}
@@ -263,7 +267,7 @@ func TestVecOps(t *testing.T) {
 		copy(vOut, vOutInit)
 		copy(vOutCheck, vOutInit)
 
-		mod.MulAddVecTo(v0, v1, q, vOut)
+		mod.MulAddVecTo(vOut, v0, v1, q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = mod.Add(vOutCheck[i], mod.Mul(v0[i], v1[i], q), q)
 		}
@@ -276,7 +280,7 @@ func TestVecOps(t *testing.T) {
 		copy(vOut, vOutInit)
 		copy(vOutCheck, vOutInit)
 
-		mod.MulSubVecTo(v0, v1, q, vOut)
+		mod.MulSubVecTo(vOut, v0, v1, q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = mod.Sub(vOutCheck[i], mod.Mul(v0[i], v1[i], q), q)
 		}
@@ -286,7 +290,7 @@ func TestVecOps(t *testing.T) {
 	})
 
 	t.Run("MulLazy", func(t *testing.T) {
-		mod.MulLazyVecTo(v0, v1, q, vOut)
+		mod.MulLazyVecTo(vOut, v0, v1, q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = mod.MulLazy(v0[i], v1[i], q)
 		}
@@ -305,7 +309,7 @@ func TestVecOps(t *testing.T) {
 		copy(vOut, vOutInit)
 		copy(vOutCheck, vOutInit)
 
-		mod.MulAddLazyVecTo(v0, v1, q, vOut)
+		mod.MulAddLazyVecTo(vOut, v0, v1, q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] += mod.MulLazy(v0[i], v1[i], q)
 		}
@@ -324,7 +328,7 @@ func TestVecOps(t *testing.T) {
 		copy(vOut, vOutInit)
 		copy(vOutCheck, vOutInit)
 
-		mod.MulSubLazyVecTo(v0, v1, q, vOut)
+		mod.MulSubLazyVecTo(vOut, v0, v1, q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] += mod.MulLazy(q.Value()-v0[i], v1[i], q)
 		}
@@ -340,7 +344,7 @@ func TestVecOps(t *testing.T) {
 	})
 
 	t.Run("MMul", func(t *testing.T) {
-		mod.MMulVecTo(v0, v1, q, vOut)
+		mod.MMulVecTo(vOut, v0, v1, q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = mod.MMul(v0[i], v1[i], q)
 		}
@@ -353,7 +357,7 @@ func TestVecOps(t *testing.T) {
 		copy(vOut, vOutInit)
 		copy(vOutCheck, vOutInit)
 
-		mod.MMulAddVecTo(v0, v1, q, vOut)
+		mod.MMulAddVecTo(vOut, v0, v1, q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = mod.Add(vOutCheck[i], mod.MMul(v0[i], v1[i], q), q)
 		}
@@ -366,7 +370,7 @@ func TestVecOps(t *testing.T) {
 		copy(vOut, vOutInit)
 		copy(vOutCheck, vOutInit)
 
-		mod.MMulSubVecTo(v0, v1, q, vOut)
+		mod.MMulSubVecTo(vOut, v0, v1, q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = mod.Sub(vOutCheck[i], mod.MMul(v0[i], v1[i], q), q)
 		}
@@ -376,7 +380,7 @@ func TestVecOps(t *testing.T) {
 	})
 
 	t.Run("MMulLazy", func(t *testing.T) {
-		mod.MMulLazyVecTo(v0, v1, q, vOut)
+		mod.MMulLazyVecTo(vOut, v0, v1, q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = mod.MMulLazy(v0[i], v1[i], q)
 		}
@@ -395,7 +399,7 @@ func TestVecOps(t *testing.T) {
 		copy(vOut, vOutInit)
 		copy(vOutCheck, vOutInit)
 
-		mod.MMulAddLazyVecTo(v0, v1, q, vOut)
+		mod.MMulAddLazyVecTo(vOut, v0, v1, q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] += mod.MMulLazy(v0[i], v1[i], q)
 		}
@@ -414,7 +418,7 @@ func TestVecOps(t *testing.T) {
 		copy(vOut, vOutInit)
 		copy(vOutCheck, vOutInit)
 
-		mod.MMulSubLazyVecTo(v0, v1, q, vOut)
+		mod.MMulSubLazyVecTo(vOut, v0, v1, q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] += mod.MMulLazy(q.Value()-v0[i], v1[i], q)
 		}
@@ -432,7 +436,7 @@ func TestVecOps(t *testing.T) {
 	v1S := mod.SFormVec(v1, q)
 
 	t.Run("SMul", func(t *testing.T) {
-		mod.SMulVecTo(v0, v1, v1S, q, vOut)
+		mod.SMulVecTo(vOut, v0, v1, v1S, q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = mod.Mul(v0[i], v1[i], q)
 		}
@@ -445,7 +449,7 @@ func TestVecOps(t *testing.T) {
 		copy(vOut, vOutInit)
 		copy(vOutCheck, vOutInit)
 
-		mod.SMulAddVecTo(v0, v1, v1S, q, vOut)
+		mod.SMulAddVecTo(vOut, v0, v1, v1S, q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = mod.Add(vOutCheck[i], mod.SMul(v0[i], v1[i], v1S[i], q), q)
 		}
@@ -458,7 +462,7 @@ func TestVecOps(t *testing.T) {
 		copy(vOut, vOutInit)
 		copy(vOutCheck, vOutInit)
 
-		mod.SMulSubVecTo(v0, v1, v1S, q, vOut)
+		mod.SMulSubVecTo(vOut, v0, v1, v1S, q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = mod.Sub(vOutCheck[i], mod.SMul(v0[i], v1[i], v1S[i], q), q)
 		}
@@ -468,7 +472,7 @@ func TestVecOps(t *testing.T) {
 	})
 
 	t.Run("SMulLazy", func(t *testing.T) {
-		mod.SMulLazyVecTo(v0, v1, v1S, q, vOut)
+		mod.SMulLazyVecTo(vOut, v0, v1, v1S, q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = mod.SMulLazy(v0[i], v1[i], v1S[i], q)
 		}
@@ -487,7 +491,7 @@ func TestVecOps(t *testing.T) {
 		copy(vOut, vOutInit)
 		copy(vOutCheck, vOutInit)
 
-		mod.SMulAddLazyVecTo(v0, v1, v1S, q, vOut)
+		mod.SMulAddLazyVecTo(vOut, v0, v1, v1S, q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] += mod.SMulLazy(v0[i], v1[i], v1S[i], q)
 		}
@@ -506,7 +510,7 @@ func TestVecOps(t *testing.T) {
 		copy(vOut, vOutInit)
 		copy(vOutCheck, vOutInit)
 
-		mod.SMulSubLazyVecTo(v0, v1, v1S, q, vOut)
+		mod.SMulSubLazyVecTo(vOut, v0, v1, v1S, q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] += mod.SMulLazy(q.Value()-v0[i], v1[i], v1S[i], q)
 		}
@@ -526,7 +530,7 @@ func TestVecOps(t *testing.T) {
 			v0[i] = rSrc.Sample()
 		}
 
-		mod.ReduceVecTo(v0, q, vOut)
+		mod.ReduceVecTo(vOut, v0, q)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = v0[i] % q.Value()
 		}
@@ -537,7 +541,7 @@ func TestVecOps(t *testing.T) {
 func BenchmarkVecOps(b *testing.B) {
 	q := mod.NewModulus(rSrc.SampleN(mod.MaxModulus) | 1)
 
-	for _, logN := range []int{12, 13, 14, 15, 16, 17} {
+	for _, logN := range benchLogN {
 		N := 1 << logN
 		v0 := make([]uint64, N)
 		v1 := make([]uint64, N)
@@ -553,229 +557,229 @@ func BenchmarkVecOps(b *testing.B) {
 		b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 			b.Run("Add", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.AddVecTo(v0, v1, q, vOut)
+					mod.AddVecTo(vOut, v0, v1, q)
 				}
 			})
 
 			b.Run("AddLazy", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.AddLazyVecTo(v0, v1, vOut)
+					mod.AddLazyVecTo(vOut, v0, v1)
 				}
 			})
 
 			b.Run("Sub", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.SubVecTo(v0, v1, q, vOut)
+					mod.SubVecTo(vOut, v0, v1, q)
 				}
 			})
 
 			b.Run("SubLazy", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.SubLazyVecTo(v0, v1, vOut)
+					mod.SubLazyVecTo(vOut, v0, v1)
 				}
 			})
 
 			b.Run("ScalarMul", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.ScalarMulVecTo(v0, v1[0], q, vOut)
+					mod.ScalarMulVecTo(vOut, v0, v1[0], q)
 				}
 			})
 
 			b.Run("ScalarMulAdd", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.ScalarMulAddVecTo(v0, v1[0], q, vOut)
+					mod.ScalarMulAddVecTo(vOut, v0, v1[0], q)
 				}
 			})
 
 			b.Run("ScalarMulSub", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.ScalarMulSubVecTo(v0, v1[0], q, vOut)
+					mod.ScalarMulSubVecTo(vOut, v0, v1[0], q)
 				}
 			})
 
 			b.Run("ScalarMulLazy", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.ScalarMulLazyVecTo(v0, v1[0], q, vOut)
+					mod.ScalarMulLazyVecTo(vOut, v0, v1[0], q)
 				}
 			})
 
 			b.Run("ScalarMulAddLazy", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.ScalarMulAddLazyVecTo(v0, v1[0], q, vOut)
+					mod.ScalarMulAddLazyVecTo(vOut, v0, v1[0], q)
 				}
 			})
 
 			b.Run("ScalarMulSubLazy", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.ScalarMulSubLazyVecTo(v0, v1[0], q, vOut)
+					mod.ScalarMulSubLazyVecTo(vOut, v0, v1[0], q)
 				}
 			})
 
 			b.Run("ScalarMMul", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.ScalarMMulVecTo(v0, v1[0], q, vOut)
+					mod.ScalarMMulVecTo(vOut, v0, v1[0], q)
 				}
 			})
 
 			b.Run("ScalarMMulAdd", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.ScalarMMulAddVecTo(v0, v1[0], q, vOut)
+					mod.ScalarMMulAddVecTo(vOut, v0, v1[0], q)
 				}
 			})
 
 			b.Run("ScalarMMulSub", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.ScalarMMulSubVecTo(v0, v1[0], q, vOut)
+					mod.ScalarMMulSubVecTo(vOut, v0, v1[0], q)
 				}
 			})
 
 			b.Run("ScalarMMulLazy", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.ScalarMMulLazyVecTo(v0, v1[0], q, vOut)
+					mod.ScalarMMulLazyVecTo(vOut, v0, v1[0], q)
 				}
 			})
 
 			b.Run("ScalarMMulAddLazy", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.ScalarMMulAddLazyVecTo(v0, v1[0], q, vOut)
+					mod.ScalarMMulAddLazyVecTo(vOut, v0, v1[0], q)
 				}
 			})
 
 			b.Run("ScalarMMulSubLazy", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.ScalarMMulSubLazyVecTo(v0, v1[0], q, vOut)
+					mod.ScalarMMulSubLazyVecTo(vOut, v0, v1[0], q)
 				}
 			})
 
 			b.Run("Mul", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.MulVecTo(v0, v1, q, vOut)
+					mod.MulVecTo(vOut, v0, v1, q)
 				}
 			})
 
 			b.Run("MulAdd", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.MulAddVecTo(v0, v1, q, vOut)
+					mod.MulAddVecTo(vOut, v0, v1, q)
 				}
 			})
 
 			b.Run("MulSub", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.MulSubVecTo(v0, v1, q, vOut)
+					mod.MulSubVecTo(vOut, v0, v1, q)
 				}
 			})
 
 			b.Run("MulLazy", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.MulLazyVecTo(v0, v1, q, vOut)
+					mod.MulLazyVecTo(vOut, v0, v1, q)
 				}
 			})
 
 			b.Run("MulAddLazy", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.MulAddLazyVecTo(v0, v1, q, vOut)
+					mod.MulAddLazyVecTo(vOut, v0, v1, q)
 				}
 			})
 
 			b.Run("MulSubLazy", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.MulSubLazyVecTo(v0, v1, q, vOut)
+					mod.MulSubLazyVecTo(vOut, v0, v1, q)
 				}
 			})
 
 			b.Run("MForm", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.MFormVecTo(v0, q, vOut)
+					mod.MFormVecTo(vOut, v0, q)
 				}
 			})
 
 			b.Run("InvMForm", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.InvMFormVecTo(v0, q, vOut)
+					mod.InvMFormVecTo(vOut, v0, q)
 				}
 			})
 
 			b.Run("MMul", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.MMulVecTo(v0, v1, q, vOut)
+					mod.MMulVecTo(vOut, v0, v1, q)
 				}
 			})
 
 			b.Run("MMulAdd", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.MMulAddVecTo(v0, v1, q, vOut)
+					mod.MMulAddVecTo(vOut, v0, v1, q)
 				}
 			})
 
 			b.Run("MMulSub", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.MMulSubVecTo(v0, v1, q, vOut)
+					mod.MMulSubVecTo(vOut, v0, v1, q)
 				}
 			})
 
 			b.Run("MMulLazy", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.MMulLazyVecTo(v0, v1, q, vOut)
+					mod.MMulLazyVecTo(vOut, v0, v1, q)
 				}
 			})
 
 			b.Run("MMulAddLazy", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.MMulAddLazyVecTo(v0, v1, q, vOut)
+					mod.MMulAddLazyVecTo(vOut, v0, v1, q)
 				}
 			})
 
 			b.Run("MMulSubLazy", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.MMulSubLazyVecTo(v0, v1, q, vOut)
+					mod.MMulSubLazyVecTo(vOut, v0, v1, q)
 				}
 			})
 
 			b.Run("SForm", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.SFormVecTo(v1, q, vOut)
+					mod.SFormVecTo(vOut, v0, q)
 				}
 			})
 
 			b.Run("SMul", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.SMulVecTo(v0, v1, v1S, q, vOut)
+					mod.SMulVecTo(vOut, v0, v1, v1S, q)
 				}
 			})
 
 			b.Run("SMulAdd", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.SMulAddVecTo(v0, v1, v1S, q, vOut)
+					mod.SMulAddVecTo(vOut, v0, v1, v1S, q)
 				}
 			})
 
 			b.Run("SMulSub", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.SMulSubVecTo(v0, v1, v1S, q, vOut)
+					mod.SMulSubVecTo(vOut, v0, v1, v1S, q)
 				}
 			})
 
 			b.Run("SMulLazy", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.SMulLazyVecTo(v0, v1, v1S, q, vOut)
+					mod.SMulLazyVecTo(vOut, v0, v1, v1S, q)
 				}
 			})
 
 			b.Run("SMulAddLazy", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.SMulAddLazyVecTo(v0, v1, v1S, q, vOut)
+					mod.SMulAddLazyVecTo(vOut, v0, v1, v1S, q)
 				}
 			})
 
 			b.Run("SMulSubLazy", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.SMulSubLazyVecTo(v0, v1, v1S, q, vOut)
+					mod.SMulSubLazyVecTo(vOut, v0, v1, v1S, q)
 				}
 			})
 
 			b.Run("Reduce", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					mod.ReduceVecTo(v0, q, vOut)
+					mod.ReduceVecTo(vOut, v0, q)
 				}
 			})
 		})

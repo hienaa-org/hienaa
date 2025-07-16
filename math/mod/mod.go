@@ -2,7 +2,7 @@
 //
 // Operations usually take two forms: for example,
 //   - Add(v0, v1) adds v0, v1, allocates a new vector to store the result and returns it.
-//   - AddTo(v0, v1, vOut) adds v0, v1 and writes the result to pre-allocated vOut without returning.
+//   - AddTo(vOut, v0, v1) adds v0, v1 and writes the result to pre-allocated vOut without returning.
 //
 // Note that in most cases, v0, v1, and vOut can overlap.
 // However, for operations that cannot, InPlace methods are implemented separately.

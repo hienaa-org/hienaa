@@ -151,7 +151,7 @@ func (ntt *cyclicPow235Transformer) nttInPlace(coeffs []uint64) {
 		nttInPlacePow5(ntt.degFactors[0]*ntt.degFactors[1], coeffs, ntt.tw[2], ntt.twS[2], ntt.root[2], ntt.rootS[2], ntt.modulus.Value())
 	}
 
-	mod.MFormVecTo(coeffs, ntt.modulus, coeffs)
+	mod.MFormVecTo(coeffs, coeffs, ntt.modulus)
 }
 
 func (ntt *cyclicPow235Transformer) invNTTInPlace(coeffs []uint64) {
@@ -178,7 +178,7 @@ func (ntt *cyclicPow235Transformer) invNTTInPlace(coeffs []uint64) {
 		copy(coeffs, ntt.buf.coeffs)
 	}
 
-	mod.ScalarMulVecTo(coeffs, ntt.degInv, ntt.modulus, coeffs)
+	mod.ScalarMulVecTo(coeffs, coeffs, ntt.degInv, ntt.modulus)
 }
 
 func (ntt *cyclicPow235Transformer) shallowCopy() singleTransformer {
@@ -252,18 +252,18 @@ func newCyclicBluesteinTransformer(params RingParameters, modulus *mod.Modulus) 
 	copy(chirpM[embedDeg-params.degree+1:], zInv[1:])
 	slices.Reverse(chirpM[embedDeg-params.degree+1:])
 
-	mod.ScalarMulVecTo(chirpM, mod.Inv(uint64(embedDeg), modulus), modulus, chirpM)
+	mod.ScalarMulVecTo(chirpM, chirpM, mod.Inv(uint64(embedDeg), modulus), modulus)
 	nttInPlacePow2(chirpM, embedNTT.tw[0], embedNTT.twS[0], modulus.Value())
-	mod.MFormVecTo(chirpM, modulus, chirpM)
+	mod.MFormVecTo(chirpM, chirpM, modulus)
 
 	chirpInv := make([]uint64, embedDeg)
 	copy(chirpInv, z)
 	copy(chirpInv[embedDeg-params.degree+1:], z[1:])
 	slices.Reverse(chirpInv[embedDeg-params.degree+1:])
 
-	mod.ScalarMulVecTo(chirpInv, mod.Inv(uint64(embedDeg*params.degree), modulus), modulus, chirpInv)
+	mod.ScalarMulVecTo(chirpInv, chirpInv, mod.Inv(uint64(embedDeg*params.degree), modulus), modulus)
 	nttInPlacePow2(chirpInv, embedNTT.tw[0], embedNTT.twS[0], modulus.Value())
-	mod.ReduceVecTo(chirpInv, modulus, chirpInv)
+	mod.ReduceVecTo(chirpInv, chirpInv, modulus)
 
 	return &cyclicBluesteinTransformer{
 		params:  params,
@@ -283,29 +283,29 @@ func newCyclicBluesteinTransformer(params RingParameters, modulus *mod.Modulus) 
 }
 
 func (ntt *cyclicBluesteinTransformer) nttInPlace(coeffs []uint64) {
-	mod.SMulVecTo(coeffs, ntt.z, ntt.zS, ntt.modulus, ntt.buf.coeffs[:ntt.params.degree])
+	mod.SMulVecTo(ntt.buf.coeffs[:ntt.params.degree], coeffs, ntt.z, ntt.zS, ntt.modulus)
 	clear(ntt.buf.coeffs[ntt.params.degree:])
 
 	nttInPlacePow2(ntt.buf.coeffs, ntt.tw[0], ntt.twS[0], ntt.modulus.Value())
 
-	mod.SMulVecTo(ntt.buf.coeffs, ntt.chirpM, ntt.chirpMS, ntt.modulus, ntt.buf.coeffs)
+	mod.SMulVecTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.chirpM, ntt.chirpMS, ntt.modulus)
 
 	inttInPlacePow2(ntt.buf.coeffs, ntt.twInv[0], ntt.twInvS[0], ntt.modulus.Value())
 
-	mod.SMulVecTo(ntt.buf.coeffs[:ntt.params.degree], ntt.z, ntt.zS, ntt.modulus, coeffs)
+	mod.SMulVecTo(coeffs, ntt.buf.coeffs[:ntt.params.degree], ntt.z, ntt.zS, ntt.modulus)
 }
 
 func (ntt *cyclicBluesteinTransformer) invNTTInPlace(coeffs []uint64) {
-	mod.SMulVecTo(coeffs, ntt.zInv, ntt.zInvS, ntt.modulus, ntt.buf.coeffs[:ntt.params.degree])
+	mod.SMulVecTo(ntt.buf.coeffs[:ntt.params.degree], coeffs, ntt.zInv, ntt.zInvS, ntt.modulus)
 	clear(ntt.buf.coeffs[ntt.params.degree:])
 
 	nttInPlacePow2(ntt.buf.coeffs, ntt.tw[0], ntt.twS[0], ntt.modulus.Value())
 
-	mod.MMulVecTo(ntt.buf.coeffs, ntt.chirpInv, ntt.modulus, ntt.buf.coeffs)
+	mod.MMulVecTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.chirpInv, ntt.modulus)
 
 	inttInPlacePow2(ntt.buf.coeffs, ntt.twInv[0], ntt.twInvS[0], ntt.modulus.Value())
 
-	mod.SMulVecTo(ntt.buf.coeffs[:ntt.params.degree], ntt.zInv, ntt.zInvS, ntt.modulus, coeffs)
+	mod.SMulVecTo(coeffs, ntt.buf.coeffs[:ntt.params.degree], ntt.zInv, ntt.zInvS, ntt.modulus)
 }
 
 func (ntt *cyclicBluesteinTransformer) shallowCopy() singleTransformer {

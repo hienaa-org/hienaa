@@ -15,13 +15,13 @@ func newTrivialTransformer(modulus *mod.Modulus) *trivialTransformer {
 
 func (t *trivialTransformer) nttInPlace(coeffs []uint64) {
 	if t.modulus.Inv() != 0 {
-		mod.MFormVecTo(coeffs, t.modulus, coeffs)
+		mod.MFormVecTo(coeffs, coeffs, t.modulus)
 	}
 }
 
 func (t *trivialTransformer) invNTTInPlace(coeffs []uint64) {
 	if t.modulus.Inv() != 0 {
-		mod.InvMFormVecTo(coeffs, t.modulus, coeffs)
+		mod.InvMFormVecTo(coeffs, coeffs, t.modulus)
 	}
 }
 

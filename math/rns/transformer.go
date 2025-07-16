@@ -29,12 +29,12 @@ func NewTransformer(ringParams RingParameters, modulus []*mod.Modulus) *Transfor
 // NTT returns NTT(p).
 func (ntt *Transformer) NTT(p *Poly) *Poly {
 	pOut := NewNTTPoly(ntt.Params.degree, len(ntt.Modulus))
-	ntt.NTTTo(p, pOut)
+	ntt.NTTTo(pOut, p)
 	return pOut
 }
 
 // NTTTo computes pOut = NTT(p).
-func (ntt *Transformer) NTTTo(p, pOut *Poly) {
+func (ntt *Transformer) NTTTo(pOut, p *Poly) {
 	if p.IsNTT {
 		panic("NTTTo: input polynomial is in NTT form")
 	}
@@ -49,12 +49,12 @@ func (ntt *Transformer) NTTTo(p, pOut *Poly) {
 // InvNTT returns InvNTT(p).
 func (ntt *Transformer) InvNTT(p *Poly) *Poly {
 	pOut := NewPoly(ntt.Params.degree, len(ntt.Modulus))
-	ntt.InvNTTTo(p, pOut)
+	ntt.InvNTTTo(pOut, p)
 	return pOut
 }
 
 // InvNTTTo computes pOut = InvNTT(p).
-func (ntt *Transformer) InvNTTTo(p, pOut *Poly) {
+func (ntt *Transformer) InvNTTTo(pOut, p *Poly) {
 	if !p.IsNTT {
 		panic("InvNTTTo: input polynomial is in Standard form")
 	}

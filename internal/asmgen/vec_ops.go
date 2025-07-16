@@ -8,9 +8,9 @@ import (
 
 func AddVecToAVX2(isLazy bool) {
 	if isLazy {
-		TEXT("addLazyVecToAVX2", NOSPLIT, "func(v0, v1, vOut []uint64)")
+		TEXT("addLazyVecToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64)")
 	} else {
-		TEXT("addVecToAVX2", NOSPLIT, "func(v0, v1 []uint64, q uint64, vOut []uint64)")
+		TEXT("addVecToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64)")
 	}
 	Pragma("noescape")
 
@@ -22,13 +22,13 @@ func AddVecToAVX2(isLazy bool) {
 	if !isLazy {
 		q = Load(Param("q"), GP64())
 		qv = YMM()
-		VPBROADCASTQ(NewParamAddr("q", 48), qv)
+		VPBROADCASTQ(NewParamAddr("q", 72), qv)
 	}
 
+	N := Load(Param("vOut").Len(), GP64())
+	vOut := Load(Param("vOut").Base(), GP64())
 	v0 := Load(Param("v0").Base(), GP64())
 	v1 := Load(Param("v1").Base(), GP64())
-	vOut := Load(Param("vOut").Base(), GP64())
-	N := Load(Param("vOut").Len(), GP64())
 
 	M := GP64()
 	MOVQ(N, M)
@@ -92,9 +92,9 @@ func AddVecToAVX2(isLazy bool) {
 
 func SubVecToAVX2(isLazy bool) {
 	if isLazy {
-		TEXT("subLazyVecToAVX2", NOSPLIT, "func(v0, v1, vOut []uint64)")
+		TEXT("subLazyVecToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64)")
 	} else {
-		TEXT("subVecToAVX2", NOSPLIT, "func(v0, v1 []uint64, q uint64, vOut []uint64)")
+		TEXT("subVecToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64)")
 	}
 	Pragma("noescape")
 
@@ -106,13 +106,13 @@ func SubVecToAVX2(isLazy bool) {
 	if !isLazy {
 		q = Load(Param("q"), GP64())
 		qv = YMM()
-		VPBROADCASTQ(NewParamAddr("q", 48), qv)
+		VPBROADCASTQ(NewParamAddr("q", 72), qv)
 	}
 
+	N := Load(Param("vOut").Len(), GP64())
+	vOut := Load(Param("vOut").Base(), GP64())
 	v0 := Load(Param("v0").Base(), GP64())
 	v1 := Load(Param("v1").Base(), GP64())
-	vOut := Load(Param("vOut").Base(), GP64())
-	N := Load(Param("vOut").Len(), GP64())
 
 	M := GP64()
 	MOVQ(N, M)

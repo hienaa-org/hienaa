@@ -5,13 +5,13 @@
 package mod
 
 //go:noescape
-func addVecToAVX2(v0 []uint64, v1 []uint64, q uint64, vOut []uint64)
+func addVecToAVX2(vOut []uint64, v0 []uint64, v1 []uint64, q uint64)
 
 //go:noescape
-func addLazyVecToAVX2(v0 []uint64, v1 []uint64, vOut []uint64)
+func addLazyVecToAVX2(vOut []uint64, v0 []uint64, v1 []uint64)
 
 //go:noescape
-func subVecToAVX2(v0 []uint64, v1 []uint64, q uint64, vOut []uint64)
+func subVecToAVX2(vOut []uint64, v0 []uint64, v1 []uint64, q uint64)
 
 //go:noescape
-func subLazyVecToAVX2(v0 []uint64, v1 []uint64, vOut []uint64)
+func subLazyVecToAVX2(vOut []uint64, v0 []uint64, v1 []uint64)

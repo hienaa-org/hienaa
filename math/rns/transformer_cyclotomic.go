@@ -63,12 +63,12 @@ func newCyclotomicPow2Transformer(ringParams RingParameters, modulus *mod.Modulu
 
 func (ntt *cyclotomicPow2Transformer) nttInPlace(coeffs []uint64) {
 	nttInPlacePow2(coeffs, ntt.tw, ntt.twS, ntt.modulus.Value())
-	mod.MFormVecTo(coeffs, ntt.modulus, coeffs)
+	mod.MFormVecTo(coeffs, coeffs, ntt.modulus)
 }
 
 func (ntt *cyclotomicPow2Transformer) invNTTInPlace(coeffs []uint64) {
 	inttInPlacePow2(coeffs, ntt.twInv, ntt.twInvS, ntt.modulus.Value())
-	mod.ScalarMulVecTo(coeffs, ntt.degInv, ntt.modulus, coeffs)
+	mod.ScalarMulVecTo(coeffs, coeffs, ntt.degInv, ntt.modulus)
 }
 
 func (ntt *cyclotomicPow2Transformer) shallowCopy() singleTransformer {

@@ -9,9 +9,9 @@ import (
 )
 
 // AddVecTo computes vOut = v0 + v1 mod q.
-func AddVecTo(v0, v1 []uint64, q *Modulus, vOut []uint64) {
+func AddVecTo(vOut, v0, v1 []uint64, q *Modulus) {
 	if cpu.X86.HasAVX2 {
-		addVecToAVX2(v0, v1, q.Value(), vOut)
+		addVecToAVX2(vOut, v0, v1, q.Value())
 		return
 	}
 
@@ -20,9 +20,9 @@ func AddVecTo(v0, v1 []uint64, q *Modulus, vOut []uint64) {
 	qv := q.Value()
 
 	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
 		w0 := (*[8]uint64)(unsafe.Pointer(&v0[i]))
 		w1 := (*[8]uint64)(unsafe.Pointer(&v1[i]))
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
 
 		wOut[0] = add(w0[0], w1[0], qv)
 		wOut[1] = add(w0[1], w1[1], qv)
@@ -41,18 +41,18 @@ func AddVecTo(v0, v1 []uint64, q *Modulus, vOut []uint64) {
 }
 
 // AddLazyVecTo computes vOut = v0 + v1.
-func AddLazyVecTo(v0, v1, vOut []uint64) {
+func AddLazyVecTo(vOut, v0, v1 []uint64) {
 	if cpu.X86.HasAVX2 {
-		addLazyVecToAVX2(v0, v1, vOut)
+		addLazyVecToAVX2(vOut, v0, v1)
 		return
 	}
 
 	M := (len(vOut) >> 3) << 3
 
 	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
 		w0 := (*[8]uint64)(unsafe.Pointer(&v0[i]))
 		w1 := (*[8]uint64)(unsafe.Pointer(&v1[i]))
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
 
 		wOut[0] = w0[0] + w1[0]
 		wOut[1] = w0[1] + w1[1]
@@ -71,9 +71,9 @@ func AddLazyVecTo(v0, v1, vOut []uint64) {
 }
 
 // SubVecTo computes vOut = v0 - v1 mod q.
-func SubVecTo(v0, v1 []uint64, q *Modulus, vOut []uint64) {
+func SubVecTo(vOut, v0, v1 []uint64, q *Modulus) {
 	if cpu.X86.HasAVX2 {
-		subVecToAVX2(v0, v1, q.Value(), vOut)
+		subVecToAVX2(vOut, v0, v1, q.Value())
 		return
 	}
 
@@ -82,9 +82,9 @@ func SubVecTo(v0, v1 []uint64, q *Modulus, vOut []uint64) {
 	qv := q.Value()
 
 	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
 		w0 := (*[8]uint64)(unsafe.Pointer(&v0[i]))
 		w1 := (*[8]uint64)(unsafe.Pointer(&v1[i]))
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
 
 		wOut[0] = sub(w0[0], w1[0], qv)
 		wOut[1] = sub(w0[1], w1[1], qv)
@@ -103,18 +103,18 @@ func SubVecTo(v0, v1 []uint64, q *Modulus, vOut []uint64) {
 }
 
 // SubLazyVecTo computes vOut = v0 - v1.
-func SubLazyVecTo(v0, v1, vOut []uint64) {
+func SubLazyVecTo(vOut, v0, v1 []uint64) {
 	if cpu.X86.HasAVX2 {
-		subLazyVecToAVX2(v0, v1, vOut)
+		subLazyVecToAVX2(vOut, v0, v1)
 		return
 	}
 
 	M := (len(vOut) >> 3) << 3
 
 	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
 		w0 := (*[8]uint64)(unsafe.Pointer(&v0[i]))
 		w1 := (*[8]uint64)(unsafe.Pointer(&v1[i]))
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
 
 		wOut[0] = w0[0] - w1[0]
 		wOut[1] = w0[1] - w1[1]

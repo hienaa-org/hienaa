@@ -2,7 +2,7 @@
 //
 // Operations usually take two forms: for example,
 //   - Add(v0, v1) adds v0, v1, allocates a new vector to store the result and returns it.
-//   - AddTo(v0, v1, vOut) adds v0, v1 and writes the result to pre-allocated vOut without returning.
+//   - AddTo(vOut, v0, v1) adds v0, v1 and writes the result to pre-allocated vOut without returning.
 //
 // Note that in most cases, v0, v1, and vOut can overlap.
 // However, for operations that cannot, InPlace methods are implemented separately.
@@ -17,17 +17,17 @@ import (
 	"github.com/hienaa-org/hienaa/math/num"
 )
 
-// Cast casts vector v of type []T1 to []T2.
-func Cast[T1, T2 num.Real](v []T1) []T2 {
-	vOut := make([]T2, len(v))
-	CastTo(v, vOut)
+// Cast casts vector v of type []T to []TOut.
+func Cast[TOut, T num.Real](v []T) []TOut {
+	vOut := make([]TOut, len(v))
+	CastTo(vOut, v)
 	return vOut
 }
 
-// CastTo casts v of type []T1 to vOut of type []T2.
-func CastTo[T1, T2 num.Real](v []T1, vOut []T2) {
-	for i := range vOut {
-		vOut[i] = T2(v[i])
+// CastTo casts v of type []T to vOut of type []TOut.
+func CastTo[TIn, TOut num.Real](vOut []TOut, vIn []TIn) {
+	for i := range vIn {
+		vOut[i] = TOut(vIn[i])
 	}
 }
 

@@ -12,8 +12,7 @@ import (
 )
 
 var (
-	rSrc = csprng.NewUniformSamplerWithSeed(nil)
-
+	rSrc      = csprng.NewUniformSamplerWithSeed(nil)
 	benchLogN = []int{12, 13, 14, 15, 16, 17}
 )
 
@@ -67,7 +66,7 @@ func TestCyclotomicNTT(t *testing.T) {
 		p1NTT := ntt.NTT(p1)
 
 		pOut := rns.NewNTTPoly(ringParams.Degree(), 1)
-		mod.MMulVecTo(p0NTT.Coeffs[0], p1NTT.Coeffs[0], q[0], pOut.Coeffs[0])
+		mod.MMulVecTo(pOut.Coeffs[0], p0NTT.Coeffs[0], p1NTT.Coeffs[0], q[0])
 		ntt.InvNTTTo(pOut, pOut)
 
 		assert.Equal(t, cyclotomicPow2Mul(p0.Coeffs[0], p1.Coeffs[0], q[0]), pOut.Coeffs[0])
@@ -88,7 +87,7 @@ func TestCyclicNTT(t *testing.T) {
 		p1NTT := ntt.NTT(p1)
 
 		pOut := rns.NewNTTPoly(ringParams.Degree(), 1)
-		mod.MMulVecTo(p0NTT.Coeffs[0], p1NTT.Coeffs[0], q[0], pOut.Coeffs[0])
+		mod.MMulVecTo(pOut.Coeffs[0], p0NTT.Coeffs[0], p1NTT.Coeffs[0], q[0])
 		ntt.InvNTTTo(pOut, pOut)
 
 		assert.Equal(t, cyclicMul(p0.Coeffs[0], p1.Coeffs[0], q[0]), pOut.Coeffs[0])
@@ -113,7 +112,7 @@ func TestCyclicNTT(t *testing.T) {
 		p1NTT := ntt.NTT(p1)
 
 		pOut := rns.NewNTTPoly(ringParams.Degree(), 1)
-		mod.MMulVecTo(p0NTT.Coeffs[0], p1NTT.Coeffs[0], q[0], pOut.Coeffs[0])
+		mod.MMulVecTo(pOut.Coeffs[0], p0NTT.Coeffs[0], p1NTT.Coeffs[0], q[0])
 		ntt.InvNTTTo(pOut, pOut)
 
 		assert.Equal(t, cyclicMul(p0.Coeffs[0], p1.Coeffs[0], q[0]), pOut.Coeffs[0])
@@ -133,7 +132,7 @@ func BenchmarkCyclotomicNTT(b *testing.B) {
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					ntt.NTTTo(p, pOut)
+					ntt.NTTTo(pOut, p)
 				}
 			})
 		}
@@ -153,7 +152,7 @@ func BenchmarkCyclicNTT(b *testing.B) {
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					ntt.NTTTo(p, pOut)
+					ntt.NTTTo(pOut, p)
 				}
 			})
 		}
@@ -171,7 +170,7 @@ func BenchmarkCyclicNTT(b *testing.B) {
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					ntt.NTTTo(p, pOut)
+					ntt.NTTTo(pOut, p)
 				}
 			})
 		}

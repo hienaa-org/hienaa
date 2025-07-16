@@ -177,14 +177,14 @@ func newEmbedderBuffer(modulusIn []*mod.Modulus) embedderBuffer {
 // If p.ModLen() < len(e.modIn), it only embeds the first p.ModLen() elements.
 func (e *Embedder) Embed(p *Poly) *Poly {
 	pOut := NewPoly(p.Degree(), p.ModLen())
-	e.EmbedTo(p, pOut)
+	e.EmbedTo(pOut, p)
 	return pOut
 }
 
 // EmbedTo embeds the p to pOut.
 // If p.ModLen() < len(e.modIn) or pOut.ModLen() < len(e.modOut),
 // it only embeds the first p.ModLen() elements to pOut.ModLen() elements.
-func (e *Embedder) EmbedTo(p, pOut *Poly) {
+func (e *Embedder) EmbedTo(pOut, p *Poly) {
 	if p.IsNTT || pOut.IsNTT {
 		panic("Embed: cannot embed NTT polynomials")
 	}
@@ -198,13 +198,13 @@ func (e *Embedder) EmbedVec(v [][]uint64) {
 	for i := 0; i < len(e.modOut); i++ {
 		vOut[i] = make([]uint64, len(v[0]))
 	}
-	e.EmbedVecTo(v, vOut)
+	e.EmbedVecTo(vOut, v)
 }
 
 // EmbedVecTo embeds v to vOut.
 // If len(v) < len(e.modIn) or len(vOut) < len(e.modOut),
 // it only embeds the first len(v) elements to len(vOut) elements.
-func (e *Embedder) EmbedVecTo(v, vOut [][]uint64) {
+func (e *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 	degree := len(v[0])
 	M := (degree >> 3) << 3
 
@@ -512,12 +512,12 @@ func NewScaler(modulusIn []*mod.Modulus, modulusOut []*mod.Modulus) *Scaler {
 // Scale returns the scaled polynomial of p.
 func (s *Scaler) Scale(p *Poly) *Poly {
 	pOut := NewPoly(p.Degree(), p.ModLen())
-	s.ScaleTo(p, pOut)
+	s.ScaleTo(pOut, p)
 	return pOut
 }
 
 // ScaleTo scales p to pOut.
-func (s *Scaler) ScaleTo(p, pOut *Poly) {
+func (s *Scaler) ScaleTo(pOut, p *Poly) {
 	switch {
 	case p.IsNTT || pOut.IsNTT:
 		panic("ScaleTo: cannot scale NTT polynomials")
@@ -534,12 +534,12 @@ func (s *Scaler) ScaleVec(v [][]uint64) [][]uint64 {
 	for i := 0; i < len(s.modOut); i++ {
 		vOut[i] = make([]uint64, len(v[0]))
 	}
-	s.ScaleVecTo(v, vOut)
+	s.ScaleVecTo(vOut, v)
 	return vOut
 }
 
 // ScaleVecTo scales v to vOut.
-func (s *Scaler) ScaleVecTo(v, vOut [][]uint64) {
+func (s *Scaler) ScaleVecTo(vOut, v [][]uint64) {
 	degree, lenIn, lenOut := len(v[0]), len(s.modIn), len(s.modOut)
 	M := (degree >> 3) << 3
 
@@ -871,12 +871,12 @@ func NewScaleEmbedder(scale *big.Rat, modulusIn []*mod.Modulus, modulusOut []*mo
 // ScaleEmbed scales and embeds p to the output modulus.
 func (s *ScaleEmbedder) ScaleEmbed(p *Poly) *Poly {
 	pOut := NewPoly(p.Degree(), p.ModLen())
-	s.ScaleEmbedTo(p, pOut)
+	s.ScaleEmbedTo(pOut, p)
 	return pOut
 }
 
 // ScaleEmbedTo scales and embeds p to pOut.
-func (s *ScaleEmbedder) ScaleEmbedTo(p, pOut *Poly) {
+func (s *ScaleEmbedder) ScaleEmbedTo(pOut, p *Poly) {
 	switch {
 	case p.IsNTT || pOut.IsNTT:
 		panic("ScaleEmbedTo: cannot scale NTT polynomials")
@@ -893,12 +893,12 @@ func (s *ScaleEmbedder) ScaleEmbedVec(v [][]uint64) [][]uint64 {
 	for i := 0; i < len(s.modOut); i++ {
 		vOut[i] = make([]uint64, len(v[0]))
 	}
-	s.ScaleEmbedVecTo(v, vOut)
+	s.ScaleEmbedVecTo(vOut, v)
 	return vOut
 }
 
 // ScaleEmbedVecTo scales and embeds v to vOut.
-func (s *ScaleEmbedder) ScaleEmbedVecTo(v, vOut [][]uint64) {
+func (s *ScaleEmbedder) ScaleEmbedVecTo(vOut, v [][]uint64) {
 	degree, lenIn, lenOut := len(v[0]), len(s.modIn), len(s.modOut)
 	M := (degree >> 3) << 3
 
