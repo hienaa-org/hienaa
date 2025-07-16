@@ -131,9 +131,16 @@ func BenchmarkCyclotomicNTT(b *testing.B) {
 			pOut := rns.NewNTTPoly(ringParams.Degree(), len(q))
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
-				for i := 0; i < b.N; i++ {
-					ntt.NTTTo(pOut, p)
-				}
+				b.Run("NTT", func(b *testing.B) {
+					for i := 0; i < b.N; i++ {
+						ntt.NTTTo(pOut, p)
+					}
+				})
+				b.Run("InvNTT", func(b *testing.B) {
+					for i := 0; i < b.N; i++ {
+						ntt.InvNTTTo(p, pOut)
+					}
+				})
 			})
 		}
 	})
@@ -151,9 +158,16 @@ func BenchmarkCyclicNTT(b *testing.B) {
 			pOut := rns.NewNTTPoly(ringParams.Degree(), len(q))
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
-				for i := 0; i < b.N; i++ {
-					ntt.NTTTo(pOut, p)
-				}
+				b.Run("NTT", func(b *testing.B) {
+					for i := 0; i < b.N; i++ {
+						ntt.NTTTo(pOut, p)
+					}
+				})
+				b.Run("InvNTT", func(b *testing.B) {
+					for i := 0; i < b.N; i++ {
+						ntt.InvNTTTo(p, pOut)
+					}
+				})
 			})
 		}
 	})
@@ -169,9 +183,16 @@ func BenchmarkCyclicNTT(b *testing.B) {
 			pOut := rns.NewNTTPoly(ringParams.Degree(), len(q))
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
-				for i := 0; i < b.N; i++ {
-					ntt.NTTTo(pOut, p)
-				}
+				b.Run("NTT", func(b *testing.B) {
+					for i := 0; i < b.N; i++ {
+						ntt.NTTTo(pOut, p)
+					}
+				})
+				b.Run("InvNTT", func(b *testing.B) {
+					for i := 0; i < b.N; i++ {
+						ntt.InvNTTTo(p, pOut)
+					}
+				})
 			})
 		}
 	})
