@@ -10,7 +10,11 @@ import (
 
 // AddVecTo computes vOut = v0 + v1 mod q.
 func AddVecTo(vOut, v0, v1 []uint64, q *Modulus) {
-	if cpu.X86.HasAVX2 {
+	switch {
+	case cpu.X86.HasAVX512F:
+		addVecToAVX512(vOut, v0, v1, q.Value())
+		return
+	case cpu.X86.HasAVX2:
 		addVecToAVX2(vOut, v0, v1, q.Value())
 		return
 	}
@@ -42,7 +46,11 @@ func AddVecTo(vOut, v0, v1 []uint64, q *Modulus) {
 
 // AddLazyVecTo computes vOut = v0 + v1.
 func AddLazyVecTo(vOut, v0, v1 []uint64) {
-	if cpu.X86.HasAVX2 {
+	switch {
+	case cpu.X86.HasAVX512F:
+		addLazyVecToAVX512(vOut, v0, v1)
+		return
+	case cpu.X86.HasAVX2:
 		addLazyVecToAVX2(vOut, v0, v1)
 		return
 	}
@@ -72,7 +80,11 @@ func AddLazyVecTo(vOut, v0, v1 []uint64) {
 
 // SubVecTo computes vOut = v0 - v1 mod q.
 func SubVecTo(vOut, v0, v1 []uint64, q *Modulus) {
-	if cpu.X86.HasAVX2 {
+	switch {
+	case cpu.X86.HasAVX512F:
+		subVecToAVX512(vOut, v0, v1, q.Value())
+		return
+	case cpu.X86.HasAVX2:
 		subVecToAVX2(vOut, v0, v1, q.Value())
 		return
 	}
@@ -104,7 +116,11 @@ func SubVecTo(vOut, v0, v1 []uint64, q *Modulus) {
 
 // SubLazyVecTo computes vOut = v0 - v1.
 func SubLazyVecTo(vOut, v0, v1 []uint64) {
-	if cpu.X86.HasAVX2 {
+	switch {
+	case cpu.X86.HasAVX512F:
+		subLazyVecToAVX512(vOut, v0, v1)
+		return
+	case cpu.X86.HasAVX2:
 		subLazyVecToAVX2(vOut, v0, v1)
 		return
 	}

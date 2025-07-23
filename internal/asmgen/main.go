@@ -32,8 +32,14 @@ func main() {
 		AddVecToAVX2(false)
 		AddVecToAVX2(true)
 
+		AddVecToAVX512(false)
+		AddVecToAVX512(true)
+
 		SubVecToAVX2(false)
 		SubVecToAVX2(true)
+
+		SubVecToAVX512(false)
+		SubVecToAVX512(true)
 	}
 
 	if *ntt {

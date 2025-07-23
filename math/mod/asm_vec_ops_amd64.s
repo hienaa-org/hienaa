@@ -90,6 +90,89 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
+// func addVecToAVX512(vOut []uint64, v0 []uint64, v1 []uint64, q uint64)
+// Requires: AVX512F, CMOV
+TEXT ·addVecToAVX512(SB), NOSPLIT, $0-80
+	MOVQ         q+72(FP), AX
+	VPBROADCASTQ q+72(FP), Z0
+	MOVQ         vOut_len+8(FP), CX
+	MOVQ         vOut_base+0(FP), DX
+	MOVQ         v0_base+24(FP), BX
+	MOVQ         v1_base+48(FP), SI
+	MOVQ         CX, DI
+	SHRQ         $0x03, DI
+	SHLQ         $0x03, DI
+	XORQ         R8, R8
+	JMP          loop_end
+
+loop_body:
+	VMOVDQU64 (BX)(R8*8), Z1
+	VMOVDQU64 (SI)(R8*8), Z2
+	VPADDQ    Z2, Z1, Z1
+	VPCMPQ    $0x05, Z0, Z1, K1
+	VMOVAPD.Z Z0, K1, Z2
+	VPSUBQ    Z2, Z1, Z1
+	VMOVDQU64 Z1, (DX)(R8*8)
+	ADDQ      $0x08, R8
+
+loop_end:
+	CMPQ R8, DI
+	JL   loop_body
+	JMP  leftover_loop_end
+
+leftover_loop_body:
+	MOVQ    (BX)(R8*8), DI
+	MOVQ    (SI)(R8*8), R9
+	ADDQ    R9, DI
+	MOVQ    DI, R9
+	SUBQ    AX, R9
+	CMPQ    DI, AX
+	CMOVQGE R9, DI
+	MOVQ    DI, (DX)(R8*8)
+	ADDQ    $0x01, R8
+
+leftover_loop_end:
+	CMPQ R8, CX
+	JL   leftover_loop_body
+	RET
+
+// func addLazyVecToAVX512(vOut []uint64, v0 []uint64, v1 []uint64)
+// Requires: AVX512F
+TEXT ·addLazyVecToAVX512(SB), NOSPLIT, $0-72
+	MOVQ vOut_len+8(FP), AX
+	MOVQ vOut_base+0(FP), CX
+	MOVQ v0_base+24(FP), DX
+	MOVQ v1_base+48(FP), BX
+	MOVQ AX, SI
+	SHRQ $0x03, SI
+	SHLQ $0x03, SI
+	XORQ DI, DI
+	JMP  loop_end
+
+loop_body:
+	VMOVDQU64 (DX)(DI*8), Z0
+	VMOVDQU64 (BX)(DI*8), Z1
+	VPADDQ    Z1, Z0, Z0
+	VMOVDQU64 Z0, (CX)(DI*8)
+	ADDQ      $0x08, DI
+
+loop_end:
+	CMPQ DI, SI
+	JL   loop_body
+	JMP  leftover_loop_end
+
+leftover_loop_body:
+	MOVQ (DX)(DI*8), SI
+	MOVQ (BX)(DI*8), R8
+	ADDQ R8, SI
+	MOVQ SI, (CX)(DI*8)
+	ADDQ $0x01, DI
+
+leftover_loop_end:
+	CMPQ DI, AX
+	JL   leftover_loop_body
+	RET
+
 // func subVecToAVX2(vOut []uint64, v0 []uint64, v1 []uint64, q uint64)
 // Requires: AVX, AVX2, CMOV
 TEXT ·subVecToAVX2(SB), NOSPLIT, $0-80
@@ -157,6 +240,91 @@ loop_body:
 	VPSUBQ  Y1, Y0, Y0
 	VMOVDQU Y0, (CX)(DI*8)
 	ADDQ    $0x04, DI
+
+loop_end:
+	CMPQ DI, SI
+	JL   loop_body
+	JMP  leftover_loop_end
+
+leftover_loop_body:
+	MOVQ (DX)(DI*8), SI
+	MOVQ (BX)(DI*8), R8
+	SUBQ R8, SI
+	MOVQ SI, (CX)(DI*8)
+	ADDQ $0x01, DI
+
+leftover_loop_end:
+	CMPQ DI, AX
+	JL   leftover_loop_body
+	RET
+
+// func subVecToAVX512(vOut []uint64, v0 []uint64, v1 []uint64, q uint64)
+// Requires: AVX512DQ, AVX512F, CMOV
+TEXT ·subVecToAVX512(SB), NOSPLIT, $0-80
+	VXORPD       Z0, Z0, Z0
+	MOVQ         q+72(FP), AX
+	VPBROADCASTQ q+72(FP), Z1
+	MOVQ         vOut_len+8(FP), CX
+	MOVQ         vOut_base+0(FP), DX
+	MOVQ         v0_base+24(FP), BX
+	MOVQ         v1_base+48(FP), SI
+	MOVQ         CX, DI
+	SHRQ         $0x03, DI
+	SHLQ         $0x03, DI
+	XORQ         R8, R8
+	JMP          loop_end
+
+loop_body:
+	VMOVDQU64 (BX)(R8*8), Z2
+	VMOVDQU64 (SI)(R8*8), Z3
+	VPSUBQ    Z3, Z2, Z2
+	VPCMPQ    $0x01, Z0, Z2, K1
+	VMOVAPD.Z Z1, K1, Z3
+	VPADDQ    Z3, Z2, Z2
+	VMOVDQU64 Z2, (DX)(R8*8)
+	ADDQ      $0x08, R8
+
+loop_end:
+	CMPQ R8, DI
+	JL   loop_body
+	JMP  leftover_loop_end
+
+leftover_loop_body:
+	MOVQ    (BX)(R8*8), DI
+	MOVQ    (SI)(R8*8), R9
+	SUBQ    R9, DI
+	MOVQ    DI, R9
+	ADDQ    AX, R9
+	CMPQ    DI, $0x00
+	CMOVQLT R9, DI
+	MOVQ    DI, (DX)(R8*8)
+	ADDQ    $0x01, R8
+
+leftover_loop_end:
+	CMPQ R8, CX
+	JL   leftover_loop_body
+	RET
+
+// func subLazyVecToAVX512(vOut []uint64, v0 []uint64, v1 []uint64)
+// Requires: AVX512DQ, AVX512F
+TEXT ·subLazyVecToAVX512(SB), NOSPLIT, $0-72
+	VXORPD Z0, Z0, Z0
+	MOVQ   vOut_len+8(FP), AX
+	MOVQ   vOut_base+0(FP), CX
+	MOVQ   v0_base+24(FP), DX
+	MOVQ   v1_base+48(FP), BX
+	MOVQ   AX, SI
+	SHRQ   $0x03, SI
+	SHLQ   $0x03, SI
+	XORQ   DI, DI
+	JMP    loop_end
+
+loop_body:
+	VMOVDQU64 (DX)(DI*8), Z0
+	VMOVDQU64 (BX)(DI*8), Z1
+	VPSUBQ    Z1, Z0, Z0
+	VMOVDQU64 Z0, (CX)(DI*8)
+	ADDQ      $0x08, DI
 
 loop_end:
 	CMPQ DI, SI
