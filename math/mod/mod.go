@@ -116,6 +116,15 @@ func Sub(x0, x1 uint64, q *Modulus) uint64 {
 	return sub(x0, x1, q.modulus)
 }
 
+// Neg computes -x mod q.
+func Neg(x uint64, q *Modulus) uint64 {
+	if x == 0 {
+		return 0
+	} else {
+		return q.modulus - x
+	}
+}
+
 // Mul computes x * y mod q using Barrett reduction.
 func Mul(x0, y0 uint64, q *Modulus) uint64 {
 	return bMul(x0, y0, q.modulus, q.divHi, q.divLo)
