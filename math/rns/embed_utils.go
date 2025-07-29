@@ -71,7 +71,7 @@ func reduceModInToModOutSigned(x uint64, qIn, halfQIn uint64, qOut *mod.Modulus)
 	if x <= halfQIn {
 		return mod.Reduce(x, qOut)
 	}
-	return mod.Reduce(qIn-x, qOut)
+	return mod.Neg(mod.Reduce(qIn-x, qOut), qOut)
 }
 
 // add64To128Signed returns x0 + int128(x1) mod q.

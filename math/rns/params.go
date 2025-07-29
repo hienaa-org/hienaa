@@ -1,6 +1,8 @@
 package rns
 
 import (
+	"math"
+
 	"github.com/hienaa-org/hienaa/math/mod"
 	"github.com/hienaa-org/hienaa/math/num"
 )
@@ -150,8 +152,9 @@ func isNTTFriendly(ringParams RingParameters, modulus *mod.Modulus) bool {
 	return true
 }
 
-// FindNTTPrimes finds a list of prime moduli that are NTT-friendly with respect to the given ring parameters.
-func FindNTTPrimes(ringParams RingParameters, start uint64, cnt int) []*mod.Modulus {
+// FindNextNTTPrimes finds a list of prime moduli that are NTT-friendly with respect to the given ring parameters.
+// Specifically, it outputs the first cnt NTT-friendly primes greater than or equal to 2^bits.
+func FindNextNTTPrimes(ringParams RingParameters, bits float64, cnt int) []*mod.Modulus {
 	var gap uint64
 
 	switch ringParams.ringType {
@@ -163,11 +166,64 @@ func FindNTTPrimes(ringParams RingParameters, start uint64, cnt int) []*mod.Modu
 		gap = autFixedGap(uint64(ringParams.cycloDegree), uint64(ringParams.degree))
 	}
 
-	start = (start/gap)*gap + gap + 1
+	start := (uint64(math.Round(math.Exp2(bits)))/gap)*gap + 1
 	primes := make([]*mod.Modulus, cnt)
 	primes[0] = mod.NewModulus(num.NextPrime(start, gap))
 	for i := 1; i < cnt; i++ {
 		primes[i] = mod.NewModulus(num.NextPrime(primes[i-1].Value(), gap))
+	}
+
+	return primes
+}
+
+// FindPrevNTTPrimes finds a list of prime moduli that are NTT-friendly with respect to the given ring parameters.
+// Specifically, it outputs the first cnt NTT-friendly primes less than or equal to 2^bits.
+func FindPrevNTTPrimes(ringParams RingParameters, bits float64, cnt int) []*mod.Modulus {
+	var gap uint64
+
+	switch ringParams.ringType {
+	case Cyclotomic:
+		gap = cyclotomicGap(uint64(ringParams.cycloDegree), uint64(ringParams.degree))
+	case Cyclic:
+		gap = cyclicGap(uint64(ringParams.degree))
+	case AutFixed:
+		gap = autFixedGap(uint64(ringParams.cycloDegree), uint64(ringParams.degree))
+	}
+
+	start := (uint64(math.Round(math.Exp2(bits)))/gap)*gap + 1
+	primes := make([]*mod.Modulus, cnt)
+	primes[0] = mod.NewModulus(num.PrevPrime(start, gap))
+	for i := 1; i < cnt; i++ {
+		primes[i] = mod.NewModulus(num.PrevPrime(primes[i-1].Value(), gap))
+	}
+
+	return primes
+}
+
+// FindNearestNTTPrimes finds a list of prime moduli that are NTT-friendly with respect to the given ring parameters.
+// Specifically, it outputs the first cnt NTT-friendly primes nearest to 2^bits.
+func FindNearestNTTPrimes(ringParams RingParameters, bits float64, cnt int) []*mod.Modulus {
+	var gap uint64
+
+	switch ringParams.ringType {
+	case Cyclotomic:
+		gap = cyclotomicGap(uint64(ringParams.cycloDegree), uint64(ringParams.degree))
+	case Cyclic:
+		gap = cyclicGap(uint64(ringParams.degree))
+	case AutFixed:
+		gap = autFixedGap(uint64(ringParams.cycloDegree), uint64(ringParams.degree))
+	}
+
+	start := (uint64(math.Round(math.Exp2(bits)))/gap)*gap + 1
+	primes := make([]*mod.Modulus, cnt)
+	primes[0] = mod.NewModulus(num.NextPrime(start, gap))
+	for i := 2; i < cnt; i += 2 {
+		primes[i] = mod.NewModulus(num.NextPrime(primes[i-2].Value(), gap))
+	}
+
+	primes[1] = mod.NewModulus(num.PrevPrime(primes[0].Value(), gap))
+	for i := 3; i < cnt; i += 2 {
+		primes[i] = mod.NewModulus(num.PrevPrime(primes[i-2].Value(), gap))
 	}
 
 	return primes

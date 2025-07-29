@@ -133,3 +133,8 @@ func computeCyclotomicPolynomial(degree uint64) []int {
 
 	return pOut[:num.Totient(uint64(degree))+1]
 }
+
+func ComputeCyclotomicPolynomial(degree uint64) []int {
+	cyclo := computeCyclotomicPolynomial(degree)
+	return cyclo
+}

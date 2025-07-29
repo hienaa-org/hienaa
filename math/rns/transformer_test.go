@@ -56,7 +56,7 @@ func TestCyclotomicNTT(t *testing.T) {
 	t.Run("type=Pow2", func(t *testing.T) {
 		N := 1 << 12
 		ringParams := rns.NewCyclotomicParameters(N)
-		q := rns.FindNTTPrimes(ringParams, 1<<45, 1)
+		q := rns.FindNextNTTPrimes(ringParams, 45, 1)
 		ntt := rns.NewTransformer(ringParams, q)
 
 		p0 := randPoly(ringParams, q[0])
@@ -77,7 +77,7 @@ func TestCyclicNTT(t *testing.T) {
 	t.Run("type=Pow235", func(t *testing.T) {
 		N := int(num.NextProdPower(rSrc.SampleN(1<<12), []uint64{2, 3, 5}))
 		ringParams := rns.NewCyclicParameters(N)
-		q := rns.FindNTTPrimes(ringParams, 1<<45, 1)
+		q := rns.FindNextNTTPrimes(ringParams, 45, 1)
 		ntt := rns.NewTransformer(ringParams, q)
 
 		p0 := randPoly(ringParams, q[0])
@@ -102,7 +102,7 @@ func TestCyclicNTT(t *testing.T) {
 			}
 		}
 		ringParams := rns.NewCyclicParameters(N)
-		q := rns.FindNTTPrimes(ringParams, 1<<45, 1)
+		q := rns.FindNextNTTPrimes(ringParams, 45, 1)
 		ntt := rns.NewTransformer(ringParams, q)
 
 		p0 := randPoly(ringParams, q[0])
@@ -124,7 +124,7 @@ func BenchmarkCyclotomicNTT(b *testing.B) {
 		for _, logN := range benchLogN {
 			N := 1 << logN
 			ringParams := rns.NewCyclotomicParameters(N)
-			q := rns.FindNTTPrimes(ringParams, 1<<60, 1)
+			q := rns.FindNextNTTPrimes(ringParams, 60, 1)
 			ntt := rns.NewTransformer(ringParams, q)
 
 			p := randPoly(ringParams, q[0])
@@ -151,7 +151,7 @@ func BenchmarkCyclicNTT(b *testing.B) {
 		for _, logN := range benchLogN {
 			N := int(num.NextProdPower(uint64(1<<logN)+1, []uint64{2, 3, 5}))
 			ringParams := rns.NewCyclicParameters(N)
-			q := rns.FindNTTPrimes(ringParams, 1<<60, 1)
+			q := rns.FindNextNTTPrimes(ringParams, 60, 1)
 			ntt := rns.NewTransformer(ringParams, q)
 
 			p := randPoly(ringParams, q[0])
@@ -176,7 +176,7 @@ func BenchmarkCyclicNTT(b *testing.B) {
 		for _, logN := range benchLogN {
 			N := (1 << logN) + 1
 			ringParams := rns.NewCyclicParameters(N)
-			q := rns.FindNTTPrimes(ringParams, 1<<60, 1)
+			q := rns.FindNextNTTPrimes(ringParams, 60, 1)
 			ntt := rns.NewTransformer(ringParams, q)
 
 			p := randPoly(ringParams, q[0])

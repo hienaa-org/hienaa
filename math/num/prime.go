@@ -56,16 +56,33 @@ func IsPrimeModulus(x *mod.Modulus) bool {
 	return true
 }
 
+// PrevPrime returns the previous prime number of x with skip.
+// If skip == 0, or there is no prime number meets the condition, it panics.
+func PrevPrime(x uint64, skip uint64) uint64 {
+	if skip == 0 {
+		panic("PrevPrime: skip must be nonzero.")
+	}
+
+	for t := x - skip; ; t -= skip {
+		if t > mod.MaxModulus {
+			panic("PrevPrime: t must be less than or equal to mod.MaxModulus.")
+		} else if IsPrime(t) {
+			return t
+		}
+	}
+}
+
 // NextPrime returns the next prime number of x with skip.
-// If skip == 0, it panics.
-// If skip < 0, it finds a previous prime.
+// If skip == 0, or there is no prime number meets the condition, it panics.
 func NextPrime(x uint64, skip uint64) uint64 {
 	if skip == 0 {
 		panic("NextPrime: skip must be nonzero.")
 	}
 
 	for t := x + skip; ; t += skip {
-		if IsPrime(t) {
+		if t > mod.MaxModulus {
+			panic("NextPrime: t must be less than or equal to mod.MaxModulus.")
+		} else if IsPrime(t) {
 			return t
 		}
 	}
