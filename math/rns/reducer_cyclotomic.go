@@ -38,15 +38,15 @@ type cyclotomicReducerAnyModulus struct {
 
 	// cycloPoly is the cyclotomic polynomial modulo the modulus.
 	cycloPoly [][]uint64
-	// quotientPoly is rounding of a monomial over the cyclotomic polynomial modulo the modulus.
-	// Precisely, it is ⌊X^d_qs/\Phi_m(X)⌋ modulo the modulus, where d_qs is the degree of the quotient polynomial Q_sp.
-	quotientPoly [][]uint64
+	// quoPoly is rounding of a monomial over the cyclotomic polynomial modulo the modulus.
+	// Precisely, it is floor(X^d_qs/\Phi_m(X)) modulo the modulus, where d_qs is the degree of the quotient polynomial Q_sp.
+	quoPoly [][]uint64
 
-	// buf is the polynomial buffer for the reducer.
-	buf reducerNTTBuffer
+	buf reducerBuffer
 }
 
-func NewCyclotomicReducerAnyModulus(params RingParameters, modulus *mod.Modulus) *cyclotomicReducerAnyModulus {
+// newCyclotomicReducerAnyModulus creates a new [cyclotomicReducerAnyModulus].
+func newCyclotomicReducerAnyModulus(params RingParameters, modulus *mod.Modulus) *cyclotomicReducerAnyModulus {
 	cycloDeg, deg := uint64(params.CycloDegree()), uint64(params.Degree())
 
 	factors := num.Factor(cycloDeg)
@@ -58,66 +58,58 @@ func NewCyclotomicReducerAnyModulus(params RingParameters, modulus *mod.Modulus)
 	}
 	redDeg := cycloDeg - cycloDeg/leastFactor
 
-	var isPrimePower bool
+	isPrimePower := redDeg == deg
+
 	var ambModulus []*mod.Modulus
 	var embedder *Embedder
 	var diffDeg, diffDegNext, degNext uint64
 	var diffDegNextNTT, degNextNTT []singleTransformer
-	var cycloPoly, quotientPoly [][]uint64
-	var buf reducerNTTBuffer
+	var cycloPoly, quoPoly [][]uint64
+	var buf reducerBuffer
 
-	if redDeg == deg {
-		isPrimePower = true
-		diffDeg, diffDegNext, degNext = 0, 0, 0
-		diffDegNextNTT = []singleTransformer{}
-		ambModulus = make([]*mod.Modulus, 0)
-		embedder = nil
-		degNextNTT = []singleTransformer{}
-		cycloPoly, quotientPoly = [][]uint64{}, [][]uint64{}
-		buf = newReducerNTTBuffer(0, 0, 0, 0)
-	} else {
+	if !isPrimePower {
 		degNext = num.NextProdPower(uint64(deg), []uint64{2})
 		diffDeg = redDeg - deg
 		diffDegNext = num.NextProdPower(2*diffDeg+1, []uint64{2})
 
-		lenAmbMod := int(math.Ceil((2.0*math.Log2(float64(modulus.Value())) + math.Log2(float64(max(degNext, diffDegNext)))) / 62.0))
+		lenAmbMod := int(math.Ceil((2*math.Log2(float64(modulus.Value())) + math.Log2(float64(max(degNext, diffDegNext)))) / mod.MaxModulusBits))
 		ambModulus = FindPrevNTTPrimes(params, 61, lenAmbMod)
 		embedder = NewEmbedder(ambModulus, []*mod.Modulus{modulus})
 
-		degNextParams := RingParameters{0, int(degNext), Cyclic}
+		degNextParams := NewCyclicParameters(int(degNext))
 		degNextNTT = make([]singleTransformer, lenAmbMod)
 		for i := range degNextNTT {
 			degNextNTT[i] = newCyclicPow235Transformer(degNextParams, ambModulus[i])
 		}
 
-		diffDegNextParams := RingParameters{0, int(diffDegNext), Cyclic}
+		diffDegNextParams := NewCyclicParameters(int(diffDegNext))
 		diffDegNextNTT = make([]singleTransformer, lenAmbMod)
 		for i := range diffDegNextNTT {
 			diffDegNextNTT[i] = newCyclicPow235Transformer(diffDegNextParams, ambModulus[i])
 		}
 
 		cycloPoly = make([][]uint64, lenAmbMod)
-		cycloPolyInt := computeCyclotomicPolynomial(cycloDeg)
+		cycloPolySigned := cyclotomicPolynomial(cycloDeg)
 		for i := range cycloPoly {
 			cycloPoly[i] = make([]uint64, degNext)
-			for j := range cycloPolyInt {
-				cycloPoly[i][j] = reduceInt(cycloPolyInt[j], ambModulus[i])
+			for j := range cycloPolySigned {
+				cycloPoly[i][j] = reduceInt(cycloPolySigned[j], ambModulus[i])
 			}
 		}
 
 		dividend := make([]uint64, redDeg+1)
 		dividend[redDeg] = 1
-		quotientPoly = make([][]uint64, lenAmbMod)
-		for i := range quotientPoly {
-			quotientPoly[i] = append(quotientPolynomialMod(dividend, cycloPoly[i][:deg+1], ambModulus[i]), make([]uint64, int(diffDegNext)-len(quotientPoly[i]))...)
+		quoPoly = make([][]uint64, lenAmbMod)
+		for i := range quoPoly {
+			quoPoly[i] = append(quotientPolynomial(dividend, cycloPoly[i][:deg+1], ambModulus[i]), make([]uint64, int(diffDegNext)-len(quoPoly[i]))...)
 		}
 
 		for i := 0; i < lenAmbMod; i++ {
 			degNextNTT[i].nttInPlace(cycloPoly[i])
-			diffDegNextNTT[i].nttInPlace(quotientPoly[i])
+			diffDegNextNTT[i].nttInPlace(quoPoly[i])
 		}
 
-		buf = newReducerNTTBuffer(lenAmbMod, int(cycloDeg), int(diffDegNext), int(degNext))
+		buf = newReducerBuffer(lenAmbMod, int(cycloDeg), int(diffDegNext), int(degNext))
 	}
 
 	return &cyclotomicReducerAnyModulus{
@@ -137,15 +129,15 @@ func NewCyclotomicReducerAnyModulus(params RingParameters, modulus *mod.Modulus)
 		diffDegNextNTT: diffDegNextNTT,
 		degNextNTT:     degNextNTT,
 
-		cycloPoly:    cycloPoly,
-		quotientPoly: quotientPoly,
+		cycloPoly: cycloPoly,
+		quoPoly:   quoPoly,
 
 		buf: buf,
 	}
 }
 
-func (r *cyclotomicReducerAnyModulus) ReduceTo(pOut, pIn []uint64) {
-	copy(r.buf.pIn[0], pIn)
+func (r *cyclotomicReducerAnyModulus) reduceTo(pOut, p []uint64) {
+	copy(r.buf.pIn[0], p)
 
 	leastFac := r.leastFac
 	cycloDeg := r.params.CycloDegree()
@@ -160,7 +152,7 @@ func (r *cyclotomicReducerAnyModulus) ReduceTo(pOut, pIn []uint64) {
 	}
 
 	if !r.isPrimePow {
-		// Compute pQuo = ⌊pIn/X^deg⌋
+		// Compute pQuo = floor(pIn/X^deg)
 		for i := 0; i < len(r.buf.pQuo); i++ {
 			clear(r.buf.pQuo[i])
 			for j := 0; j < r.diffDeg; j++ {
@@ -168,15 +160,15 @@ func (r *cyclotomicReducerAnyModulus) ReduceTo(pOut, pIn []uint64) {
 			}
 		}
 
-		// Compute pQuo = pQuo × ⌊X^(deg+diffDeg)/\Phi_m(X)⌋
+		// Compute pQuo = pQuo × floor(X^(deg+diffDeg)/\Phi_m(X))
 		for i := 0; i < len(r.buf.pQuo); i++ {
 			r.diffDegNextNTT[i].nttInPlace(r.buf.pQuo[i])
-			mod.MMulLazyVecTo(r.buf.pQuo[i], r.buf.pQuo[i], r.quotientPoly[i], r.ambModulus[i])
+			mod.MMulLazyVecTo(r.buf.pQuo[i], r.buf.pQuo[i], r.quoPoly[i], r.ambModulus[i])
 			r.diffDegNextNTT[i].invNTTInPlace(r.buf.pQuo[i])
 		}
 		r.embedder.EmbedVecTo(r.buf.pQuo[0:1], r.buf.pQuo)
 
-		// Compute pRem = ⌊pQuo/X^diffDeg⌋ % (X^degNext - 1)
+		// Compute pRem = floor(pQuo/X^diffDeg) % (X^degNext - 1)
 		for i := 1; i <= int(math.Ceil(float64(r.diffDeg)/float64(r.degNext))); i++ {
 			for j := 0; j < r.degNext; j++ {
 				if i*r.degNext+j > r.diffDeg {
@@ -194,7 +186,7 @@ func (r *cyclotomicReducerAnyModulus) ReduceTo(pOut, pIn []uint64) {
 			}
 		}
 
-		// Compute pRem = pRem × quotientPoly (mod X^degNext - 1)
+		// Compute pRem = pRem * quoPoly (mod X^degNext - 1)
 		for i := 0; i < len(r.buf.pRem); i++ {
 			r.degNextNTT[i].nttInPlace(r.buf.pRem[i])
 			mod.MMulLazyVecTo(r.buf.pRem[i], r.buf.pRem[i], r.cycloPoly[i], r.ambModulus[i])
@@ -219,6 +211,48 @@ func (r *cyclotomicReducerAnyModulus) ReduceTo(pOut, pIn []uint64) {
 		}
 	} else {
 		copy(pOut, r.buf.pIn[0][:r.params.Degree()])
+	}
+}
+
+func (r *cyclotomicReducerAnyModulus) safeCopy() reducer {
+	diffDegNextNTT := make([]singleTransformer, len(r.diffDegNextNTT))
+	for i := range diffDegNextNTT {
+		diffDegNextNTT[i] = r.diffDegNextNTT[i].safeCopy()
+	}
+
+	degNextNTT := make([]singleTransformer, len(r.degNextNTT))
+	for i := range degNextNTT {
+		degNextNTT[i] = r.degNextNTT[i].safeCopy()
+	}
+
+	var embedder *Embedder
+	var buf reducerBuffer
+	if !r.isPrimePow {
+		embedder = r.embedder.SafeCopy()
+		buf = newReducerBuffer(len(r.ambModulus), r.params.cycloDegree, r.diffDegNext, r.degNext)
+	}
+
+	return &cyclotomicReducerAnyModulus{
+		leastFac:   r.leastFac,
+		isPrimePow: r.isPrimePow,
+
+		params:     r.params,
+		modulus:    r.modulus,
+		ambModulus: r.ambModulus,
+		embedder:   embedder,
+
+		redDeg:      r.redDeg,
+		diffDeg:     r.diffDeg,
+		diffDegNext: r.diffDegNext,
+		degNext:     r.degNext,
+
+		diffDegNextNTT: diffDegNextNTT,
+		degNextNTT:     degNextNTT,
+
+		cycloPoly: r.cycloPoly,
+		quoPoly:   r.quoPoly,
+
+		buf: buf,
 	}
 }
 
@@ -253,15 +287,15 @@ type cyclotomicReducerNTTModulus struct {
 
 	// cycloPoly is the cyclotomic polynomial modulo the modulus.
 	cycloPoly []uint64
-	// quotientPoly is rounding of a monomial over the cyclotomic polynomial modulo the modulus.
-	// Precisely, it is ⌊X^d_qs/\Phi_m(X)⌋ modulo the modulus, where d_qs is the degree of the quotient polynomial Q_sp.
-	quotientPoly []uint64
+	// quoPoly is rounding of a monomial over the cyclotomic polynomial modulo the modulus.
+	// Precisely, it is floor(X^d_qs/\Phi_m(X)) modulo the modulus, where d_qs is the degree of the quotient polynomial Q_sp.
+	quoPoly []uint64
 
-	// buf is the polynomial buffer for the reducer.
-	buf reducerNTTBuffer
+	buf reducerBuffer
 }
 
-func NewCyclotomicReducerNTTModulus(params RingParameters, modulus *mod.Modulus) *cyclotomicReducerNTTModulus {
+// newCyclotomicReducerNTTModulus creates a new [cyclotomicReducerNTTModulus].
+func newCyclotomicReducerNTTModulus(params RingParameters, modulus *mod.Modulus) *cyclotomicReducerNTTModulus {
 	cycloDeg, deg := uint64(params.CycloDegree()), uint64(params.Degree())
 
 	factors := num.Factor(cycloDeg)
@@ -273,19 +307,14 @@ func NewCyclotomicReducerNTTModulus(params RingParameters, modulus *mod.Modulus)
 	}
 	redDeg := cycloDeg - cycloDeg/leastFactor
 
-	var isPrimePower bool
+	isPrimePower := redDeg == deg
+
 	var diffDeg, diffDegNext, degNext uint64
 	var diffDegNextNTT, degNextNTT singleTransformer
-	var cycloPoly, quotientPoly []uint64
-	var buf reducerNTTBuffer
+	var cycloPoly, quoPoly []uint64
+	var buf reducerBuffer
 
-	if redDeg == deg {
-		isPrimePower = true
-		diffDeg, diffDegNext, degNext = 0, 0, 0
-		diffDegNextNTT, degNextNTT = newTrivialTransformer(modulus), newTrivialTransformer(modulus)
-		cycloPoly, quotientPoly = []uint64{}, []uint64{}
-		buf = newReducerNTTBuffer(0, 0, 0, 0)
-	} else {
+	if !isPrimePower {
 		degNext = num.NextProdPower(uint64(deg), []uint64{2})
 		diffDeg = redDeg - deg
 		diffDegNext = num.NextProdPower(2*diffDeg+1, []uint64{2})
@@ -297,19 +326,19 @@ func NewCyclotomicReducerNTTModulus(params RingParameters, modulus *mod.Modulus)
 		diffDegNextNTT = newCyclicPow235Transformer(diffDegNextParams, modulus)
 
 		cycloPoly = make([]uint64, degNext)
-		cycloPolyInt := computeCyclotomicPolynomial(cycloDeg)
-		for i := range cycloPolyInt {
-			cycloPoly[i] = reduceInt(cycloPolyInt[i], modulus)
+		cycloPolySigned := cyclotomicPolynomial(cycloDeg)
+		for i := range cycloPolySigned {
+			cycloPoly[i] = reduceInt(cycloPolySigned[i], modulus)
 		}
 
 		dividend := make([]uint64, redDeg+1)
 		dividend[redDeg] = 1
-		quotientPoly = append(quotientPolynomialMod(dividend, cycloPoly[:deg+1], modulus), make([]uint64, int(diffDegNext)-len(quotientPoly))...)
+		quoPoly = append(quotientPolynomial(dividend, cycloPoly[:deg+1], modulus), make([]uint64, int(diffDegNext)-len(quoPoly))...)
 
 		degNextNTT.nttInPlace(cycloPoly)
-		diffDegNextNTT.nttInPlace(quotientPoly)
+		diffDegNextNTT.nttInPlace(quoPoly)
 
-		buf = newReducerNTTBuffer(1, int(cycloDeg), int(diffDegNext), int(degNext))
+		buf = newReducerBuffer(1, int(cycloDeg), int(diffDegNext), int(degNext))
 	}
 
 	return &cyclotomicReducerNTTModulus{
@@ -327,15 +356,15 @@ func NewCyclotomicReducerNTTModulus(params RingParameters, modulus *mod.Modulus)
 		diffDegNextNTT: diffDegNextNTT,
 		degNextNTT:     degNextNTT,
 
-		cycloPoly:    cycloPoly,
-		quotientPoly: quotientPoly,
+		cycloPoly: cycloPoly,
+		quoPoly:   quoPoly,
 
 		buf: buf,
 	}
 }
 
-func (r *cyclotomicReducerNTTModulus) ReduceTo(pOut, pIn []uint64) {
-	copy(r.buf.pIn[0], pIn)
+func (r *cyclotomicReducerNTTModulus) reduceTo(pOut, p []uint64) {
+	copy(r.buf.pIn[0], p)
 
 	leastFac := r.leastFac
 	cycloDeg := r.params.CycloDegree()
@@ -350,18 +379,18 @@ func (r *cyclotomicReducerNTTModulus) ReduceTo(pOut, pIn []uint64) {
 	}
 
 	if !r.isPrimePow {
-		// Compute pQuo = ⌊pIn/X^deg⌋
+		// Compute pQuo = floor(pIn/X^deg)
 		clear(r.buf.pQuo[0])
 		for i := 0; i < r.diffDeg; i++ {
 			r.buf.pQuo[0][i] = r.buf.pIn[0][deg+i]
 		}
 
-		// Compute pQuo = pQuo × ⌊X^(deg+diffDeg)/\Phi_m(X)⌋
+		// Compute pQuo = pQuo * floor(X^(deg+diffDeg)/\Phi_m(X))
 		r.diffDegNextNTT.nttInPlace(r.buf.pQuo[0])
-		mod.MMulLazyVecTo(r.buf.pQuo[0], r.buf.pQuo[0], r.quotientPoly, r.modulus)
+		mod.MMulLazyVecTo(r.buf.pQuo[0], r.buf.pQuo[0], r.quoPoly, r.modulus)
 		r.diffDegNextNTT.invNTTInPlace(r.buf.pQuo[0])
 
-		// Compute pRem = ⌊pQuo/X^diffDeg⌋ % (X^degNext - 1)
+		// Compute pRem = floor(pQuo/X^diffDeg) % (X^degNext - 1)
 		for i := 1; i <= int(math.Ceil(float64(r.diffDeg)/float64(r.degNext))); i++ {
 			for j := 0; j < r.degNext; j++ {
 				if i*r.degNext+j > r.diffDeg {
@@ -377,7 +406,7 @@ func (r *cyclotomicReducerNTTModulus) ReduceTo(pOut, pIn []uint64) {
 			r.buf.pRem[0][i] = r.buf.pQuo[0][r.diffDeg+i]
 		}
 
-		// Compute pRem = pRem × quotientPoly (mod X^degNext - 1)
+		// Compute pRem = pRem * quoPoly (mod X^degNext - 1)
 		r.degNextNTT.nttInPlace(r.buf.pRem[0])
 		mod.MMulLazyVecTo(r.buf.pRem[0], r.buf.pRem[0], r.cycloPoly, r.modulus)
 		r.degNextNTT.invNTTInPlace(r.buf.pRem[0])
@@ -399,5 +428,36 @@ func (r *cyclotomicReducerNTTModulus) ReduceTo(pOut, pIn []uint64) {
 		}
 	} else {
 		copy(pOut, r.buf.pIn[0][:r.params.Degree()])
+	}
+}
+
+func (r *cyclotomicReducerNTTModulus) safeCopy() reducer {
+	var diffDegNextNTT, degNextNTT singleTransformer
+	var buf reducerBuffer
+	if !r.isPrimePow {
+		diffDegNextNTT = r.diffDegNextNTT.safeCopy()
+		degNextNTT = r.degNextNTT.safeCopy()
+		buf = newReducerBuffer(1, r.params.cycloDegree, r.diffDegNext, r.degNext)
+	}
+
+	return &cyclotomicReducerNTTModulus{
+		leastFac:   r.leastFac,
+		isPrimePow: r.isPrimePow,
+
+		params:  r.params,
+		modulus: r.modulus,
+
+		redDeg:      r.redDeg,
+		diffDeg:     r.diffDeg,
+		diffDegNext: r.diffDegNext,
+		degNext:     r.degNext,
+
+		diffDegNextNTT: diffDegNextNTT,
+		degNextNTT:     degNextNTT,
+
+		cycloPoly: r.cycloPoly,
+		quoPoly:   r.quoPoly,
+
+		buf: buf,
 	}
 }

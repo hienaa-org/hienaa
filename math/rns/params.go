@@ -168,11 +168,11 @@ func FindNextNTTPrimes(ringParams RingParameters, bits float64, cnt int) []*mod.
 
 	start := (uint64(math.Round(math.Exp2(bits)))/gap)*gap + 1
 	primes := make([]*mod.Modulus, cnt)
-	primes[0] = mod.NewModulus(num.NextPrime(start, gap))
-	for i := 1; i < cnt; i++ {
-		primes[i] = mod.NewModulus(num.NextPrime(primes[i-1].Value(), gap))
+	prime := num.NextPrime(start, gap)
+	for i := 0; i < cnt; i++ {
+		primes[i] = mod.NewModulus(prime)
+		prime = num.NextPrime(prime, gap)
 	}
-
 	return primes
 }
 
@@ -192,16 +192,17 @@ func FindPrevNTTPrimes(ringParams RingParameters, bits float64, cnt int) []*mod.
 
 	start := (uint64(math.Round(math.Exp2(bits)))/gap)*gap + 1
 	primes := make([]*mod.Modulus, cnt)
-	primes[0] = mod.NewModulus(num.PrevPrime(start, gap))
-	for i := 1; i < cnt; i++ {
-		primes[i] = mod.NewModulus(num.PrevPrime(primes[i-1].Value(), gap))
+	prime := num.PrevPrime(start, gap)
+	for i := 0; i < cnt; i++ {
+		primes[i] = mod.NewModulus(prime)
+		prime = num.NextPrime(prime, gap)
 	}
-
 	return primes
 }
 
 // FindNearestNTTPrimes finds a list of prime moduli that are NTT-friendly with respect to the given ring parameters.
 // Specifically, it outputs the first cnt NTT-friendly primes nearest to 2^bits.
+// Output modulus are alternating in size.
 func FindNearestNTTPrimes(ringParams RingParameters, bits float64, cnt int) []*mod.Modulus {
 	var gap uint64
 
@@ -216,15 +217,16 @@ func FindNearestNTTPrimes(ringParams RingParameters, bits float64, cnt int) []*m
 
 	start := (uint64(math.Round(math.Exp2(bits)))/gap)*gap + 1
 	primes := make([]*mod.Modulus, cnt)
-	primes[0] = mod.NewModulus(num.NextPrime(start, gap))
-	for i := 2; i < cnt; i += 2 {
-		primes[i] = mod.NewModulus(num.NextPrime(primes[i-2].Value(), gap))
+	prime := num.NextPrime(start, gap)
+	for i := 0; i < cnt; i += 2 {
+		primes[i] = mod.NewModulus(prime)
+		prime = num.NextPrime(prime, gap)
 	}
 
-	primes[1] = mod.NewModulus(num.PrevPrime(primes[0].Value(), gap))
-	for i := 3; i < cnt; i += 2 {
-		primes[i] = mod.NewModulus(num.PrevPrime(primes[i-2].Value(), gap))
+	prime = num.PrevPrime(start, gap)
+	for i := 1; i < cnt; i += 2 {
+		primes[i] = mod.NewModulus(prime)
+		prime = num.PrevPrime(prime, gap)
 	}
-
 	return primes
 }

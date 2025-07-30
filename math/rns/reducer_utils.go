@@ -15,61 +15,38 @@ func reduceInt(x int, q *mod.Modulus) uint64 {
 	}
 }
 
-// quotientPolynomial computes the quotient of two polynomials.
-func quotientPolynomial(dividend, divisor []int) []int {
+// quotientPolynomial computes the quotient of two polynomials modulo a modulus.
+func quotientPolynomial(dividend, divisor []uint64, modulus *mod.Modulus) []uint64 {
 	if len(dividend) < len(divisor) {
-		panic("dividend is shorter than divisor")
-	}
-
-	quotient := make([]int, len(dividend)-len(divisor)+1)
-	pBuff := make([]int, len(dividend))
-	copy(pBuff, dividend)
-
-	for i := 0; i <= len(dividend)-len(divisor); i++ {
-		if pBuff[len(pBuff)-i-1] != 0 {
-			quotient[len(quotient)-i-1] = pBuff[len(pBuff)-i-1] / divisor[len(divisor)-1]
-
-			for j := 0; j < len(divisor); j++ {
-				pBuff[len(pBuff)-i-j-1] -= divisor[len(divisor)-j-1] * quotient[len(quotient)-i-1]
-			}
-		}
-	}
-
-	return quotient
-}
-
-// quotientPolynomialMod computes the quotient of two polynomials modulo a modulus.
-func quotientPolynomialMod(dividend, divisor []uint64, modulus *mod.Modulus) []uint64 {
-	if len(dividend) < len(divisor) {
-		panic("dividend is shorter than divisor")
+		panic("quotientPolynomial: dividend is shorter than divisor")
 	}
 	if num.GCD(modulus.Value(), divisor[len(divisor)-1]) != 1 {
-		panic("divisor is not coprime with modulus")
+		panic("quotientPolynomial: divisor is not coprime with modulus")
 	}
 
-	quotient := make([]uint64, len(dividend)-len(divisor)+1)
+	quo := make([]uint64, len(dividend)-len(divisor)+1)
 	pBuff := make([]uint64, len(dividend))
 	copy(pBuff, dividend)
 
 	for i := 0; i <= len(dividend)-len(divisor); i++ {
 		if pBuff[len(pBuff)-i-1] != 0 {
-			quotient[len(quotient)-i-1] = mod.Mul(pBuff[len(pBuff)-i-1], mod.Inv(divisor[len(divisor)-1], modulus), modulus)
+			quo[len(quo)-i-1] = mod.Mul(pBuff[len(pBuff)-i-1], mod.Inv(divisor[len(divisor)-1], modulus), modulus)
 
 			for j := 0; j < len(divisor); j++ {
-				pBuff[len(pBuff)-i-j-1] = mod.Sub(pBuff[len(pBuff)-i-j-1], mod.Mul(divisor[len(divisor)-j-1], quotient[len(quotient)-i-1], modulus), modulus)
+				pBuff[len(pBuff)-i-j-1] = mod.Sub(pBuff[len(pBuff)-i-j-1], mod.Mul(divisor[len(divisor)-j-1], quo[len(quo)-i-1], modulus), modulus)
 			}
 		}
 	}
 
-	return quotient
+	return quo
 }
 
-// computeCyclotomicPolynomial computes the cyclotomic polynomial of the given degree.
-func computeCyclotomicPolynomial(degree uint64) []int {
+// cyclotomicPolynomial computes the cyclotomic polynomial of the given degree.
+func cyclotomicPolynomial(degree uint64) []int {
 	factors := num.Factor(degree)
 	primes := make([]int, 0, len(factors))
-	for key := range factors {
-		primes = append(primes, int(key))
+	for p := range factors {
+		primes = append(primes, int(p))
 	}
 	slices.Sort(primes)
 
@@ -88,8 +65,7 @@ func computeCyclotomicPolynomial(degree uint64) []int {
 
 	skip := int(degree)
 
-	currDeg := 1
-	prevDeg := 1
+	currDeg, prevDeg := 1, 1
 	for _, prime := range primes {
 		copy(pBuff0, pOut)
 		clear(pBuff1)
@@ -132,9 +108,4 @@ func computeCyclotomicPolynomial(degree uint64) []int {
 	}
 
 	return pOut[:num.Totient(uint64(degree))+1]
-}
-
-func ComputeCyclotomicPolynomial(degree uint64) []int {
-	cyclo := computeCyclotomicPolynomial(degree)
-	return cyclo
 }

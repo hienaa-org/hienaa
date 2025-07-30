@@ -33,65 +33,56 @@ type reducerAnyModulus struct {
 
 	// modPoly is the polynomial we target to reduce to.
 	modPoly [][]uint64
-	// quotientPoly is rounding of a monomial over the modPoly modulo the modulus.
-	// Precisely, it is ⌊X^d/modPoly⌋ modulo the modulus, where d is the maximum degree of the input polynomial.
-	quotientPoly [][]uint64
+	// quoPoly is rounding of a monomial over the modPoly modulo the modulus.
+	// Precisely, it is floor(X^d/modPoly) modulo the modulus, where d is the maximum degree of the input polynomial.
+	quoPoly [][]uint64
 
-	// buf is the polynomial buffer for the reducer.
-	buf reducerNTTBuffer
+	buf reducerBuffer
 }
 
-func NewReducerAnyModulus(mPoly []uint64, maxDeg int, modulus *mod.Modulus) *reducerAnyModulus {
-	deg := len(mPoly) - 1
+// newReducerAnyModulus creates a new [reducerAnyModulus].
+func newReducerAnyModulus(maxDeg int, modPoly []uint64, modulus *mod.Modulus) *reducerAnyModulus {
+	deg := len(modPoly) - 1
 
-	var ambModulus []*mod.Modulus
-	var embedder *Embedder
-	var diffDeg, diffDegNext, degNext uint64
-	var diffDegNextNTT, degNextNTT []singleTransformer
-	var modPoly, quotientPoly [][]uint64
-	var buf reducerNTTBuffer
+	degNext := num.NextProdPower(uint64(deg), []uint64{2})
+	diffDeg := uint64(maxDeg - deg)
+	diffDegNext := num.NextProdPower(2*diffDeg+1, []uint64{2})
 
-	degNext = num.NextProdPower(uint64(deg), []uint64{2})
-	diffDeg = uint64(maxDeg - deg)
-	diffDegNext = num.NextProdPower(2*diffDeg+1, []uint64{2})
+	lenAmbMod := int(math.Ceil((2.0*math.Log2(float64(modulus.Value())) + math.Log2(float64(max(degNext, diffDegNext)))) / mod.MaxModulusBits))
+	ambModulus := FindPrevNTTPrimes(NewCyclicParameters(int(2*max(degNext, diffDegNext))), mod.MaxModulusBits, lenAmbMod)
+	embedder := NewEmbedder(ambModulus, []*mod.Modulus{modulus})
 
-	lenAmbMod := int(math.Ceil((2.0*math.Log2(float64(modulus.Value())) + math.Log2(float64(max(degNext, diffDegNext)))) / 62.0))
-	ambModulus = FindPrevNTTPrimes(RingParameters{0, int(2 * max(degNext, diffDegNext)), Cyclic}, 61, lenAmbMod)
-	embedder = NewEmbedder(ambModulus, []*mod.Modulus{modulus})
-
-	degNextParams := RingParameters{0, int(degNext), Cyclic}
-	degNextNTT = make([]singleTransformer, lenAmbMod)
+	degNextParams := NewCyclicParameters(int(degNext))
+	degNextNTT := make([]singleTransformer, lenAmbMod)
 	for i := range degNextNTT {
 		degNextNTT[i] = newCyclicPow235Transformer(degNextParams, ambModulus[i])
 	}
 
-	diffDegNextParams := RingParameters{0, int(diffDegNext), Cyclic}
-	diffDegNextNTT = make([]singleTransformer, lenAmbMod)
+	diffDegNextParams := NewCyclicParameters(int(diffDegNext))
+	diffDegNextNTT := make([]singleTransformer, lenAmbMod)
 	for i := range diffDegNextNTT {
 		diffDegNextNTT[i] = newCyclicPow235Transformer(diffDegNextParams, ambModulus[i])
 	}
 
-	modPoly = make([][]uint64, lenAmbMod)
-	for i := range modPoly {
-		modPoly[i] = make([]uint64, degNext)
-		copy(modPoly[i][:deg+1], mPoly)
+	ambModPoly := make([][]uint64, lenAmbMod)
+	for i := range ambModPoly {
+		ambModPoly[i] = make([]uint64, degNext)
+		copy(ambModPoly[i][:deg+1], modPoly)
 	}
 
 	dividend := make([]uint64, maxDeg+1)
 	dividend[maxDeg] = 1
-	qPoly := quotientPolynomialMod(dividend, mPoly[:deg+1], modulus)
-	quotientPoly = make([][]uint64, lenAmbMod)
-	for i := range quotientPoly {
-		quotientPoly[i] = make([]uint64, diffDegNext)
-		copy(quotientPoly[i][:maxDeg-deg+1], qPoly)
+	quoPoly := quotientPolynomial(dividend, modPoly[:deg+1], modulus)
+	ambQuoPoly := make([][]uint64, lenAmbMod)
+	for i := range ambQuoPoly {
+		ambQuoPoly[i] = make([]uint64, diffDegNext)
+		copy(ambQuoPoly[i][:maxDeg-deg+1], quoPoly)
 	}
 
 	for i := 0; i < lenAmbMod; i++ {
-		degNextNTT[i].nttInPlace(modPoly[i])
-		diffDegNextNTT[i].nttInPlace(quotientPoly[i])
+		degNextNTT[i].nttInPlace(ambModPoly[i])
+		diffDegNextNTT[i].nttInPlace(ambQuoPoly[i])
 	}
-
-	buf = newReducerNTTBuffer(lenAmbMod, int(maxDeg+1), int(diffDegNext), int(degNext))
 
 	return &reducerAnyModulus{
 		modulus:    modulus,
@@ -107,17 +98,17 @@ func NewReducerAnyModulus(mPoly []uint64, maxDeg int, modulus *mod.Modulus) *red
 		diffDegNextNTT: diffDegNextNTT,
 		degNextNTT:     degNextNTT,
 
-		modPoly:      modPoly,
-		quotientPoly: quotientPoly,
+		modPoly: ambModPoly,
+		quoPoly: ambQuoPoly,
 
-		buf: buf,
+		buf: newReducerBuffer(lenAmbMod, int(maxDeg+1), int(diffDegNext), int(degNext)),
 	}
 }
 
-func (r *reducerAnyModulus) ReduceTo(pOut, pIn []uint64) {
-	copy(r.buf.pIn[0], pIn)
+func (r *reducerAnyModulus) reduceTo(pOut, p []uint64) {
+	copy(r.buf.pIn[0], p)
 
-	// Compute pQuo = ⌊pIn/X^deg⌋
+	// Compute pQuo = floor(pIn/X^deg)
 	for i := 0; i < len(r.buf.pQuo); i++ {
 		clear(r.buf.pQuo[i])
 		for j := 0; j <= r.diffDeg; j++ {
@@ -125,15 +116,15 @@ func (r *reducerAnyModulus) ReduceTo(pOut, pIn []uint64) {
 		}
 	}
 
-	// Compute pQuo = pQuo × ⌊X^(deg+diffDeg)/\Phi_m(X)⌋
+	// Compute pQuo = pQuo * floor(X^(deg+diffDeg)/\Phi_m(X))
 	for i := 0; i < len(r.buf.pQuo); i++ {
 		r.diffDegNextNTT[i].nttInPlace(r.buf.pQuo[i])
-		mod.MMulLazyVecTo(r.buf.pQuo[i], r.buf.pQuo[i], r.quotientPoly[i], r.ambModulus[i])
+		mod.MMulLazyVecTo(r.buf.pQuo[i], r.buf.pQuo[i], r.quoPoly[i], r.ambModulus[i])
 		r.diffDegNextNTT[i].invNTTInPlace(r.buf.pQuo[i])
 	}
 	r.embedder.EmbedVecTo(r.buf.pQuo[0:1], r.buf.pQuo)
 
-	// Compute pRem = ⌊pQuo/X^diffDeg⌋ % (X^degNext - 1)
+	// Compute pRem = floor(pQuo/X^diffDeg) % (X^degNext - 1)
 	for i := 1; i <= int(math.Ceil(float64(r.diffDeg)/float64(r.degNext))); i++ {
 		for j := 0; j < r.degNext; j++ {
 			if i*r.degNext+j > r.diffDeg {
@@ -151,7 +142,7 @@ func (r *reducerAnyModulus) ReduceTo(pOut, pIn []uint64) {
 		}
 	}
 
-	// Compute pRem = pRem × quotientPoly (mod X^degNext - 1)
+	// Compute pRem = pRem * quoPoly (mod X^degNext - 1)
 	for i := 0; i < len(r.buf.pRem); i++ {
 		r.degNextNTT[i].nttInPlace(r.buf.pRem[i])
 		mod.MMulLazyVecTo(r.buf.pRem[i], r.buf.pRem[i], r.modPoly[i], r.ambModulus[i])
@@ -173,6 +164,38 @@ func (r *reducerAnyModulus) ReduceTo(pOut, pIn []uint64) {
 	// Compute pOut = pIn - pRem
 	for i := 0; i < r.deg; i++ {
 		pOut[i] = mod.Sub(r.buf.pIn[0][i], r.buf.pRem[0][i], r.modulus)
+	}
+}
+
+func (r *reducerAnyModulus) safeCopy() reducer {
+	diffDegNextNTT := make([]singleTransformer, len(r.diffDegNextNTT))
+	for i := range diffDegNextNTT {
+		diffDegNextNTT[i] = r.diffDegNextNTT[i].safeCopy()
+	}
+
+	degNextNTT := make([]singleTransformer, len(r.degNextNTT))
+	for i := range degNextNTT {
+		degNextNTT[i] = r.degNextNTT[i].safeCopy()
+	}
+
+	return &reducerAnyModulus{
+		modulus:    r.modulus,
+		ambModulus: r.ambModulus,
+		embedder:   r.embedder.SafeCopy(),
+
+		deg:         r.deg,
+		maxDeg:      r.maxDeg,
+		diffDeg:     r.diffDeg,
+		diffDegNext: r.diffDegNext,
+		degNext:     r.degNext,
+
+		diffDegNextNTT: diffDegNextNTT,
+		degNextNTT:     degNextNTT,
+
+		modPoly: r.modPoly,
+		quoPoly: r.quoPoly,
+
+		buf: newReducerBuffer(len(r.ambModulus), r.maxDeg+1, r.diffDegNext, r.degNext),
 	}
 }
 
@@ -198,43 +221,37 @@ type reducerNTTModulus struct {
 
 	// modPoly is the polynomial we target to reduce to.
 	modPoly []uint64
-	// quotientPoly is rounding of a monomial over the modPoly modulo the modulus.
-	// Precisely, it is ⌊X^d/modPoly⌋ modulo the modulus, where d is the maximum degree of the input polynomial.
-	quotientPoly []uint64
+	// quoPoly is rounding of a monomial over the modPoly modulo the modulus.
+	// Precisely, it is floor(X^d/modPoly) modulo the modulus, where d is the maximum degree of the input polynomial.
+	quoPoly []uint64
 
-	// buf is the polynomial buffer for the reducer.
-	buf reducerNTTBuffer
+	buf reducerBuffer
 }
 
-func NewReducerNTTModulus(modPoly []uint64, maxDeg int, modulus *mod.Modulus) *reducerNTTModulus {
+// newReducerNTTModulus creates a new [reducerNTTModulus].
+func newReducerNTTModulus(maxDeg int, modPoly []uint64, modulus *mod.Modulus) *reducerNTTModulus {
 	deg := len(modPoly) - 1
 
-	var diffDeg, diffDegNext, degNext uint64
-	var diffDegNextNTT, degNextNTT singleTransformer
-	var quotientPoly []uint64
-	var buf reducerNTTBuffer
+	degNext := num.NextProdPower(uint64(deg), []uint64{2})
+	diffDeg := uint64(maxDeg - deg)
+	diffDegNext := num.NextProdPower(2*diffDeg+1, []uint64{2})
 
-	degNext = num.NextProdPower(uint64(deg), []uint64{2})
-	diffDeg = uint64(maxDeg - deg)
-	diffDegNext = num.NextProdPower(2*diffDeg+1, []uint64{2})
+	degNextParams := NewCyclicParameters(int(degNext))
+	degNextNTT := newCyclicPow235Transformer(degNextParams, modulus)
 
-	degNextParams := RingParameters{0, int(degNext), Cyclic}
-	degNextNTT = newCyclicPow235Transformer(degNextParams, modulus)
+	diffDegNextParams := NewCyclicParameters(int(diffDegNext))
+	diffDegNextNTT := newCyclicPow235Transformer(diffDegNextParams, modulus)
 
-	diffDegNextParams := RingParameters{0, int(diffDegNext), Cyclic}
-	diffDegNextNTT = newCyclicPow235Transformer(diffDegNextParams, modulus)
-
-	modPoly = append(modPoly, make([]uint64, int(degNext)-deg-1)...)
+	modPolyExtended := make([]uint64, degNext)
+	copy(modPolyExtended, modPoly)
 
 	dividend := make([]uint64, maxDeg+1)
 	dividend[maxDeg] = 1
-	quotientPoly = quotientPolynomialMod(dividend, modPoly[:deg+1], modulus)
-	quotientPoly = append(quotientPoly, make([]uint64, int(diffDegNext)-maxDeg+deg-1)...)
+	quoPoly := quotientPolynomial(dividend, modPolyExtended[:deg+1], modulus)
+	quoPoly = append(quoPoly, make([]uint64, int(diffDegNext)-maxDeg+deg-1)...)
 
-	degNextNTT.nttInPlace(modPoly)
-	diffDegNextNTT.nttInPlace(quotientPoly)
-
-	buf = newReducerNTTBuffer(1, int(maxDeg+1), int(diffDegNext), int(degNext))
+	degNextNTT.nttInPlace(modPolyExtended)
+	diffDegNextNTT.nttInPlace(quoPoly)
 
 	return &reducerNTTModulus{
 		modulus: modulus,
@@ -248,28 +265,28 @@ func NewReducerNTTModulus(modPoly []uint64, maxDeg int, modulus *mod.Modulus) *r
 		diffDegNextNTT: diffDegNextNTT,
 		degNextNTT:     degNextNTT,
 
-		modPoly:      modPoly,
-		quotientPoly: quotientPoly,
+		modPoly: modPolyExtended,
+		quoPoly: quoPoly,
 
-		buf: buf,
+		buf: newReducerBuffer(1, int(maxDeg+1), int(diffDegNext), int(degNext)),
 	}
 }
 
-func (r *reducerNTTModulus) ReduceTo(pOut, pIn []uint64) {
-	copy(r.buf.pIn[0], pIn)
+func (r *reducerNTTModulus) reduceTo(pOut, p []uint64) {
+	copy(r.buf.pIn[0], p)
 
-	// Compute pQuo = ⌊pIn/X^deg⌋
+	// Compute pQuo = floor(pIn/X^deg)
 	clear(r.buf.pQuo[0])
 	for i := 0; i <= r.diffDeg; i++ {
 		r.buf.pQuo[0][i] = r.buf.pIn[0][r.deg+i]
 	}
 
-	// Compute pQuo = pQuo × ⌊X^(deg+diffDeg)/modPoly⌋
+	// Compute pQuo = pQuo * floor(X^(deg+diffDeg)/modPoly)
 	r.diffDegNextNTT.nttInPlace(r.buf.pQuo[0])
-	mod.MMulLazyVecTo(r.buf.pQuo[0], r.buf.pQuo[0], r.quotientPoly, r.modulus)
+	mod.MMulLazyVecTo(r.buf.pQuo[0], r.buf.pQuo[0], r.quoPoly, r.modulus)
 	r.diffDegNextNTT.invNTTInPlace(r.buf.pQuo[0])
 
-	// Compute pRem = ⌊pQuo/X^diffDeg⌋ % (X^degNext - 1)
+	// Compute pRem = floor(pQuo/X^diffDeg) % (X^degNext - 1)
 	for i := 1; i <= int(math.Ceil(float64(r.diffDeg)/float64(r.degNext))); i++ {
 		for j := 0; j < r.degNext; j++ {
 			if i*r.degNext+j > r.diffDeg {
@@ -285,7 +302,7 @@ func (r *reducerNTTModulus) ReduceTo(pOut, pIn []uint64) {
 		r.buf.pRem[0][i] = r.buf.pQuo[0][r.diffDeg+i]
 	}
 
-	// Compute pRem = pRem × modPoly (mod X^degNext - 1)
+	// Compute pRem = pRem * modPoly (mod X^degNext - 1)
 	r.degNextNTT.nttInPlace(r.buf.pRem[0])
 	mod.MMulLazyVecTo(r.buf.pRem[0], r.buf.pRem[0], r.modPoly, r.modulus)
 	r.degNextNTT.invNTTInPlace(r.buf.pRem[0])
@@ -304,5 +321,25 @@ func (r *reducerNTTModulus) ReduceTo(pOut, pIn []uint64) {
 	// Compute pOut = pIn - pRem
 	for i := 0; i < r.deg; i++ {
 		pOut[i] = mod.Sub(r.buf.pIn[0][i], r.buf.pRem[0][i], r.modulus)
+	}
+}
+
+func (r *reducerNTTModulus) safeCopy() reducer {
+	return &reducerNTTModulus{
+		modulus: r.modulus,
+
+		deg:         r.deg,
+		maxDeg:      r.maxDeg,
+		diffDeg:     r.diffDeg,
+		diffDegNext: r.diffDegNext,
+		degNext:     r.degNext,
+
+		diffDegNextNTT: r.diffDegNextNTT.safeCopy(),
+		degNextNTT:     r.degNextNTT.safeCopy(),
+
+		modPoly: r.modPoly,
+		quoPoly: r.quoPoly,
+
+		buf: newReducerBuffer(1, r.maxDeg+1, r.diffDegNext, r.degNext),
 	}
 }
