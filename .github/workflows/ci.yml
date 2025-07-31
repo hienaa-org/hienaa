@@ -18,20 +18,26 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
 
-      - name: Test math/mod
-        run: |
-          go test ./math/mod -timeout=0 -count=1
-          go test ./math/mod -timeout=0 -count=1 -tags=purego
-          GODEBUG=cpu.all=off go test ./math/mod -count=1
-
       - name: Test math/num
         run: |
           go test ./math/num -timeout=0 -count=1
           go test ./math/num -timeout=0 -count=1 -tags=purego
           GODEBUG=cpu.all=off go test ./math/num -count=1
 
-      - name: Test math/rns
+      - name: Test math/mod
         run: |
-          go test ./math/rns -timeout=0 -count=1
-          go test ./math/rns -timeout=0 -count=1 -tags=purego
-          GODEBUG=cpu.all=off go test ./math/rns -count=1
+          go test ./math/vec -timeout=0 -count=1
+          go test ./math/vec -timeout=0 -count=1 -tags=purego
+          GODEBUG=cpu.all=off go test ./math/vec -count=1
+
+      - name: Test math/dft
+        run: |
+          go test ./math/dft -timeout=0 -count=1
+          go test ./math/dft -timeout=0 -count=1 -tags=purego
+          GODEBUG=cpu.all=off go test ./math/dft -count=1
+
+      - name: Test math/crt
+        run: |
+          go test ./math/crt -timeout=0 -count=1
+          go test ./math/crt -timeout=0 -count=1 -tags=purego
+          GODEBUG=cpu.all=off go test ./math/crt -count=1

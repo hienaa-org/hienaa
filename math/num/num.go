@@ -1,4 +1,4 @@
-// Package num implements various utility functions for arithmetic.
+// Package num implements various utility functions for modular and number arithmetic.
 package num
 
 import (
@@ -55,31 +55,4 @@ func LCM(x0, x1 uint64) uint64 {
 	}
 
 	return (x0 / GCD(x0, x1)) * x1
-}
-
-// Exp returns x**e.
-func Exp(x, e uint64) uint64 {
-	switch x {
-	case 0:
-		return 0
-	case 1:
-		return 1
-	}
-
-	switch e {
-	case 0:
-		return 1
-	case 1:
-		return x
-	}
-
-	r := uint64(1)
-	for e > 0 {
-		if e&1 == 1 {
-			r *= x
-		}
-		x *= x
-		e >>= 1
-	}
-	return r
 }

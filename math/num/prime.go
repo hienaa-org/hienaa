@@ -3,8 +3,6 @@ package num
 import (
 	"math/bits"
 	"math/rand"
-
-	"github.com/hienaa-org/hienaa/math/mod"
 )
 
 var (
@@ -16,12 +14,12 @@ var (
 // IsPrime checks if x is prime.
 // 0 and 1 are not considered prime.
 func IsPrime(x uint64) bool {
-	return IsPrimeModulus(mod.NewModulus(x))
+	return IsPrimeModulus(NewModulus(x))
 }
 
 // IsPrimeModulus checks of x is prime.
 // 0 and 1 are not considered prime.
-func IsPrimeModulus(x *mod.Modulus) bool {
+func IsPrimeModulus(x *Modulus) bool {
 	xv := x.Value()
 
 	if xv == 0 || xv == 1 {
@@ -39,10 +37,10 @@ func IsPrimeModulus(x *mod.Modulus) bool {
 
 	tests := []uint64{2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37}
 	for _, a := range tests {
-		n := mod.Exp(a, d, x)
+		n := Exp(a, d, x)
 		var y uint64
 		for i := 0; i < s; i++ {
-			y = mod.Mul(n, n, x)
+			y = Mul(n, n, x)
 			if y == 1 && n != 1 && n != xv-1 {
 				return false
 			}
@@ -64,8 +62,8 @@ func PrevPrime(x uint64, skip uint64) uint64 {
 	}
 
 	for t := x - skip; ; t -= skip {
-		if t > mod.MaxModulus {
-			panic("PrevPrime: t must be less than or equal to mod.MaxModulus.")
+		if t > MaxModulus {
+			panic("PrevPrime: t must be less than or equal to MaxModulus.")
 		} else if IsPrime(t) {
 			return t
 		}
@@ -80,8 +78,8 @@ func NextPrime(x uint64, skip uint64) uint64 {
 	}
 
 	for t := x + skip; ; t += skip {
-		if t > mod.MaxModulus {
-			panic("NextPrime: t must be less than or equal to mod.MaxModulus.")
+		if t > MaxModulus {
+			panic("NextPrime: t must be less than or equal to MaxModulus.")
 		} else if IsPrime(t) {
 			return t
 		}
@@ -144,7 +142,7 @@ func factorRecurse(x uint64, factors map[uint64]uint64) {
 		return
 	}
 
-	n := mod.NewModulus(x)
+	n := NewModulus(x)
 	y, c, m := randUint64n(x), 1+randUint64n(x-3), randUint64n(x)
 	g, r, q := uint64(1), uint64(1), uint64(1)
 
@@ -153,14 +151,14 @@ func factorRecurse(x uint64, factors map[uint64]uint64) {
 	for g == 1 {
 		t = y
 		for i := uint64(0); i < r; i++ {
-			y = mod.Add(mod.Mul(y, y, n), c, n)
+			y = Add(Mul(y, y, n), c, n)
 		}
 		var k uint64
 		for k < r && g == 1 {
 			ys = y
 			for i := uint64(0); i < min(m, r-k); i++ {
-				y = mod.Add(mod.Mul(y, y, n), c, n)
-				q = mod.Mul(q, subAbs(y, t), n)
+				y = Add(Mul(y, y, n), c, n)
+				q = Mul(q, subAbs(y, t), n)
 			}
 			g = GCD(q, x)
 			k += m
@@ -170,7 +168,7 @@ func factorRecurse(x uint64, factors map[uint64]uint64) {
 
 	if g == x {
 		for {
-			ys = mod.Add(mod.Mul(ys, ys, n), c, n)
+			ys = Add(Mul(ys, ys, n), c, n)
 			g = GCD(subAbs(ys, t), x)
 
 			if g > 1 {
@@ -194,4 +192,111 @@ func subAbs(x, y uint64) uint64 {
 // randUint64n returns random uint64 in [0, n).
 func randUint64n(n uint64) uint64 {
 	return uint64(rand.Int63n(int64(n)))
+}
+
+// Order returns the multiplicative order of x modulo q.
+func Order(x uint64, q *Modulus) uint64 {
+	ord := uint64(1)
+	acc := Reduce(x, q)
+	for acc != 1 {
+		acc = Mul(acc, x, q)
+		ord += 1
+	}
+	return ord
+}
+
+// Totient returns the Euler-Phi function of x.
+func Totient(x uint64) uint64 {
+	if x == 0 || x == 1 {
+		return x
+	}
+
+	return totientWithFactors(x, Factor(x))
+}
+
+// totientWithFactors returns the Euler-Phi function of x, given its prime factors.
+func totientWithFactors(x uint64, factors map[uint64]uint64) uint64 {
+	phi := x
+	for f := range factors {
+		phi -= phi / f
+	}
+	return phi
+}
+
+// PrimitiveRoot returns a primitive root of q.
+func PrimitiveRoot(q *Modulus) uint64 {
+	factors := Factor(q.Value())
+	factorPows := make([]uint64, 0, len(factors))
+	for p, e := range factors {
+		pExp := uint64(1)
+		for i := uint64(0); i < e; i++ {
+			pExp *= p
+		}
+		factorPows = append(factorPows, pExp)
+	}
+
+	if len(factorPows) == 1 {
+		phiQ := totientWithFactors(q.Value(), factors)
+		phiQFactors := Factor(phiQ)
+		testPows := make([]uint64, 0, len(phiQFactors))
+		for f := range phiQFactors {
+			testPows = append(testPows, phiQ/f)
+		}
+
+		g := uint64(2)
+		for {
+			ok := true
+			for _, t := range testPows {
+				if Exp(g, t, q) == 1 {
+					ok = false
+					break
+				}
+			}
+			if ok && Exp(g, phiQ, q) == 1 {
+				return g
+			}
+			g++
+		}
+	}
+
+	factorPowsMod := make([]*Modulus, len(factorPows))
+	gFactors := make([]uint64, len(factorPows))
+	for i, pExp := range factorPows {
+		factorPowsMod[i] = NewModulus(pExp)
+		gFactors[i] = PrimitiveRoot(factorPowsMod[i])
+	}
+
+	g := uint64(0)
+	for i, pExp := range factorPowsMod {
+		t := q.Value() / pExp.Value()
+		tInv := Inv(t, pExp)
+
+		g = Add(g, Mul(Mul(gFactors[i], tInv, q), t, q), q)
+	}
+	return g
+}
+
+// NthRoot returns the N-th root of unity modulo q.
+func NthRoot(n int, g uint64, q *Modulus) uint64 {
+	factors := Factor(q.Value())
+	prime := make([]uint64, 0, len(factors))
+	factorPowsMod := make([]*Modulus, 0, len(factors))
+	for p, e := range factors {
+		prime = append(prime, p)
+		pExp := uint64(1)
+		for i := uint64(0); i < e; i++ {
+			pExp *= p
+		}
+		factorPowsMod = append(factorPowsMod, NewModulus(pExp))
+	}
+
+	r := uint64(0)
+	for i, pExp := range factorPowsMod {
+		h := Exp(Reduce(g, pExp), (pExp.Value()-pExp.Value()/prime[i])/uint64(n), pExp)
+		t := q.Value() / pExp.Value()
+		tInv := Inv(t, pExp)
+
+		r = Add(r, Mul(Mul(h, tInv, q), t, q), q)
+	}
+	return r
 }

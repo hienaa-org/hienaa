@@ -1,5 +1,5 @@
-//go:generate go run . -vec -out ../../math/mod/asm_vec_ops_amd64.s -stubs ../../math/mod/asm_vec_ops_stub_amd64.go -pkg=mod
-//go:generate go run . -ntt -out ../../math/rns/asm_ntt_pow2.s -stubs ../../math/rns/asm_ntt_pow2_stub_amd64.go -pkg=rns
+//go:generate go run . -vec -out ../../math/vec/asm_mod_amd64.s -stubs ../../math/vec/asm_mod_stub_amd64.go -pkg=vec
+//go:generate go run . -ntt -out ../../math/dft/asm_ntt_pow2.s -stubs ../../math/dft/asm_ntt_pow2_stub_amd64.go -pkg=dft
 package main
 
 import (
@@ -18,8 +18,8 @@ const (
 )
 
 var (
-	vec = flag.Bool("vec", false, "asm_vec_ops_amd64.s")
-	ntt = flag.Bool("ntt", false, "asm_ntt_pow2.s")
+	vec = flag.Bool("vec", false, "vec/asm_mod_amd64.s")
+	ntt = flag.Bool("ntt", false, "rns/asm_ntt_pow2.s")
 )
 
 func main() {

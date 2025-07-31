@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/hienaa-org/hienaa/math/csprng"
-	"github.com/hienaa-org/hienaa/math/mod"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/stretchr/testify/assert"
 )
@@ -15,16 +14,16 @@ var (
 )
 
 func TestIsPrime(t *testing.T) {
-	composite := rSrc.SampleN(1<<(mod.MaxModulusBits/2)) * rSrc.SampleN(1<<(mod.MaxModulusBits/2))
+	composite := rSrc.SampleN(1<<(num.MaxModulusBits/2)) * rSrc.SampleN(1<<(num.MaxModulusBits/2))
 	assert.False(t, num.IsPrime(composite))
 
-	prime, err := crand.Prime(rSrc, mod.MaxModulusBits-1)
+	prime, err := crand.Prime(rSrc, num.MaxModulusBits-1)
 	assert.NoError(t, err)
 	assert.True(t, num.IsPrime(prime.Uint64()))
 }
 
 func TestFactor(t *testing.T) {
-	x := rSrc.SampleN(mod.MaxModulus)
+	x := rSrc.SampleN(num.MaxModulus)
 	factors := num.Factor(x)
 
 	xComp := uint64(1)
