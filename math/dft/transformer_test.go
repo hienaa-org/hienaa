@@ -56,7 +56,8 @@ func TestCyclotomicNTT(t *testing.T) {
 	t.Run("type=Pow2", func(t *testing.T) {
 		N := 1 << 12
 		ringParams := dft.NewCyclotomicParameters(N << 1)
-		q := dft.FindNextNTTPrimes(ringParams, 45, 1)[0]
+		qs := dft.FindNearestNTTPrimes(ringParams, 30, 2)
+		q := num.NewModulus(qs[0].Value() * qs[1].Value())
 		ntt := dft.NewTransformer(ringParams, q)
 
 		p0 := randPoly(ringParams, q)
@@ -82,7 +83,8 @@ func TestCyclicNTT(t *testing.T) {
 	t.Run("type=Pow235", func(t *testing.T) {
 		N := int(num.NextProdPower(rSrc.SampleN(1<<12), []uint64{2, 3, 5}))
 		ringParams := dft.NewCyclicParameters(N)
-		q := dft.FindNextNTTPrimes(ringParams, 45, 1)[0]
+		qs := dft.FindNearestNTTPrimes(ringParams, 30, 2)
+		q := num.NewModulus(qs[0].Value() * qs[1].Value())
 		ntt := dft.NewTransformer(ringParams, q)
 
 		p0 := randPoly(ringParams, q)
@@ -112,7 +114,8 @@ func TestCyclicNTT(t *testing.T) {
 			}
 		}
 		ringParams := dft.NewCyclicParameters(N)
-		q := dft.FindNextNTTPrimes(ringParams, 45, 1)[0]
+		qs := dft.FindNearestNTTPrimes(ringParams, 30, 2)
+		q := num.NewModulus(qs[0].Value() * qs[1].Value())
 		ntt := dft.NewTransformer(ringParams, q)
 
 		p0 := randPoly(ringParams, q)

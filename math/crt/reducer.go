@@ -63,7 +63,7 @@ func newReducer(maxDeg int, modPoly []uint64, mod *num.Modulus) reducer {
 	degNext := int(num.NextProdPower(uint64(deg), []uint64{2}))
 	diffDegNext := int(num.NextProdPower(2*uint64(maxDeg-deg)+1, []uint64{2}))
 
-	if dft.IsNTTFriendlyModulus(dft.NewCyclicParameters(max(degNext, diffDegNext)), mod) {
+	if dft.IsNTTFriendly(dft.NewCyclicParameters(max(degNext, diffDegNext)), mod) {
 		return newReducerNTTModulus(maxDeg, mod, modPoly)
 	}
 	return newReducerAnyModulus(maxDeg, mod, modPoly)

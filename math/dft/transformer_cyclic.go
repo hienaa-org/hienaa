@@ -33,16 +33,16 @@ type cyclicPow235Transformer struct {
 	rankFactors []int
 
 	// tw is the twiddle factor for NTT.
-	// Ordered as [cyclicNTTFactors][Degree].
+	// Ordered as [cyclicNTTFactors][Rank].
 	tw [][]uint64
 	// twS is the Shoup form of tw.
-	// Ordered as [cyclicNTTFactors][Degree].
+	// Ordered as [cyclicNTTFactors][Rank].
 	twS [][]uint64
 	// twInv is the twiddle factor for InvNTT.
-	// Ordered as [cyclicNTTFactors][Degree].
+	// Ordered as [cyclicNTTFactors][Rank].
 	twInv [][]uint64
 	// twInvS is the Shoup form of twInv.
-	// Ordered as [cyclicNTTFactors][Degree].
+	// Ordered as [cyclicNTTFactors][Rank].
 	twInvS [][]uint64
 
 	// root is the powers of primitive roots.
@@ -64,9 +64,9 @@ type cyclicPow235Transformer struct {
 
 // newCyclicPow235Transformer creates a new [cyclicNativeTransformer].
 func newCyclicPow235Transformer(params RingParameters, mod *num.Modulus) *cyclicPow235Transformer {
-	rankFactors := cyclicFactorDegree(params.rank, cyclicNTTFactors)
+	rankFactors := factorCyclicRank(params.rank, cyclicNTTFactors)
 
-	root := num.PrimitiveRoot(mod)
+	root := num.Generators(mod)
 
 	tw := make([][]uint64, len(cyclicNTTFactors))
 	twS := make([][]uint64, len(cyclicNTTFactors))
@@ -233,7 +233,7 @@ func newCyclicBluesteinTransformer(params RingParameters, mod *num.Modulus) *cyc
 	embedRank := int(num.NextProdPower(uint64(2*params.rank-1), []uint64{2}))
 	embedParams := NewCyclicParameters(embedRank)
 
-	root := num.PrimitiveRoot(mod)
+	root := num.Generators(mod)
 	zz := num.NthRoot(2*params.rank, root, mod)
 	zzInv := num.Inv(zz, mod)
 

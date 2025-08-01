@@ -5,27 +5,27 @@ import (
 	"github.com/hienaa-org/hienaa/math/vec"
 )
 
-// cyclicFactorDegree factors the rank of a native cyclic NTT.
-func cyclicFactorDegree(rank int, factors []uint64) []int {
-	degs := make([]int, len(factors))
+// factorCyclicRank factors the rank of a native cyclic NTT.
+func factorCyclicRank(rank int, factors []uint64) []int {
+	ranks := make([]int, len(factors))
 	for i, f := range factors {
-		degs[i] = 1
+		ranks[i] = 1
 		for rank%int(f) == 0 {
 			rank /= int(f)
-			degs[i] *= int(f)
+			ranks[i] *= int(f)
 		}
 	}
-	return degs
+	return ranks
 }
 
 // cyclicTwiddleFactor computes the (inverse) twiddle factor for Cyclic (Inv)NTT.
-func cyclicTwiddleFactor(rank, radix int, root uint64, mod *num.Modulus) (tw, twInv []uint64) {
+func cyclicTwiddleFactor(rank, radix int, root []uint64, mod *num.Modulus) (tw, twInv []uint64) {
 	if rank == 1 {
 		return []uint64{1}, []uint64{1}
 	}
 
 	z := num.NthRoot(rank, root, mod)
-	gInv := num.Inv(z, mod)
+	zInv := num.Inv(z, mod)
 
 	tw = make([]uint64, rank)
 	twInv = make([]uint64, rank)
@@ -33,7 +33,7 @@ func cyclicTwiddleFactor(rank, radix int, root uint64, mod *num.Modulus) (tw, tw
 	twInv[0] = 1
 	for i := 1; i < rank/radix; i++ {
 		tw[i] = num.Mul(tw[i-1], z, mod)
-		twInv[i] = num.Mul(twInv[i-1], gInv, mod)
+		twInv[i] = num.Mul(twInv[i-1], zInv, mod)
 	}
 
 	vec.RadixReverseInPlace(tw[:rank/radix], radix)

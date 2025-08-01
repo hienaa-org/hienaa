@@ -46,19 +46,19 @@ func NewCyclotomicParameters(cycloOrd int) RingParameters {
 }
 
 // NewCyclicParameters creates a new [RingParameters] for a cyclic ring.
-func NewCyclicParameters(ringDeg int) RingParameters {
-	if ringDeg < 2 {
-		panic("NewCyclicParameters: degree must be larger or equal than 2")
+func NewCyclicParameters(rank int) RingParameters {
+	if rank < 2 {
+		panic("NewCyclicParameters: rank must be larger or equal than 2")
 	}
 
 	return RingParameters{
 		cycloOrd: 0,
-		rank:     ringDeg,
+		rank:     rank,
 		ringType: Cyclic,
 	}
 }
 
-// CycloOrder is the degree of the underlying cyclotomic polynomial.
+// CycloOrder is the order of the underlying cyclotomic polynomial.
 // 0 if the RingType is [Cyclic].
 func (p RingParameters) CycloOrder() int {
 	return p.cycloOrd
@@ -81,7 +81,7 @@ func cyclotomicGap(cycloOrd, rank uint64) uint64 {
 	if num.IsPowerOfTwo(cycloOrd) {
 		gap = cycloOrd
 	} else {
-		bluesteinDeg := num.NextProdPower(2*cycloOrd-1, []uint64{2})
+		bluesteinRank := num.NextProdPower(2*cycloOrd-1, []uint64{2})
 
 		var p uint64
 		for f := range num.Factor(cycloOrd) {
@@ -93,11 +93,11 @@ func cyclotomicGap(cycloOrd, rank uint64) uint64 {
 
 		redDeg := cycloOrd - cycloOrd/p
 		if redDeg == rank {
-			gap = num.LCM(cycloOrd, bluesteinDeg)
+			gap = num.LCM(cycloOrd, bluesteinRank)
 		} else {
 			degNext := num.NextProdPower(rank, []uint64{2})
 			diffDegNext := num.NextProdPower(2*(redDeg-rank)+1, []uint64{2})
-			gap = num.LCM(num.LCM(degNext, diffDegNext), num.LCM(cycloOrd, bluesteinDeg))
+			gap = num.LCM(num.LCM(degNext, diffDegNext), num.LCM(cycloOrd, bluesteinRank))
 		}
 	}
 
@@ -130,8 +130,8 @@ func autFixedGap(cycloOrd, rank uint64) uint64 {
 	return gap
 }
 
-// IsNTTFriendlyModulus checks if the given modulus is NTT-friendly with respect to the ring parameters.
-func IsNTTFriendlyModulus(ringParams RingParameters, mod *num.Modulus) bool {
+// IsNTTFriendly checks if the given modulus is NTT-friendly with respect to the ring parameters.
+func IsNTTFriendly(ringParams RingParameters, mod *num.Modulus) bool {
 	var gap uint64
 
 	switch ringParams.ringType {

@@ -3,6 +3,7 @@ package num
 import (
 	"math/bits"
 	"math/rand"
+	"slices"
 )
 
 var (
@@ -11,37 +12,31 @@ var (
 	}
 )
 
-// IsPrime checks if x is prime.
+// IsPrime checks of x is prime.
 // 0 and 1 are not considered prime.
 func IsPrime(x uint64) bool {
-	return IsPrimeModulus(NewModulus(x))
-}
+	xq := NewModulus(x)
 
-// IsPrimeModulus checks of x is prime.
-// 0 and 1 are not considered prime.
-func IsPrimeModulus(x *Modulus) bool {
-	xv := x.Value()
-
-	if xv == 0 || xv == 1 {
+	if x == 0 || x == 1 {
 		return false
 	}
 
 	for _, p := range smallPrimes {
-		if xv%p == 0 {
+		if x%p == 0 {
 			return false
 		}
 	}
 
-	s := bits.TrailingZeros64(xv - 1)
-	d := (xv - 1) >> s
+	s := bits.TrailingZeros64(x - 1)
+	d := (x - 1) >> s
 
 	tests := []uint64{2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37}
 	for _, a := range tests {
-		n := Exp(a, d, x)
+		n := Exp(a, d, xq)
 		var y uint64
 		for i := 0; i < s; i++ {
-			y = Mul(n, n, x)
-			if y == 1 && n != 1 && n != xv-1 {
+			y = Mul(n, n, xq)
+			if y == 1 && n != 1 && n != x-1 {
 				return false
 			}
 			n = y
@@ -211,92 +206,112 @@ func Totient(x uint64) uint64 {
 		return x
 	}
 
-	return totientWithFactors(x, Factor(x))
+	return ToientWithFactors(x, Factor(x))
 }
 
-// totientWithFactors returns the Euler-Phi function of x, given its prime factors.
-func totientWithFactors(x uint64, factors map[uint64]uint64) uint64 {
+// ToientWithFactors returns the Euler-Phi function of x, given its factorization.
+func ToientWithFactors(x uint64, xFactors map[uint64]uint64) uint64 {
 	phi := x
-	for f := range factors {
+	for f := range xFactors {
 		phi -= phi / f
 	}
 	return phi
 }
 
-// PrimitiveRoot returns a primitive root of q.
-func PrimitiveRoot(q *Modulus) uint64 {
-	factors := Factor(q.Value())
-	factorPows := make([]uint64, 0, len(factors))
-	for p, e := range factors {
-		pExp := uint64(1)
-		for i := uint64(0); i < e; i++ {
-			pExp *= p
-		}
-		factorPows = append(factorPows, pExp)
-	}
-
-	if len(factorPows) == 1 {
-		phiQ := totientWithFactors(q.Value(), factors)
-		phiQFactors := Factor(phiQ)
-		testPows := make([]uint64, 0, len(phiQFactors))
-		for f := range phiQFactors {
-			testPows = append(testPows, phiQ/f)
-		}
-
-		g := uint64(2)
-		for {
-			ok := true
-			for _, t := range testPows {
-				if Exp(g, t, q) == 1 {
-					ok = false
-					break
-				}
-			}
-			if ok && Exp(g, phiQ, q) == 1 {
-				return g
-			}
-			g++
-		}
-	}
-
-	factorPowsMod := make([]*Modulus, len(factorPows))
-	gFactors := make([]uint64, len(factorPows))
-	for i, pExp := range factorPows {
-		factorPowsMod[i] = NewModulus(pExp)
-		gFactors[i] = PrimitiveRoot(factorPowsMod[i])
-	}
-
-	g := uint64(0)
-	for i, pExp := range factorPowsMod {
-		t := q.Value() / pExp.Value()
-		tInv := Inv(t, pExp)
-
-		g = Add(g, Mul(Mul(gFactors[i], tInv, q), t, q), q)
-	}
-	return g
+// Generators returns the generators of the subgroup of multiplicative group modulo q.
+func Generators(q *Modulus) []uint64 {
+	return GeneratorsWithFactors(q, Factor(q.Value()))
 }
 
-// NthRoot returns the N-th root of unity modulo q.
-func NthRoot(n int, g uint64, q *Modulus) uint64 {
-	factors := Factor(q.Value())
-	prime := make([]uint64, 0, len(factors))
-	factorPowsMod := make([]*Modulus, 0, len(factors))
-	for p, e := range factors {
-		prime = append(prime, p)
-		pExp := uint64(1)
-		for i := uint64(0); i < e; i++ {
-			pExp *= p
-		}
-		factorPowsMod = append(factorPowsMod, NewModulus(pExp))
+// GeneratorsWithFactors returns the generators of the subgroup of multiplicative group modulo q,
+// given its factorization.
+func GeneratorsWithFactors(q *Modulus, qFactors map[uint64]uint64) []uint64 {
+	primes, _, primePows := sortFactors(qFactors)
+
+	subGens := make([]uint64, len(primes))
+	crt := make([]uint64, len(primes))
+	for i := range subGens {
+		primePowMod := NewModulus(primePows[i])
+		subGens[i] = primitiveRoot(primes[i], primePows[i])
+		crt[i] = Mul(q.Value()/primePows[i], Inv(q.Value()/primePows[i], primePowMod), q)
 	}
+
+	gens := make([]uint64, len(subGens))
+	for i := range gens {
+		for j := range crt {
+			if j == i {
+				gens[i] = Add(gens[i], Mul(subGens[j], crt[j], q), q)
+			} else {
+				gens[i] = Add(gens[i], crt[j], q)
+			}
+		}
+	}
+
+	return gens
+}
+
+// primitiveRoot returns a generator modulo p^e.
+func primitiveRoot(p, pExp uint64) uint64 {
+	phi := pExp - pExp/p
+	phiFactors := Factor(phi)
+	testPows := make([]uint64, 0, len(phiFactors))
+	for f := range phiFactors {
+		testPows = append(testPows, phi/f)
+	}
+
+	g := uint64(2)
+	for {
+		ok := true
+		for _, t := range testPows {
+			if Exp(g, t, NewModulus(pExp)) == 1 {
+				ok = false
+				break
+			}
+		}
+		if ok && Exp(g, phi, NewModulus(pExp)) == 1 {
+			return g
+		}
+		g++
+	}
+}
+
+// NthRoot returns the N-th root of unity modulo q, given the generators.
+func NthRoot(n int, g []uint64, q *Modulus) uint64 {
+	return NthRootWithFactors(n, g, q, Factor(q.Value()))
+}
+
+// NthRootWithFactors returns the N-th root of unity modulo q, given the generators and the factorization of q.
+func NthRootWithFactors(n int, g []uint64, q *Modulus, qFactors map[uint64]uint64) uint64 {
+	primes, _, primePows := sortFactors(qFactors)
 
 	r := uint64(0)
-	for i, pExp := range factorPowsMod {
-		h := Exp(Reduce(g, pExp), (pExp.Value()-pExp.Value()/prime[i])/uint64(n), pExp)
-		t := q.Value() / pExp.Value()
-		tInv := Inv(t, pExp)
-
-		r = Add(r, Mul(Mul(h, tInv, q), t, q), q)
+	for i := range primes {
+		primePowMod := NewModulus(primePows[i])
+		h := Exp(g[i], (primePows[i]-primePows[i]/primes[i])/uint64(n), primePowMod)
+		t := Mul(q.Value()/primePows[i], Inv(q.Value()/primePows[i], primePowMod), q)
+		r = Add(r, Mul(h, t, q), q)
 	}
 	return r
+}
+
+// sortFactors sorts the factors of x, and returns the powers.
+func sortFactors(factors map[uint64]uint64) (primes, exps, primePows []uint64) {
+	primes = make([]uint64, 0, len(factors))
+	for p := range factors {
+		primes = append(primes, p)
+	}
+	slices.Sort(primes)
+
+	exps = make([]uint64, len(primes))
+	primePows = make([]uint64, len(primes))
+	for i, p := range primes {
+		exps[i] = factors[p]
+		pExp := uint64(1)
+		for j := uint64(0); j < exps[i]; j++ {
+			pExp *= p
+		}
+		primePows[i] = pExp
+	}
+
+	return primes, exps, primePows
 }

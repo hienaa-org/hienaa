@@ -25,7 +25,7 @@ type cyclotomicPow2Transformer struct {
 
 // newCyclotomicPow2Transformer creates a new [pow2CyclotomicTransformer].
 func newCyclotomicPow2Transformer(ringParams RingParameters, mod *num.Modulus) *cyclotomicPow2Transformer {
-	root := num.PrimitiveRoot(mod)
+	root := num.Generators(mod)
 
 	tw := make([]uint64, ringParams.rank)
 	twInv := make([]uint64, ringParams.rank)

@@ -10,10 +10,10 @@ package crt
 //     All coefficients in NTT form are also in Montgomery form.
 type Poly struct {
 	// Coeffs are the coefficients of the polynomial.
-	// Ordered as [ModLen][Degree].
+	// Ordered as [ModLen][Rank].
 	//
 	// All subslice of Coeffs are assumed to have the same length,
-	// and the length of the first subslice is considered the degree of the polynomial.
+	// and the length of the first subslice is considered the rank of the polynomial.
 	Coeffs [][]uint64
 
 	// IsNTT indicates whether the polynomial is in NTT form.
