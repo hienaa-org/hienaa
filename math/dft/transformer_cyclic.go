@@ -12,18 +12,6 @@ var (
 	cyclicNTTFactors = []uint64{2, 3, 5}
 )
 
-// cyclicTransformerBuffer is a buffer for [cyclicNativeTransformer].
-type cyclicTransformerBuffer struct {
-	// coeffs is the input.
-	coeffs []uint64
-}
-
-func newCyclicTransformerBuffer(rank int) cyclicTransformerBuffer {
-	return cyclicTransformerBuffer{
-		coeffs: make([]uint64, rank),
-	}
-}
-
 // cyclicPow235Transformer is a transformer for ranks multiple of [cyclicNTTFactors].
 type cyclicPow235Transformer struct {
 	params RingParameters
@@ -59,7 +47,7 @@ type cyclicPow235Transformer struct {
 	// Empty if the mapping is not needed, or in other words, rank is a prime power.
 	idx []int
 
-	buf cyclicTransformerBuffer
+	buf transformerBuffer
 }
 
 // newCyclicPow235Transformer creates a new [cyclicNativeTransformer].
@@ -123,7 +111,7 @@ func newCyclicPow235Transformer(params RingParameters, mod *num.Modulus) *cyclic
 
 		idx: idx,
 
-		buf: newCyclicTransformerBuffer(params.rank),
+		buf: newTransformerBuffer(params.rank),
 	}
 }
 
@@ -181,6 +169,14 @@ func (ntt *cyclicPow235Transformer) InverseInPlace(coeffs []uint64) {
 	vec.ScalarMulTo(coeffs, coeffs, ntt.rankInv, ntt.mod)
 }
 
+func (ntt *cyclicPow235Transformer) Params() RingParameters {
+	return ntt.params
+}
+
+func (ntt *cyclicPow235Transformer) Modulus() *num.Modulus {
+	return ntt.mod
+}
+
 func (ntt *cyclicPow235Transformer) SafeCopy() Transformer {
 	return &cyclicPow235Transformer{
 		params:      ntt.params,
@@ -199,7 +195,7 @@ func (ntt *cyclicPow235Transformer) SafeCopy() Transformer {
 
 		idx: ntt.idx,
 
-		buf: newCyclicTransformerBuffer(ntt.params.rank),
+		buf: newTransformerBuffer(ntt.params.rank),
 	}
 }
 
@@ -230,8 +226,8 @@ type cyclicBluesteinTransformer struct {
 
 // newCyclicBluesteinTransformer creates a new [cyclicBluesteinTransformer] for the given ringParams and modulus.
 func newCyclicBluesteinTransformer(params RingParameters, mod *num.Modulus) *cyclicBluesteinTransformer {
-	embedRank := int(num.NextProdPower(uint64(2*params.rank-1), []uint64{2}))
-	embedParams := NewCyclicParameters(embedRank)
+	ambRank := int(num.NextProdPower(uint64(2*params.rank-1), []uint64{2}))
+	ambParams := NewCyclicParameters(ambRank)
 
 	root := num.Generators(mod)
 	zz := num.NthRoot(2*params.rank, root, mod)
@@ -245,31 +241,31 @@ func newCyclicBluesteinTransformer(params RingParameters, mod *num.Modulus) *cyc
 		zInv[i] = num.Exp(zzInv, uint64(idx), mod)
 	}
 
-	embedNTT := newCyclicPow235Transformer(embedParams, mod)
+	ambNTT := newCyclicPow235Transformer(ambParams, mod)
 
-	chirpM := make([]uint64, embedRank)
+	chirpM := make([]uint64, ambRank)
 	copy(chirpM, zInv)
-	copy(chirpM[embedRank-params.rank+1:], zInv[1:])
-	slices.Reverse(chirpM[embedRank-params.rank+1:])
+	copy(chirpM[ambRank-params.rank+1:], zInv[1:])
+	slices.Reverse(chirpM[ambRank-params.rank+1:])
 
-	vec.ScalarMulTo(chirpM, chirpM, num.Inv(uint64(embedRank), mod), mod)
-	nttInPlacePow2(chirpM, embedNTT.tw[0], embedNTT.twS[0], mod.Value())
+	vec.ScalarMulTo(chirpM, chirpM, num.Inv(uint64(ambRank), mod), mod)
+	nttInPlacePow2(chirpM, ambNTT.tw[0], ambNTT.twS[0], mod.Value())
 	vec.MFormTo(chirpM, chirpM, mod)
 
-	chirpInv := make([]uint64, embedRank)
+	chirpInv := make([]uint64, ambRank)
 	copy(chirpInv, z)
-	copy(chirpInv[embedRank-params.rank+1:], z[1:])
-	slices.Reverse(chirpInv[embedRank-params.rank+1:])
+	copy(chirpInv[ambRank-params.rank+1:], z[1:])
+	slices.Reverse(chirpInv[ambRank-params.rank+1:])
 
-	vec.ScalarMulTo(chirpInv, chirpInv, num.Inv(uint64(embedRank*params.rank), mod), mod)
-	nttInPlacePow2(chirpInv, embedNTT.tw[0], embedNTT.twS[0], mod.Value())
+	vec.ScalarMulTo(chirpInv, chirpInv, num.Inv(uint64(ambRank*params.rank), mod), mod)
+	nttInPlacePow2(chirpInv, ambNTT.tw[0], ambNTT.twS[0], mod.Value())
 	vec.ReduceTo(chirpInv, chirpInv, mod)
 
 	return &cyclicBluesteinTransformer{
 		params: params,
 		mod:    mod,
 
-		cyclicPow235Transformer: embedNTT,
+		cyclicPow235Transformer: ambNTT,
 
 		z:     z,
 		zS:    vec.SForm(z, mod),
@@ -308,13 +304,21 @@ func (ntt *cyclicBluesteinTransformer) InverseInPlace(coeffs []uint64) {
 	vec.SMulTo(coeffs, ntt.buf.coeffs[:ntt.params.rank], ntt.zInv, ntt.zInvS, ntt.mod)
 }
 
+func (ntt *cyclicBluesteinTransformer) Params() RingParameters {
+	return ntt.params
+}
+
+func (ntt *cyclicBluesteinTransformer) Modulus() *num.Modulus {
+	return ntt.mod
+}
+
 func (ntt *cyclicBluesteinTransformer) SafeCopy() Transformer {
-	embedNTTCopy := ntt.cyclicPow235Transformer.SafeCopy().(*cyclicPow235Transformer)
+	ambNTTCopy := ntt.cyclicPow235Transformer.SafeCopy().(*cyclicPow235Transformer)
 	return &cyclicBluesteinTransformer{
 		params: ntt.params,
 		mod:    ntt.mod,
 
-		cyclicPow235Transformer: embedNTTCopy,
+		cyclicPow235Transformer: ambNTTCopy,
 
 		z:     ntt.z,
 		zS:    ntt.zS,

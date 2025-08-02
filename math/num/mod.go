@@ -58,11 +58,13 @@ func (q *Modulus) String() string {
 }
 
 // NewModulus creates a new [Modulus].
-func NewModulus(modulus uint64) *Modulus {
+func NewModulus(mod uint64) *Modulus {
 	switch {
-	case modulus == 0:
+	case mod == 0:
 		panic("NewModulus: modulus cannot be zero")
-	case modulus >= MaxModulus:
+	case mod == 1:
+		panic("NewModulus: modulus cannot be one")
+	case mod >= MaxModulus:
 		panic("NewModulus: modulus exceeds MaxModulus")
 	}
 
@@ -70,17 +72,17 @@ func NewModulus(modulus uint64) *Modulus {
 	// 2^128 = 2^64 * q * x + 2^64 * r
 	//       = 2^64 * q * x + (q * x + r) * r
 	//       = (2^64 * q + q * r) * x + r^2
-	divHi, rem := bits.Div64(1, 0, modulus)
+	divHi, rem := bits.Div64(1, 0, mod)
 	quoRemHi, divLo := bits.Mul64(divHi, rem)
 	divHi += quoRemHi
 	remSqHi, remSqLo := bits.Mul64(rem, rem)
-	remSqQuo, _ := bits.Div64(remSqHi, remSqLo, modulus)
+	remSqQuo, _ := bits.Div64(remSqHi, remSqLo, mod)
 	divLo += remSqQuo
 
 	var inv uint64
-	if modulus%2 != 0 {
+	if mod%2 != 0 {
 		inv = 1
-		acc := modulus
+		acc := mod
 		for i := 0; i < 63; i++ {
 			inv *= acc
 			acc *= acc
@@ -88,7 +90,7 @@ func NewModulus(modulus uint64) *Modulus {
 	}
 
 	return &Modulus{
-		modulus: modulus,
+		modulus: mod,
 
 		inv: inv,
 

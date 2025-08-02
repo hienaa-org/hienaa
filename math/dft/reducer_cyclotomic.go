@@ -10,7 +10,7 @@ import (
 // cyclotomicReducerNTTModulus reduces a polynomial modulo a cyclotomic polynomial.
 // In other words, it computes a(X) mod \Phi_m(X), where a(X) is at most degree m-1.
 // It uses Optimised Barrett reduction for polynomial, from https://eprint.iacr.org/2017/748.
-// In this implementation, Q_sp = (Xᵐ-1)/(X^(m/p)-1) for the smallest prime factor p.
+// In this implementation, Q_sp = (X^m-1)/(X^(m/p)-1) for the smallest prime factor p.
 type cyclotomicReducerNTTModulus struct {
 	params RingParameters
 	mod    *num.Modulus
@@ -59,9 +59,9 @@ func newCyclotomicReducerNTTModulus(params RingParameters, mod *num.Modulus) *cy
 
 	factors := num.Factor(cycloOrd)
 	leastFactor := cycloOrd
-	for key := range factors {
-		if key < leastFactor {
-			leastFactor = key
+	for p := range factors {
+		if p < leastFactor {
+			leastFactor = p
 		}
 	}
 	redDeg := cycloOrd - cycloOrd/leastFactor
@@ -71,7 +71,6 @@ func newCyclotomicReducerNTTModulus(params RingParameters, mod *num.Modulus) *cy
 	var diffDeg, diffDegNext, degNext uint64
 	var diffDegNextNTT, degNextNTT Transformer
 	var cycloPoly, quoPoly []uint64
-	var buf reducerBuffer
 
 	if !isPrimePower {
 		degNext = num.NextProdPower(uint64(rank), []uint64{2})
@@ -85,7 +84,7 @@ func newCyclotomicReducerNTTModulus(params RingParameters, mod *num.Modulus) *cy
 		diffDegNextNTT = newCyclicPow235Transformer(diffDegNextParams, mod)
 
 		cycloPoly = make([]uint64, degNext)
-		cycloPolySigned := CyclotomicPolynomial(cycloOrd)
+		cycloPolySigned := CyclotomicPolynomial(params.cycloOrd)
 		for i := range cycloPolySigned {
 			cycloPoly[i] = reduceInt(cycloPolySigned[i], mod)
 		}
@@ -96,8 +95,6 @@ func newCyclotomicReducerNTTModulus(params RingParameters, mod *num.Modulus) *cy
 
 		degNextNTT.ForwardInPlace(cycloPoly)
 		diffDegNextNTT.ForwardInPlace(quoPoly)
-
-		buf = newReducerBuffer(int(cycloOrd), int(diffDegNext), int(degNext))
 	}
 
 	return &cyclotomicReducerNTTModulus{
@@ -118,7 +115,7 @@ func newCyclotomicReducerNTTModulus(params RingParameters, mod *num.Modulus) *cy
 		cycloPoly: cycloPoly,
 		quoPoly:   quoPoly,
 
-		buf: buf,
+		buf: newReducerBuffer(int(cycloOrd), int(diffDegNext), int(degNext)),
 	}
 }
 
@@ -134,8 +131,8 @@ func newReducerBuffer(in, quo, rem int) reducerBuffer {
 func (r *cyclotomicReducerNTTModulus) reduceTo(pOut, p []uint64) {
 	copy(r.buf.pIn, p)
 
-	cycloOrd := r.params.CycloOrder()
-	rank := r.params.Rank()
+	cycloOrd := r.params.cycloOrd
+	rank := r.params.rank
 	skip := cycloOrd / r.leastFac
 
 	for j := 0; j < skip; j++ {
@@ -190,11 +187,11 @@ func (r *cyclotomicReducerNTTModulus) reduceTo(pOut, p []uint64) {
 		}
 
 		// Compute pOut = pIn - pRem
-		for i := 0; i < r.params.Rank(); i++ {
+		for i := 0; i < rank; i++ {
 			pOut[i] = num.Sub(r.buf.pIn[i], r.buf.pRem[i], r.mod)
 		}
 	} else {
-		copy(pOut, r.buf.pIn[:r.params.Rank()])
+		copy(pOut, r.buf.pIn[:rank])
 	}
 }
 
@@ -205,6 +202,8 @@ func (r *cyclotomicReducerNTTModulus) safeCopy() *cyclotomicReducerNTTModulus {
 		diffDegNextNTT = r.diffDegNextNTT.SafeCopy()
 		degNextNTT = r.degNextNTT.SafeCopy()
 		buf = newReducerBuffer(r.params.cycloOrd, r.diffDegNext, r.degNext)
+	} else {
+		buf = newReducerBuffer(r.params.cycloOrd, 0, 0)
 	}
 
 	return &cyclotomicReducerNTTModulus{

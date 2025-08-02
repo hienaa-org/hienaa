@@ -1,13 +1,10 @@
 // Package poly implements polynomial and its operations.
 package crt
 
-// Poly represents a polynomial with "Double-CRT" representation.
+// Poly represents a polynomial with CRT representation.
 //
-// A polynomial can have two forms:
-//
-//   - Standard form, where the coefficients are stored in a [][]uint64 slice in normal order.
-//   - NTT form, where the NTT coefficients are stored in a [][]uint64 slice in radix-r reversed order.
-//     All coefficients in NTT form are also in Montgomery form.
+// A polynomial can have Standard or NTT form.
+// All coefficients in NTT form are also in Montgomery form.
 type Poly struct {
 	// Coeffs are the coefficients of the polynomial.
 	// Ordered as [ModLen][Rank].
@@ -16,8 +13,8 @@ type Poly struct {
 	// and the length of the first subslice is considered the rank of the polynomial.
 	Coeffs [][]uint64
 
-	// IsNTT indicates whether the polynomial is in NTT form.
-	IsNTT bool
+	// isNTT indicates whether the polynomial is in NTT form.
+	isNTT bool
 }
 
 // NewPoly creates a new [Poly] in Standard form.
@@ -38,7 +35,7 @@ func NewPolyCustom(rank, modLen int, isNTT bool) *Poly {
 	}
 	return &Poly{
 		Coeffs: coeffs,
-		IsNTT:  isNTT,
+		isNTT:  isNTT,
 	}
 }
 
@@ -55,6 +52,11 @@ func (p *Poly) ModLen() int {
 	return len(p.Coeffs)
 }
 
+// IsNTT returns if p is in NTT form.
+func (p *Poly) IsNTT() bool {
+	return p.isNTT
+}
+
 // Clear clears p.
 func (p *Poly) Clear() {
 	for i := range p.Coeffs {
@@ -64,7 +66,7 @@ func (p *Poly) Clear() {
 
 // Copy returns a copy of p.
 func (p *Poly) Copy() *Poly {
-	pOut := NewPolyCustom(p.Rank(), p.ModLen(), p.IsNTT)
+	pOut := NewPolyCustom(p.Rank(), p.ModLen(), p.isNTT)
 	for i := range p.Coeffs {
 		copy(pOut.Coeffs[i], p.Coeffs[i])
 	}

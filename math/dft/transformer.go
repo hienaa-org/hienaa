@@ -6,9 +6,12 @@ import (
 
 // Transformer is an interface for NTT/InvNTT transforms.
 //
-// After the transform, the order of the coefficients could be in radix-reverse order.
-// In either case, the convolution property holds.
+// After the transform, the coefficients are in Montgomery form for efficient convolution.
 type Transformer interface {
+	// Params returns the ring parameters.
+	Params() RingParameters
+	// Modulus returns the modulus used for the transform.
+	Modulus() *num.Modulus
 	// ForwardInPlace transforms the uint64 vector to NTT form.
 	ForwardInPlace(coeffs []uint64)
 	// InverseInPlace transforms the uint64 vector to Standard form.
@@ -24,6 +27,8 @@ func NewTransformer(ringParams RingParameters, mod *num.Modulus) Transformer {
 		switch {
 		case num.IsPowerOfTwo(uint64(ringParams.cycloOrd)):
 			return newCyclotomicPow2Transformer(ringParams, mod)
+		default:
+			return newCyclotomicAnyTransformer(ringParams, mod)
 		}
 	case Cyclic:
 		switch {
@@ -36,4 +41,17 @@ func NewTransformer(ringParams RingParameters, mod *num.Modulus) Transformer {
 	}
 
 	panic("NewTransformer: unsupported ring type or parameters")
+}
+
+// transformerBuffer is a buffer for [Transformer].
+type transformerBuffer struct {
+	// coeffs is the input.
+	coeffs []uint64
+}
+
+// newTransformerBuffer creates a new [transformerBuffer].
+func newTransformerBuffer(rank int) transformerBuffer {
+	return transformerBuffer{
+		coeffs: make([]uint64, rank),
+	}
 }

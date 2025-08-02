@@ -51,9 +51,9 @@ func newCyclotomicReducerAnyModulus(params dft.RingParameters, mod *num.Modulus)
 
 	factors := num.Factor(cycloOrd)
 	leastFactor := cycloOrd
-	for key := range factors {
-		if key < leastFactor {
-			leastFactor = key
+	for p := range factors {
+		if p < leastFactor {
+			leastFactor = p
 		}
 	}
 	redDeg := cycloOrd - cycloOrd/leastFactor
@@ -89,7 +89,7 @@ func newCyclotomicReducerAnyModulus(params dft.RingParameters, mod *num.Modulus)
 		}
 
 		cycloPoly = make([][]uint64, lenAmbMod)
-		cycloPolySigned := dft.CyclotomicPolynomial(cycloOrd)
+		cycloPolySigned := dft.CyclotomicPolynomial(params.CycloOrder())
 		for i := range cycloPoly {
 			cycloPoly[i] = make([]uint64, degNext)
 			for j := range cycloPolySigned {
@@ -110,6 +110,8 @@ func newCyclotomicReducerAnyModulus(params dft.RingParameters, mod *num.Modulus)
 		}
 
 		buf = newReducerBuffer(lenAmbMod, int(cycloOrd), int(diffDegNext), int(degNext))
+	} else {
+		buf = newReducerBuffer(1, 0, 0, 0)
 	}
 
 	return &cyclotomicReducerAnyModulus{
@@ -229,6 +231,8 @@ func (r *cyclotomicReducerAnyModulus) safeCopy() reducer {
 	if !r.isPrimePow {
 		embedder = r.embedder.SafeCopy()
 		buf = newReducerBuffer(len(r.ambMod), r.params.CycloOrder(), r.diffDegNext, r.degNext)
+	} else {
+		buf = newReducerBuffer(1, 0, 0, 0)
 	}
 
 	return &cyclotomicReducerAnyModulus{

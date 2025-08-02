@@ -41,8 +41,8 @@ func quotient(dividend, divisor []uint64, mod *num.Modulus) []uint64 {
 }
 
 // CyclotomicPolynomial computes the cyclotomic polynomial of the given cyclotomic order.
-func CyclotomicPolynomial(cycloOrd uint64) []int {
-	factors := num.Factor(cycloOrd)
+func CyclotomicPolynomial(cycloOrd int) []int {
+	factors := num.Factor(uint64(cycloOrd))
 	primes := make([]int, 0, len(factors))
 	for p := range factors {
 		primes = append(primes, int(p))

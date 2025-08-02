@@ -19,7 +19,7 @@ func NewReducer(maxDeg int, mod *num.Modulus, modPoly []uint64) *Reducer {
 
 // Reduce reduces p and returns the result.
 func (r *Reducer) Reduce(p *Poly) *Poly {
-	if p.IsNTT {
+	if p.isNTT {
 		panic("Reduce: cannot reduce NTT polynomials")
 	}
 
@@ -33,7 +33,7 @@ func (r *Reducer) Reduce(p *Poly) *Poly {
 // ReduceTo reduces p to pOut.
 // p and pOut must be Standard form.
 func (r *Reducer) ReduceTo(pOut, p *Poly) {
-	if p.IsNTT || pOut.IsNTT {
+	if p.isNTT || pOut.isNTT {
 		panic("ReduceTo: cannot reduce NTT polynomials")
 	}
 
