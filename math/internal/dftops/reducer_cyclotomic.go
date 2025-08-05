@@ -89,7 +89,7 @@ func NewCyclotomicReducerNTTModulus(cycloOrd, rank int, mod *num.Modulus) *Cyclo
 		diffDegNext = int(num.NextProdPower(2*uint64(diffDeg)+1, []uint64{2}))
 
 		degNextNTT = NewCyclicPow2Transformer(int(degNext), mod)
-		diffDegNextNTT := NewCyclicPow2Transformer(int(diffDegNext), mod)
+		diffDegNextNTT = NewCyclicPow2Transformer(int(diffDegNext), mod)
 
 		cycloPoly = make([]uint64, degNext)
 		cycloPolySigned := CyclotomicPolynomial(int(cycloOrd))
@@ -99,7 +99,8 @@ func NewCyclotomicReducerNTTModulus(cycloOrd, rank int, mod *num.Modulus) *Cyclo
 
 		dividend := make([]uint64, redDeg+1)
 		dividend[redDeg] = 1
-		quoPoly = append(quotient(dividend, cycloPoly[:rank+1], mod), make([]uint64, int(diffDegNext)-len(quoPoly))...)
+		quoPoly = quotient(dividend, cycloPoly[:rank+1], mod)
+		quoPoly = append(quoPoly, make([]uint64, int(diffDegNext)-len(quoPoly))...)
 
 		degNextNTT.ForwardInPlace(cycloPoly)
 		diffDegNextNTT.ForwardInPlace(quoPoly)
@@ -225,13 +226,6 @@ func (r *CyclotomicReducerNTTModulus) ReduceTo(pOut, p []uint64) {
 }
 
 func (r *CyclotomicReducerNTTModulus) SafeCopy() *CyclotomicReducerNTTModulus {
-	var buf reducerBuffer
-	if !r.isPrimePow {
-		buf = newReducerBuffer(int(r.cycloOrd), r.diffDegNext, r.degNext)
-	} else {
-		buf = newReducerBuffer(int(r.cycloOrd), 0, 0)
-	}
-
 	return &CyclotomicReducerNTTModulus{
 		cycloOrd: r.cycloOrd,
 		rank:     r.rank,
@@ -251,6 +245,6 @@ func (r *CyclotomicReducerNTTModulus) SafeCopy() *CyclotomicReducerNTTModulus {
 		cycloPoly: r.cycloPoly,
 		quoPoly:   r.quoPoly,
 
-		buf: buf,
+		buf: newReducerBuffer(int(r.cycloOrd), r.diffDegNext, r.degNext),
 	}
 }

@@ -6,7 +6,7 @@ import (
 
 // NTTInPlacePow2 computes the NTT transform in-place for power-of-two length coefficients.
 func NTTInPlacePow2(coeffs, tw, twS []uint64, q uint64) {
-	if len(coeffs) < 16 {
+	if len(coeffs) < 32 {
 		nttInPlacePow2Ref(coeffs, tw, twS, q)
 		return
 	}
@@ -51,7 +51,7 @@ func nttInPlacePow2Ref(coeffs, tw, twS []uint64, q uint64) {
 
 // INTTInPlacePow2 computes the inverse NTT transform in-place for power-of-two length coefficients.
 func INTTInPlacePow2(coeffs, twInv, twInvS []uint64, q uint64) {
-	if len(coeffs) < 16 {
+	if len(coeffs) < 32 {
 		inttInPlacePow2Ref(coeffs, twInv, twInvS, q)
 		return
 	}

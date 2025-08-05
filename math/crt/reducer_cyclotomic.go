@@ -100,7 +100,8 @@ func newCyclotomicReducerAnyModulus(params dft.RingParameters, mod *num.Modulus)
 		dividend[redDeg] = 1
 		quoPoly = make([][]uint64, lenAmbMod)
 		for i := range quoPoly {
-			quoPoly[i] = append(quotient(dividend, cycloPoly[i][:rank+1], ambMod[i]), make([]uint64, int(diffDegNext)-len(quoPoly[i]))...)
+			quoPoly[i] = quotient(dividend, cycloPoly[i][:rank+1], ambMod[i])
+			quoPoly[i] = append(quoPoly[i], make([]uint64, int(diffDegNext)-len(quoPoly[i]))...)
 		}
 
 		for i := 0; i < lenAmbMod; i++ {

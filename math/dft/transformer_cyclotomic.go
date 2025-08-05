@@ -88,7 +88,7 @@ type cyclotomicAnyTransformer struct {
 	params RingParameters
 	mod    *num.Modulus
 
-	ambNTT  *cyclicBluesteinTransformer
+	ambNTT  Transformer
 	reducer *dftops.CyclotomicReducerNTTModulus
 
 	// idx is the CRT mapping index.
@@ -133,7 +133,7 @@ func newCyclotomicAnyTransformer(ringParams RingParameters, mod *num.Modulus) *c
 		params: ringParams,
 		mod:    mod,
 
-		ambNTT:  newCyclicBluesteinTransformer(NewCyclicParameters(ringParams.cycloOrd), mod),
+		ambNTT:  NewTransformer(NewCyclicParameters(ringParams.cycloOrd), mod),
 		reducer: dftops.NewCyclotomicReducerNTTModulus(ringParams.cycloOrd, ringParams.rank, mod),
 
 		idx: idx,
@@ -174,12 +174,11 @@ func (ntt *cyclotomicAnyTransformer) Modulus() *num.Modulus {
 }
 
 func (ntt *cyclotomicAnyTransformer) SafeCopy() Transformer {
-	ambNTTCopy := ntt.ambNTT.SafeCopy().(*cyclicBluesteinTransformer)
 	return &cyclotomicAnyTransformer{
 		params: ntt.params,
 		mod:    ntt.mod,
 
-		ambNTT:  ambNTTCopy,
+		ambNTT:  ntt.ambNTT.SafeCopy(),
 		reducer: ntt.reducer.SafeCopy(),
 
 		idx: ntt.idx,
