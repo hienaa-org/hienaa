@@ -84,7 +84,8 @@ func cyclotomicGap(cycloOrd, rank uint64) uint64 {
 		bluesteinRank := num.NextProdPower(2*cycloOrd-1, []uint64{2})
 
 		var p uint64
-		for f := range num.Factor(cycloOrd) {
+		primes, _ := num.Factor(cycloOrd)
+		for _, f := range primes {
 			if f%2 == 1 {
 				p = f
 				break
@@ -143,7 +144,8 @@ func IsNTTFriendly(ringParams RingParameters, mod *num.Modulus) bool {
 		gap = autFixedGap(uint64(ringParams.cycloOrd), uint64(ringParams.rank))
 	}
 
-	for f := range num.Factor(mod.Value()) {
+	primes, _ := num.Factor(mod.Value())
+	for _, f := range primes {
 		if f%gap != 1 {
 			return false
 		}

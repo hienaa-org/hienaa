@@ -24,12 +24,12 @@ func TestIsPrime(t *testing.T) {
 
 func TestFactor(t *testing.T) {
 	x := rSrc.SampleN(num.MaxModulus)
-	factors := num.Factor(x)
+	primes, exps := num.Factor(x)
 
 	xComp := uint64(1)
-	for f, e := range factors {
-		for i := uint64(0); i < e; i++ {
-			xComp *= f
+	for i := range primes {
+		for j := uint64(0); j < exps[i]; j++ {
+			xComp *= primes[i]
 		}
 	}
 

@@ -49,9 +49,9 @@ type cyclotomicReducerAnyModulus struct {
 func newCyclotomicReducerAnyModulus(params dft.RingParameters, mod *num.Modulus) *cyclotomicReducerAnyModulus {
 	cycloOrd, rank := uint64(params.CycloOrder()), uint64(params.Rank())
 
-	factors := num.Factor(cycloOrd)
+	primes, _ := num.Factor(cycloOrd)
 	leastFactor := cycloOrd
-	for p := range factors {
+	for _, p := range primes {
 		if p < leastFactor {
 			leastFactor = p
 		}

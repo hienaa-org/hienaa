@@ -57,14 +57,26 @@ type reducerBuffer struct {
 func newCyclotomicReducerNTTModulus(params RingParameters, mod *num.Modulus) *cyclotomicReducerNTTModulus {
 	cycloOrd, rank := uint64(params.CycloOrder()), uint64(params.Rank())
 
-	factors := num.Factor(cycloOrd)
-	leastFactor := cycloOrd
-	for p := range factors {
-		if p < leastFactor {
-			leastFactor = p
+	var redDeg, leastFactor uint64
+	if cycloOrd&1 == 1 {
+		primes, _ := num.Factor(cycloOrd)
+		leastFactor = cycloOrd
+		for _, p := range primes {
+			if p < leastFactor {
+				leastFactor = p
+			}
 		}
+		redDeg = cycloOrd - cycloOrd/leastFactor
+	} else {
+		primes, _ := num.Factor(cycloOrd)
+		leastFactor = cycloOrd
+		for _, p := range primes {
+			if p < leastFactor && p > 2 {
+				leastFactor = p
+			}
+		}
+		redDeg = cycloOrd/2 - cycloOrd/2/leastFactor
 	}
-	redDeg := cycloOrd - cycloOrd/leastFactor
 
 	isPrimePower := redDeg == rank
 
@@ -133,13 +145,33 @@ func (r *cyclotomicReducerNTTModulus) reduceTo(pOut, p []uint64) {
 
 	cycloOrd := r.params.cycloOrd
 	rank := r.params.rank
-	skip := cycloOrd / r.leastFac
 
-	for j := 0; j < skip; j++ {
-		for i := 0; i < r.leastFac-1; i++ {
-			r.buf.pIn[i*skip+j] = num.Sub(r.buf.pIn[i*skip+j], r.buf.pIn[cycloOrd-skip+j], r.mod)
+	if cycloOrd&1 == 1 {
+		skip := cycloOrd / r.leastFac
+		for j := 0; j < skip; j++ {
+			for i := 0; i < r.leastFac-1; i++ {
+				r.buf.pIn[i*skip+j] = num.Sub(r.buf.pIn[i*skip+j], r.buf.pIn[cycloOrd-skip+j], r.mod)
+			}
+			r.buf.pIn[cycloOrd-skip+j] = 0
 		}
-		r.buf.pIn[cycloOrd-skip+j] = 0
+	} else {
+		skip := cycloOrd / 2 / r.leastFac
+
+		for i := 0; i < cycloOrd/2; i++ {
+			r.buf.pIn[i] = num.Sub(r.buf.pIn[i], r.buf.pIn[cycloOrd/2+i], r.mod)
+			r.buf.pIn[cycloOrd/2+i] = 0
+		}
+
+		for j := 0; j < skip; j++ {
+			for i := 0; i < r.leastFac-1; i++ {
+				if i&1 == 0 {
+					r.buf.pIn[i*skip+j] = num.Sub(r.buf.pIn[i*skip+j], r.buf.pIn[cycloOrd/2-skip+j], r.mod)
+				} else {
+					r.buf.pIn[i*skip+j] = num.Add(r.buf.pIn[i*skip+j], r.buf.pIn[cycloOrd/2-skip+j], r.mod)
+				}
+			}
+			r.buf.pIn[cycloOrd-skip+j] = 0
+		}
 	}
 
 	if !r.isPrimePow {

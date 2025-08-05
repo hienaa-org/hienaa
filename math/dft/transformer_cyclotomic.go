@@ -1,8 +1,6 @@
 package dft
 
 import (
-	"slices"
-
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
 )
@@ -100,31 +98,22 @@ type cyclotomicAnyTransformer struct {
 
 // newCyclotomicAnyTransformer creates a new [cyclotomicAnyTransformer].
 func newCyclotomicAnyTransformer(ringParams RingParameters, mod *num.Modulus) *cyclotomicAnyTransformer {
-	if ringParams.cycloOrd&1 == 0 {
-		panic("newCyclotomicAnyTransformer: cyclotomic order must be odd")
-	}
-
 	cycloOrd := uint64(ringParams.cycloOrd)
 	cycloOrdMod := num.NewModulus(cycloOrd)
-	factors := num.Factor(cycloOrd)
-	primes := make([]uint64, 0, len(factors))
-	for p := range factors {
-		primes = append(primes, p)
-	}
-	slices.Sort(primes)
+	primes, exps := num.Factor(cycloOrd)
 
 	dims := make([]uint64, len(primes))
 	for i := range dims {
 		pExp := uint64(1)
-		for j := 0; j < int(factors[primes[i]]); j++ {
+		for j := 0; j < int(exps[i]); j++ {
 			pExp *= primes[i]
 		}
 		dims[i] = pExp - pExp/primes[i]
 	}
 
-	root := num.GeneratorsWithFactors(cycloOrdMod, factors)
-
+	root := num.GeneratorsWithFactors(cycloOrdMod, primes, exps)
 	idx := make([]uint64, ringParams.rank)
+
 	for i := 0; i < ringParams.rank; i++ {
 		idxIn := uint64(i)
 		idxDigits := make([]uint64, len(dims))

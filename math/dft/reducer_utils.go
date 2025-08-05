@@ -1,8 +1,6 @@
 package dft
 
 import (
-	"slices"
-
 	"github.com/hienaa-org/hienaa/math/num"
 )
 
@@ -42,12 +40,7 @@ func quotient(dividend, divisor []uint64, mod *num.Modulus) []uint64 {
 
 // CyclotomicPolynomial computes the cyclotomic polynomial of the given cyclotomic order.
 func CyclotomicPolynomial(cycloOrd int) []int {
-	factors := num.Factor(uint64(cycloOrd))
-	primes := make([]int, 0, len(factors))
-	for p := range factors {
-		primes = append(primes, int(p))
-	}
-	slices.Sort(primes)
+	primes, _ := num.Factor(uint64(cycloOrd))
 
 	var isEven bool
 	if primes[0] == 2 {
@@ -71,23 +64,23 @@ func CyclotomicPolynomial(cycloOrd int) []int {
 		clear(pOut)
 
 		for i := 0; i <= prevDeg; i++ {
-			pBuff1[i*prime] = pBuff0[i]
+			pBuff1[i*int(prime)] = pBuff0[i]
 		}
 
-		currDeg = prevDeg*prime - prevDeg
+		currDeg = prevDeg*int(prime) - prevDeg
 
-		for i := 0; i <= (prime-1)*prevDeg; i++ {
-			if pBuff1[prevDeg*prime-i] != 0 {
-				pOut[currDeg-i] = pBuff1[prevDeg*prime-i] / pBuff0[prevDeg]
+		for i := 0; i <= (int(prime)-1)*prevDeg; i++ {
+			if pBuff1[prevDeg*int(prime)-i] != 0 {
+				pOut[currDeg-i] = pBuff1[prevDeg*int(prime)-i] / pBuff0[prevDeg]
 
 				for j := 0; j <= prevDeg; j++ {
-					pBuff1[prevDeg*prime-i-j] -= pBuff0[prevDeg-j] * pOut[currDeg-i]
+					pBuff1[prevDeg*int(prime)-i-j] -= pBuff0[prevDeg-j] * pOut[currDeg-i]
 				}
 			}
 		}
 
 		prevDeg = currDeg
-		skip /= prime
+		skip /= int(prime)
 	}
 
 	if isEven {

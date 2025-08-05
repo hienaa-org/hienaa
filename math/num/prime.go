@@ -105,10 +105,22 @@ func NextProdPower(x uint64, factors []uint64) uint64 {
 }
 
 // Factor factors x.
-func Factor(x uint64) map[uint64]uint64 {
+func Factor(x uint64) (primes []uint64, exps []uint64) {
 	factors := make(map[uint64]uint64)
 	factorRecurse(x, factors)
-	return factors
+
+	primes = make([]uint64, 0, len(factors))
+	for p := range factors {
+		primes = append(primes, p)
+	}
+	slices.Sort(primes)
+
+	exps = make([]uint64, len(primes))
+	for i, p := range primes {
+		exps[i] = factors[p]
+	}
+
+	return primes, exps
 }
 
 // factorRecurse finds a non-trivial factor of x and adds it to factors.
@@ -206,27 +218,35 @@ func Totient(x uint64) uint64 {
 		return x
 	}
 
-	return ToientWithFactors(x, Factor(x))
+	primes, exps := Factor(x)
+	return ToientWithFactors(x, primes, exps)
 }
 
 // ToientWithFactors returns the Euler-Phi function of x, given its factorization.
-func ToientWithFactors(x uint64, xFactors map[uint64]uint64) uint64 {
+func ToientWithFactors(x uint64, primes, exps []uint64) uint64 {
 	phi := x
-	for f := range xFactors {
-		phi -= phi / f
+	for _, p := range primes {
+		phi -= phi / p
 	}
 	return phi
 }
 
 // Generators returns the generators of the subgroup of multiplicative group modulo q.
 func Generators(q *Modulus) []uint64 {
-	return GeneratorsWithFactors(q, Factor(q.Value()))
+	primes, exps := Factor(q.Value())
+	return GeneratorsWithFactors(q, primes, exps)
 }
 
 // GeneratorsWithFactors returns the generators of the subgroup of multiplicative group modulo q,
 // given its factorization.
-func GeneratorsWithFactors(q *Modulus, qFactors map[uint64]uint64) []uint64 {
-	primes, _, primePows := sortFactors(qFactors)
+func GeneratorsWithFactors(q *Modulus, primes, exps []uint64) []uint64 {
+	primePows := make([]uint64, len(primes))
+	for i := range primePows {
+		primePows[i] = uint64(1)
+		for j := uint64(0); j < exps[i]; j++ {
+			primePows[i] *= primes[i]
+		}
+	}
 
 	subGens := make([]uint64, len(primes))
 	crt := make([]uint64, len(primes))
@@ -252,11 +272,15 @@ func GeneratorsWithFactors(q *Modulus, qFactors map[uint64]uint64) []uint64 {
 
 // primitiveRoot returns a generator modulo p^e.
 func primitiveRoot(p, pExp uint64) uint64 {
+	if p == 2 {
+		return 1
+	}
+
 	phi := pExp - pExp/p
-	phiFactors := Factor(phi)
-	testPows := make([]uint64, 0, len(phiFactors))
-	for f := range phiFactors {
-		testPows = append(testPows, phi/f)
+	primes, _ := Factor(phi)
+	testPows := make([]uint64, 0, len(primes))
+	for _, p := range primes {
+		testPows = append(testPows, phi/p)
 	}
 
 	g := uint64(2)
@@ -277,12 +301,19 @@ func primitiveRoot(p, pExp uint64) uint64 {
 
 // NthRoot returns the N-th root of unity modulo q, given the generators.
 func NthRoot(n int, g []uint64, q *Modulus) uint64 {
-	return NthRootWithFactors(n, g, q, Factor(q.Value()))
+	primes, exps := Factor(q.Value())
+	return NthRootWithFactors(n, g, q, primes, exps)
 }
 
 // NthRootWithFactors returns the N-th root of unity modulo q, given the generators and the factorization of q.
-func NthRootWithFactors(n int, g []uint64, q *Modulus, qFactors map[uint64]uint64) uint64 {
-	primes, _, primePows := sortFactors(qFactors)
+func NthRootWithFactors(n int, g []uint64, q *Modulus, primes, exps []uint64) uint64 {
+	primePows := make([]uint64, len(primes))
+	for i := range primePows {
+		primePows[i] = uint64(1)
+		for j := uint64(0); j < exps[i]; j++ {
+			primePows[i] *= primes[i]
+		}
+	}
 
 	r := uint64(0)
 	for i := range primes {
@@ -292,26 +323,4 @@ func NthRootWithFactors(n int, g []uint64, q *Modulus, qFactors map[uint64]uint6
 		r = Add(r, Mul(h, t, q), q)
 	}
 	return r
-}
-
-// sortFactors sorts the factors of x, and returns the powers.
-func sortFactors(factors map[uint64]uint64) (primes, exps, primePows []uint64) {
-	primes = make([]uint64, 0, len(factors))
-	for p := range factors {
-		primes = append(primes, p)
-	}
-	slices.Sort(primes)
-
-	exps = make([]uint64, len(primes))
-	primePows = make([]uint64, len(primes))
-	for i, p := range primes {
-		exps[i] = factors[p]
-		pExp := uint64(1)
-		for j := uint64(0); j < exps[i]; j++ {
-			pExp *= p
-		}
-		primePows[i] = pExp
-	}
-
-	return primes, exps, primePows
 }
