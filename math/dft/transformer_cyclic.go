@@ -214,7 +214,7 @@ type cyclicBluesteinTransformer struct {
 	params RingParameters
 	mod    *num.Modulus
 
-	*cyclicPow235Transformer
+	ambNTT *dftops.CyclicPow2Transformer
 
 	// z is the factor for Z-transform.
 	z []uint64
@@ -231,12 +231,13 @@ type cyclicBluesteinTransformer struct {
 	chirpMS []uint64
 	// chirpInv is the inverse chirp factor for Bluestein NTT.
 	chirpInv []uint64
+
+	buf transformerBuffer
 }
 
 // newCyclicBluesteinTransformer creates a new [cyclicBluesteinTransformer] for the given ringParams and modulus.
 func newCyclicBluesteinTransformer(params RingParameters, mod *num.Modulus) *cyclicBluesteinTransformer {
 	ambRank := int(num.NextProdPower(uint64(2*params.rank-1), []uint64{2}))
-	ambParams := NewCyclicParameters(ambRank)
 
 	root := num.Generators(mod)
 	zz := num.NthRoot(2*params.rank, root, mod)
@@ -250,7 +251,7 @@ func newCyclicBluesteinTransformer(params RingParameters, mod *num.Modulus) *cyc
 		zInv[i] = num.Exp(zzInv, uint64(idx), mod)
 	}
 
-	ambNTT := newCyclicPow235Transformer(ambParams, mod)
+	ambNTT := dftops.NewCyclicPow2Transformer(ambRank, mod)
 
 	chirpM := make([]uint64, ambRank)
 	copy(chirpM, zInv)
@@ -258,7 +259,7 @@ func newCyclicBluesteinTransformer(params RingParameters, mod *num.Modulus) *cyc
 	slices.Reverse(chirpM[ambRank-params.rank+1:])
 
 	vec.ScalarMulTo(chirpM, chirpM, num.Inv(uint64(ambRank), mod), mod)
-	dftops.NTTInPlacePow2(chirpM, ambNTT.tw[0], ambNTT.twS[0], mod.Value())
+	dftops.NTTInPlacePow2(chirpM, ambNTT.Tw, ambNTT.TwS, mod.Value())
 	vec.MFormTo(chirpM, chirpM, mod)
 
 	chirpInv := make([]uint64, ambRank)
@@ -267,14 +268,14 @@ func newCyclicBluesteinTransformer(params RingParameters, mod *num.Modulus) *cyc
 	slices.Reverse(chirpInv[ambRank-params.rank+1:])
 
 	vec.ScalarMulTo(chirpInv, chirpInv, num.Inv(uint64(ambRank*params.rank), mod), mod)
-	dftops.NTTInPlacePow2(chirpInv, ambNTT.tw[0], ambNTT.twS[0], mod.Value())
+	dftops.NTTInPlacePow2(chirpInv, ambNTT.Tw, ambNTT.TwS, mod.Value())
 	vec.ReduceTo(chirpInv, chirpInv, mod)
 
 	return &cyclicBluesteinTransformer{
 		params: params,
 		mod:    mod,
 
-		cyclicPow235Transformer: ambNTT,
+		ambNTT: ambNTT,
 
 		z:     z,
 		zS:    vec.SForm(z, mod),
@@ -284,6 +285,8 @@ func newCyclicBluesteinTransformer(params RingParameters, mod *num.Modulus) *cyc
 		chirpM:   chirpM,
 		chirpMS:  vec.SForm(chirpM, mod),
 		chirpInv: chirpInv,
+
+		buf: newTransformerBuffer(ambRank),
 	}
 }
 
@@ -291,11 +294,11 @@ func (ntt *cyclicBluesteinTransformer) ForwardInPlace(coeffs []uint64) {
 	vec.SMulTo(ntt.buf.coeffs[:ntt.params.rank], coeffs, ntt.z, ntt.zS, ntt.mod)
 	clear(ntt.buf.coeffs[ntt.params.rank:])
 
-	dftops.NTTInPlacePow2(ntt.buf.coeffs, ntt.tw[0], ntt.twS[0], ntt.mod.Value())
+	dftops.NTTInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.Tw, ntt.ambNTT.TwS, ntt.mod.Value())
 
 	vec.SMulTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.chirpM, ntt.chirpMS, ntt.mod)
 
-	dftops.INTTInPlacePow2(ntt.buf.coeffs, ntt.twInv[0], ntt.twInvS[0], ntt.mod.Value())
+	dftops.INTTInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.TwInv, ntt.ambNTT.TwInvS, ntt.mod.Value())
 
 	vec.SMulTo(coeffs, ntt.buf.coeffs[:ntt.params.rank], ntt.z, ntt.zS, ntt.mod)
 }
@@ -304,11 +307,11 @@ func (ntt *cyclicBluesteinTransformer) InverseInPlace(coeffs []uint64) {
 	vec.SMulTo(ntt.buf.coeffs[:ntt.params.rank], coeffs, ntt.zInv, ntt.zInvS, ntt.mod)
 	clear(ntt.buf.coeffs[ntt.params.rank:])
 
-	dftops.NTTInPlacePow2(ntt.buf.coeffs, ntt.tw[0], ntt.twS[0], ntt.mod.Value())
+	dftops.NTTInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.Tw, ntt.ambNTT.TwS, ntt.mod.Value())
 
 	vec.MMulTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.chirpInv, ntt.mod)
 
-	dftops.INTTInPlacePow2(ntt.buf.coeffs, ntt.twInv[0], ntt.twInvS[0], ntt.mod.Value())
+	dftops.INTTInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.TwInv, ntt.ambNTT.TwInvS, ntt.mod.Value())
 
 	vec.SMulTo(coeffs, ntt.buf.coeffs[:ntt.params.rank], ntt.zInv, ntt.zInvS, ntt.mod)
 }
@@ -322,12 +325,11 @@ func (ntt *cyclicBluesteinTransformer) Modulus() *num.Modulus {
 }
 
 func (ntt *cyclicBluesteinTransformer) SafeCopy() Transformer {
-	ambNTTCopy := ntt.cyclicPow235Transformer.SafeCopy().(*cyclicPow235Transformer)
 	return &cyclicBluesteinTransformer{
 		params: ntt.params,
 		mod:    ntt.mod,
 
-		cyclicPow235Transformer: ambNTTCopy,
+		ambNTT: ntt.ambNTT,
 
 		z:     ntt.z,
 		zS:    ntt.zS,

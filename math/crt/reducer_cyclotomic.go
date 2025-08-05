@@ -33,9 +33,9 @@ type cyclotomicReducerAnyModulus struct {
 	degNext int
 
 	// diffDegNextNTT is the NTT transformer for degree diffDegNext.
-	diffDegNextNTT []dft.Transformer
+	diffDegNextNTT []*dftops.CyclicPow2Transformer
 	// degNextNTT is the NTT transformer for degree degNext.
-	degNextNTT []dft.Transformer
+	degNextNTT []*dftops.CyclicPow2Transformer
 
 	// cycloPoly is the cyclotomic polynomial modulo the modulus.
 	cycloPoly [][]uint64
@@ -64,7 +64,7 @@ func newCyclotomicReducerAnyModulus(params dft.RingParameters, mod *num.Modulus)
 	var ambMod []*num.Modulus
 	var embedder *Embedder
 	var diffDeg, diffDegNext, degNext uint64
-	var diffDegNextNTT, degNextNTT []dft.Transformer
+	var diffDegNextNTT, degNextNTT []*dftops.CyclicPow2Transformer
 	var cycloPoly, quoPoly [][]uint64
 	var buf reducerBuffer
 
@@ -77,16 +77,14 @@ func newCyclotomicReducerAnyModulus(params dft.RingParameters, mod *num.Modulus)
 		ambMod = dft.FindPrevNTTPrimes(params, num.MaxModulusBits, lenAmbMod)
 		embedder = NewEmbedder(ambMod, []*num.Modulus{mod})
 
-		degNextParams := dft.NewCyclicParameters(int(degNext))
-		degNextNTT = make([]dft.Transformer, lenAmbMod)
+		degNextNTT := make([]*dftops.CyclicPow2Transformer, lenAmbMod)
 		for i := range degNextNTT {
-			degNextNTT[i] = dft.NewTransformer(degNextParams, ambMod[i])
+			degNextNTT[i] = dftops.NewCyclicPow2Transformer(int(degNext), ambMod[i])
 		}
 
-		diffDegNextParams := dft.NewCyclicParameters(int(diffDegNext))
-		diffDegNextNTT = make([]dft.Transformer, lenAmbMod)
+		diffDegNextNTT = make([]*dftops.CyclicPow2Transformer, lenAmbMod)
 		for i := range diffDegNextNTT {
-			diffDegNextNTT[i] = dft.NewTransformer(diffDegNextParams, ambMod[i])
+			diffDegNextNTT[i] = dftops.NewCyclicPow2Transformer(int(diffDegNext), ambMod[i])
 		}
 
 		cycloPoly = make([][]uint64, lenAmbMod)
@@ -217,16 +215,6 @@ func (r *cyclotomicReducerAnyModulus) reduceTo(pOut, p []uint64) {
 }
 
 func (r *cyclotomicReducerAnyModulus) safeCopy() reducer {
-	diffDegNextNTT := make([]dft.Transformer, len(r.diffDegNextNTT))
-	for i := range diffDegNextNTT {
-		diffDegNextNTT[i] = r.diffDegNextNTT[i].SafeCopy()
-	}
-
-	degNextNTT := make([]dft.Transformer, len(r.degNextNTT))
-	for i := range degNextNTT {
-		degNextNTT[i] = r.degNextNTT[i].SafeCopy()
-	}
-
 	var embedder *Embedder
 	var buf reducerBuffer
 	if !r.isPrimePow {
@@ -250,8 +238,8 @@ func (r *cyclotomicReducerAnyModulus) safeCopy() reducer {
 		diffDegNext: r.diffDegNext,
 		degNext:     r.degNext,
 
-		diffDegNextNTT: diffDegNextNTT,
-		degNextNTT:     degNextNTT,
+		diffDegNextNTT: r.diffDegNextNTT,
+		degNextNTT:     r.degNextNTT,
 
 		cycloPoly: r.cycloPoly,
 		quoPoly:   r.quoPoly,
