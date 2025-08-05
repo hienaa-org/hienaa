@@ -1,11 +1,11 @@
-package dft
+package dftops
 
 import (
 	"math/bits"
 )
 
-// nttInPlacePow2 computes the NTT transform in-place for power-of-two length coefficients.
-func nttInPlacePow2(coeffs, tw, twS []uint64, q uint64) {
+// NTTInPlacePow2 computes the NTT transform in-place for power-of-two length coefficients.
+func NTTInPlacePow2(coeffs, tw, twS []uint64, q uint64) {
 	if len(coeffs) < 16 {
 		nttInPlacePow2Ref(coeffs, tw, twS, q)
 		return
@@ -49,6 +49,15 @@ func nttInPlacePow2Ref(coeffs, tw, twS []uint64, q uint64) {
 	}
 }
 
+// INTTInPlacePow2 computes the inverse NTT transform in-place for power-of-two length coefficients.
+func INTTInPlacePow2(coeffs, twInv, twInvS []uint64, q uint64) {
+	if len(coeffs) < 16 {
+		inttInPlacePow2Ref(coeffs, twInv, twInvS, q)
+		return
+	}
+	inttInPlacePow2Unroll(coeffs, twInv, twInvS, q)
+}
+
 // invButterflyPow2NoCmp returns the inverse Harvey butterfly without reduction.
 func invButterflyPow2NoCmp(u, v, w, wS, q, twoQ uint64) (uint64, uint64) {
 	u, v = u+v, u-v+twoQ
@@ -64,15 +73,6 @@ func invButterflyPow2(u, v, w, wS, q, twoQ uint64) (uint64, uint64) {
 	}
 	quo, _ := bits.Mul64(v, wS)
 	return u, v*w - quo*q
-}
-
-// inttInPlacePow2 computes the inverse NTT transform in-place for power-of-two length coefficients.
-func inttInPlacePow2(coeffs, twInv, twInvS []uint64, q uint64) {
-	if len(coeffs) < 16 {
-		inttInPlacePow2Ref(coeffs, twInv, twInvS, q)
-		return
-	}
-	inttInPlacePow2Unroll(coeffs, twInv, twInvS, q)
 }
 
 // inttInPlacePow2Ref computes the inverse NTT transform in-place for power-of-two length coefficients.

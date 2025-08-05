@@ -6,6 +6,7 @@ import (
 
 	"github.com/hienaa-org/hienaa/math/csprng"
 	"github.com/hienaa-org/hienaa/math/dft"
+	"github.com/hienaa-org/hienaa/math/internal/dftops"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
 	"github.com/stretchr/testify/assert"
@@ -122,7 +123,7 @@ func TestCyclotomicNTT(t *testing.T) {
 		p1Ref := append(p1, make([]uint64, (2*N-1)-len(p1))...)
 		pOutRef := cyclicMul(p0Ref, p1Ref, q)
 
-		cycloSigned := dft.CyclotomicPolynomial(ringParams.CycloOrder())
+		cycloSigned := dftops.CyclotomicPolynomial(ringParams.CycloOrder())
 		cyclo := make([]uint64, len(cycloSigned))
 		for i := range cycloSigned {
 			if cycloSigned[i] < 0 {

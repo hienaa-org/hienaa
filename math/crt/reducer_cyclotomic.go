@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/hienaa-org/hienaa/math/dft"
+	"github.com/hienaa-org/hienaa/math/internal/dftops"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
 )
@@ -89,7 +90,7 @@ func newCyclotomicReducerAnyModulus(params dft.RingParameters, mod *num.Modulus)
 		}
 
 		cycloPoly = make([][]uint64, lenAmbMod)
-		cycloPolySigned := dft.CyclotomicPolynomial(params.CycloOrder())
+		cycloPolySigned := dftops.CyclotomicPolynomial(params.CycloOrder())
 		for i := range cycloPoly {
 			cycloPoly[i] = make([]uint64, degNext)
 			for j := range cycloPolySigned {

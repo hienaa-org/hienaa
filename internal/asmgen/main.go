@@ -1,5 +1,5 @@
 //go:generate go run . -vec -out ../../math/vec/asm_mod_amd64.s -stubs ../../math/vec/asm_mod_stub_amd64.go -pkg=vec
-//go:generate go run . -ntt -out ../../math/dft/asm_ntt_pow2.s -stubs ../../math/dft/asm_ntt_pow2_stub_amd64.go -pkg=dft
+//go:generate go run . -ntt -out ../../math/internal/dftops/asm_ntt_pow2.s -stubs ../../math/internal/dftops/asm_ntt_pow2_stub_amd64.go -pkg=dftops
 package main
 
 import (

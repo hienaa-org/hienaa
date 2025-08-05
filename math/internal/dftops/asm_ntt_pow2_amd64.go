@@ -1,6 +1,6 @@
 //go:build amd64 && !purego
 
-package dft
+package dftops
 
 import (
 	"unsafe"

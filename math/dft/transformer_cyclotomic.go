@@ -1,6 +1,7 @@
 package dft
 
 import (
+	"github.com/hienaa-org/hienaa/math/internal/dftops"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
 )
@@ -61,12 +62,12 @@ func newCyclotomicPow2Transformer(ringParams RingParameters, mod *num.Modulus) *
 }
 
 func (ntt *cyclotomicPow2Transformer) ForwardInPlace(coeffs []uint64) {
-	nttInPlacePow2(coeffs, ntt.tw, ntt.twS, ntt.mod.Value())
+	dftops.NTTInPlacePow2(coeffs, ntt.tw, ntt.twS, ntt.mod.Value())
 	vec.MFormTo(coeffs, coeffs, ntt.mod)
 }
 
 func (ntt *cyclotomicPow2Transformer) InverseInPlace(coeffs []uint64) {
-	inttInPlacePow2(coeffs, ntt.twInv, ntt.twInvS, ntt.mod.Value())
+	dftops.INTTInPlacePow2(coeffs, ntt.twInv, ntt.twInvS, ntt.mod.Value())
 	vec.ScalarMulTo(coeffs, coeffs, ntt.rankInv, ntt.mod)
 }
 
@@ -88,7 +89,7 @@ type cyclotomicAnyTransformer struct {
 	mod    *num.Modulus
 
 	ambNTT  *cyclicBluesteinTransformer
-	reducer *cyclotomicReducerNTTModulus
+	reducer *dftops.CyclotomicReducerNTTModulus
 
 	// idx is the CRT mapping index.
 	idx []uint64
@@ -133,7 +134,7 @@ func newCyclotomicAnyTransformer(ringParams RingParameters, mod *num.Modulus) *c
 		mod:    mod,
 
 		ambNTT:  newCyclicBluesteinTransformer(NewCyclicParameters(ringParams.cycloOrd), mod),
-		reducer: newCyclotomicReducerNTTModulus(ringParams, mod),
+		reducer: dftops.NewCyclotomicReducerNTTModulus(ringParams.cycloOrd, ringParams.rank, mod),
 
 		idx: idx,
 
@@ -160,7 +161,7 @@ func (ntt *cyclotomicAnyTransformer) InverseInPlace(coeffs []uint64) {
 
 	ntt.ambNTT.InverseInPlace(ntt.buf.coeffs)
 
-	ntt.reducer.reduceTo(ntt.buf.coeffs, ntt.buf.coeffs)
+	ntt.reducer.ReduceTo(ntt.buf.coeffs, ntt.buf.coeffs)
 	copy(coeffs, ntt.buf.coeffs)
 }
 
@@ -179,7 +180,7 @@ func (ntt *cyclotomicAnyTransformer) SafeCopy() Transformer {
 		mod:    ntt.mod,
 
 		ambNTT:  ambNTTCopy,
-		reducer: ntt.reducer.safeCopy(),
+		reducer: ntt.reducer.SafeCopy(),
 
 		idx: ntt.idx,
 

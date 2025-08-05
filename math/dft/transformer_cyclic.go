@@ -3,6 +3,7 @@ package dft
 import (
 	"slices"
 
+	"github.com/hienaa-org/hienaa/math/internal/dftops"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
 )
@@ -52,7 +53,15 @@ type cyclicPow235Transformer struct {
 
 // newCyclicPow235Transformer creates a new [cyclicNativeTransformer].
 func newCyclicPow235Transformer(params RingParameters, mod *num.Modulus) *cyclicPow235Transformer {
-	rankFactors := factorCyclicRank(params.rank, cyclicNTTFactors)
+	rankFactors := make([]int, len(cyclicNTTFactors))
+	rank := params.rank
+	for i, f := range cyclicNTTFactors {
+		rankFactors[i] = 1
+		for rank%int(f) == 0 {
+			rank /= int(f)
+			rankFactors[i] *= int(f)
+		}
+	}
 
 	root := num.Generators(mod)
 
@@ -125,7 +134,7 @@ func (ntt *cyclicPow235Transformer) ForwardInPlace(coeffs []uint64) {
 
 	if ntt.rankFactors[0] > 1 {
 		for i := 0; i < ntt.params.rank; i += ntt.rankFactors[0] {
-			nttInPlacePow2(coeffs[i:i+ntt.rankFactors[0]], ntt.tw[0], ntt.twS[0], ntt.mod.Value())
+			dftops.NTTInPlacePow2(coeffs[i:i+ntt.rankFactors[0]], ntt.tw[0], ntt.twS[0], ntt.mod.Value())
 		}
 	}
 
@@ -145,7 +154,7 @@ func (ntt *cyclicPow235Transformer) ForwardInPlace(coeffs []uint64) {
 func (ntt *cyclicPow235Transformer) InverseInPlace(coeffs []uint64) {
 	if ntt.rankFactors[0] > 1 {
 		for i := 0; i < ntt.params.rank; i += ntt.rankFactors[0] {
-			inttInPlacePow2(coeffs[i:i+ntt.rankFactors[0]], ntt.twInv[0], ntt.twInvS[0], ntt.mod.Value())
+			dftops.INTTInPlacePow2(coeffs[i:i+ntt.rankFactors[0]], ntt.twInv[0], ntt.twInvS[0], ntt.mod.Value())
 		}
 	}
 
@@ -249,7 +258,7 @@ func newCyclicBluesteinTransformer(params RingParameters, mod *num.Modulus) *cyc
 	slices.Reverse(chirpM[ambRank-params.rank+1:])
 
 	vec.ScalarMulTo(chirpM, chirpM, num.Inv(uint64(ambRank), mod), mod)
-	nttInPlacePow2(chirpM, ambNTT.tw[0], ambNTT.twS[0], mod.Value())
+	dftops.NTTInPlacePow2(chirpM, ambNTT.tw[0], ambNTT.twS[0], mod.Value())
 	vec.MFormTo(chirpM, chirpM, mod)
 
 	chirpInv := make([]uint64, ambRank)
@@ -258,7 +267,7 @@ func newCyclicBluesteinTransformer(params RingParameters, mod *num.Modulus) *cyc
 	slices.Reverse(chirpInv[ambRank-params.rank+1:])
 
 	vec.ScalarMulTo(chirpInv, chirpInv, num.Inv(uint64(ambRank*params.rank), mod), mod)
-	nttInPlacePow2(chirpInv, ambNTT.tw[0], ambNTT.twS[0], mod.Value())
+	dftops.NTTInPlacePow2(chirpInv, ambNTT.tw[0], ambNTT.twS[0], mod.Value())
 	vec.ReduceTo(chirpInv, chirpInv, mod)
 
 	return &cyclicBluesteinTransformer{
@@ -282,11 +291,11 @@ func (ntt *cyclicBluesteinTransformer) ForwardInPlace(coeffs []uint64) {
 	vec.SMulTo(ntt.buf.coeffs[:ntt.params.rank], coeffs, ntt.z, ntt.zS, ntt.mod)
 	clear(ntt.buf.coeffs[ntt.params.rank:])
 
-	nttInPlacePow2(ntt.buf.coeffs, ntt.tw[0], ntt.twS[0], ntt.mod.Value())
+	dftops.NTTInPlacePow2(ntt.buf.coeffs, ntt.tw[0], ntt.twS[0], ntt.mod.Value())
 
 	vec.SMulTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.chirpM, ntt.chirpMS, ntt.mod)
 
-	inttInPlacePow2(ntt.buf.coeffs, ntt.twInv[0], ntt.twInvS[0], ntt.mod.Value())
+	dftops.INTTInPlacePow2(ntt.buf.coeffs, ntt.twInv[0], ntt.twInvS[0], ntt.mod.Value())
 
 	vec.SMulTo(coeffs, ntt.buf.coeffs[:ntt.params.rank], ntt.z, ntt.zS, ntt.mod)
 }
@@ -295,11 +304,11 @@ func (ntt *cyclicBluesteinTransformer) InverseInPlace(coeffs []uint64) {
 	vec.SMulTo(ntt.buf.coeffs[:ntt.params.rank], coeffs, ntt.zInv, ntt.zInvS, ntt.mod)
 	clear(ntt.buf.coeffs[ntt.params.rank:])
 
-	nttInPlacePow2(ntt.buf.coeffs, ntt.tw[0], ntt.twS[0], ntt.mod.Value())
+	dftops.NTTInPlacePow2(ntt.buf.coeffs, ntt.tw[0], ntt.twS[0], ntt.mod.Value())
 
 	vec.MMulTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.chirpInv, ntt.mod)
 
-	inttInPlacePow2(ntt.buf.coeffs, ntt.twInv[0], ntt.twInvS[0], ntt.mod.Value())
+	dftops.INTTInPlacePow2(ntt.buf.coeffs, ntt.twInv[0], ntt.twInvS[0], ntt.mod.Value())
 
 	vec.SMulTo(coeffs, ntt.buf.coeffs[:ntt.params.rank], ntt.zInv, ntt.zInvS, ntt.mod)
 }

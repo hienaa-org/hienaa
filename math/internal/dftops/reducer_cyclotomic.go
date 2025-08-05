@@ -1,4 +1,4 @@
-package dft
+package dftops
 
 import (
 	"math"
@@ -7,13 +7,14 @@ import (
 	"github.com/hienaa-org/hienaa/math/vec"
 )
 
-// cyclotomicReducerNTTModulus reduces a polynomial modulo a cyclotomic polynomial.
+// CyclotomicReducerNTTModulus reduces a polynomial modulo a cyclotomic polynomial.
 // In other words, it computes a(X) mod \Phi_m(X), where a(X) is at most degree m-1.
 // It uses Optimised Barrett reduction for polynomial, from https://eprint.iacr.org/2017/748.
 // In this implementation, Q_sp = (X^m-1)/(X^(m/p)-1) for the smallest prime factor p.
-type cyclotomicReducerNTTModulus struct {
-	params RingParameters
-	mod    *num.Modulus
+type CyclotomicReducerNTTModulus struct {
+	cycloOrd int
+	rank     int
+	mod      *num.Modulus
 
 	// leastFac is the smallest prime factor of the cyclotomic polynomial.
 	leastFac int
@@ -30,9 +31,9 @@ type cyclotomicReducerNTTModulus struct {
 	degNext int
 
 	// diffDegNextNTT is the NTT transformer for degree diffDegNext.
-	diffDegNextNTT Transformer
+	diffDegNextNTT *CyclicPow2Transformer
 	// degNextNTT is the NTT transformer for degree degNext.
-	degNextNTT Transformer
+	degNextNTT *CyclicPow2Transformer
 
 	// cycloPoly is the cyclotomic polynomial modulo the modulus.
 	cycloPoly []uint64
@@ -54,25 +55,23 @@ type reducerBuffer struct {
 }
 
 // newCyclotomicReducerNTTModulus creates a new [cyclotomicReducerNTTModulus].
-func newCyclotomicReducerNTTModulus(params RingParameters, mod *num.Modulus) *cyclotomicReducerNTTModulus {
-	cycloOrd, rank := uint64(params.CycloOrder()), uint64(params.Rank())
+func NewCyclotomicReducerNTTModulus(cycloOrd, rank int, mod *num.Modulus) *CyclotomicReducerNTTModulus {
+	primes, _ := num.Factor(uint64(cycloOrd))
 
-	var redDeg, leastFactor uint64
+	var redDeg, leastFactor int
 	if cycloOrd&1 == 1 {
-		primes, _ := num.Factor(cycloOrd)
 		leastFactor = cycloOrd
 		for _, p := range primes {
-			if p < leastFactor {
-				leastFactor = p
+			if int(p) < leastFactor {
+				leastFactor = int(p)
 			}
 		}
 		redDeg = cycloOrd - cycloOrd/leastFactor
 	} else {
-		primes, _ := num.Factor(cycloOrd)
 		leastFactor = cycloOrd
 		for _, p := range primes {
-			if p < leastFactor && p > 2 {
-				leastFactor = p
+			if int(p) < leastFactor && p > 2 {
+				leastFactor = int(p)
 			}
 		}
 		redDeg = cycloOrd/2 - cycloOrd/2/leastFactor
@@ -80,23 +79,20 @@ func newCyclotomicReducerNTTModulus(params RingParameters, mod *num.Modulus) *cy
 
 	isPrimePower := redDeg == rank
 
-	var diffDeg, diffDegNext, degNext uint64
-	var diffDegNextNTT, degNextNTT Transformer
+	var diffDeg, diffDegNext, degNext int
+	var diffDegNextNTT, degNextNTT *CyclicPow2Transformer
 	var cycloPoly, quoPoly []uint64
 
 	if !isPrimePower {
-		degNext = num.NextProdPower(uint64(rank), []uint64{2})
+		degNext = int(num.NextProdPower(uint64(rank), []uint64{2}))
 		diffDeg = redDeg - rank
-		diffDegNext = num.NextProdPower(2*diffDeg+1, []uint64{2})
+		diffDegNext = int(num.NextProdPower(2*uint64(diffDeg)+1, []uint64{2}))
 
-		degNextParams := RingParameters{0, int(degNext), Cyclic}
-		degNextNTT = newCyclicPow235Transformer(degNextParams, mod)
-
-		diffDegNextParams := RingParameters{0, int(diffDegNext), Cyclic}
-		diffDegNextNTT = newCyclicPow235Transformer(diffDegNextParams, mod)
+		degNextNTT = NewCyclicPow2Transformer(int(degNext), mod)
+		diffDegNextNTT := NewCyclicPow2Transformer(int(diffDegNext), mod)
 
 		cycloPoly = make([]uint64, degNext)
-		cycloPolySigned := CyclotomicPolynomial(params.cycloOrd)
+		cycloPolySigned := CyclotomicPolynomial(int(cycloOrd))
 		for i := range cycloPolySigned {
 			cycloPoly[i] = reduceInt(cycloPolySigned[i], mod)
 		}
@@ -109,9 +105,10 @@ func newCyclotomicReducerNTTModulus(params RingParameters, mod *num.Modulus) *cy
 		diffDegNextNTT.ForwardInPlace(quoPoly)
 	}
 
-	return &cyclotomicReducerNTTModulus{
-		params: params,
-		mod:    mod,
+	return &CyclotomicReducerNTTModulus{
+		cycloOrd: cycloOrd,
+		rank:     rank,
+		mod:      mod,
 
 		leastFac:   int(leastFactor),
 		isPrimePow: isPrimePower,
@@ -140,11 +137,11 @@ func newReducerBuffer(in, quo, rem int) reducerBuffer {
 	}
 }
 
-func (r *cyclotomicReducerNTTModulus) reduceTo(pOut, p []uint64) {
+func (r *CyclotomicReducerNTTModulus) ReduceTo(pOut, p []uint64) {
 	copy(r.buf.pIn, p)
 
-	cycloOrd := r.params.cycloOrd
-	rank := r.params.rank
+	cycloOrd := int(r.cycloOrd)
+	rank := int(r.rank)
 
 	if cycloOrd&1 == 1 {
 		skip := cycloOrd / r.leastFac
@@ -155,7 +152,7 @@ func (r *cyclotomicReducerNTTModulus) reduceTo(pOut, p []uint64) {
 			r.buf.pIn[cycloOrd-skip+j] = 0
 		}
 	} else {
-		skip := cycloOrd / 2 / r.leastFac
+		skip := (cycloOrd / 2) / r.leastFac
 
 		for i := 0; i < cycloOrd/2; i++ {
 			r.buf.pIn[i] = num.Sub(r.buf.pIn[i], r.buf.pIn[cycloOrd/2+i], r.mod)
@@ -227,20 +224,18 @@ func (r *cyclotomicReducerNTTModulus) reduceTo(pOut, p []uint64) {
 	}
 }
 
-func (r *cyclotomicReducerNTTModulus) safeCopy() *cyclotomicReducerNTTModulus {
-	var diffDegNextNTT, degNextNTT Transformer
+func (r *CyclotomicReducerNTTModulus) SafeCopy() *CyclotomicReducerNTTModulus {
 	var buf reducerBuffer
 	if !r.isPrimePow {
-		diffDegNextNTT = r.diffDegNextNTT.SafeCopy()
-		degNextNTT = r.degNextNTT.SafeCopy()
-		buf = newReducerBuffer(r.params.cycloOrd, r.diffDegNext, r.degNext)
+		buf = newReducerBuffer(int(r.cycloOrd), r.diffDegNext, r.degNext)
 	} else {
-		buf = newReducerBuffer(r.params.cycloOrd, 0, 0)
+		buf = newReducerBuffer(int(r.cycloOrd), 0, 0)
 	}
 
-	return &cyclotomicReducerNTTModulus{
-		params: r.params,
-		mod:    r.mod,
+	return &CyclotomicReducerNTTModulus{
+		cycloOrd: r.cycloOrd,
+		rank:     r.rank,
+		mod:      r.mod,
 
 		leastFac:   r.leastFac,
 		isPrimePow: r.isPrimePow,
@@ -250,8 +245,8 @@ func (r *cyclotomicReducerNTTModulus) safeCopy() *cyclotomicReducerNTTModulus {
 		diffDegNext: r.diffDegNext,
 		degNext:     r.degNext,
 
-		diffDegNextNTT: diffDegNextNTT,
-		degNextNTT:     degNextNTT,
+		diffDegNextNTT: r.diffDegNextNTT,
+		degNextNTT:     r.degNextNTT,
 
 		cycloPoly: r.cycloPoly,
 		quoPoly:   r.quoPoly,

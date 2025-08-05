@@ -1,4 +1,4 @@
-package dft
+package dftops
 
 import (
 	"github.com/hienaa-org/hienaa/math/num"

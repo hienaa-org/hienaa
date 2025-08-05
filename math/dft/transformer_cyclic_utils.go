@@ -5,19 +5,6 @@ import (
 	"github.com/hienaa-org/hienaa/math/vec"
 )
 
-// factorCyclicRank factors the rank of a native cyclic NTT.
-func factorCyclicRank(rank int, factors []uint64) []int {
-	ranks := make([]int, len(factors))
-	for i, f := range factors {
-		ranks[i] = 1
-		for rank%int(f) == 0 {
-			rank /= int(f)
-			ranks[i] *= int(f)
-		}
-	}
-	return ranks
-}
-
 // cyclicTwiddleFactor computes the (inverse) twiddle factor for Cyclic (Inv)NTT.
 func cyclicTwiddleFactor(rank, radix int, root []uint64, mod *num.Modulus) (tw, twInv []uint64) {
 	if rank == 1 {
