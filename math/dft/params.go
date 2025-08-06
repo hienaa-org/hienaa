@@ -34,8 +34,8 @@ type RingParameters struct {
 
 // NewCyclotomicParameters creates a new [RingParameters] for a cyclotomic ring.
 func NewCyclotomicParameters(cycloOrd int) RingParameters {
-	if cycloOrd < 4 {
-		panic("NewCyclotomicParameters: cycloOrder must be larger or equal than 4")
+	if cycloOrd < 1 {
+		panic("NewCyclotomicParameters: cycloOrder must be larger or equal than 1")
 	}
 
 	return RingParameters{
@@ -47,14 +47,35 @@ func NewCyclotomicParameters(cycloOrd int) RingParameters {
 
 // NewCyclicParameters creates a new [RingParameters] for a cyclic ring.
 func NewCyclicParameters(rank int) RingParameters {
-	if rank < 2 {
-		panic("NewCyclicParameters: rank must be larger or equal than 2")
+	if rank < 1 {
+		panic("NewCyclicParameters: rank must be larger or equal than 1")
 	}
 
 	return RingParameters{
 		cycloOrd: 0,
 		rank:     rank,
 		ringType: Cyclic,
+	}
+}
+
+// NewAutFixedParameters creates a new [RingParameters] for an AutFixed ring.
+func NewAutFixedParameters(cycloOrd, rank int) RingParameters {
+	if !num.IsPrime(uint64(cycloOrd)) {
+		panic("NewAutFixedParameters: cycloOrd must be a prime")
+	}
+
+	if (cycloOrd-1)%rank != 0 {
+		panic("NewAutFixedParameters: rank should divide cycloOrd-1")
+	}
+
+	if rank < 1 {
+		panic("NewAutFixedParameters: rank must be larger or equal than 1")
+	}
+
+	return RingParameters{
+		cycloOrd: cycloOrd,
+		rank:     rank,
+		ringType: AutFixed,
 	}
 }
 
@@ -122,7 +143,7 @@ func cyclicGap(rank uint64) uint64 {
 func autFixedGap(cycloOrd, rank uint64) uint64 {
 	var gap uint64
 
-	if num.IsProdPowerOf(rank, cyclicNTTFactors) {
+	if num.IsProdPowerOf(rank, []uint64{2}) {
 		gap = num.LCM(cycloOrd, rank)
 	} else {
 		gap = num.LCM(num.NextProdPower(2*rank-1, []uint64{2}), cycloOrd)
@@ -196,7 +217,7 @@ func FindPrevNTTPrimes(ringParams RingParameters, bits float64, cnt int) []*num.
 	prime := num.PrevPrime(start, gap)
 	for i := 0; i < cnt; i++ {
 		primes[i] = num.NewModulus(prime)
-		prime = num.NextPrime(prime, gap)
+		prime = num.PrevPrime(prime, gap)
 	}
 	return primes
 }

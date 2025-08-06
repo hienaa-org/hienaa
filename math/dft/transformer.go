@@ -38,6 +38,12 @@ func NewTransformer(ringParams RingParameters, mod *num.Modulus) Transformer {
 			return newCyclicBluesteinTransformer(ringParams, mod)
 		}
 	case AutFixed:
+		switch {
+		case num.IsPrime(uint64(ringParams.cycloOrd)):
+			return newAutFixedPrimeTransformer(ringParams, mod)
+			// case num.IsPowerOfTwo(uint64(ringParams.cycloOrd)):
+			// 	return newAutFixedPow2Transformer(ringParams, mod)
+		}
 	}
 
 	panic("NewTransformer: unsupported ring type or parameters")

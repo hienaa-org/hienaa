@@ -22,7 +22,9 @@ func IsPrime(x uint64) bool {
 	}
 
 	for _, p := range smallPrimes {
-		if x%p == 0 {
+		if x == p {
+			return true
+		} else if x%p == 0 {
 			return false
 		}
 	}

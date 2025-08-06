@@ -80,6 +80,74 @@ func AddLazyTo(vOut, v0, v1 []uint64) {
 	}
 }
 
+// AddScalarTo computes vOut = v + c mod q.
+func AddScalarTo(vOut []uint64, v []uint64, c uint64, q *num.Modulus) {
+	switch {
+	case cpu.X86.HasAVX512F:
+		addScalarToAVX512(vOut, v, c, q.Value())
+		return
+	case cpu.X86.HasAVX2:
+		addScalarToAVX2(vOut, v, c, q.Value())
+		return
+	}
+
+	M := (len(vOut) >> 3) << 3
+
+	qv := q.Value()
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
+		w := (*[8]uint64)(unsafe.Pointer(&v[i]))
+
+		wOut[0] = modops.Add(w[0], c, qv)
+		wOut[1] = modops.Add(w[1], c, qv)
+		wOut[2] = modops.Add(w[2], c, qv)
+		wOut[3] = modops.Add(w[3], c, qv)
+
+		wOut[4] = modops.Add(w[4], c, qv)
+		wOut[5] = modops.Add(w[5], c, qv)
+		wOut[6] = modops.Add(w[6], c, qv)
+		wOut[7] = modops.Add(w[7], c, qv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.Add(v[i], c, qv)
+	}
+}
+
+// AddScalarLazyTo computes vOut = v + c.
+func AddScalarLazyTo(vOut, v []uint64, c uint64) {
+	switch {
+	case cpu.X86.HasAVX512F:
+		addScalarLazyToAVX512(vOut, v, c)
+		return
+	case cpu.X86.HasAVX2:
+		addScalarLazyToAVX2(vOut, v, c)
+		return
+	}
+
+	M := (len(vOut) >> 3) << 3
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
+		w := (*[8]uint64)(unsafe.Pointer(&v[i]))
+
+		wOut[0] = w[0] + c
+		wOut[1] = w[1] + c
+		wOut[2] = w[2] + c
+		wOut[3] = w[3] + c
+
+		wOut[4] = w[4] + c
+		wOut[5] = w[5] + c
+		wOut[6] = w[6] + c
+		wOut[7] = w[7] + c
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = v[i] + c
+	}
+}
+
 // SubTo computes vOut = v0 - v1 mod q.
 func SubTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 	switch {
@@ -147,5 +215,73 @@ func SubLazyTo(vOut, v0, v1 []uint64) {
 
 	for i := M; i < len(vOut); i++ {
 		vOut[i] = v0[i] - v1[i]
+	}
+}
+
+// SubScalarTo computes vOut = v - c mod q.
+func SubScalarTo(vOut []uint64, v []uint64, c uint64, q *num.Modulus) {
+	switch {
+	case cpu.X86.HasAVX512F:
+		subScalarToAVX512(vOut, v, c, q.Value())
+		return
+	case cpu.X86.HasAVX2:
+		subScalarToAVX2(vOut, v, c, q.Value())
+		return
+	}
+
+	M := (len(vOut) >> 3) << 3
+
+	qv := q.Value()
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
+		w := (*[8]uint64)(unsafe.Pointer(&v[i]))
+
+		wOut[0] = modops.Sub(w[0], c, qv)
+		wOut[1] = modops.Sub(w[1], c, qv)
+		wOut[2] = modops.Sub(w[2], c, qv)
+		wOut[3] = modops.Sub(w[3], c, qv)
+
+		wOut[4] = modops.Sub(w[4], c, qv)
+		wOut[5] = modops.Sub(w[5], c, qv)
+		wOut[6] = modops.Sub(w[6], c, qv)
+		wOut[7] = modops.Sub(w[7], c, qv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.Sub(v[i], c, qv)
+	}
+}
+
+// SubScalarLazyTo computes vOut = v - c.
+func SubScalarLazyTo(vOut, v []uint64, c uint64) {
+	switch {
+	case cpu.X86.HasAVX512F:
+		subScalarLazyToAVX512(vOut, v, c)
+		return
+	case cpu.X86.HasAVX2:
+		subScalarLazyToAVX2(vOut, v, c)
+		return
+	}
+
+	M := (len(vOut) >> 3) << 3
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
+		w := (*[8]uint64)(unsafe.Pointer(&v[i]))
+
+		wOut[0] = w[0] - c
+		wOut[1] = w[1] - c
+		wOut[2] = w[2] - c
+		wOut[3] = w[3] - c
+
+		wOut[4] = w[4] - c
+		wOut[5] = w[5] - c
+		wOut[6] = w[6] - c
+		wOut[7] = w[7] - c
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = v[i] - c
 	}
 }
