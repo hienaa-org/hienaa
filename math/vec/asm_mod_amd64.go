@@ -80,14 +80,14 @@ func AddLazyTo(vOut, v0, v1 []uint64) {
 	}
 }
 
-// AddScalarTo computes vOut = v + c mod q.
-func AddScalarTo(vOut []uint64, v []uint64, c uint64, q *num.Modulus) {
+// ScalarAddTo computes vOut = v + c mod q.
+func ScalarAddTo(vOut []uint64, v []uint64, c uint64, q *num.Modulus) {
 	switch {
 	case cpu.X86.HasAVX512F:
-		addScalarToAVX512(vOut, v, c, q.Value())
+		scalarAddToAVX512(vOut, v, c, q.Value())
 		return
 	case cpu.X86.HasAVX2:
-		addScalarToAVX2(vOut, v, c, q.Value())
+		scalarAddToAVX2(vOut, v, c, q.Value())
 		return
 	}
 
@@ -115,14 +115,14 @@ func AddScalarTo(vOut []uint64, v []uint64, c uint64, q *num.Modulus) {
 	}
 }
 
-// AddScalarLazyTo computes vOut = v + c.
-func AddScalarLazyTo(vOut, v []uint64, c uint64) {
+// ScalarAddLazyTo computes vOut = v + c.
+func ScalarAddLazyTo(vOut, v []uint64, c uint64) {
 	switch {
 	case cpu.X86.HasAVX512F:
-		addScalarLazyToAVX512(vOut, v, c)
+		scalarAddLazyToAVX512(vOut, v, c)
 		return
 	case cpu.X86.HasAVX2:
-		addScalarLazyToAVX2(vOut, v, c)
+		scalarAddLazyToAVX2(vOut, v, c)
 		return
 	}
 
@@ -218,14 +218,14 @@ func SubLazyTo(vOut, v0, v1 []uint64) {
 	}
 }
 
-// SubScalarTo computes vOut = v - c mod q.
-func SubScalarTo(vOut []uint64, v []uint64, c uint64, q *num.Modulus) {
+// ScalarSubTo computes vOut = v - c mod q.
+func ScalarSubTo(vOut []uint64, v []uint64, c uint64, q *num.Modulus) {
 	switch {
 	case cpu.X86.HasAVX512F:
-		subScalarToAVX512(vOut, v, c, q.Value())
+		scalarSubToAVX512(vOut, v, c, q.Value())
 		return
 	case cpu.X86.HasAVX2:
-		subScalarToAVX2(vOut, v, c, q.Value())
+		scalarSubToAVX2(vOut, v, c, q.Value())
 		return
 	}
 
@@ -253,14 +253,14 @@ func SubScalarTo(vOut []uint64, v []uint64, c uint64, q *num.Modulus) {
 	}
 }
 
-// SubScalarLazyTo computes vOut = v - c.
-func SubScalarLazyTo(vOut, v []uint64, c uint64) {
+// ScalarSubLazyTo computes vOut = v - c.
+func ScalarSubLazyTo(vOut, v []uint64, c uint64) {
 	switch {
 	case cpu.X86.HasAVX512F:
-		subScalarLazyToAVX512(vOut, v, c)
+		scalarSubLazyToAVX512(vOut, v, c)
 		return
 	case cpu.X86.HasAVX2:
-		subScalarLazyToAVX2(vOut, v, c)
+		scalarSubLazyToAVX2(vOut, v, c)
 		return
 	}
 

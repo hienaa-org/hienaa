@@ -76,8 +76,6 @@ func newAutFixedPrimeTransformer(ringParams RingParameters, mod *num.Modulus) *a
 	ambNTT.ForwardInPlace(modRootPowSum)
 	ambNTT.ForwardInPlace(modRootPowInvSum)
 
-	buf := newTransformerBuffer(convLen)
-
 	return &autFixedPrimeTransformer{
 		params: ringParams,
 		mod:    mod,
@@ -91,7 +89,7 @@ func newAutFixedPrimeTransformer(ringParams RingParameters, mod *num.Modulus) *a
 		ambRankInv:  ambRankInv,
 		cycloOrdInv: num.Inv(cycloOrd, mod),
 
-		buf: buf,
+		buf: newTransformerBuffer(convLen),
 	}
 }
 
@@ -113,8 +111,8 @@ func (ntt *autFixedPrimeTransformer) ForwardInPlace(coeffs []uint64) {
 
 	ntt.ambNTT.ForwardInPlace(ntt.buf.coeffs)
 	vec.MMulLazyTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.root, ntt.mod)
-	dftops.INTTInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.TwInv, ntt.ambNTT.TwInvS, ntt.mod.Value())
-	vec.ScalarMMulTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.ambRankInv, ntt.mod)
+	ntt.ambNTT.InverseInPlace(ntt.buf.coeffs)
+	vec.ScalarMulTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.ambRankInv, ntt.mod)
 
 	if num.IsPowerOfTwo(uint64(ntt.params.rank)) {
 		copy(coeffs, ntt.buf.coeffs)
@@ -145,11 +143,7 @@ func (ntt *autFixedPrimeTransformer) InverseInPlace(coeffs []uint64) {
 	}
 
 	sumFold = num.Mul(sumFold, ntt.fold, ntt.mod)
-	// vec.SubScalarTo(coeffs, ntt.buf.coeffs[:ntt.params.rank], sumFold, ntt.mod)
-	// vec.ScalarMulTo(coeffs, coeffs, ntt.cycloOrdInv, ntt.mod)
-	for i := 0; i < ntt.params.rank; i++ {
-		coeffs[i] = num.Sub(ntt.buf.coeffs[i], sumFold, ntt.mod)
-	}
+	vec.ScalarSubTo(coeffs, ntt.buf.coeffs[:ntt.params.rank], sumFold, ntt.mod)
 	vec.ScalarMulTo(coeffs, coeffs, ntt.cycloOrdInv, ntt.mod)
 }
 

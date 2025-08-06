@@ -35,11 +35,23 @@ func main() {
 		AddVecToAVX512(false)
 		AddVecToAVX512(true)
 
+		ScalarAddVecToAVX2(false)
+		ScalarAddVecToAVX2(true)
+
+		ScalarAddVecToAVX512(false)
+		ScalarAddVecToAVX512(true)
+
 		SubVecToAVX2(false)
 		SubVecToAVX2(true)
 
 		SubVecToAVX512(false)
 		SubVecToAVX512(true)
+
+		ScalarSubVecToAVX2(false)
+		ScalarSubVecToAVX2(true)
+
+		ScalarSubVecToAVX512(false)
+		ScalarSubVecToAVX512(true)
 	}
 
 	if *ntt {

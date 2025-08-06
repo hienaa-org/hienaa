@@ -17,16 +17,16 @@ func addToAVX512(vOut []uint64, v0 []uint64, v1 []uint64, q uint64)
 func addLazyToAVX512(vOut []uint64, v0 []uint64, v1 []uint64)
 
 //go:noescape
-func addScalarToAVX2(vOut []uint64, v []uint64, c uint64, q uint64)
+func scalarAddToAVX2(vOut []uint64, v []uint64, c uint64, q uint64)
 
 //go:noescape
-func addScalarLazyToAVX2(vOut []uint64, v []uint64, c uint64)
+func scalarAddLazyToAVX2(vOut []uint64, v []uint64, c uint64)
 
 //go:noescape
-func addScalarToAVX512(vOut []uint64, v []uint64, c uint64, q uint64)
+func scalarAddToAVX512(vOut []uint64, v []uint64, c uint64, q uint64)
 
 //go:noescape
-func addScalarLazyToAVX512(vOut []uint64, v []uint64, c uint64)
+func scalarAddLazyToAVX512(vOut []uint64, v []uint64, c uint64)
 
 //go:noescape
 func subToAVX2(vOut []uint64, v0 []uint64, v1 []uint64, q uint64)
@@ -41,13 +41,13 @@ func subToAVX512(vOut []uint64, v0 []uint64, v1 []uint64, q uint64)
 func subLazyToAVX512(vOut []uint64, v0 []uint64, v1 []uint64)
 
 //go:noescape
-func subScalarToAVX2(vOut []uint64, v []uint64, c uint64, q uint64)
+func scalarSubToAVX2(vOut []uint64, v []uint64, c uint64, q uint64)
 
 //go:noescape
-func subScalarLazyToAVX2(vOut []uint64, v []uint64, c uint64)
+func scalarSubLazyToAVX2(vOut []uint64, v []uint64, c uint64)
 
 //go:noescape
-func subScalarToAVX512(vOut []uint64, v []uint64, c uint64, q uint64)
+func scalarSubToAVX512(vOut []uint64, v []uint64, c uint64, q uint64)
 
 //go:noescape
-func subScalarLazyToAVX512(vOut []uint64, v []uint64, c uint64)
+func scalarSubLazyToAVX512(vOut []uint64, v []uint64, c uint64)
