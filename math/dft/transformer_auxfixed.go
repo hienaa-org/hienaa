@@ -10,15 +10,17 @@ type autFixedPrimeTransformer struct {
 	params RingParameters
 	mod    *num.Modulus
 
+	ambNTT *dftops.CyclicPow2Transformer
+
+	// isPow2 is true of the rank is power-of-two.
+	isPow2 bool
+
 	// root is the sum of powers of primitive root.
 	// Pre-transformed for a fast convolution.
 	root []uint64
 	// rootInv is the sum of powers of inverse primitive root.
 	// Pre-transformed for a fast convolution.
 	rootInv []uint64
-
-	// ambNTT is the ambient NTT for the fast convolution between roots and input vector.
-	ambNTT *dftops.CyclicPow2Transformer
 
 	// fold is cyclotomic order divided by rank.
 	fold uint64
@@ -35,22 +37,23 @@ func newAutFixedPrimeTransformer(ringParams RingParameters, mod *num.Modulus) *a
 	rank := uint64(ringParams.rank)
 	fold := int((cycloOrd - 1) / rank)
 
+	isPow2 := num.IsPowerOfTwo(rank)
+
 	cycloOrdMod := num.NewModulus(cycloOrd)
 	cycloRoot := num.Generators(cycloOrdMod)[0]
 	modRoot := num.NthRoot(int(cycloOrd), num.Generators(mod), mod)
 
-	var convLen int
-	if num.IsPowerOfTwo(rank) {
-		convLen = int(rank)
+	var ambRank int
+	if isPow2 {
+		ambRank = int(rank)
 	} else {
-		convLen = int(num.NextProdPower(2*rank-1, []uint64{2}))
+		ambRank = int(num.NextProdPower(2*rank-1, []uint64{2}))
 	}
+	ambNTT := dftops.NewCyclicPow2Transformer(ambRank, mod)
+	ambRankInv := num.MForm(num.Inv(uint64(ambRank), mod), mod)
 
-	ambNTT := dftops.NewCyclicPow2Transformer(convLen, mod)
-	ambRankInv := num.MForm(num.Inv(uint64(convLen), mod), mod)
-
-	modRootPowSum := make([]uint64, convLen)
-	modRootPowInvSum := make([]uint64, convLen)
+	modRootPowSum := make([]uint64, ambRank)
+	modRootPowInvSum := make([]uint64, ambRank)
 
 	cycloRootPowRank := num.Exp(cycloRoot, rank, cycloOrdMod)
 	modRootPow := modRoot
@@ -80,16 +83,18 @@ func newAutFixedPrimeTransformer(ringParams RingParameters, mod *num.Modulus) *a
 		params: ringParams,
 		mod:    mod,
 
+		ambNTT: ambNTT,
+
+		isPow2: isPow2,
+
 		root:    modRootPowSum,
 		rootInv: modRootPowInvSum,
-
-		ambNTT: ambNTT,
 
 		fold:        uint64(fold),
 		ambRankInv:  ambRankInv,
 		cycloOrdInv: num.Inv(cycloOrd, mod),
 
-		buf: newTransformerBuffer(convLen),
+		buf: newTransformerBuffer(ambRank),
 	}
 }
 
@@ -114,7 +119,7 @@ func (ntt *autFixedPrimeTransformer) ForwardInPlace(coeffs []uint64) {
 	ntt.ambNTT.InverseInPlace(ntt.buf.coeffs)
 	vec.ScalarMulTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.ambRankInv, ntt.mod)
 
-	if num.IsPowerOfTwo(uint64(ntt.params.rank)) {
+	if ntt.isPow2 {
 		copy(coeffs, ntt.buf.coeffs)
 	} else {
 		vec.AddTo(coeffs, ntt.buf.coeffs[:ntt.params.rank-1], ntt.buf.coeffs[ntt.params.rank:2*ntt.params.rank-1], ntt.mod)
@@ -138,7 +143,7 @@ func (ntt *autFixedPrimeTransformer) InverseInPlace(coeffs []uint64) {
 	vec.MMulLazyTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.rootInv, ntt.mod)
 	ntt.ambNTT.InverseInPlace(ntt.buf.coeffs)
 
-	if !num.IsPowerOfTwo(uint64(ntt.params.rank)) {
+	if !ntt.isPow2 {
 		vec.AddTo(ntt.buf.coeffs[:ntt.params.rank-1], ntt.buf.coeffs[:ntt.params.rank-1], ntt.buf.coeffs[ntt.params.rank:2*ntt.params.rank-1], ntt.mod)
 	}
 
@@ -152,13 +157,15 @@ func (ntt *autFixedPrimeTransformer) SafeCopy() Transformer {
 		params: ntt.params,
 		mod:    ntt.mod,
 
+		ambNTT: ntt.ambNTT,
+
+		isPow2: ntt.isPow2,
+
 		root:    ntt.root,
 		rootInv: ntt.rootInv,
 
-		ambNTT: ntt.ambNTT,
-
 		cycloOrdInv: ntt.cycloOrdInv,
 
-		buf: ntt.buf,
+		buf: newTransformerBuffer(ntt.ambNTT.Rank),
 	}
 }
