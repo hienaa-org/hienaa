@@ -133,7 +133,7 @@ func TestCyclotomicNTT(t *testing.T) {
 			}
 		}
 
-		assert.Equal(t, reduce(pOutRef, cyclo, q)[:ringParams.Rank()], pOut)
+		assert.Equal(t, reduce(pOutRef, cyclo, q)[:N], pOut)
 	})
 }
 
@@ -197,7 +197,7 @@ func TestCyclicNTT(t *testing.T) {
 
 func TestAutFixedNTT(t *testing.T) {
 	t.Run("type=Pow2", func(t *testing.T) {
-		N := int(num.NextProdPower(rSrc.SampleN(1<<12), []uint64{2}))
+		N := 1 << 12
 		ringParams := dft.NewAutFixedParameters(N<<2, N)
 		qs := dft.FindNearestNTTPrimes(ringParams, 30, 2)
 		q := num.NewModulus(qs[0].Value() * qs[1].Value())
@@ -234,8 +234,8 @@ func TestAutFixedNTT(t *testing.T) {
 	})
 
 	t.Run("type=Prime", func(t *testing.T) {
-		cycloOrd := int(num.NextPrime(rSrc.SampleN(1<<12), 1))
-		primes, exps := num.Factor(uint64(cycloOrd - 1))
+		M := int(num.NextPrime(rSrc.SampleN(1<<12), 1))
+		primes, exps := num.Factor(uint64(M - 1))
 		fold := 1
 		for i := range primes {
 			e := rSrc.SampleN(uint64(exps[i]))
@@ -243,25 +243,24 @@ func TestAutFixedNTT(t *testing.T) {
 				fold *= int(primes[i])
 			}
 		}
-		N := (cycloOrd - 1) / fold
+		N := (M - 1) / fold
 
-		ringParams := dft.NewAutFixedParameters(cycloOrd, N)
+		ringParams := dft.NewAutFixedParameters(M, N)
 		q := dft.FindPrevNTTPrimes(ringParams, 61, 1)[0]
 		ntt := dft.NewTransformer(ringParams, q)
 
 		p0 := randPoly(ringParams, q)
 		p1 := randPoly(ringParams, q)
 
-		p0Long := make([]uint64, cycloOrd)
-		p1Long := make([]uint64, cycloOrd)
+		p0Long := make([]uint64, M)
+		p1Long := make([]uint64, M)
 
-		cycloOrdMod := num.NewModulus(uint64(cycloOrd))
+		cycloOrdMod := num.NewModulus(uint64(M))
 		root := num.Generators(cycloOrdMod)[0]
 		idx := uint64(1)
 		for i := 0; i < fold; i++ {
 			for j := 0; j < N; j++ {
-				p0Long[idx] = p0[j]
-				p1Long[idx] = p1[j]
+				p0Long[idx], p1Long[idx] = p0[j], p1[j]
 				idx = num.Mul(idx, root, cycloOrdMod)
 			}
 		}
@@ -278,20 +277,20 @@ func TestAutFixedNTT(t *testing.T) {
 		vec.MMulTo(pOut, p0NTT, p1NTT, q)
 		ntt.InverseInPlace(pOut)
 
-		pTest := make([]uint64, N)
-		pTestLong := cyclicMul(p0Long, p1Long, q)
-		for i := 1; i < cycloOrd; i++ {
-			pTestLong[i] = num.Sub(pTestLong[i], pTestLong[0], q)
+		pRef := make([]uint64, N)
+		pRefLong := cyclicMul(p0Long, p1Long, q)
+		for i := 1; i < M; i++ {
+			pRefLong[i] = num.Sub(pRefLong[i], pRefLong[0], q)
 		}
-		pTestLong[0] = 0
+		pRefLong[0] = 0
 
 		idx = 1
 		for i := 0; i < N; i++ {
-			pTest[i] = pTestLong[idx]
+			pRef[i] = pRefLong[idx]
 			idx = num.Mul(idx, root, cycloOrdMod)
 		}
 
-		assert.Equal(t, pTest, pOut)
+		assert.Equal(t, pRef, pOut)
 	})
 }
 
@@ -351,6 +350,58 @@ func BenchmarkCyclicNTT(b *testing.B) {
 			N := (1 << logN) + 1
 			ringParams := dft.NewCyclicParameters(N)
 			q := dft.FindNextNTTPrimes(ringParams, 60, 1)[0]
+			ntt := dft.NewTransformer(ringParams, q)
+
+			p := randPoly(ringParams, q)
+
+			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
+				b.Run("NTT", func(b *testing.B) {
+					for i := 0; i < b.N; i++ {
+						ntt.ForwardInPlace(p)
+					}
+				})
+				b.Run("InvNTT", func(b *testing.B) {
+					for i := 0; i < b.N; i++ {
+						ntt.InverseInPlace(p)
+					}
+				})
+			})
+		}
+	})
+}
+
+func BenchmarkAutFixedNTT(b *testing.B) {
+	b.Run("type=Pow2", func(b *testing.B) {
+		for _, logN := range benchLogN {
+			N := 1 << logN
+			ringParams := dft.NewAutFixedParameters(N<<2, N)
+			q := dft.FindNearestNTTPrimes(ringParams, 60, 1)[0]
+			ntt := dft.NewTransformer(ringParams, q)
+
+			p := randPoly(ringParams, q)
+
+			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
+				b.Run("NTT", func(b *testing.B) {
+					for i := 0; i < b.N; i++ {
+						ntt.ForwardInPlace(p)
+					}
+				})
+				b.Run("InvNTT", func(b *testing.B) {
+					for i := 0; i < b.N; i++ {
+						ntt.InverseInPlace(p)
+					}
+				})
+			})
+		}
+	})
+
+	b.Run("type=Prime", func(b *testing.B) {
+		for _, logN := range benchLogN {
+			N := int(rSrc.SampleN(1 << logN))
+			M := int(num.NextPrime(1, uint64(N)))
+
+			ringParams := dft.NewAutFixedParameters(M, N)
+			q := dft.FindNearestNTTPrimes(ringParams, 60, 1)[0]
 			ntt := dft.NewTransformer(ringParams, q)
 
 			p := randPoly(ringParams, q)

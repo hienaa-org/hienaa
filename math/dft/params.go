@@ -64,15 +64,16 @@ func NewAutFixedParameters(cycloOrd, rank int) RingParameters {
 		panic("NewAutFixedParameters: rank must be larger or equal than 1")
 	}
 
-	if num.IsPrime(uint64(cycloOrd)) {
+	switch {
+	case num.IsPrime(uint64(cycloOrd)):
 		if (cycloOrd-1)%rank != 0 {
 			panic("NewAutFixedParameters: rank should divide cycloOrd-1 for prime cycloOrd")
 		}
-	} else if num.IsPowerOfTwo(uint64(cycloOrd)) {
+	case num.IsPowerOfTwo(uint64(cycloOrd)):
 		if cycloOrd != rank<<2 {
 			panic("NewAutFixedParameters: cycloOrd must be four times the rank for power-of-two cycloOrd")
 		}
-	} else {
+	default:
 		panic("NewAutFixedParameters: cycloOrd must be a prime or a power of two")
 	}
 
