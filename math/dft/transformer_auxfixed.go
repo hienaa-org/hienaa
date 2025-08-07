@@ -6,6 +6,117 @@ import (
 	"github.com/hienaa-org/hienaa/math/vec"
 )
 
+type autFixedPow2Transformer struct {
+	params RingParameters
+	mod    *num.Modulus
+
+	// tw is the twiddle factor for NTT.
+	tw []uint64
+	// twInv is the twiddle factor for InvNTT.
+	twInv []uint64
+	// twS is the Shoup form of tw.
+	twS []uint64
+	// twInvS is the Shoup form of twInv.
+	twInvS []uint64
+
+	// rankInv is the modular inverse of the rank.
+	rankInv uint64
+
+	buf transformerBuffer
+}
+
+func newAutFixedPow2Transformer(ringParams RingParameters, mod *num.Modulus) *autFixedPow2Transformer {
+	root := num.Generators(mod)
+
+	twoRank := ringParams.rank << 1
+	twLarge := make([]uint64, twoRank)
+	twInvLarge := make([]uint64, twoRank)
+	twLarge[0], twLarge[1] = 1, num.NthRoot(ringParams.cycloOrd, root, mod)
+	twInvLarge[0], twInvLarge[1] = 1, num.Inv(twLarge[1], mod)
+	for i := 2; i < twoRank; i++ {
+		twLarge[i] = num.Mul(twLarge[i-1], twLarge[1], mod)
+		twInvLarge[i] = num.Mul(twInvLarge[i-1], twInvLarge[1], mod)
+	}
+	vec.RadixReverseInPlace(twLarge, 2)
+	vec.RadixReverseInPlace(twInvLarge, 2)
+
+	tw := make([]uint64, ringParams.rank)
+	twInv := make([]uint64, ringParams.rank)
+
+	tw[0] = twLarge[1]
+	twInv[0] = twInvLarge[1]
+	for m := 1; m <= ringParams.rank/2; m <<= 1 {
+		copy(tw[m:2*m], twLarge[2*m:3*m])
+		copy(twInv[m:2*m], twInvLarge[2*m:3*m])
+	}
+
+	twS := make([]uint64, ringParams.rank)
+	twInvS := make([]uint64, ringParams.rank)
+	for i := 0; i < ringParams.rank; i++ {
+		twS[i] = num.SForm(tw[i], mod)
+		twInvS[i] = num.SForm(twInv[i], mod)
+	}
+
+	return &autFixedPow2Transformer{
+		params: ringParams,
+		mod:    mod,
+
+		tw:     tw,
+		twS:    twS,
+		twInv:  twInv,
+		twInvS: twInvS,
+
+		rankInv: num.InvMForm(num.Inv(uint64(twoRank), mod), mod),
+
+		buf: newTransformerBuffer(ringParams.rank),
+	}
+}
+
+func (ntt *autFixedPow2Transformer) Params() RingParameters {
+	return ntt.params
+}
+
+func (ntt *autFixedPow2Transformer) Modulus() *num.Modulus {
+	return ntt.mod
+}
+
+func (ntt *autFixedPow2Transformer) SafeCopy() Transformer {
+	return &autFixedPow2Transformer{
+		params: ntt.params,
+		mod:    ntt.mod,
+
+		tw:     ntt.tw,
+		twS:    ntt.twS,
+		twInv:  ntt.twInv,
+		twInvS: ntt.twInvS,
+
+		rankInv: ntt.rankInv,
+
+		buf: newTransformerBuffer(ntt.params.rank),
+	}
+}
+
+func (ntt *autFixedPow2Transformer) ForwardInPlace(coeffs []uint64) {
+	ntt.buf.coeffs[0] = coeffs[0]
+	for i := 1; i < ntt.params.rank; i++ {
+		ntt.buf.coeffs[i] = num.Sub(coeffs[i], num.SMul(coeffs[ntt.params.rank-i], ntt.tw[0], ntt.twS[0], ntt.mod), ntt.mod)
+	}
+
+	dftops.NTTInPlacePow2(ntt.buf.coeffs, ntt.tw, ntt.twS, ntt.mod.Value())
+	vec.MFormTo(coeffs, ntt.buf.coeffs, ntt.mod)
+}
+
+func (ntt *autFixedPow2Transformer) InverseInPlace(coeffs []uint64) {
+	dftops.INTTInPlacePow2(coeffs, ntt.twInv, ntt.twInvS, ntt.mod.Value())
+
+	ntt.buf.coeffs[0] = num.Add(coeffs[0], coeffs[0], ntt.mod)
+	for i := 1; i < ntt.params.rank; i++ {
+		ntt.buf.coeffs[i] = num.Add(coeffs[i], num.SMul(coeffs[ntt.params.rank-i], ntt.tw[0], ntt.twS[0], ntt.mod), ntt.mod)
+	}
+
+	vec.ScalarMulTo(coeffs, ntt.buf.coeffs, ntt.rankInv, ntt.mod)
+}
+
 type autFixedPrimeTransformer struct {
 	params RingParameters
 	mod    *num.Modulus
@@ -116,8 +227,8 @@ func (ntt *autFixedPrimeTransformer) ForwardInPlace(coeffs []uint64) {
 
 	ntt.ambNTT.ForwardInPlace(ntt.buf.coeffs)
 	vec.MMulLazyTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.root, ntt.mod)
-	ntt.ambNTT.InverseInPlace(ntt.buf.coeffs)
-	vec.ScalarMulTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.ambRankInv, ntt.mod)
+	dftops.INTTInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.TwInv, ntt.ambNTT.TwInvS, ntt.mod.Value())
+	vec.ScalarMMulTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.ambRankInv, ntt.mod)
 
 	if ntt.isPow2 {
 		copy(coeffs, ntt.buf.coeffs)

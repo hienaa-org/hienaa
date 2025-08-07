@@ -195,6 +195,107 @@ func TestCyclicNTT(t *testing.T) {
 	})
 }
 
+func TestAutFixedNTT(t *testing.T) {
+	t.Run("type=Pow2", func(t *testing.T) {
+		N := int(num.NextProdPower(rSrc.SampleN(1<<3), []uint64{2}))
+		ringParams := dft.NewAutFixedParameters(N<<2, N)
+		qs := dft.FindNearestNTTPrimes(ringParams, 30, 2)
+		q := num.NewModulus(qs[0].Value() * qs[1].Value())
+		ntt := dft.NewTransformer(ringParams, q)
+
+		p0 := randPoly(ringParams, q)
+		p1 := randPoly(ringParams, q)
+
+		p0Long := make([]uint64, N<<1)
+		p1Long := make([]uint64, N<<1)
+		copy(p0Long[:N], p0)
+		copy(p1Long[:N], p1)
+
+		p0Long[N] = 0
+		p1Long[N] = 0
+		for i := 1; i < N; i++ {
+			p0Long[i+N] = num.Neg(p0[N-i], q)
+			p1Long[i+N] = num.Neg(p1[N-i], q)
+		}
+
+		p0NTT := make([]uint64, N)
+		copy(p0NTT, p0)
+		ntt.ForwardInPlace(p0NTT)
+
+		p1NTT := make([]uint64, N)
+		copy(p1NTT, p1)
+		ntt.ForwardInPlace(p1NTT)
+
+		pOut := make([]uint64, N)
+		vec.MMulTo(pOut, p0NTT, p1NTT, q)
+		ntt.InverseInPlace(pOut)
+
+		assert.Equal(t, cyclotomicPow2Mul(p0Long, p1Long, q)[:N], pOut)
+	})
+
+	t.Run("type=Prime", func(t *testing.T) {
+		cycloOrd := int(num.NextPrime(rSrc.SampleN(1<<12), 1))
+		primes, exps := num.Factor(uint64(cycloOrd - 1))
+		fold := 1
+		for i := range primes {
+			e := rSrc.SampleN(uint64(exps[i] + 1))
+			for j := 0; j < int(e); j++ {
+				fold *= int(primes[i])
+			}
+		}
+		N := (cycloOrd - 1) / fold
+
+		ringParams := dft.NewAutFixedParameters(cycloOrd, N)
+		qs := dft.FindNearestNTTPrimes(ringParams, 30, 2)
+		q := num.NewModulus(qs[0].Value() * qs[1].Value())
+		ntt := dft.NewTransformer(ringParams, q)
+
+		p0 := randPoly(ringParams, q)
+		p1 := randPoly(ringParams, q)
+
+		p0Long := make([]uint64, cycloOrd)
+		p1Long := make([]uint64, cycloOrd)
+
+		cycloOrdMod := num.NewModulus(uint64(cycloOrd))
+		root := num.Generators(cycloOrdMod)[0]
+		idx := uint64(1)
+		for i := 0; i < fold; i++ {
+			for j := 0; j < N; j++ {
+				p0Long[idx] = p0[j]
+				p1Long[idx] = p1[j]
+				idx = num.Mul(idx, root, cycloOrdMod)
+			}
+		}
+
+		p0NTT := make([]uint64, N)
+		copy(p0NTT, p0)
+		ntt.ForwardInPlace(p0NTT)
+
+		p1NTT := make([]uint64, N)
+		copy(p1NTT, p1)
+		ntt.ForwardInPlace(p1NTT)
+
+		pOut := make([]uint64, N)
+		vec.MMulTo(pOut, p0NTT, p1NTT, q)
+		ntt.InverseInPlace(pOut)
+
+		pTest := make([]uint64, N)
+		pTestLong := cyclicMul(p0Long, p1Long, q)
+		for i := 1; i < cycloOrd; i++ {
+			pTestLong[i] = num.Sub(pTestLong[i], pTestLong[0], q)
+		}
+		pTestLong[0] = 0
+
+		idx = 1
+		for i := 0; i < N; i++ {
+			pTest[i] = pTestLong[idx]
+			idx = num.Mul(idx, root, cycloOrdMod)
+		}
+
+		assert.Equal(t, pTest, pOut)
+	})
+}
+
 func BenchmarkCyclotomicNTT(b *testing.B) {
 	b.Run("type=Pow2", func(b *testing.B) {
 		for _, logN := range benchLogN {

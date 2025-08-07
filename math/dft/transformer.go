@@ -24,25 +24,34 @@ type Transformer interface {
 func NewTransformer(ringParams RingParameters, mod *num.Modulus) Transformer {
 	switch ringParams.ringType {
 	case Cyclotomic:
-		switch {
-		case num.IsPowerOfTwo(uint64(ringParams.cycloOrd)):
-			return newCyclotomicPow2Transformer(ringParams, mod)
-		default:
-			return newCyclotomicAnyTransformer(ringParams, mod)
+		gap := cyclotomicGap(uint64(ringParams.cycloOrd), uint64(ringParams.rank))
+		if mod.Value()%gap == 1 {
+			switch {
+			case num.IsPowerOfTwo(uint64(ringParams.cycloOrd)):
+				return newCyclotomicPow2Transformer(ringParams, mod)
+			default:
+				return newCyclotomicAnyTransformer(ringParams, mod)
+			}
 		}
 	case Cyclic:
-		switch {
-		case num.IsProdPowerOf(uint64(ringParams.rank), cyclicNTTFactors):
-			return newCyclicPow235Transformer(ringParams, mod)
-		default:
-			return newCyclicBluesteinTransformer(ringParams, mod)
+		gap := cyclicGap(uint64(ringParams.rank))
+		if mod.Value()%gap == 1 {
+			switch {
+			case num.IsProdPowerOf(uint64(ringParams.rank), cyclicNTTFactors):
+				return newCyclicPow235Transformer(ringParams, mod)
+			default:
+				return newCyclicBluesteinTransformer(ringParams, mod)
+			}
 		}
 	case AutFixed:
-		switch {
-		case num.IsPrime(uint64(ringParams.cycloOrd)):
-			return newAutFixedPrimeTransformer(ringParams, mod)
-			// case num.IsPowerOfTwo(uint64(ringParams.cycloOrd)):
-			// 	return newAutFixedPow2Transformer(ringParams, mod)
+		gap := autFixedGap(uint64(ringParams.cycloOrd), uint64(ringParams.rank))
+		if mod.Value()%gap == 1 {
+			switch {
+			case num.IsPrime(uint64(ringParams.cycloOrd)):
+				return newAutFixedPrimeTransformer(ringParams, mod)
+			case num.IsPowerOfTwo(uint64(ringParams.cycloOrd)):
+				return newAutFixedPow2Transformer(ringParams, mod)
+			}
 		}
 	}
 

@@ -60,16 +60,20 @@ func NewCyclicParameters(rank int) RingParameters {
 
 // NewAutFixedParameters creates a new [RingParameters] for an AutFixed ring.
 func NewAutFixedParameters(cycloOrd, rank int) RingParameters {
-	if !num.IsPrime(uint64(cycloOrd)) {
-		panic("NewAutFixedParameters: cycloOrd must be a prime")
-	}
-
-	if (cycloOrd-1)%rank != 0 {
-		panic("NewAutFixedParameters: rank should divide cycloOrd-1")
-	}
-
 	if rank < 1 {
 		panic("NewAutFixedParameters: rank must be larger or equal than 1")
+	}
+
+	if num.IsPrime(uint64(cycloOrd)) {
+		if (cycloOrd-1)%rank != 0 {
+			panic("NewAutFixedParameters: rank should divide cycloOrd-1 for prime cycloOrd")
+		}
+	} else if num.IsPowerOfTwo(uint64(cycloOrd)) {
+		if cycloOrd != rank<<2 {
+			panic("NewAutFixedParameters: cycloOrd must be four times the rank for power-of-two cycloOrd")
+		}
+	} else {
+		panic("NewAutFixedParameters: cycloOrd must be a prime or a power of two")
 	}
 
 	return RingParameters{
@@ -143,10 +147,12 @@ func cyclicGap(rank uint64) uint64 {
 func autFixedGap(cycloOrd, rank uint64) uint64 {
 	var gap uint64
 
-	if num.IsProdPowerOf(rank, []uint64{2}) {
-		gap = num.LCM(cycloOrd, rank)
+	if num.IsPowerOfTwo(cycloOrd) {
+		gap = cycloOrd
+	} else if num.IsProdPowerOf(rank, []uint64{2}) {
+		gap = cycloOrd * rank
 	} else {
-		gap = num.LCM(num.NextProdPower(2*rank-1, []uint64{2}), cycloOrd)
+		gap = cycloOrd * num.NextProdPower(2*rank-1, []uint64{2})
 	}
 
 	return gap
