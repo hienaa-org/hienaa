@@ -233,8 +233,7 @@ func (ntt *autFixedPrimeTransformer) ForwardInPlace(coeffs []uint64) {
 	if ntt.isPow2 {
 		copy(coeffs, ntt.buf.coeffs)
 	} else {
-		vec.AddTo(coeffs, ntt.buf.coeffs[:ntt.params.rank-1], ntt.buf.coeffs[ntt.params.rank:2*ntt.params.rank-1], ntt.mod)
-		coeffs[ntt.params.rank-1] = ntt.buf.coeffs[ntt.params.rank-1]
+		vec.AddTo(coeffs, ntt.buf.coeffs[:ntt.params.rank], ntt.buf.coeffs[ntt.params.rank:2*ntt.params.rank], ntt.mod)
 	}
 }
 

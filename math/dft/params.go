@@ -218,7 +218,7 @@ func FindPrevNTTPrimes(ringParams RingParameters, bits float64, cnt int) []*num.
 		gap = autFixedGap(uint64(ringParams.cycloOrd), uint64(ringParams.rank))
 	}
 
-	start := (uint64(math.Round(math.Exp2(bits)))/gap)*gap + 1
+	start := (uint64(math.Floor(math.Exp2(bits)))/gap)*gap + 1
 	primes := make([]*num.Modulus, cnt)
 	prime := num.PrevPrime(start, gap)
 	for i := 0; i < cnt; i++ {
