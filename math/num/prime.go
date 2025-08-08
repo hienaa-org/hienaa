@@ -269,13 +269,24 @@ func GeneratorsWithFactors(q *Modulus, primes, exps []uint64) []uint64 {
 		}
 	}
 
+	if primePows[0]%8 == 0 {
+		gens = append([]uint64{0}, gens...)
+		gens[0] = Mul(5, crt[0], q)
+		for i := 1; i < len(crt); i++ {
+			gens[0] = Add(gens[0], crt[i], q)
+		}
+	} else if gens[0] == 1 {
+		gens = gens[1:]
+	}
+
 	return gens
 }
 
 // primitiveRoot returns a generator modulo p^e.
+// Returns p^e - 1 if p is 2.
 func primitiveRoot(p, pExp uint64) uint64 {
 	if p == 2 {
-		return 1
+		return pExp - 1
 	}
 
 	phi := pExp - pExp/p
@@ -314,6 +325,18 @@ func NthRootWithFactors(n int, g []uint64, q *Modulus, primes, exps []uint64) ui
 		primePows[i] = uint64(1)
 		for j := uint64(0); j < exps[i]; j++ {
 			primePows[i] *= primes[i]
+		}
+		// if (primePows[i]-primePows[i]/primes[i])%uint64(n) != 0 {
+		// 	panic("NthRootWithFactors: there is no N-th root of unity.")
+		// }
+	}
+
+	if primes[0] == 2 {
+		switch n {
+		case 1:
+			return 1
+		case 2:
+			return q.Value() - 1
 		}
 	}
 

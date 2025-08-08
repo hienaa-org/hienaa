@@ -111,13 +111,22 @@ func newCyclotomicAnyTransformer(ringParams RingParameters, mod *num.Modulus) *c
 		}
 		dims[i] = pExp - pExp/primes[i]
 	}
+	if primes[0] == 2 {
+		if exps[0] == 1 {
+			dims = dims[1:]
+		} else if exps[0] > 2 {
+			dims = append([]uint64{0}, dims...)
+			dims[0] = dims[1] / 2
+			dims[1] = 2
+		}
+	}
 
 	root := num.GeneratorsWithFactors(cycloOrdMod, primes, exps)
 	idx := make([]uint64, ringParams.rank)
 
+	idxDigits := make([]uint64, len(dims))
 	for i := 0; i < ringParams.rank; i++ {
 		idxIn := uint64(i)
-		idxDigits := make([]uint64, len(dims))
 		for j := 0; j < len(dims); j++ {
 			idxDigits[j] = idxIn % dims[j]
 			idxIn /= dims[j]
@@ -126,7 +135,66 @@ func newCyclotomicAnyTransformer(ringParams RingParameters, mod *num.Modulus) *c
 		for j := 0; j < len(dims); j++ {
 			idxOut = num.Mul(idxOut, num.Exp(root[j], idxDigits[j], cycloOrdMod), cycloOrdMod)
 		}
-		idx[uint64(i)] = idxOut
+		idx[i] = idxOut
+	}
+
+	if num.IsProdPowerOf(cycloOrd, cyclicNTTFactors) {
+		rankFactors := make([]uint64, 3)
+		rankFactorsMod := make([]*num.Modulus, 3)
+		exps := make([]uint64, 3)
+
+		for i, f := range cyclicNTTFactors {
+			rankFactors[i] = 1
+			for cycloOrd%f == 0 {
+				cycloOrd /= f
+				rankFactors[i] *= f
+				exps[i]++
+			}
+		}
+
+		for i := 0; i < 3; i++ {
+			if rankFactors[i] != 1 {
+				rankFactorsMod[i] = num.NewModulus(rankFactors[i])
+			}
+		}
+
+		var i2, i3, i5, tmp uint64
+		for i := 0; i < ringParams.rank; i++ {
+			idxOut := idx[i]
+
+			if rankFactors[0] != 1 {
+				i2 = num.Mul(idxOut, num.Inv(rankFactors[1]*rankFactors[2], rankFactorsMod[0]), rankFactorsMod[0])
+			}
+			if rankFactors[1] != 1 {
+				i3 = num.Mul(idxOut, num.Inv(rankFactors[0]*rankFactors[2], rankFactorsMod[1]), rankFactorsMod[1])
+			}
+			if rankFactors[2] != 1 {
+				i5 = num.Mul(idxOut, num.Inv(rankFactors[0]*rankFactors[1], rankFactorsMod[2]), rankFactorsMod[2])
+			}
+
+			tmp = 0
+			for d := 0; d < int(exps[0]); d++ {
+				tmp = tmp*2 + (i2 % 2)
+				i2 /= 2
+			}
+			i2 = tmp
+
+			tmp = 0
+			for d := 0; d < int(exps[1]); d++ {
+				tmp = tmp*3 + (i3 % 3)
+				i3 /= 3
+			}
+			i3 = tmp
+
+			tmp = 0
+			for d := 0; d < int(exps[2]); d++ {
+				tmp = tmp*5 + (i5 % 5)
+				i5 /= 5
+			}
+			i5 = tmp
+
+			idx[i] = i2 + i3*rankFactors[0] + i5*rankFactors[0]*rankFactors[1]
+		}
 	}
 
 	return &cyclotomicAnyTransformer{

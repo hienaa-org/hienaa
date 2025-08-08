@@ -168,7 +168,7 @@ func (r *CyclotomicReducerNTTModulus) ReduceTo(pOut, p []uint64) {
 					r.buf.pIn[i*skip+j] = num.Add(r.buf.pIn[i*skip+j], r.buf.pIn[cycloOrd/2-skip+j], r.mod)
 				}
 			}
-			r.buf.pIn[cycloOrd-skip+j] = 0
+			r.buf.pIn[cycloOrd/2-skip+j] = 0
 		}
 	}
 
