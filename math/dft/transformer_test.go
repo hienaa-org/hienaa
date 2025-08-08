@@ -98,10 +98,11 @@ func TestCyclotomicNTT(t *testing.T) {
 	})
 
 	t.Run("type=Any", func(t *testing.T) {
-		M := int(rSrc.SampleN(1<<12) + 4)
+		M := int(rSrc.SampleN(1<<12)) + 4
 		ringParams := dft.NewCyclotomicParameters(M)
 		N := ringParams.Rank()
-		q := dft.FindNearestNTTPrimes(ringParams, 45, 1)[0]
+		qs := dft.FindNearestNTTPrimes(ringParams, 30, 2)
+		q := num.NewModulus(qs[0].Value() * qs[1].Value())
 		ntt := dft.NewTransformer(ringParams, q)
 
 		p0 := randPoly(ringParams, q)
@@ -299,7 +300,7 @@ func BenchmarkCyclotomicNTT(b *testing.B) {
 		for _, logN := range benchLogN {
 			N := 1 << logN
 			ringParams := dft.NewCyclotomicParameters(N << 1)
-			q := dft.FindNextNTTPrimes(ringParams, 60, 1)[0]
+			q := dft.FindNearestNTTPrimes(ringParams, 60, 1)[0]
 			ntt := dft.NewTransformer(ringParams, q)
 
 			p := randPoly(ringParams, q)
@@ -321,9 +322,9 @@ func BenchmarkCyclotomicNTT(b *testing.B) {
 
 	b.Run("type=Any", func(b *testing.B) {
 		for _, logN := range benchLogN {
-			M := int(1<<logN + rSrc.SampleN(16))
+			M := 1<<logN + int(rSrc.SampleN(16))
 			ringParams := dft.NewCyclotomicParameters(M)
-			q := dft.FindNextNTTPrimes(ringParams, 60, 1)[0]
+			q := dft.FindNearestNTTPrimes(ringParams, 60, 1)[0]
 			ntt := dft.NewTransformer(ringParams, q)
 
 			p := randPoly(ringParams, q)
@@ -349,7 +350,7 @@ func BenchmarkCyclicNTT(b *testing.B) {
 		for _, logN := range benchLogN {
 			N := int(num.NextProdPower(uint64(1<<logN)+1, []uint64{2, 3, 5}))
 			ringParams := dft.NewCyclicParameters(N)
-			q := dft.FindNextNTTPrimes(ringParams, 60, 1)[0]
+			q := dft.FindNearestNTTPrimes(ringParams, 60, 1)[0]
 			ntt := dft.NewTransformer(ringParams, q)
 
 			p := randPoly(ringParams, q)
@@ -373,7 +374,7 @@ func BenchmarkCyclicNTT(b *testing.B) {
 		for _, logN := range benchLogN {
 			N := (1 << logN) + 1
 			ringParams := dft.NewCyclicParameters(N)
-			q := dft.FindNextNTTPrimes(ringParams, 60, 1)[0]
+			q := dft.FindNearestNTTPrimes(ringParams, 60, 1)[0]
 			ntt := dft.NewTransformer(ringParams, q)
 
 			p := randPoly(ringParams, q)
@@ -421,7 +422,7 @@ func BenchmarkAutFixedNTT(b *testing.B) {
 
 	b.Run("type=Prime", func(b *testing.B) {
 		for _, logN := range benchLogN {
-			N := int(rSrc.SampleN(1 << logN))
+			N := 1 << logN
 			M := int(num.NextPrime(1, uint64(N)))
 
 			ringParams := dft.NewAutFixedParameters(M, N)

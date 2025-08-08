@@ -78,6 +78,9 @@ func newCyclicPow235Transformer(params RingParameters, mod *num.Modulus) *cyclic
 	rootPow := make([][]uint64, len(cyclicNTTFactors))
 	rootPowS := make([][]uint64, len(cyclicNTTFactors))
 	for i, r := range cyclicNTTFactors {
+		if rankFactors[i] == 1 {
+			continue
+		}
 		rootPow[i] = make([]uint64, r)
 		rootPow[i][0] = 1
 		rootPow[i][1] = num.NthRoot(int(r), root, mod)

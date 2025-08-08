@@ -116,8 +116,7 @@ func newCyclotomicAnyTransformer(ringParams RingParameters, mod *num.Modulus) *c
 			dims = dims[1:]
 		} else if exps[0] > 2 {
 			dims = append([]uint64{0}, dims...)
-			dims[0] = dims[1] / 2
-			dims[1] = 2
+			dims[0], dims[1] = dims[1]/2, 2
 		}
 	}
 
@@ -158,10 +157,10 @@ func newCyclotomicAnyTransformer(ringParams RingParameters, mod *num.Modulus) *c
 			}
 		}
 
-		var i2, i3, i5, tmp uint64
 		for i := 0; i < ringParams.rank; i++ {
 			idxOut := idx[i]
 
+			var i2, i3, i5 uint64
 			if rankFactors[0] != 1 {
 				i2 = num.Mul(idxOut, num.Inv(rankFactors[1]*rankFactors[2], rankFactorsMod[0]), rankFactorsMod[0])
 			}
@@ -172,26 +171,27 @@ func newCyclotomicAnyTransformer(ringParams RingParameters, mod *num.Modulus) *c
 				i5 = num.Mul(idxOut, num.Inv(rankFactors[0]*rankFactors[1], rankFactorsMod[2]), rankFactorsMod[2])
 			}
 
-			tmp = 0
+			var t uint64
+
 			for d := 0; d < int(exps[0]); d++ {
-				tmp = tmp*2 + (i2 % 2)
+				t = t*2 + (i2 % 2)
 				i2 /= 2
 			}
-			i2 = tmp
+			i2 = t
 
-			tmp = 0
+			t = 0
 			for d := 0; d < int(exps[1]); d++ {
-				tmp = tmp*3 + (i3 % 3)
+				t = t*3 + (i3 % 3)
 				i3 /= 3
 			}
-			i3 = tmp
+			i3 = t
 
-			tmp = 0
+			t = 0
 			for d := 0; d < int(exps[2]); d++ {
-				tmp = tmp*5 + (i5 % 5)
+				t = t*5 + (i5 % 5)
 				i5 /= 5
 			}
-			i5 = tmp
+			i5 = t
 
 			idx[i] = i2 + i3*rankFactors[0] + i5*rankFactors[0]*rankFactors[1]
 		}
