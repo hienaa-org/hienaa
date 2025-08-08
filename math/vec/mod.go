@@ -21,6 +21,20 @@ func AddLazy(v0, v1 []uint64) []uint64 {
 	return vOut
 }
 
+// ScalarAdd returns v + c mod q.
+func ScalarAdd(v []uint64, c uint64, q *num.Modulus) []uint64 {
+	vOut := make([]uint64, len(v))
+	ScalarAddTo(vOut, v, c, q)
+	return vOut
+}
+
+// ScalarAddLazy returns v + c.
+func ScalarAddLazy(v []uint64, c uint64) []uint64 {
+	vOut := make([]uint64, len(v))
+	ScalarAddLazyTo(vOut, v, c)
+	return vOut
+}
+
 // Sub returns v0 - v1 mod q.
 func Sub(v0, v1 []uint64, q *num.Modulus) []uint64 {
 	vOut := make([]uint64, len(v0))
@@ -33,6 +47,53 @@ func SubLazy(v0, v1 []uint64) []uint64 {
 	vOut := make([]uint64, len(v0))
 	SubLazyTo(vOut, v0, v1)
 	return vOut
+}
+
+// ScalarSub returns v - c mod q.
+func ScalarSub(v []uint64, c uint64, q *num.Modulus) []uint64 {
+	vOut := make([]uint64, len(v))
+	ScalarSubTo(vOut, v, c, q)
+	return vOut
+}
+
+// ScalarSubLazy returns v - c.
+func ScalarSubLazy(v []uint64, c uint64) []uint64 {
+	vOut := make([]uint64, len(v))
+	ScalarSubLazyTo(vOut, v, c)
+	return vOut
+}
+
+// Neg returns -v mod q.
+func Neg(v []uint64, q *num.Modulus) []uint64 {
+	vOut := make([]uint64, len(v))
+	NegTo(vOut, v, q)
+	return vOut
+}
+
+// NegTo computes vOut = -v mod q.
+func NegTo(vOut, v []uint64, q *num.Modulus) {
+	M := (len(vOut) >> 3) << 3
+
+	qv := q.Value()
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
+		w0 := (*[8]uint64)(unsafe.Pointer(&v[i]))
+
+		wOut[0] = modops.Neg(w0[0], qv)
+		wOut[1] = modops.Neg(w0[1], qv)
+		wOut[2] = modops.Neg(w0[2], qv)
+		wOut[3] = modops.Neg(w0[3], qv)
+
+		wOut[4] = modops.Neg(w0[4], qv)
+		wOut[5] = modops.Neg(w0[5], qv)
+		wOut[6] = modops.Neg(w0[6], qv)
+		wOut[7] = modops.Neg(w0[7], qv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.Neg(v[i], qv)
+	}
 }
 
 // MForm returns v in Montgomery form.

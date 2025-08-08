@@ -55,6 +55,29 @@ func TestOps(t *testing.T) {
 		assert.Less(t, slices.Max(vOut), 2*q.Value())
 	})
 
+	t.Run("ScalarAdd", func(t *testing.T) {
+		vec.ScalarAddTo(vOut, v0, v1[0], q)
+		for i := 0; i < N; i++ {
+			vOutCheck[i] = v0[i] + v1[0]
+			if vOutCheck[i] >= q.Value() {
+				vOutCheck[i] -= q.Value()
+			}
+		}
+		assert.Equal(t, vOutCheck, vOut)
+
+		assert.Less(t, slices.Max(vOut), q.Value())
+	})
+
+	t.Run("ScalarAddLazy", func(t *testing.T) {
+		vec.ScalarAddLazyTo(vOut, v0, v1[0])
+		for i := 0; i < N; i++ {
+			vOutCheck[i] = v0[i] + v1[0]
+		}
+		assert.Equal(t, vOutCheck, vOut)
+
+		assert.Less(t, slices.Max(vOut), 2*q.Value())
+	})
+
 	t.Run("Sub", func(t *testing.T) {
 		vec.SubTo(vOut, v0, v1, q)
 		for i := 0; i < N; i++ {
@@ -74,6 +97,41 @@ func TestOps(t *testing.T) {
 			vOutCheck[i] = v0[i] - v1[i]
 		}
 		assert.Equal(t, vOutCheck, vOut)
+	})
+
+	t.Run("ScalarSub", func(t *testing.T) {
+		vec.ScalarSubTo(vOut, v0, v1[0], q)
+		for i := 0; i < N; i++ {
+			vOutCheck[i] = v0[i] - v1[0]
+			if vOutCheck[i] >= q.Value() {
+				vOutCheck[i] += q.Value()
+			}
+		}
+		assert.Equal(t, vOutCheck, vOut)
+
+		assert.Less(t, slices.Max(vOut), q.Value())
+	})
+
+	t.Run("ScalarSubLazy", func(t *testing.T) {
+		vec.ScalarSubLazyTo(vOut, v0, v1[0])
+		for i := 0; i < N; i++ {
+			vOutCheck[i] = v0[i] - v1[0]
+		}
+		assert.Equal(t, vOutCheck, vOut)
+	})
+
+	t.Run("Neg", func(t *testing.T) {
+		vec.NegTo(vOut, v0, q)
+		for i := 0; i < N; i++ {
+			if v0[i] == 0 {
+				vOutCheck[i] = 0
+			} else {
+				vOutCheck[i] = q.Value() - v0[i]
+			}
+		}
+		assert.Equal(t, vOutCheck, vOut)
+
+		assert.Less(t, slices.Max(vOut), q.Value())
 	})
 
 	t.Run("ScalarMul", func(t *testing.T) {
@@ -570,6 +628,18 @@ func BenchmarkOps(b *testing.B) {
 				}
 			})
 
+			b.Run("ScalarAdd", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					vec.ScalarAddTo(vOut, v0, v1[0], q)
+				}
+			})
+
+			b.Run("ScalarAddLazy", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					vec.ScalarAddLazyTo(vOut, v0, v1[0])
+				}
+			})
+
 			b.Run("Sub", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					vec.SubTo(vOut, v0, v1, q)
@@ -579,6 +649,24 @@ func BenchmarkOps(b *testing.B) {
 			b.Run("SubLazy", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					vec.SubLazyTo(vOut, v0, v1)
+				}
+			})
+
+			b.Run("ScalarSub", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					vec.ScalarSubTo(vOut, v0, v1[0], q)
+				}
+			})
+
+			b.Run("ScalarSubLazy", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					vec.ScalarSubLazyTo(vOut, v0, v1[0])
+				}
+			})
+
+			b.Run("Neg", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					vec.NegTo(vOut, v0, q)
 				}
 			})
 
