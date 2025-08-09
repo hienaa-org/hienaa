@@ -29,13 +29,13 @@ type autFixedPow2Transformer struct {
 }
 
 // newAutFixedPow2Transformer creates a new [autFixedPow2Transformer].
-func newAutFixedPow2Transformer(ringParams RingParameters, mod *num.Modulus) *autFixedPow2Transformer {
+func newAutFixedPow2Transformer(params RingParameters, mod *num.Modulus) *autFixedPow2Transformer {
 	root := num.Generators(mod)
 
-	twoRank := ringParams.rank << 1
+	twoRank := params.rank << 1
 	twLarge := make([]uint64, twoRank)
 	twInvLarge := make([]uint64, twoRank)
-	twLarge[0], twLarge[1] = 1, num.NthRoot(ringParams.cycloOrd, root, mod)
+	twLarge[0], twLarge[1] = 1, num.NthRoot(params.cycloOrd, root, mod)
 	twInvLarge[0], twInvLarge[1] = 1, num.Inv(twLarge[1], mod)
 	for i := 2; i < twoRank; i++ {
 		twLarge[i] = num.Mul(twLarge[i-1], twLarge[1], mod)
@@ -44,25 +44,25 @@ func newAutFixedPow2Transformer(ringParams RingParameters, mod *num.Modulus) *au
 	vec.RadixReverseInPlace(twLarge, 2)
 	vec.RadixReverseInPlace(twInvLarge, 2)
 
-	tw := make([]uint64, ringParams.rank)
-	twInv := make([]uint64, ringParams.rank)
+	tw := make([]uint64, params.rank)
+	twInv := make([]uint64, params.rank)
 
 	tw[0] = twLarge[1]
 	twInv[0] = twInvLarge[1]
-	for m := 1; m <= ringParams.rank/2; m <<= 1 {
+	for m := 1; m <= params.rank/2; m <<= 1 {
 		copy(tw[m:2*m], twLarge[2*m:3*m])
 		copy(twInv[m:2*m], twInvLarge[2*m:3*m])
 	}
 
-	twS := make([]uint64, ringParams.rank)
-	twInvS := make([]uint64, ringParams.rank)
-	for i := 0; i < ringParams.rank; i++ {
+	twS := make([]uint64, params.rank)
+	twInvS := make([]uint64, params.rank)
+	for i := 0; i < params.rank; i++ {
 		twS[i] = num.SForm(tw[i], mod)
 		twInvS[i] = num.SForm(twInv[i], mod)
 	}
 
 	return &autFixedPow2Transformer{
-		params: ringParams,
+		params: params,
 		mod:    mod,
 
 		tw:     tw,
@@ -72,14 +72,14 @@ func newAutFixedPow2Transformer(ringParams RingParameters, mod *num.Modulus) *au
 
 		rankInv: num.InvMForm(num.Inv(uint64(twoRank), mod), mod),
 
-		buf: newTransformerBuffer(ringParams.rank),
+		buf: newTransformerBuffer(params.rank),
 	}
 }
 
 func (ntt *autFixedPow2Transformer) ForwardInPlace(coeffs []uint64) {
 	copy(ntt.buf.coeffs, coeffs)
 	slices.Reverse(coeffs[1:])
-	vec.ScalarMulSubTo(ntt.buf.coeffs[1:], coeffs[1:], ntt.tw[0], ntt.mod)
+	vec.ScalarMulSubLazyTo(ntt.buf.coeffs[1:], coeffs[1:], ntt.tw[0], ntt.mod)
 
 	dftops.NTTInPlacePow2(ntt.buf.coeffs, ntt.tw, ntt.twS, ntt.mod.Value())
 	vec.MFormTo(coeffs, ntt.buf.coeffs, ntt.mod)
@@ -90,8 +90,8 @@ func (ntt *autFixedPow2Transformer) InverseInPlace(coeffs []uint64) {
 
 	copy(ntt.buf.coeffs, coeffs)
 	slices.Reverse(coeffs[1:])
-	ntt.buf.coeffs[0] = num.Add(coeffs[0], coeffs[0], ntt.mod)
-	vec.ScalarMulAddTo(ntt.buf.coeffs[1:], coeffs[1:], ntt.tw[0], ntt.mod)
+	ntt.buf.coeffs[0] = coeffs[0] + coeffs[0]
+	vec.ScalarMulAddLazyTo(ntt.buf.coeffs[1:], coeffs[1:], ntt.tw[0], ntt.mod)
 
 	vec.ScalarMulTo(coeffs, ntt.buf.coeffs, ntt.rankInv, ntt.mod)
 }
@@ -148,9 +148,9 @@ type autFixedPrimeTransformer struct {
 }
 
 // newAutFixedPrimeTransformer creates a new [autFixedPrimeTransformer].
-func newAutFixedPrimeTransformer(ringParams RingParameters, mod *num.Modulus) *autFixedPrimeTransformer {
-	cycloOrd := uint64(ringParams.cycloOrd)
-	rank := uint64(ringParams.rank)
+func newAutFixedPrimeTransformer(params RingParameters, mod *num.Modulus) *autFixedPrimeTransformer {
+	cycloOrd := uint64(params.cycloOrd)
+	rank := uint64(params.rank)
 	fold := int((cycloOrd - 1) / rank)
 
 	isPow2 := num.IsPowerOfTwo(rank)
@@ -196,7 +196,7 @@ func newAutFixedPrimeTransformer(ringParams RingParameters, mod *num.Modulus) *a
 	ambNTT.ForwardInPlace(modRootPowInvSum)
 
 	return &autFixedPrimeTransformer{
-		params: ringParams,
+		params: params,
 		mod:    mod,
 
 		ambNTT: ambNTT,
@@ -252,7 +252,7 @@ func (ntt *autFixedPrimeTransformer) InverseInPlace(coeffs []uint64) {
 	vec.MMulLazyTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.rootInv, ntt.mod)
 
 	dftops.INTTInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.TwInv, ntt.ambNTT.TwInvS, ntt.mod.Value())
-	vec.ScalarMulTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.ambNTT.RankInv, ntt.mod)
+	vec.ScalarMulLazyTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.ambNTT.RankInv, ntt.mod)
 
 	if !ntt.isPow2 {
 		vec.AddTo(ntt.buf.coeffs[:ntt.params.rank-1], ntt.buf.coeffs[:ntt.params.rank-1], ntt.buf.coeffs[ntt.params.rank:2*ntt.params.rank-1], ntt.mod)

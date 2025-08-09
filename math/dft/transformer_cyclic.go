@@ -238,7 +238,7 @@ type cyclicBluesteinTransformer struct {
 	buf transformerBuffer
 }
 
-// newCyclicBluesteinTransformer creates a new [cyclicBluesteinTransformer] for the given ringParams and modulus.
+// newCyclicBluesteinTransformer creates a new [cyclicBluesteinTransformer].
 func newCyclicBluesteinTransformer(params RingParameters, mod *num.Modulus) *cyclicBluesteinTransformer {
 	ambRank := int(num.NextProdPower(uint64(2*params.rank-1), []uint64{2}))
 

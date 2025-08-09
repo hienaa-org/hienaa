@@ -25,31 +25,31 @@ type cyclotomicPow2Transformer struct {
 }
 
 // newCyclotomicPow2Transformer creates a new [pow2CyclotomicTransformer].
-func newCyclotomicPow2Transformer(ringParams RingParameters, mod *num.Modulus) *cyclotomicPow2Transformer {
+func newCyclotomicPow2Transformer(params RingParameters, mod *num.Modulus) *cyclotomicPow2Transformer {
 	root := num.Generators(mod)
 
-	tw := make([]uint64, ringParams.rank)
-	twInv := make([]uint64, ringParams.rank)
-	tw[0], tw[1] = 1, num.NthRoot(ringParams.cycloOrd, root, mod)
+	tw := make([]uint64, params.rank)
+	twInv := make([]uint64, params.rank)
+	tw[0], tw[1] = 1, num.NthRoot(params.cycloOrd, root, mod)
 	twInv[0], twInv[1] = 1, num.Inv(tw[1], mod)
-	for i := 2; i < ringParams.rank; i++ {
+	for i := 2; i < params.rank; i++ {
 		tw[i] = num.Mul(tw[i-1], tw[1], mod)
 		twInv[i] = num.Mul(twInv[i-1], twInv[1], mod)
 	}
 	vec.RadixReverseInPlace(tw, 2)
 	vec.RadixReverseInPlace(twInv, 2)
 
-	twS := make([]uint64, ringParams.rank)
-	twInvS := make([]uint64, ringParams.rank)
-	for i := 0; i < ringParams.rank; i++ {
+	twS := make([]uint64, params.rank)
+	twInvS := make([]uint64, params.rank)
+	for i := 0; i < params.rank; i++ {
 		twS[i] = num.SForm(tw[i], mod)
 		twInvS[i] = num.SForm(twInv[i], mod)
 	}
 
-	rankInv := num.InvMForm(num.Inv(uint64(ringParams.rank), mod), mod)
+	rankInv := num.InvMForm(num.Inv(uint64(params.rank), mod), mod)
 
 	return &cyclotomicPow2Transformer{
-		params: ringParams,
+		params: params,
 		mod:    mod,
 
 		tw:     tw,
@@ -98,8 +98,8 @@ type cyclotomicAnyTransformer struct {
 }
 
 // newCyclotomicAnyTransformer creates a new [cyclotomicAnyTransformer].
-func newCyclotomicAnyTransformer(ringParams RingParameters, mod *num.Modulus) *cyclotomicAnyTransformer {
-	cycloOrd := uint64(ringParams.cycloOrd)
+func newCyclotomicAnyTransformer(params RingParameters, mod *num.Modulus) *cyclotomicAnyTransformer {
+	cycloOrd := uint64(params.cycloOrd)
 	cycloOrdMod := num.NewModulus(cycloOrd)
 	primes, exps := num.Factor(cycloOrd)
 
@@ -121,10 +121,10 @@ func newCyclotomicAnyTransformer(ringParams RingParameters, mod *num.Modulus) *c
 	}
 
 	root := num.GeneratorsWithFactors(cycloOrdMod, primes, exps)
-	idx := make([]uint64, ringParams.rank)
+	idx := make([]uint64, params.rank)
 
 	idxDigits := make([]uint64, len(dims))
-	for i := 0; i < ringParams.rank; i++ {
+	for i := 0; i < params.rank; i++ {
 		idxIn := uint64(i)
 		for j := 0; j < len(dims); j++ {
 			idxDigits[j] = idxIn % dims[j]
@@ -138,75 +138,56 @@ func newCyclotomicAnyTransformer(ringParams RingParameters, mod *num.Modulus) *c
 	}
 
 	if num.IsProdPowerOf(cycloOrd, cyclicNTTFactors) {
-		rankFactors := make([]uint64, 3)
-		rankFactorsMod := make([]*num.Modulus, 3)
-		exps := make([]uint64, 3)
+		cycloOrdFactors := make([]uint64, len(cyclicNTTFactors))
+		cycloOrdFactorsMod := make([]*num.Modulus, len(cyclicNTTFactors))
+		exps := make([]uint64, len(cyclicNTTFactors))
 
+		t := cycloOrd
 		for i, f := range cyclicNTTFactors {
-			rankFactors[i] = 1
-			for cycloOrd%f == 0 {
-				cycloOrd /= f
-				rankFactors[i] *= f
+			cycloOrdFactors[i] = 1
+			for t%f == 0 {
+				t /= f
+				cycloOrdFactors[i] *= f
 				exps[i]++
 			}
-		}
 
-		for i := 0; i < 3; i++ {
-			if rankFactors[i] != 1 {
-				rankFactorsMod[i] = num.NewModulus(rankFactors[i])
+			if cycloOrdFactors[i] != 1 {
+				cycloOrdFactorsMod[i] = num.NewModulus(cycloOrdFactors[i])
 			}
 		}
 
-		for i := 0; i < ringParams.rank; i++ {
+		for i := 0; i < params.rank; i++ {
 			idxOut := idx[i]
+			idx[i] = 0
+			for j := range cycloOrdFactors {
+				var t, r uint64
+				if cycloOrdFactors[j] != 1 {
+					t = num.Mul(idxOut, num.Inv(cycloOrd/cycloOrdFactors[j], cycloOrdFactorsMod[j]), cycloOrdFactorsMod[j])
+				}
 
-			var i2, i3, i5 uint64
-			if rankFactors[0] != 1 {
-				i2 = num.Mul(idxOut, num.Inv(rankFactors[1]*rankFactors[2], rankFactorsMod[0]), rankFactorsMod[0])
-			}
-			if rankFactors[1] != 1 {
-				i3 = num.Mul(idxOut, num.Inv(rankFactors[0]*rankFactors[2], rankFactorsMod[1]), rankFactorsMod[1])
-			}
-			if rankFactors[2] != 1 {
-				i5 = num.Mul(idxOut, num.Inv(rankFactors[0]*rankFactors[1], rankFactorsMod[2]), rankFactorsMod[2])
-			}
+				for d := 0; d < int(exps[j]); d++ {
+					r = r*cyclicNTTFactors[j] + (t % cyclicNTTFactors[j])
+					t /= cyclicNTTFactors[j]
+				}
 
-			var t uint64
-
-			for d := 0; d < int(exps[0]); d++ {
-				t = t*2 + (i2 % 2)
-				i2 /= 2
+				for k := 0; k < j; k++ {
+					r *= cycloOrdFactors[k]
+				}
+				idx[i] += r
 			}
-			i2 = t
-
-			t = 0
-			for d := 0; d < int(exps[1]); d++ {
-				t = t*3 + (i3 % 3)
-				i3 /= 3
-			}
-			i3 = t
-
-			t = 0
-			for d := 0; d < int(exps[2]); d++ {
-				t = t*5 + (i5 % 5)
-				i5 /= 5
-			}
-			i5 = t
-
-			idx[i] = i2 + i3*rankFactors[0] + i5*rankFactors[0]*rankFactors[1]
 		}
 	}
 
 	return &cyclotomicAnyTransformer{
-		params: ringParams,
+		params: params,
 		mod:    mod,
 
-		ambNTT:  NewTransformer(NewCyclicParameters(ringParams.cycloOrd), mod),
-		reducer: dftops.NewCyclotomicReducerNTTModulus(ringParams.cycloOrd, ringParams.rank, mod),
+		ambNTT:  NewTransformer(NewCyclicParameters(params.cycloOrd), mod),
+		reducer: dftops.NewCyclotomicReducerNTTModulus(params.cycloOrd, params.rank, mod),
 
 		idx: idx,
 
-		buf: newTransformerBuffer(ringParams.cycloOrd),
+		buf: newTransformerBuffer(params.cycloOrd),
 	}
 }
 

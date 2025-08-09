@@ -21,32 +21,32 @@ type Transformer interface {
 }
 
 // NewTransformer creates a new [Transformer].
-func NewTransformer(ringParams RingParameters, mod *num.Modulus) Transformer {
-	if !IsNTTFriendly(ringParams, mod) {
+func NewTransformer(params RingParameters, mod *num.Modulus) Transformer {
+	if !IsNTTFriendly(params, mod) {
 		panic("NewTransformer: unsupported ring parameters or modulus")
 	}
 
-	switch ringParams.ringType {
+	switch params.ringType {
 	case Cyclotomic:
 		switch {
-		case num.IsPowerOfTwo(uint64(ringParams.cycloOrd)):
-			return newCyclotomicPow2Transformer(ringParams, mod)
+		case num.IsPowerOfTwo(uint64(params.cycloOrd)):
+			return newCyclotomicPow2Transformer(params, mod)
 		default:
-			return newCyclotomicAnyTransformer(ringParams, mod)
+			return newCyclotomicAnyTransformer(params, mod)
 		}
 	case Cyclic:
 		switch {
-		case num.IsProdPowerOf(uint64(ringParams.rank), cyclicNTTFactors):
-			return newCyclicPow235Transformer(ringParams, mod)
+		case num.IsProdPowerOf(uint64(params.rank), cyclicNTTFactors):
+			return newCyclicPow235Transformer(params, mod)
 		default:
-			return newCyclicBluesteinTransformer(ringParams, mod)
+			return newCyclicBluesteinTransformer(params, mod)
 		}
 	case AutFixed:
 		switch {
-		case num.IsPrime(uint64(ringParams.cycloOrd)):
-			return newAutFixedPrimeTransformer(ringParams, mod)
-		case num.IsPowerOfTwo(uint64(ringParams.cycloOrd)):
-			return newAutFixedPow2Transformer(ringParams, mod)
+		case num.IsPrime(uint64(params.cycloOrd)):
+			return newAutFixedPrimeTransformer(params, mod)
+		case num.IsPowerOfTwo(uint64(params.cycloOrd)):
+			return newAutFixedPow2Transformer(params, mod)
 		}
 	}
 

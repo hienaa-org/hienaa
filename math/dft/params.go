@@ -160,16 +160,16 @@ func autFixedGap(cycloOrd, rank uint64) uint64 {
 }
 
 // IsNTTFriendly checks if the given modulus is NTT-friendly with respect to the ring parameters.
-func IsNTTFriendly(ringParams RingParameters, mod *num.Modulus) bool {
+func IsNTTFriendly(params RingParameters, mod *num.Modulus) bool {
 	var gap uint64
 
-	switch ringParams.ringType {
+	switch params.ringType {
 	case Cyclotomic:
-		gap = cyclotomicGap(uint64(ringParams.cycloOrd), uint64(ringParams.rank))
+		gap = cyclotomicGap(uint64(params.cycloOrd), uint64(params.rank))
 	case Cyclic:
-		gap = cyclicGap(uint64(ringParams.rank))
+		gap = cyclicGap(uint64(params.rank))
 	case AutFixed:
-		gap = autFixedGap(uint64(ringParams.cycloOrd), uint64(ringParams.rank))
+		gap = autFixedGap(uint64(params.cycloOrd), uint64(params.rank))
 	}
 
 	primes, _ := num.Factor(mod.Value())
@@ -183,16 +183,16 @@ func IsNTTFriendly(ringParams RingParameters, mod *num.Modulus) bool {
 
 // FindNextNTTPrimes finds a list of prime moduli that are NTT-friendly with respect to the given ring parameters.
 // Specifically, it outputs the first cnt NTT-friendly primes greater than or equal to 2^bits.
-func FindNextNTTPrimes(ringParams RingParameters, bits float64, cnt int) []*num.Modulus {
+func FindNextNTTPrimes(params RingParameters, bits float64, cnt int) []*num.Modulus {
 	var gap uint64
 
-	switch ringParams.ringType {
+	switch params.ringType {
 	case Cyclotomic:
-		gap = cyclotomicGap(uint64(ringParams.cycloOrd), uint64(ringParams.rank))
+		gap = cyclotomicGap(uint64(params.cycloOrd), uint64(params.rank))
 	case Cyclic:
-		gap = cyclicGap(uint64(ringParams.rank))
+		gap = cyclicGap(uint64(params.rank))
 	case AutFixed:
-		gap = autFixedGap(uint64(ringParams.cycloOrd), uint64(ringParams.rank))
+		gap = autFixedGap(uint64(params.cycloOrd), uint64(params.rank))
 	}
 
 	start := (uint64(math.Round(math.Exp2(bits)))/gap)*gap + 1
@@ -207,16 +207,16 @@ func FindNextNTTPrimes(ringParams RingParameters, bits float64, cnt int) []*num.
 
 // FindPrevNTTPrimes finds a list of prime moduli that are NTT-friendly with respect to the given ring parameters.
 // Specifically, it outputs the first cnt NTT-friendly primes less than or equal to 2^bits.
-func FindPrevNTTPrimes(ringParams RingParameters, bits float64, cnt int) []*num.Modulus {
+func FindPrevNTTPrimes(params RingParameters, bits float64, cnt int) []*num.Modulus {
 	var gap uint64
 
-	switch ringParams.ringType {
+	switch params.ringType {
 	case Cyclotomic:
-		gap = cyclotomicGap(uint64(ringParams.cycloOrd), uint64(ringParams.rank))
+		gap = cyclotomicGap(uint64(params.cycloOrd), uint64(params.rank))
 	case Cyclic:
-		gap = cyclicGap(uint64(ringParams.rank))
+		gap = cyclicGap(uint64(params.rank))
 	case AutFixed:
-		gap = autFixedGap(uint64(ringParams.cycloOrd), uint64(ringParams.rank))
+		gap = autFixedGap(uint64(params.cycloOrd), uint64(params.rank))
 	}
 
 	start := (uint64(math.Floor(math.Exp2(bits)))/gap)*gap + 1
@@ -232,16 +232,16 @@ func FindPrevNTTPrimes(ringParams RingParameters, bits float64, cnt int) []*num.
 // FindNearestNTTPrimes finds a list of prime moduli that are NTT-friendly with respect to the given ring parameters.
 // Specifically, it outputs the first cnt NTT-friendly primes nearest to 2^bits.
 // Output modulus are alternating in size.
-func FindNearestNTTPrimes(ringParams RingParameters, bits float64, cnt int) []*num.Modulus {
+func FindNearestNTTPrimes(params RingParameters, bits float64, cnt int) []*num.Modulus {
 	var gap uint64
 
-	switch ringParams.ringType {
+	switch params.ringType {
 	case Cyclotomic:
-		gap = cyclotomicGap(uint64(ringParams.cycloOrd), uint64(ringParams.rank))
+		gap = cyclotomicGap(uint64(params.cycloOrd), uint64(params.rank))
 	case Cyclic:
-		gap = cyclicGap(uint64(ringParams.rank))
+		gap = cyclicGap(uint64(params.rank))
 	case AutFixed:
-		gap = autFixedGap(uint64(ringParams.cycloOrd), uint64(ringParams.rank))
+		gap = autFixedGap(uint64(params.cycloOrd), uint64(params.rank))
 	}
 
 	start := (uint64(math.Round(math.Exp2(bits)))/gap)*gap + 1
