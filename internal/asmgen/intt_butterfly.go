@@ -81,7 +81,12 @@ func InvButterflyX86(isCmp bool, u, v, w, wS, q, twoQ reg.Register) {
 		MOVQ(u, subQ)
 		SUBQ(twoQ, subQ)
 		CMPQ(u, twoQ)
-		CMOVQGE(subQ, u)
+		// If inputs are lazy, u can be up to 8q,
+		// so we need unsigned comparison here.
+		// Otherwise, we use CMOVQGE to maintain
+		// consistency with AVX2, which only supports
+		// signed comparison.
+		CMOVQCC(subQ, u)
 	}
 
 	quo := GP64()

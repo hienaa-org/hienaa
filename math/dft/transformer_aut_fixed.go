@@ -225,7 +225,7 @@ func (ntt *autFixedPrimeTransformer) ForwardInPlace(coeffs []uint64) {
 	dftops.NTTInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.Tw, ntt.ambNTT.TwS, ntt.mod.Value())
 	vec.MFormTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.mod)
 
-	vec.MMulTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.root, ntt.mod)
+	vec.MMulLazyTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.root, ntt.mod)
 
 	dftops.INTTInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.TwInv, ntt.ambNTT.TwInvS, ntt.mod.Value())
 	vec.ScalarMMulTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.ambRankInvM, ntt.mod)
@@ -249,7 +249,7 @@ func (ntt *autFixedPrimeTransformer) InverseInPlace(coeffs []uint64) {
 
 	dftops.NTTInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.Tw, ntt.ambNTT.TwS, ntt.mod.Value())
 
-	vec.MMulTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.rootInv, ntt.mod)
+	vec.MMulLazyTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.rootInv, ntt.mod)
 
 	dftops.INTTInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.TwInv, ntt.ambNTT.TwInvS, ntt.mod.Value())
 	vec.ScalarMulTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.ambNTT.RankInv, ntt.mod)
