@@ -1,7 +1,6 @@
-package perm
+package crt
 
 import (
-	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
 )
@@ -17,6 +16,10 @@ func NewPermuter(ringParams dft.RingParameters, mod []*num.Modulus) *Permuter {
 		case num.IsPowerOfTwo(uint64(ringParams.CycloOrder())):
 			return &Permuter{
 				permuter: newCyclotomicPow2Permuter(ringParams, mod),
+			}
+		default:
+			return &Permuter{
+				permuter: newCyclotomicAnyPermuter(ringParams, mod),
 			}
 		}
 	case dft.AutFixed:
@@ -35,7 +38,10 @@ func NewPermuter(ringParams dft.RingParameters, mod []*num.Modulus) *Permuter {
 	panic("NewPermuter: unsupported ring type or parameters")
 }
 
+func (p *Permuter) Permute(idx uint64, poly Poly) {
+	p.permuter.permute(idx, poly)
+}
+
 type permuter interface {
-	ModLen() int
-	Permute(idx uint64, poly crt.Poly)
+	permute(idx uint64, poly Poly)
 }

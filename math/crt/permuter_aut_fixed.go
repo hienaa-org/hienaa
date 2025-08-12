@@ -1,10 +1,9 @@
-package perm
+package crt
 
 import (
 	"math/bits"
 	"slices"
 
-	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
 )
@@ -13,6 +12,7 @@ type autFixedPow2Permuter struct {
 	params dft.RingParameters
 	mod    []*num.Modulus
 
+	// buf is a buffer for the permuter.
 	buf []uint64
 }
 
@@ -25,19 +25,19 @@ func newAutFixedPow2Permuter(params dft.RingParameters, mod []*num.Modulus) *aut
 	}
 }
 
-func (p *autFixedPow2Permuter) ModLen() int {
+func (p *autFixedPow2Permuter) modLen() int {
 	return len(p.mod)
 }
 
-func (p *autFixedPow2Permuter) Permute(idx uint64, poly crt.Poly) {
+func (p *autFixedPow2Permuter) permute(idx uint64, poly Poly) {
 	idx = idx % uint64(p.params.CycloOrder())
 
 	if idx%4 != 1 {
 		panic("Permute: idx must be 1 mod 4")
-	} else if poly.ModLen() != p.ModLen() {
-		panic("Permute: poly.ModLen() != p.ModLen()")
+	} else if poly.ModLen() != p.modLen() {
+		panic("Permute: poly.ModLen() != p.modLen()")
 	} else if idx != 0 {
-		for i := 0; i < p.ModLen(); i++ {
+		for i := 0; i < p.modLen(); i++ {
 			if poly.IsNTT() && dft.IsNTTFriendly(p.params, p.mod[i]) {
 				copy(p.buf, poly.Coeffs[i])
 
@@ -85,9 +85,12 @@ type autFixedPrimePermuter struct {
 	params dft.RingParameters
 	mod    []*num.Modulus
 
-	rootPow    []uint64
+	// rootPow is the powers of the generator modulo the cyclotomic order.
+	rootPow []uint64
+	// rootPowInv is the powers of the inverse of the generator modulo the cyclotomic order.
 	rootPowInv []uint64
 
+	// buf is a buffer for the permuter.
 	buf []uint64
 }
 
@@ -118,30 +121,30 @@ func newAutFixedPrimePermuter(params dft.RingParameters, mod []*num.Modulus) *au
 	}
 }
 
-func (p *autFixedPrimePermuter) ModLen() int {
+func (p *autFixedPrimePermuter) modLen() int {
 	return len(p.mod)
 }
 
-func (p *autFixedPrimePermuter) Permute(idx uint64, poly crt.Poly) {
-	if poly.ModLen() != p.ModLen() {
-		panic("Permute: poly.ModLen() != p.ModLen()")
+func (p *autFixedPrimePermuter) permute(idx uint64, poly Poly) {
+	if poly.ModLen() != p.modLen() {
+		panic("Permute: poly.ModLen() != p.modLen()")
 	}
 
 	idx = idx % uint64(p.params.CycloOrder())
 	if idx != 0 {
-		rotIdx, isFound := slices.BinarySearch(p.rootPow, idx)
+		rotIdx := slices.Index(p.rootPow, idx)
 
-		if !isFound {
-			rotIdx, isFound = slices.BinarySearch(p.rootPowInv, idx)
+		if rotIdx == -1 {
+			rotIdx = slices.Index(p.rootPowInv, idx)
 
-			if !isFound {
+			if rotIdx == -1 {
 				panic("Permute: idx is not a valid index")
 			}
 
 			rotIdx = (p.params.Rank() - rotIdx) % p.params.Rank()
 		}
 
-		for i := 0; i < p.ModLen(); i++ {
+		for i := 0; i < p.modLen(); i++ {
 			if poly.IsNTT() && dft.IsNTTFriendly(p.params, p.mod[i]) {
 				copy(p.buf[:p.params.Rank()-rotIdx], poly.Coeffs[i][rotIdx:])
 				copy(p.buf[p.params.Rank()-rotIdx:], poly.Coeffs[i][:rotIdx])

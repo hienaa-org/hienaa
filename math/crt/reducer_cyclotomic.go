@@ -9,6 +9,36 @@ import (
 	"github.com/hienaa-org/hienaa/math/vec"
 )
 
+type cyclotomicReducerNTTModulus struct {
+	params dft.RingParameters
+	mod    *num.Modulus
+
+	// reducer is the reducer for the cyclotomic polynomial.
+	reducer *dftops.CyclotomicReducerNTTModulus
+}
+
+func newCyclotomicReducerNTTModulus(params dft.RingParameters, mod *num.Modulus) *cyclotomicReducerNTTModulus {
+	return &cyclotomicReducerNTTModulus{
+		params: params,
+		mod:    mod,
+
+		reducer: dftops.NewCyclotomicReducerNTTModulus(params.CycloOrder(), params.Rank(), mod),
+	}
+}
+
+func (r *cyclotomicReducerNTTModulus) reduceTo(pOut, p []uint64) {
+	r.reducer.ReduceTo(pOut, p)
+}
+
+func (r *cyclotomicReducerNTTModulus) safeCopy() reducer {
+	return &cyclotomicReducerNTTModulus{
+		params: r.params,
+		mod:    r.mod,
+
+		reducer: r.reducer.SafeCopy(),
+	}
+}
+
 type cyclotomicReducerAnyModulus struct {
 	params dft.RingParameters
 	mod    *num.Modulus
