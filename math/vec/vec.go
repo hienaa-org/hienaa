@@ -62,3 +62,41 @@ func RadixReverseInPlace(v []uint64, r int) {
 		}
 	}
 }
+
+// Max returns max(v).
+// If len(v) == 0, it returns 0.
+func Max[T num.Real](v []T) T {
+	switch len(v) {
+	case 0:
+		return 0
+	case 1:
+		return v[0]
+	}
+
+	r := v[1]
+	for i := 1; i < len(v); i++ {
+		if v[i] > r {
+			r = v[i]
+		}
+	}
+	return r
+}
+
+// Min returns min(v).
+// If len(v) == 0, it returns 0.
+func Min[T num.Real](v []T) T {
+	switch len(v) {
+	case 0:
+		return 0
+	case 1:
+		return v[0]
+	}
+
+	r := v[1]
+	for i := 1; i < len(v); i++ {
+		if v[i] < r {
+			r = v[i]
+		}
+	}
+	return r
+}

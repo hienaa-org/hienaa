@@ -4,7 +4,7 @@ import (
 	"github.com/hienaa-org/hienaa/math/num"
 )
 
-func reduceInt(x int, q *num.Modulus) uint64 {
+func ReduceInt(x int64, q *num.Modulus) uint64 {
 	if x < 0 {
 		return num.Neg(uint64(-x), q)
 	} else {
@@ -12,8 +12,8 @@ func reduceInt(x int, q *num.Modulus) uint64 {
 	}
 }
 
-// quotient computes the quotient of two polynomials modulo a modulus.
-func quotient(dividend, divisor []uint64, mod *num.Modulus) []uint64 {
+// Quotient computes the quotient of two polynomials modulo a modulus.
+func Quotient(dividend, divisor []uint64, mod *num.Modulus) []uint64 {
 	switch {
 	case len(dividend) < len(divisor):
 		panic("quotient: dividend is shorter than divisor")
@@ -39,8 +39,8 @@ func quotient(dividend, divisor []uint64, mod *num.Modulus) []uint64 {
 }
 
 // CyclotomicPolynomial computes the cyclotomic polynomial of the given cyclotomic order.
-func CyclotomicPolynomial(cycloOrd int) []int {
-	primes, _ := num.Factor(uint64(cycloOrd))
+func CyclotomicPolynomial(cycloOrd int) []int64 {
+	primes, _ := num.Factor(cycloOrd)
 
 	var isEven bool
 	if primes[0] == 2 {
@@ -50,9 +50,9 @@ func CyclotomicPolynomial(cycloOrd int) []int {
 		isEven = false
 	}
 
-	pOut := make([]int, cycloOrd+1)
-	pBuff0 := make([]int, cycloOrd+1)
-	pBuff1 := make([]int, cycloOrd+1)
+	pOut := make([]int64, cycloOrd+1)
+	pBuff0 := make([]int64, cycloOrd+1)
+	pBuff1 := make([]int64, cycloOrd+1)
 	pOut[0], pOut[1] = -1, 1
 
 	skip := int(cycloOrd)
@@ -64,23 +64,23 @@ func CyclotomicPolynomial(cycloOrd int) []int {
 		clear(pOut)
 
 		for i := 0; i <= prevDeg; i++ {
-			pBuff1[i*int(prime)] = pBuff0[i]
+			pBuff1[i*prime] = pBuff0[i]
 		}
 
-		currDeg = prevDeg*int(prime) - prevDeg
+		currDeg = prevDeg*prime - prevDeg
 
-		for i := 0; i <= (int(prime)-1)*prevDeg; i++ {
-			if pBuff1[prevDeg*int(prime)-i] != 0 {
-				pOut[currDeg-i] = pBuff1[prevDeg*int(prime)-i] / pBuff0[prevDeg]
+		for i := 0; i <= (prime-1)*prevDeg; i++ {
+			if pBuff1[prevDeg*prime-i] != 0 {
+				pOut[currDeg-i] = pBuff1[prevDeg*prime-i] / pBuff0[prevDeg]
 
 				for j := 0; j <= prevDeg; j++ {
-					pBuff1[prevDeg*int(prime)-i-j] -= pBuff0[prevDeg-j] * pOut[currDeg-i]
+					pBuff1[prevDeg*prime-i-j] -= pBuff0[prevDeg-j] * pOut[currDeg-i]
 				}
 			}
 		}
 
 		prevDeg = currDeg
-		skip /= int(prime)
+		skip /= prime
 	}
 
 	if isEven {
@@ -99,5 +99,5 @@ func CyclotomicPolynomial(cycloOrd int) []int {
 		}
 	}
 
-	return pOut[:num.Totient(uint64(cycloOrd))+1]
+	return pOut[:num.Totient(cycloOrd)+1]
 }

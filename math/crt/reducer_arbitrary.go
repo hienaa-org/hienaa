@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/hienaa-org/hienaa/math/dft"
+	"github.com/hienaa-org/hienaa/math/internal/dftops"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
 )
@@ -42,24 +43,30 @@ type reducerAnyModulus struct {
 }
 
 // newReducerAnyModulus creates a new [reducerAnyModulus].
-func newReducerAnyModulus(maxDeg int, mod *num.Modulus, modPoly []uint64) *reducerAnyModulus {
+func newReducerAnyModulus(maxDeg int, mod *num.Modulus, modPoly []int64) *reducerAnyModulus {
+	modPolyReduced := make([]uint64, len(modPoly))
+	for i := range modPolyReduced {
+		modPolyReduced[i] = dftops.ReduceInt(modPoly[i]%int64(mod.Value()), mod)
+	}
+
 	deg := len(modPoly) - 1
 
-	degNext := num.NextProdPower(uint64(deg), []uint64{2})
-	diffDeg := uint64(maxDeg - deg)
-	diffDegNext := num.NextProdPower(2*diffDeg+1, []uint64{2})
+	degNext := num.NextProdPower(deg, []int{2})
+	diffDeg := maxDeg - deg
+	diffDegNext := num.NextProdPower(2*diffDeg+1, []int{2})
 
-	lenAmbMod := int(math.Ceil((2.0*math.Log2(float64(mod.Value())) + math.Log2(float64(max(degNext, diffDegNext)))) / num.MaxModulusBits))
-	ambMod := dft.FindPrevNTTPrimes(dft.NewCyclicParameters(int(2*max(degNext, diffDegNext))), num.MaxModulusBits, lenAmbMod)
-	embedder := NewEmbedder(ambMod, []*num.Modulus{mod})
+	maxBits := 2*num.Log2(mod.Value()) + num.Log2(max(degNext, diffDegNext))
+	lenAmbMod := int(math.Ceil(maxBits / num.MaxModulusBits))
+	ambMod := dft.FindPrevNTTPrimes(dft.NewCyclicParameters(2*max(degNext, diffDegNext)), num.MaxModulusBits, lenAmbMod)
+	embedder := NewEmbedder([]*num.Modulus{mod}, ambMod)
 
-	degNextParams := dft.NewCyclicParameters(int(degNext))
+	degNextParams := dft.NewCyclicParameters(degNext)
 	degNextNTT := make([]dft.Transformer, lenAmbMod)
 	for i := range degNextNTT {
 		degNextNTT[i] = dft.NewTransformer(degNextParams, ambMod[i])
 	}
 
-	diffDegNextParams := dft.NewCyclicParameters(int(diffDegNext))
+	diffDegNextParams := dft.NewCyclicParameters(diffDegNext)
 	diffDegNextNTT := make([]dft.Transformer, lenAmbMod)
 	for i := range diffDegNextNTT {
 		diffDegNextNTT[i] = dft.NewTransformer(diffDegNextParams, ambMod[i])
@@ -68,12 +75,12 @@ func newReducerAnyModulus(maxDeg int, mod *num.Modulus, modPoly []uint64) *reduc
 	ambModPoly := make([][]uint64, lenAmbMod)
 	for i := range ambModPoly {
 		ambModPoly[i] = make([]uint64, degNext)
-		copy(ambModPoly[i][:deg+1], modPoly)
+		copy(ambModPoly[i][:deg+1], modPolyReduced)
 	}
 
 	dividend := make([]uint64, maxDeg+1)
 	dividend[maxDeg] = 1
-	quoPoly := quotient(dividend, modPoly[:deg+1], mod)
+	quoPoly := dftops.Quotient(dividend, modPolyReduced[:deg+1], mod)
 	ambQuoPoly := make([][]uint64, lenAmbMod)
 	for i := range ambQuoPoly {
 		ambQuoPoly[i] = make([]uint64, diffDegNext)
@@ -90,11 +97,11 @@ func newReducerAnyModulus(maxDeg int, mod *num.Modulus, modPoly []uint64) *reduc
 		ambMod:   ambMod,
 		embedder: embedder,
 
-		deg:         int(deg),
-		maxDeg:      int(maxDeg),
-		diffDeg:     int(diffDeg),
-		diffDegNext: int(diffDegNext),
-		degNext:     int(degNext),
+		deg:         deg,
+		maxDeg:      maxDeg,
+		diffDeg:     diffDeg,
+		diffDegNext: diffDegNext,
+		degNext:     degNext,
 
 		diffDegNextNTT: diffDegNextNTT,
 		degNextNTT:     degNextNTT,
@@ -102,7 +109,7 @@ func newReducerAnyModulus(maxDeg int, mod *num.Modulus, modPoly []uint64) *reduc
 		modPoly: ambModPoly,
 		quoPoly: ambQuoPoly,
 
-		buf: newReducerBuffer(lenAmbMod, int(maxDeg+1), int(diffDegNext), int(degNext)),
+		buf: newReducerBuffer(lenAmbMod, maxDeg+1, diffDegNext, degNext),
 	}
 }
 
@@ -120,13 +127,13 @@ func (r *reducerAnyModulus) reduceTo(pOut, p []uint64) {
 	// Compute pQuo = pQuo * floor(X^(deg+diffDeg)/\Phi_m(X))
 	for i := 0; i < len(r.buf.pQuo); i++ {
 		r.diffDegNextNTT[i].ForwardInPlace(r.buf.pQuo[i])
-		vec.MMulLazyTo(r.buf.pQuo[i], r.buf.pQuo[i], r.quoPoly[i], r.ambMod[i])
+		vec.MMulTo(r.buf.pQuo[i], r.buf.pQuo[i], r.quoPoly[i], r.ambMod[i])
 		r.diffDegNextNTT[i].InverseInPlace(r.buf.pQuo[i])
 	}
 	r.embedder.EmbedVecTo(r.buf.pQuo[0:1], r.buf.pQuo)
 
 	// Compute pRem = floor(pQuo/X^diffDeg) % (X^degNext - 1)
-	for i := 1; i <= int(math.Ceil(float64(r.diffDeg)/float64(r.degNext))); i++ {
+	for i := 1; i <= num.DivCeil(r.diffDeg, r.degNext); i++ {
 		for j := 0; j < r.degNext; j++ {
 			if i*r.degNext+j > r.diffDeg {
 				break
@@ -146,13 +153,13 @@ func (r *reducerAnyModulus) reduceTo(pOut, p []uint64) {
 	// Compute pRem = pRem * quoPoly (mod X^degNext - 1)
 	for i := 0; i < len(r.buf.pRem); i++ {
 		r.degNextNTT[i].ForwardInPlace(r.buf.pRem[i])
-		vec.MMulLazyTo(r.buf.pRem[i], r.buf.pRem[i], r.modPoly[i], r.ambMod[i])
+		vec.MMulTo(r.buf.pRem[i], r.buf.pRem[i], r.modPoly[i], r.ambMod[i])
 		r.degNextNTT[i].InverseInPlace(r.buf.pRem[i])
 	}
 	r.embedder.EmbedVecTo(r.buf.pRem[0:1], r.buf.pRem)
 
 	// Compute pIn = pIn (mod X^degNext - 1)
-	for i := 1; i <= int(math.Ceil(float64(r.maxDeg)/float64(r.degNext))); i++ {
+	for i := 1; i <= num.DivCeil(r.maxDeg, r.degNext); i++ {
 		for j := 0; j < r.degNext; j++ {
 			if i*r.degNext+j > r.maxDeg {
 				break
@@ -229,12 +236,17 @@ type reducerNTTModulus struct {
 }
 
 // newReducerNTTModulus creates a new [reducerNTTModulus].
-func newReducerNTTModulus(maxDeg int, mod *num.Modulus, modPoly []uint64) *reducerNTTModulus {
+func newReducerNTTModulus(maxDeg int, mod *num.Modulus, modPoly []int64) *reducerNTTModulus {
+	modPolyReduced := make([]uint64, len(modPoly))
+	for i := range modPolyReduced {
+		modPolyReduced[i] = dftops.ReduceInt(modPoly[i]%int64(mod.Value()), mod)
+	}
+
 	deg := len(modPoly) - 1
 
-	degNext := num.NextProdPower(uint64(deg), []uint64{2})
-	diffDeg := uint64(maxDeg - deg)
-	diffDegNext := num.NextProdPower(2*diffDeg+1, []uint64{2})
+	degNext := num.NextProdPower(deg, []int{2})
+	diffDeg := maxDeg - deg
+	diffDegNext := num.NextProdPower(2*diffDeg+1, []int{2})
 
 	degNextParams := dft.NewCyclicParameters(int(degNext))
 	degNextNTT := dft.NewTransformer(degNextParams, mod)
@@ -243,11 +255,11 @@ func newReducerNTTModulus(maxDeg int, mod *num.Modulus, modPoly []uint64) *reduc
 	diffDegNextNTT := dft.NewTransformer(diffDegNextParams, mod)
 
 	modPolyExtended := make([]uint64, degNext)
-	copy(modPolyExtended, modPoly)
+	copy(modPolyExtended, modPolyReduced)
 
 	dividend := make([]uint64, maxDeg+1)
 	dividend[maxDeg] = 1
-	quoPoly := quotient(dividend, modPolyExtended[:deg+1], mod)
+	quoPoly := dftops.Quotient(dividend, modPolyExtended[:deg+1], mod)
 	quoPoly = append(quoPoly, make([]uint64, int(diffDegNext)-maxDeg+deg-1)...)
 
 	degNextNTT.ForwardInPlace(modPolyExtended)
@@ -256,11 +268,11 @@ func newReducerNTTModulus(maxDeg int, mod *num.Modulus, modPoly []uint64) *reduc
 	return &reducerNTTModulus{
 		mod: mod,
 
-		deg:         int(deg),
-		maxDeg:      int(maxDeg),
-		diffDeg:     int(diffDeg),
-		diffDegNext: int(diffDegNext),
-		degNext:     int(degNext),
+		deg:         deg,
+		maxDeg:      maxDeg,
+		diffDeg:     diffDeg,
+		diffDegNext: diffDegNext,
+		degNext:     degNext,
 
 		diffDegNextNTT: diffDegNextNTT,
 		degNextNTT:     degNextNTT,
@@ -268,7 +280,7 @@ func newReducerNTTModulus(maxDeg int, mod *num.Modulus, modPoly []uint64) *reduc
 		modPoly: modPolyExtended,
 		quoPoly: quoPoly,
 
-		buf: newReducerBuffer(1, int(maxDeg+1), int(diffDegNext), int(degNext)),
+		buf: newReducerBuffer(1, maxDeg+1, diffDegNext, degNext),
 	}
 }
 
@@ -283,7 +295,7 @@ func (r *reducerNTTModulus) reduceTo(pOut, p []uint64) {
 
 	// Compute pQuo = pQuo * floor(X^(deg+diffDeg)/modPoly)
 	r.diffDegNextNTT.ForwardInPlace(r.buf.pQuo[0])
-	vec.MMulLazyTo(r.buf.pQuo[0], r.buf.pQuo[0], r.quoPoly, r.mod)
+	vec.MMulTo(r.buf.pQuo[0], r.buf.pQuo[0], r.quoPoly, r.mod)
 	r.diffDegNextNTT.InverseInPlace(r.buf.pQuo[0])
 
 	// Compute pRem = floor(pQuo/X^diffDeg) % (X^degNext - 1)
@@ -304,7 +316,7 @@ func (r *reducerNTTModulus) reduceTo(pOut, p []uint64) {
 
 	// Compute pRem = pRem * modPoly (mod X^degNext - 1)
 	r.degNextNTT.ForwardInPlace(r.buf.pRem[0])
-	vec.MMulLazyTo(r.buf.pRem[0], r.buf.pRem[0], r.modPoly, r.mod)
+	vec.MMulTo(r.buf.pRem[0], r.buf.pRem[0], r.modPoly, r.mod)
 	r.degNextNTT.InverseInPlace(r.buf.pRem[0])
 
 	// Compute pIn = pIn (mod X^degNext - 1)

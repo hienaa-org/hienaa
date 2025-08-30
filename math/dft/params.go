@@ -17,6 +17,8 @@ const (
 	// AutFixed is a decomposition ring of a cyclotomic ring.
 	// In other words, it is a subring of a cyclotomic ring invariant under some automorphism.
 	AutFixed
+	// Other covers arbitrary quotient rings.
+	Other
 )
 
 // RingParameters contains the parameters for the ring.
@@ -69,7 +71,7 @@ func NewAutFixedParameters(cycloOrd, rank int) RingParameters {
 		if (cycloOrd-1)%rank != 0 {
 			panic("NewAutFixedParameters: rank should divide cycloOrd-1 for prime cycloOrd")
 		}
-	case num.IsPowerOfTwo(uint64(cycloOrd)):
+	case num.IsPowerOfTwo(cycloOrd):
 		if cycloOrd != rank<<2 {
 			panic("NewAutFixedParameters: cycloOrd must be four times the rank for power-of-two cycloOrd")
 		}
@@ -101,15 +103,15 @@ func (p RingParameters) RingType() RingType {
 }
 
 // cyclotomicGap finds the "gap" of the NTT-friendly modulus for cyclotomic rings.
-func cyclotomicGap(cycloOrd, rank uint64) uint64 {
-	var gap uint64
+func cyclotomicGap(cycloOrd, rank int) uint64 {
+	var gap int
 
 	if num.IsPowerOfTwo(cycloOrd) {
 		gap = cycloOrd
 	} else {
-		bluesteinRank := num.NextProdPower(2*cycloOrd-1, []uint64{2})
+		bluesteinRank := num.NextProdPower(2*cycloOrd-1, []int{2})
 
-		var p uint64
+		var p int
 		primes, _ := num.Factor(cycloOrd)
 		for _, f := range primes {
 			if f%2 == 1 {
@@ -122,41 +124,41 @@ func cyclotomicGap(cycloOrd, rank uint64) uint64 {
 		if redDeg == rank {
 			gap = num.LCM(cycloOrd, bluesteinRank)
 		} else {
-			degNext := num.NextProdPower(rank, []uint64{2})
-			diffDegNext := num.NextProdPower(2*(redDeg-rank)+1, []uint64{2})
+			degNext := num.NextProdPower(rank, []int{2})
+			diffDegNext := num.NextProdPower(2*(redDeg-rank)+1, []int{2})
 			gap = num.LCM(num.LCM(degNext, diffDegNext), num.LCM(cycloOrd, bluesteinRank))
 		}
 	}
 
-	return gap
+	return uint64(gap)
 }
 
 // cyclicGap finds the "gap" of the NTT-friendly modulus for cyclic rings.
-func cyclicGap(rank uint64) uint64 {
-	var gap uint64
+func cyclicGap(rank int) uint64 {
+	var gap int
 
 	if num.IsProdPowerOf(rank, cyclicNTTFactors) {
 		gap = rank
 	} else {
-		gap = num.LCM(num.NextProdPower(2*rank-1, []uint64{2}), rank)
+		gap = num.LCM(num.NextProdPower(2*rank-1, []int{2}), rank)
 	}
 
-	return gap
+	return uint64(gap)
 }
 
 // autFixedGap finds the "gap" of the NTT-friendly modulus for AutFixed rings.
-func autFixedGap(cycloOrd, rank uint64) uint64 {
-	var gap uint64
+func autFixedGap(cycloOrd, rank int) uint64 {
+	var gap int
 
 	if num.IsPowerOfTwo(cycloOrd) {
 		gap = cycloOrd
-	} else if num.IsProdPowerOf(rank, []uint64{2}) {
+	} else if num.IsProdPowerOf(rank, []int{2}) {
 		gap = cycloOrd * rank
 	} else {
-		gap = cycloOrd * num.NextProdPower(2*rank-1, []uint64{2})
+		gap = cycloOrd * num.NextProdPower(2*rank-1, []int{2})
 	}
 
-	return gap
+	return uint64(gap)
 }
 
 // IsNTTFriendly checks if the given modulus is NTT-friendly with respect to the ring parameters.
@@ -165,11 +167,11 @@ func IsNTTFriendly(params RingParameters, mod *num.Modulus) bool {
 
 	switch params.ringType {
 	case Cyclotomic:
-		gap = cyclotomicGap(uint64(params.cycloOrd), uint64(params.rank))
+		gap = cyclotomicGap(params.cycloOrd, params.rank)
 	case Cyclic:
-		gap = cyclicGap(uint64(params.rank))
+		gap = cyclicGap(params.rank)
 	case AutFixed:
-		gap = autFixedGap(uint64(params.cycloOrd), uint64(params.rank))
+		gap = autFixedGap(params.cycloOrd, params.rank)
 	}
 
 	primes, _ := num.Factor(mod.Value())
@@ -188,11 +190,11 @@ func FindNextNTTPrimes(params RingParameters, bits float64, cnt int) []*num.Modu
 
 	switch params.ringType {
 	case Cyclotomic:
-		gap = cyclotomicGap(uint64(params.cycloOrd), uint64(params.rank))
+		gap = cyclotomicGap(params.cycloOrd, params.rank)
 	case Cyclic:
-		gap = cyclicGap(uint64(params.rank))
+		gap = cyclicGap(params.rank)
 	case AutFixed:
-		gap = autFixedGap(uint64(params.cycloOrd), uint64(params.rank))
+		gap = autFixedGap(params.cycloOrd, params.rank)
 	}
 
 	start := (uint64(math.Round(math.Exp2(bits)))/gap)*gap + 1
@@ -212,11 +214,11 @@ func FindPrevNTTPrimes(params RingParameters, bits float64, cnt int) []*num.Modu
 
 	switch params.ringType {
 	case Cyclotomic:
-		gap = cyclotomicGap(uint64(params.cycloOrd), uint64(params.rank))
+		gap = cyclotomicGap(params.cycloOrd, params.rank)
 	case Cyclic:
-		gap = cyclicGap(uint64(params.rank))
+		gap = cyclicGap(params.rank)
 	case AutFixed:
-		gap = autFixedGap(uint64(params.cycloOrd), uint64(params.rank))
+		gap = autFixedGap(params.cycloOrd, params.rank)
 	}
 
 	start := (uint64(math.Floor(math.Exp2(bits)))/gap)*gap + 1
@@ -237,11 +239,11 @@ func FindNearestNTTPrimes(params RingParameters, bits float64, cnt int) []*num.M
 
 	switch params.ringType {
 	case Cyclotomic:
-		gap = cyclotomicGap(uint64(params.cycloOrd), uint64(params.rank))
+		gap = cyclotomicGap(params.cycloOrd, params.rank)
 	case Cyclic:
-		gap = cyclicGap(uint64(params.rank))
+		gap = cyclicGap(params.rank)
 	case AutFixed:
-		gap = autFixedGap(uint64(params.cycloOrd), uint64(params.rank))
+		gap = autFixedGap(params.cycloOrd, params.rank)
 	}
 
 	start := (uint64(math.Round(math.Exp2(bits)))/gap)*gap + 1

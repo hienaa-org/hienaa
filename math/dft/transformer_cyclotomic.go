@@ -92,20 +92,19 @@ type cyclotomicAnyTransformer struct {
 	reducer *dftops.CyclotomicReducerNTTModulus
 
 	// idx is the CRT mapping index.
-	idx []uint64
+	idx []int
 
 	buf transformerBuffer
 }
 
 // newCyclotomicAnyTransformer creates a new [cyclotomicAnyTransformer].
 func newCyclotomicAnyTransformer(params RingParameters, mod *num.Modulus) *cyclotomicAnyTransformer {
-	cycloOrd := uint64(params.cycloOrd)
-	cycloOrdMod := num.NewModulus(cycloOrd)
-	primes, exps := num.Factor(cycloOrd)
+	cycloOrdMod := num.NewModulus(params.cycloOrd)
+	primes, exps := num.Factor(params.cycloOrd)
 
-	dims := make([]uint64, len(primes))
+	dims := make([]int, len(primes))
 	for i := range dims {
-		pExp := uint64(1)
+		pExp := 1
 		for j := 0; j < int(exps[i]); j++ {
 			pExp *= primes[i]
 		}
@@ -115,34 +114,34 @@ func newCyclotomicAnyTransformer(params RingParameters, mod *num.Modulus) *cyclo
 		if exps[0] == 1 {
 			dims = dims[1:]
 		} else if exps[0] > 2 {
-			dims = append([]uint64{0}, dims...)
+			dims = append([]int{0}, dims...)
 			dims[0], dims[1] = dims[1]/2, 2
 		}
 	}
 
-	root := num.GeneratorsWithFactors(cycloOrdMod, primes, exps)
-	idx := make([]uint64, params.rank)
+	root := num.GeneratorsWithFactors(cycloOrdMod, vec.Cast[uint64](primes), vec.Cast[uint64](exps))
+	idx := make([]int, params.rank)
 
-	idxDigits := make([]uint64, len(dims))
+	idxDigits := make([]int, len(dims))
 	for i := 0; i < params.rank; i++ {
-		idxIn := uint64(i)
+		idxIn := i
 		for j := 0; j < len(dims); j++ {
 			idxDigits[j] = idxIn % dims[j]
 			idxIn /= dims[j]
 		}
-		idxOut := uint64(1)
+		idxOut := 1
 		for j := 0; j < len(dims); j++ {
-			idxOut = num.Mul(idxOut, num.Exp(root[j], idxDigits[j], cycloOrdMod), cycloOrdMod)
+			idxOut = int(num.Mul(uint64(idxOut), num.Exp(root[j], uint64(idxDigits[j]), cycloOrdMod), cycloOrdMod))
 		}
 		idx[i] = idxOut
 	}
 
-	if num.IsProdPowerOf(cycloOrd, cyclicNTTFactors) {
-		cycloOrdFactors := make([]uint64, len(cyclicNTTFactors))
+	if num.IsProdPowerOf(params.cycloOrd, cyclicNTTFactors) {
+		cycloOrdFactors := make([]int, len(cyclicNTTFactors))
 		cycloOrdFactorsMod := make([]*num.Modulus, len(cyclicNTTFactors))
-		exps := make([]uint64, len(cyclicNTTFactors))
+		exps := make([]int, len(cyclicNTTFactors))
 
-		t := cycloOrd
+		t := params.cycloOrd
 		for i, f := range cyclicNTTFactors {
 			cycloOrdFactors[i] = 1
 			for t%f == 0 {
@@ -160,9 +159,9 @@ func newCyclotomicAnyTransformer(params RingParameters, mod *num.Modulus) *cyclo
 			idxOut := idx[i]
 			idx[i] = 0
 			for j := range cycloOrdFactors {
-				var t, r uint64
+				var t, r int
 				if cycloOrdFactors[j] != 1 {
-					t = num.Mul(idxOut, num.Inv(cycloOrd/cycloOrdFactors[j], cycloOrdFactorsMod[j]), cycloOrdFactorsMod[j])
+					t = int(num.Mul(uint64(idxOut), num.Inv(uint64(params.cycloOrd/cycloOrdFactors[j]), cycloOrdFactorsMod[j]), cycloOrdFactorsMod[j]))
 				}
 
 				for d := 0; d < int(exps[j]); d++ {

@@ -10,7 +10,7 @@ import (
 
 var (
 	// cyclicNTTFactors are the factors of the rank for native cyclic NTT.
-	cyclicNTTFactors = []uint64{2, 3, 5}
+	cyclicNTTFactors = []int{2, 3, 5}
 )
 
 // cyclicPow235Transformer is a transformer for ranks multiple of [cyclicNTTFactors].
@@ -54,11 +54,11 @@ type cyclicPow235Transformer struct {
 // newCyclicPow235Transformer creates a new [cyclicNativeTransformer].
 func newCyclicPow235Transformer(params RingParameters, mod *num.Modulus) *cyclicPow235Transformer {
 	rankFactors := make([]int, len(cyclicNTTFactors))
-	rank := params.rank
+	rankTmp := params.rank
 	for i, f := range cyclicNTTFactors {
 		rankFactors[i] = 1
-		for rank%int(f) == 0 {
-			rank /= int(f)
+		for rankTmp%int(f) == 0 {
+			rankTmp /= int(f)
 			rankFactors[i] *= int(f)
 		}
 	}
@@ -70,24 +70,24 @@ func newCyclicPow235Transformer(params RingParameters, mod *num.Modulus) *cyclic
 	twInv := make([][]uint64, len(cyclicNTTFactors))
 	twInvS := make([][]uint64, len(cyclicNTTFactors))
 	for i, r := range cyclicNTTFactors {
-		tw[i], twInv[i] = cyclicTwiddleFactor(int(rankFactors[i]), int(r), root, mod)
+		tw[i], twInv[i] = cyclicTwiddleFactor(rankFactors[i], r, root, mod)
 		twS[i] = vec.SForm(tw[i], mod)
 		twInvS[i] = vec.SForm(twInv[i], mod)
 	}
 
-	rootPow := make([][]uint64, len(cyclicNTTFactors))
-	rootPowS := make([][]uint64, len(cyclicNTTFactors))
+	rootExp := make([][]uint64, len(cyclicNTTFactors))
+	rootExpS := make([][]uint64, len(cyclicNTTFactors))
 	for i, r := range cyclicNTTFactors {
 		if rankFactors[i] == 1 {
 			continue
 		}
-		rootPow[i] = make([]uint64, r)
-		rootPow[i][0] = 1
-		rootPow[i][1] = num.NthRoot(int(r), root, mod)
+		rootExp[i] = make([]uint64, r)
+		rootExp[i][0] = 1
+		rootExp[i][1] = num.NthRoot(int(r), root, mod)
 		for j := 2; j < int(r); j++ {
-			rootPow[i][j] = num.Mul(rootPow[i][j-1], rootPow[i][1], mod)
+			rootExp[i][j] = num.Mul(rootExp[i][j-1], rootExp[i][1], mod)
 		}
-		rootPowS[i] = vec.SForm(rootPow[i], mod)
+		rootExpS[i] = vec.SForm(rootExp[i], mod)
 	}
 
 	rankInv := num.InvMForm(num.Inv(uint64(params.rank), mod), mod)
@@ -116,8 +116,8 @@ func newCyclicPow235Transformer(params RingParameters, mod *num.Modulus) *cyclic
 		twInv:  twInv,
 		twInvS: twInvS,
 
-		root:  rootPow,
-		rootS: rootPowS,
+		root:  rootExp,
+		rootS: rootExpS,
 
 		rankInv: rankInv,
 
@@ -240,7 +240,7 @@ type cyclicBluesteinTransformer struct {
 
 // newCyclicBluesteinTransformer creates a new [cyclicBluesteinTransformer].
 func newCyclicBluesteinTransformer(params RingParameters, mod *num.Modulus) *cyclicBluesteinTransformer {
-	ambRank := int(num.NextProdPower(uint64(2*params.rank-1), []uint64{2}))
+	ambRank := num.NextProdPower(2*params.rank-1, []int{2})
 
 	root := num.Generators(mod)
 	zz := num.NthRoot(2*params.rank, root, mod)

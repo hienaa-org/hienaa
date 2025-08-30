@@ -13,13 +13,15 @@ var (
 )
 
 // IsPrime checks of x is prime.
-// 0 and 1 are not considered prime.
-func IsPrime(x uint64) bool {
-	xq := NewModulus(x)
+// Any x <= 1 are not considered prime.
+func IsPrime[T Integer](x T) bool {
+	return (x >= 1) && isPrimeUint64(absUint64(x))
+}
 
-	if x == 0 || x == 1 {
-		return false
-	}
+// isPrime checks of x is prime.
+// 0 and 1 are not considered prime.
+func isPrimeUint64(x uint64) bool {
+	xq := NewModulus(x)
 
 	for _, p := range smallPrimes {
 		if x == p {
@@ -52,39 +54,43 @@ func IsPrime(x uint64) bool {
 }
 
 // PrevPrime returns the previous prime number of x with skip.
-// If skip == 0, or there is no prime number meets the condition, it panics.
-func PrevPrime(x uint64, skip uint64) uint64 {
-	if skip == 0 {
-		panic("PrevPrime: skip must be nonzero.")
+// If skip <= 0, or there is no prime number meets the condition, it panics.
+func PrevPrime[T Integer](x T, skip T) T {
+	if skip <= 0 {
+		panic("PrevPrime: skip must be positive")
 	}
 
 	for t := x - skip; ; t -= skip {
-		if t > MaxModulus {
-			panic("PrevPrime: t must be less than or equal to MaxModulus.")
-		} else if IsPrime(t) {
+		if uint64(t) > MaxModulus {
+			panic("PrevPrime: underflow")
+		}
+
+		if IsPrime(t) {
 			return t
 		}
 	}
 }
 
 // NextPrime returns the next prime number of x with skip.
-// If skip == 0, or there is no prime number meets the condition, it panics.
-func NextPrime(x uint64, skip uint64) uint64 {
-	if skip == 0 {
-		panic("NextPrime: skip must be nonzero.")
+// If skip <= 0, or there is no prime number meets the condition, it panics.
+func NextPrime[T Integer](x T, skip T) T {
+	if skip <= 0 {
+		panic("NextPrime: skip must be positive")
 	}
 
 	for t := x + skip; ; t += skip {
-		if t > MaxModulus {
-			panic("NextPrime: t must be less than or equal to MaxModulus.")
-		} else if IsPrime(t) {
+		if uint64(t) > MaxModulus {
+			panic("NextPrime: overflow")
+		}
+
+		if IsPrime(t) {
 			return t
 		}
 	}
 }
 
 // IsProdPowerOf checks if x can be expressed as a product of the powers of given factors.
-func IsProdPowerOf(x uint64, factors []uint64) bool {
+func IsProdPowerOf[T Integer](x T, factors []T) bool {
 	for _, f := range factors {
 		if f == 0 {
 			continue
@@ -98,7 +104,7 @@ func IsProdPowerOf(x uint64, factors []uint64) bool {
 
 // NextProdPower returns the next number of x that can be expressed as
 // a product of the powers of given factors.
-func NextProdPower(x uint64, factors []uint64) uint64 {
+func NextProdPower[T Integer](x T, factors []T) T {
 	xNext := x + 1
 	for !IsProdPowerOf(xNext, factors) {
 		xNext++
@@ -106,20 +112,25 @@ func NextProdPower(x uint64, factors []uint64) uint64 {
 	return xNext
 }
 
-// Factor factors x.
-func Factor(x uint64) (primes []uint64, exps []uint64) {
-	factors := make(map[uint64]uint64)
-	factorRecurse(x, factors)
+// Factor factors x. The resulting primes are sorted in ascending order.
+// Panics when x < 0.
+func Factor[T Integer](x T) (primes []T, exps []T) {
+	if x < 0 {
+		panic("Factor: x must be non-negative")
+	}
 
-	primes = make([]uint64, 0, len(factors))
+	factors := make(map[uint64]uint64)
+	factorRecurse(uint64(x), factors)
+
+	primes = make([]T, 0, len(factors))
 	for p := range factors {
-		primes = append(primes, p)
+		primes = append(primes, T(p))
 	}
 	slices.Sort(primes)
 
-	exps = make([]uint64, len(primes))
+	exps = make([]T, len(primes))
 	for i, p := range primes {
-		exps[i] = factors[p]
+		exps[i] = T(factors[uint64(p)])
 	}
 
 	return primes, exps
@@ -215,17 +226,22 @@ func Order(x uint64, q *Modulus) uint64 {
 }
 
 // Totient returns the Euler-Phi function of x.
-func Totient(x uint64) uint64 {
-	if x == 0 || x == 1 {
+// Panics when x < 0.
+func Totient[T Integer](x T) T {
+	primes, exps := Factor(x)
+	return TotientWithFactors(x, primes, exps)
+}
+
+// TotientWithFactors returns the Euler-Phi function of x, given its factorization.
+// Panics when x < 0.
+func TotientWithFactors[T Integer](x T, primes, exps []T) T {
+	switch {
+	case x < 0:
+		panic("Totient: x must be non-negative")
+	case x == 0 || x == 1:
 		return x
 	}
 
-	primes, exps := Factor(x)
-	return ToientWithFactors(x, primes, exps)
-}
-
-// ToientWithFactors returns the Euler-Phi function of x, given its factorization.
-func ToientWithFactors(x uint64, primes, exps []uint64) uint64 {
 	phi := x
 	for _, p := range primes {
 		phi -= phi / p

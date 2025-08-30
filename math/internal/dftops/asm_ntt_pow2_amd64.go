@@ -101,10 +101,10 @@ func nttInPlacePow2Unroll(coeffs, tw, twS []uint64, q uint64) {
 
 		c := (*[8]uint64)(unsafe.Pointer(&coeffs[j]))
 
-		c[0], c[1] = butterflyPow2(c[0], c[1], tw[i+N/2+0], twS[i+N/2+0], q, twoQ)
-		c[2], c[3] = butterflyPow2(c[2], c[3], tw[i+N/2+1], twS[i+N/2+1], q, twoQ)
-		c[4], c[5] = butterflyPow2(c[4], c[5], tw[i+N/2+2], twS[i+N/2+2], q, twoQ)
-		c[6], c[7] = butterflyPow2(c[6], c[7], tw[i+N/2+3], twS[i+N/2+3], q, twoQ)
+		c[0], c[1] = butterflyPow2NoCmp(c[0], c[1], tw[i+N/2+0], twS[i+N/2+0], q, twoQ)
+		c[2], c[3] = butterflyPow2NoCmp(c[2], c[3], tw[i+N/2+1], twS[i+N/2+1], q, twoQ)
+		c[4], c[5] = butterflyPow2NoCmp(c[4], c[5], tw[i+N/2+2], twS[i+N/2+2], q, twoQ)
+		c[6], c[7] = butterflyPow2NoCmp(c[6], c[7], tw[i+N/2+3], twS[i+N/2+3], q, twoQ)
 	}
 }
 
@@ -130,10 +130,10 @@ func inttInPlacePow2Unroll(coeffs, twInv, twInvS []uint64, q uint64) {
 
 		c := (*[8]uint64)(unsafe.Pointer(&coeffs[j]))
 
-		c[0], c[1] = invButterflyPow2NoCmp(c[0], c[1], twInv[i+N/2+0], twInvS[i+N/2+0], q, twoQ)
-		c[2], c[3] = invButterflyPow2NoCmp(c[2], c[3], twInv[i+N/2+1], twInvS[i+N/2+1], q, twoQ)
-		c[4], c[5] = invButterflyPow2NoCmp(c[4], c[5], twInv[i+N/2+2], twInvS[i+N/2+2], q, twoQ)
-		c[6], c[7] = invButterflyPow2NoCmp(c[6], c[7], twInv[i+N/2+3], twInvS[i+N/2+3], q, twoQ)
+		c[0], c[1] = invButterflyPow2(c[0], c[1], twInv[i+N/2+0], twInvS[i+N/2+0], q, twoQ)
+		c[2], c[3] = invButterflyPow2(c[2], c[3], twInv[i+N/2+1], twInvS[i+N/2+1], q, twoQ)
+		c[4], c[5] = invButterflyPow2(c[4], c[5], twInv[i+N/2+2], twInvS[i+N/2+2], q, twoQ)
+		c[6], c[7] = invButterflyPow2(c[6], c[7], twInv[i+N/2+3], twInvS[i+N/2+3], q, twoQ)
 	}
 
 	// t = 2, m = N / 4
@@ -196,14 +196,14 @@ func inttInPlacePow2Unroll(coeffs, twInv, twInvS []uint64, q uint64) {
 		c0 := (*[8]uint64)(unsafe.Pointer(&coeffs[j]))
 		c1 := (*[8]uint64)(unsafe.Pointer(&coeffs[j+t]))
 
-		c0[0], c1[0] = invButterflyPow2(c0[0], c1[0], w, wS, q, twoQ)
-		c0[1], c1[1] = invButterflyPow2(c0[1], c1[1], w, wS, q, twoQ)
-		c0[2], c1[2] = invButterflyPow2(c0[2], c1[2], w, wS, q, twoQ)
-		c0[3], c1[3] = invButterflyPow2(c0[3], c1[3], w, wS, q, twoQ)
+		c0[0], c1[0] = invButterflyPow2NoCmp(c0[0], c1[0], w, wS, q, twoQ)
+		c0[1], c1[1] = invButterflyPow2NoCmp(c0[1], c1[1], w, wS, q, twoQ)
+		c0[2], c1[2] = invButterflyPow2NoCmp(c0[2], c1[2], w, wS, q, twoQ)
+		c0[3], c1[3] = invButterflyPow2NoCmp(c0[3], c1[3], w, wS, q, twoQ)
 
-		c0[4], c1[4] = invButterflyPow2(c0[4], c1[4], w, wS, q, twoQ)
-		c0[5], c1[5] = invButterflyPow2(c0[5], c1[5], w, wS, q, twoQ)
-		c0[6], c1[6] = invButterflyPow2(c0[6], c1[6], w, wS, q, twoQ)
-		c0[7], c1[7] = invButterflyPow2(c0[7], c1[7], w, wS, q, twoQ)
+		c0[4], c1[4] = invButterflyPow2NoCmp(c0[4], c1[4], w, wS, q, twoQ)
+		c0[5], c1[5] = invButterflyPow2NoCmp(c0[5], c1[5], w, wS, q, twoQ)
+		c0[6], c1[6] = invButterflyPow2NoCmp(c0[6], c1[6], w, wS, q, twoQ)
+		c0[7], c1[7] = invButterflyPow2NoCmp(c0[7], c1[7], w, wS, q, twoQ)
 	}
 }

@@ -70,16 +70,18 @@ func ButterflyAVX512YMM(u, v, w, wS, wSHi, q, twoQ, maskLo reg.VecVirtual) {
 	VPADDQ(t0, u, u)
 }
 
-func ButterflyX86(u, v, w, wS, q, twoQ reg.Register) {
-	subQ := GP64()
-	MOVQ(u, subQ)
-	SUBQ(twoQ, subQ)
-	CMPQ(u, twoQ)
-	CMOVQGE(subQ, u)
+func ButterflyX86(isCmp bool, u, v, w, wS, q, twoQ reg.Register) {
+	if isCmp {
+		subQ := GP64()
+		MOVQ(u, subQ)
+		SUBQ(twoQ, subQ)
+		CMPQ(u, twoQ)
+		CMOVQGE(subQ, u)
+	}
 
 	quo := GP64()
 	MOVQ(wS, reg.RDX)
-	MULXQ(v, subQ, quo)
+	MULXQ(v, reg.RDX, quo)
 
 	t := GP64()
 	MOVQ(v, t)

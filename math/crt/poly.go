@@ -83,6 +83,7 @@ func (p *Poly) CopyFrom(p0 *Poly) {
 	for i := range p.Coeffs {
 		copy(p.Coeffs[i], p0.Coeffs[i])
 	}
+	p.isNTT = p0.isNTT
 }
 
 // IsEqual checks if p is equal to p0.

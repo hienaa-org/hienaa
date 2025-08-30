@@ -2,7 +2,7 @@ package num
 
 // Unsigned represents the unsigned Integer type.
 type Unsigned interface {
-	uint | uint8 | uint16 | uint32 | uint64 | uintptr
+	uint | uint8 | uint16 | uint32 | uint64
 }
 
 // Integer represents the Integer type.

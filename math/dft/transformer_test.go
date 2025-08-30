@@ -128,7 +128,7 @@ func TestCyclotomicNTT(t *testing.T) {
 		cyclo := make([]uint64, len(cycloSigned))
 		for i := range cycloSigned {
 			if cycloSigned[i] < 0 {
-				cyclo[i] = uint64(int(q.Value()) + cycloSigned[i])
+				cyclo[i] = uint64(int64(q.Value()) + cycloSigned[i])
 			} else {
 				cyclo[i] = uint64(cycloSigned[i])
 			}
@@ -140,7 +140,7 @@ func TestCyclotomicNTT(t *testing.T) {
 
 func TestCyclicNTT(t *testing.T) {
 	t.Run("type=Pow235", func(t *testing.T) {
-		N := int(num.NextProdPower(rSrc.SampleN(1<<12), []uint64{2, 3, 5}))
+		N := num.NextProdPower(int(rSrc.SampleN(1<<12)), []int{2, 3, 5})
 		rP := dft.NewCyclicParameters(N)
 		qs := dft.FindNearestNTTPrimes(rP, 30, 2)
 		q := num.NewModulus(qs[0].Value() * qs[1].Value())
@@ -168,7 +168,7 @@ func TestCyclicNTT(t *testing.T) {
 		var N int
 		for {
 			N = int(rSrc.SampleN(1 << 12))
-			if !num.IsProdPowerOf(uint64(N), []uint64{2, 3, 5}) {
+			if !num.IsProdPowerOf(N, []int{2, 3, 5}) {
 				break
 			}
 		}
@@ -235,13 +235,13 @@ func TestAutFixedNTT(t *testing.T) {
 	})
 
 	t.Run("type=Prime", func(t *testing.T) {
-		M := int(num.NextPrime(rSrc.SampleN(1<<12), 1))
-		primes, exps := num.Factor(uint64(M - 1))
+		M := num.NextPrime(int(rSrc.SampleN(1<<12)), 1)
+		primes, exps := num.Factor(M - 1)
 		fold := 1
 		for i := range primes {
-			e := rSrc.SampleN(uint64(exps[i]))
-			for j := 0; j < int(e); j++ {
-				fold *= int(primes[i])
+			e := int(rSrc.SampleN(uint64(exps[i])))
+			for j := 0; j < e; j++ {
+				fold *= primes[i]
 			}
 		}
 		N := (M - 1) / fold
@@ -348,7 +348,7 @@ func BenchmarkCyclotomicNTT(b *testing.B) {
 func BenchmarkCyclicNTT(b *testing.B) {
 	b.Run("type=Pow235", func(b *testing.B) {
 		for _, logN := range benchLogN {
-			N := int(num.NextProdPower(uint64(1<<logN)+1, []uint64{2, 3, 5}))
+			N := num.NextProdPower((1<<logN)+1, []int{2, 3, 5})
 			rP := dft.NewCyclicParameters(N)
 			q := dft.FindNearestNTTPrimes(rP, 60, 1)[0]
 			ntt := dft.NewTransformer(rP, q)
@@ -423,7 +423,7 @@ func BenchmarkAutFixedNTT(b *testing.B) {
 	b.Run("type=Prime", func(b *testing.B) {
 		for _, logN := range benchLogN {
 			N := 1 << logN
-			M := int(num.NextPrime(1, uint64(N)))
+			M := num.NextPrime(1, N)
 
 			rP := dft.NewAutFixedParameters(M, N)
 			q := dft.FindNearestNTTPrimes(rP, 60, 1)[0]

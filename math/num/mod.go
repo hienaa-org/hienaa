@@ -58,31 +58,31 @@ func (q *Modulus) String() string {
 }
 
 // NewModulus creates a new [Modulus].
-func NewModulus(mod uint64) *Modulus {
+func NewModulus[T Integer](mod T) *Modulus {
 	switch {
-	case mod == 0:
-		panic("NewModulus: modulus cannot be zero")
-	case mod == 1:
-		panic("NewModulus: modulus cannot be one")
-	case mod >= MaxModulus:
+	case mod <= 1:
+		panic("NewModulus: modulus less than one")
+	case uint64(mod) >= MaxModulus:
 		panic("NewModulus: modulus exceeds MaxModulus")
 	}
+
+	q := uint64(mod)
 
 	// 2^64 = q * x + r
 	// 2^128 = 2^64 * q * x + 2^64 * r
 	//       = 2^64 * q * x + (q * x + r) * r
 	//       = (2^64 * q + q * r) * x + r^2
-	divHi, rem := bits.Div64(1, 0, mod)
+	divHi, rem := bits.Div64(1, 0, q)
 	quoRemHi, divLo := bits.Mul64(divHi, rem)
 	divHi += quoRemHi
 	remSqHi, remSqLo := bits.Mul64(rem, rem)
-	remSqQuo, _ := bits.Div64(remSqHi, remSqLo, mod)
+	remSqQuo, _ := bits.Div64(remSqHi, remSqLo, q)
 	divLo += remSqQuo
 
 	var inv uint64
-	if mod%2 != 0 {
+	if q%2 != 0 {
 		inv = 1
-		acc := mod
+		acc := q
 		for i := 0; i < 63; i++ {
 			inv *= acc
 			acc *= acc
@@ -90,7 +90,7 @@ func NewModulus(mod uint64) *Modulus {
 	}
 
 	return &Modulus{
-		modulus: mod,
+		modulus: q,
 
 		inv: inv,
 
@@ -125,14 +125,14 @@ func MulLazy(x0, y0 uint64, q *Modulus) uint64 {
 	return modops.BMulLazy(x0, y0, q.modulus, q.divHi, q.divLo)
 }
 
-// Reduce128 computes x mod q using Barrett reduction.
-func Reduce128(xHi, xLo uint64, q *Modulus) uint64 {
-	return modops.BMod128(xHi, xLo, q.modulus, q.divHi, q.divLo)
-}
-
 // Reduce computes x mod q using Barrett reduction.
 func Reduce(x uint64, q *Modulus) uint64 {
 	return modops.BMod64(x, q.modulus, q.divHi)
+}
+
+// Reduce128 computes x mod q using Barrett reduction.
+func Reduce128(xHi, xLo uint64, q *Modulus) uint64 {
+	return modops.BMod128(xHi, xLo, q.modulus, q.divHi, q.divLo)
 }
 
 // Reduce128Lazy computes x mod q using Barret reduction,

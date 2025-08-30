@@ -7,13 +7,17 @@ import (
 
 // Reducer reduces polynomials.
 type Reducer struct {
+	mod     *num.Modulus
+	modPoly []int64
 	reducer reducer
 }
 
 // NewReducer creates a new [Reducer] for arbitrary polynomials.
-func NewReducer(maxDeg int, mod *num.Modulus, modPoly []uint64) *Reducer {
+func NewReducer(maxDeg int, mod *num.Modulus, modPoly []int64) *Reducer {
 	return &Reducer{
-		reducer: newReducer(maxDeg, modPoly, mod),
+		mod:     mod,
+		modPoly: modPoly,
+		reducer: newReducer(maxDeg, mod, modPoly),
 	}
 }
 
@@ -42,6 +46,16 @@ func (r *Reducer) ReduceTo(pOut, p *Poly) {
 	}
 }
 
+// Modulus returns the modulus.
+func (r *Reducer) Modulus() *num.Modulus {
+	return r.mod
+}
+
+// ModPoly returns the modulus polynomial.
+func (r *Reducer) ModPoly() []int64 {
+	return r.modPoly
+}
+
 // SafeCopy returns a thread-safe copy.
 func (r *Reducer) SafeCopy() *Reducer {
 	return &Reducer{
@@ -58,15 +72,23 @@ type reducer interface {
 }
 
 // newReducer creates a new [reducer].
-func newReducer(maxDeg int, modPoly []uint64, mod *num.Modulus) reducer {
+func newReducer(maxDeg int, mod *num.Modulus, modPoly []int64) reducer {
 	deg := len(modPoly) - 1
-	degNext := int(num.NextProdPower(uint64(deg), []uint64{2}))
-	diffDegNext := int(num.NextProdPower(2*uint64(maxDeg-deg)+1, []uint64{2}))
+	degNext := num.NextProdPower(deg, []int{2})
+	diffDegNext := num.NextProdPower(2*(maxDeg-deg)+1, []int{2})
 
 	if dft.IsNTTFriendly(dft.NewCyclicParameters(max(degNext, diffDegNext)), mod) {
 		return newReducerNTTModulus(maxDeg, mod, modPoly)
 	}
 	return newReducerAnyModulus(maxDeg, mod, modPoly)
+}
+
+// newCyclotomicReducer creates a new [reducer] for cyclotomic rings.
+func newCyclotomicReducer(params dft.RingParameters, mod *num.Modulus) reducer {
+	if dft.IsNTTFriendly(params, mod) {
+		return newCyclotomicReducerNTTModulus(params, mod)
+	}
+	return newCyclotomicReducerAnyModulus(params, mod)
 }
 
 // reducerBuffer is a buffer for [cyclotomicReducerNTTModulus].

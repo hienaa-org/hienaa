@@ -36,16 +36,16 @@ func NewTransformer(params RingParameters, mod *num.Modulus) Transformer {
 		}
 	case Cyclic:
 		switch {
-		case num.IsProdPowerOf(uint64(params.rank), cyclicNTTFactors):
+		case num.IsProdPowerOf(params.rank, cyclicNTTFactors):
 			return newCyclicPow235Transformer(params, mod)
 		default:
 			return newCyclicBluesteinTransformer(params, mod)
 		}
 	case AutFixed:
 		switch {
-		case num.IsPrime(uint64(params.cycloOrd)):
+		case num.IsPrime(params.cycloOrd):
 			return newAutFixedPrimeTransformer(params, mod)
-		case num.IsPowerOfTwo(uint64(params.cycloOrd)):
+		case num.IsPowerOfTwo(params.cycloOrd):
 			return newAutFixedPow2Transformer(params, mod)
 		}
 	}

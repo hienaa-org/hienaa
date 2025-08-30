@@ -149,21 +149,19 @@ type autFixedPrimeTransformer struct {
 
 // newAutFixedPrimeTransformer creates a new [autFixedPrimeTransformer].
 func newAutFixedPrimeTransformer(params RingParameters, mod *num.Modulus) *autFixedPrimeTransformer {
-	cycloOrd := uint64(params.cycloOrd)
-	rank := uint64(params.rank)
-	fold := int((cycloOrd - 1) / rank)
+	fold := int((params.cycloOrd - 1) / params.rank)
 
-	isPow2 := num.IsPowerOfTwo(rank)
+	isPow2 := num.IsPowerOfTwo(params.rank)
 
-	cycloOrdMod := num.NewModulus(cycloOrd)
+	cycloOrdMod := num.NewModulus(params.cycloOrd)
 	cycloRoot := num.Generators(cycloOrdMod)[0]
-	modRoot := num.NthRoot(int(cycloOrd), num.Generators(mod), mod)
+	modRoot := num.NthRoot(params.cycloOrd, num.Generators(mod), mod)
 
 	var ambRank int
 	if isPow2 {
-		ambRank = int(rank)
+		ambRank = params.rank
 	} else {
-		ambRank = int(num.NextProdPower(2*rank-1, []uint64{2}))
+		ambRank = num.NextProdPower(2*params.rank-1, []int{2})
 	}
 	ambNTT := dftops.NewCyclicPow2Transformer(ambRank, mod)
 	ambRankInv := num.MForm(num.Inv(uint64(ambRank), mod), mod)
@@ -171,7 +169,7 @@ func newAutFixedPrimeTransformer(params RingParameters, mod *num.Modulus) *autFi
 	modRootPowSum := make([]uint64, ambRank)
 	modRootPowInvSum := make([]uint64, ambRank)
 
-	cycloRootPowRank := num.Exp(cycloRoot, rank, cycloOrdMod)
+	cycloRootPowRank := num.Exp(cycloRoot, uint64(params.rank), cycloOrdMod)
 	modRootPow := modRoot
 	modRootPowInv := num.Inv(modRoot, mod)
 
@@ -183,7 +181,7 @@ func newAutFixedPrimeTransformer(params RingParameters, mod *num.Modulus) *autFi
 		modRootPowNext = modRootPow
 		modRootPowInvNext = modRootPowInv
 
-		for j := 0; j < int(rank); j++ {
+		for j := 0; j < params.rank; j++ {
 			modRootPowSum[j] = num.Add(modRootPowSum[j], modRootPowNext, mod)
 			modRootPowInvSum[j] = num.Add(modRootPowInvSum[j], modRootPowInvNext, mod)
 
@@ -208,7 +206,7 @@ func newAutFixedPrimeTransformer(params RingParameters, mod *num.Modulus) *autFi
 
 		fold:        uint64(fold),
 		ambRankInvM: ambRankInv,
-		cycloOrdInv: num.Inv(cycloOrd, mod),
+		cycloOrdInv: num.Inv(uint64(params.cycloOrd), mod),
 
 		buf: newTransformerBuffer(ambRank),
 	}

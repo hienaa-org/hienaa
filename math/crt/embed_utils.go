@@ -67,7 +67,7 @@ func roundTo128Signed(xHi, xLo uint64) (uint64, uint64) {
 }
 
 // reduceModInToModOutSigned returns sign(x) mod qOut for x in [0, qIn).
-func reduceModInToModOutSigned(x uint64, qIn, halfQIn uint64, qOut *num.Modulus) uint64 {
+func reduceModInToModOutSigned(x uint64, qOut *num.Modulus, qIn, halfQIn uint64) uint64 {
 	if x <= halfQIn {
 		return num.Reduce(x, qOut)
 	}

@@ -2,25 +2,39 @@
 package num
 
 import (
+	"math"
 	"math/bits"
 )
 
+// absUint64 returns the absolute value of x in uint64.
+func absUint64[T Integer](x T) uint64 {
+	if x < 0 {
+		return uint64(-x)
+	}
+	return uint64(x)
+}
+
 // IsPowerOfTwo returns whether x is a power of two.
-func IsPowerOfTwo(x uint64) bool {
+func IsPowerOfTwo[T Integer](x T) bool {
 	return (x > 0) && (x&(x-1)) == 0
 }
 
-// Log2 returns floor(log2(x)). Panics if x <= 0.
-func Log2(x uint64) int {
+// Log2 returns Log2(x). Panics if x <= 0.
+func Log2[T Real](x T) float64 {
 	if x <= 0 {
 		panic("log2: x must be positive")
 	}
 
-	return int(bits.Len64(x)) - 1
+	return math.Log2(float64(x))
 }
 
 // GCD returns the greatest common divisor of x0 and x1.
-func GCD(x0, x1 uint64) uint64 {
+func GCD[T Integer](x0, x1 T) T {
+	return T(gcdUint64(absUint64(x0), absUint64(x1)))
+}
+
+// gcdUint64 returns the greatest common divisor of x0 and x1.
+func gcdUint64(x0, x1 uint64) uint64 {
 	switch {
 	case x0 == 0:
 		return x1
@@ -49,10 +63,20 @@ func GCD(x0, x1 uint64) uint64 {
 }
 
 // LCM returns the least common multiple of x0 and x1.
-func LCM(x0, x1 uint64) uint64 {
+func LCM[T Integer](x0, x1 T) T {
 	if x0 == 0 || x1 == 0 {
 		return 0
 	}
 
 	return (x0 / GCD(x0, x1)) * x1
+}
+
+// DivCeil returns ceil(x/y).
+func DivCeil[T Integer](x, y T) T {
+	return T(math.Ceil(float64(x) / float64(y)))
+}
+
+// DivRound returns round(x/y).
+func DivRound[T Integer](x, y T) T {
+	return T(math.Round(float64(x) / float64(y)))
 }
