@@ -19,8 +19,8 @@ type reducerAnyModulus struct {
 
 	// deg is the degree of the modulo polynomial.
 	deg int
-	// maxDeg is the maximum degree of the input polynomial.
-	maxDeg int
+	// maxRank is the maximum rank of the input polynomial.
+	maxRank int
 	// diffDeg is the degree of the difference between the cyclotomic polynomial and the intermediate reducing polynomial Q_sp.
 	diffDeg int
 	// diffDegNext is the smallest power of 2 that is greater than 2*diffDeg+1.
@@ -43,7 +43,7 @@ type reducerAnyModulus struct {
 }
 
 // newReducerAnyModulus creates a new [reducerAnyModulus].
-func newReducerAnyModulus(maxDeg int, mod *num.Modulus, modPoly []int64) *reducerAnyModulus {
+func newReducerAnyModulus(maxRank int, mod *num.Modulus, modPoly []int64) *reducerAnyModulus {
 	modPolyReduced := make([]uint64, len(modPoly))
 	for i := range modPolyReduced {
 		modPolyReduced[i] = dftops.ReduceInt(modPoly[i]%int64(mod.Value()), mod)
@@ -52,7 +52,7 @@ func newReducerAnyModulus(maxDeg int, mod *num.Modulus, modPoly []int64) *reduce
 	deg := len(modPoly) - 1
 
 	degNext := num.NextProdPower(deg, []int{2})
-	diffDeg := maxDeg - deg
+	diffDeg := maxRank - deg - 1
 	diffDegNext := num.NextProdPower(2*diffDeg+1, []int{2})
 
 	maxBits := 2*num.Log2(mod.Value()) + num.Log2(max(degNext, diffDegNext))
@@ -78,13 +78,13 @@ func newReducerAnyModulus(maxDeg int, mod *num.Modulus, modPoly []int64) *reduce
 		copy(ambModPoly[i][:deg+1], modPolyReduced)
 	}
 
-	dividend := make([]uint64, maxDeg+1)
-	dividend[maxDeg] = 1
+	dividend := make([]uint64, maxRank)
+	dividend[maxRank-1] = 1
 	quoPoly := dftops.Quotient(dividend, modPolyReduced[:deg+1], mod)
 	ambQuoPoly := make([][]uint64, lenAmbMod)
 	for i := range ambQuoPoly {
 		ambQuoPoly[i] = make([]uint64, diffDegNext)
-		copy(ambQuoPoly[i][:maxDeg-deg+1], quoPoly)
+		copy(ambQuoPoly[i][:maxRank-deg], quoPoly)
 	}
 
 	for i := 0; i < lenAmbMod; i++ {
@@ -98,7 +98,7 @@ func newReducerAnyModulus(maxDeg int, mod *num.Modulus, modPoly []int64) *reduce
 		embedder: embedder,
 
 		deg:         deg,
-		maxDeg:      maxDeg,
+		maxRank:     maxRank,
 		diffDeg:     diffDeg,
 		diffDegNext: diffDegNext,
 		degNext:     degNext,
@@ -109,7 +109,7 @@ func newReducerAnyModulus(maxDeg int, mod *num.Modulus, modPoly []int64) *reduce
 		modPoly: ambModPoly,
 		quoPoly: ambQuoPoly,
 
-		buf: newReducerBuffer(lenAmbMod, maxDeg+1, diffDegNext, degNext),
+		buf: newReducerBuffer(lenAmbMod, maxRank, diffDegNext, degNext),
 	}
 }
 
@@ -159,9 +159,9 @@ func (r *reducerAnyModulus) reduceTo(pOut, p []uint64) {
 	r.embedder.EmbedVecTo(r.buf.pRem[0:1], r.buf.pRem)
 
 	// Compute pIn = pIn (mod X^degNext - 1)
-	for i := 1; i <= num.DivCeil(r.maxDeg, r.degNext); i++ {
+	for i := 1; i <= num.DivCeil(r.maxRank-1, r.degNext); i++ {
 		for j := 0; j < r.degNext; j++ {
-			if i*r.degNext+j > r.maxDeg {
+			if i*r.degNext+j >= r.maxRank {
 				break
 			}
 			r.buf.pIn[0][j] = num.Add(r.buf.pIn[0][j], r.buf.pIn[0][i*r.degNext+j], r.mod)
@@ -192,7 +192,7 @@ func (r *reducerAnyModulus) safeCopy() reducer {
 		embedder: r.embedder.SafeCopy(),
 
 		deg:         r.deg,
-		maxDeg:      r.maxDeg,
+		maxRank:     r.maxRank,
 		diffDeg:     r.diffDeg,
 		diffDegNext: r.diffDegNext,
 		degNext:     r.degNext,
@@ -203,7 +203,7 @@ func (r *reducerAnyModulus) safeCopy() reducer {
 		modPoly: r.modPoly,
 		quoPoly: r.quoPoly,
 
-		buf: newReducerBuffer(len(r.ambMod), r.maxDeg+1, r.diffDegNext, r.degNext),
+		buf: newReducerBuffer(len(r.ambMod), r.maxRank, r.diffDegNext, r.degNext),
 	}
 }
 
@@ -212,8 +212,8 @@ type reducerNTTModulus struct {
 
 	// deg is the degree of the modulo polynomial.
 	deg int
-	// maxDeg is the maximum degree of the input polynomial.
-	maxDeg int
+	// maxRank is the maximum rank of the input polynomial.
+	maxRank int
 	// diffDeg is the degree of the difference between the modulo polynomial and the maximum degree of the input polynomial.
 	diffDeg int
 	// diffDegNext is the smallest power of 2 that is greater than 2*diffDeg+1.
@@ -236,7 +236,7 @@ type reducerNTTModulus struct {
 }
 
 // newReducerNTTModulus creates a new [reducerNTTModulus].
-func newReducerNTTModulus(maxDeg int, mod *num.Modulus, modPoly []int64) *reducerNTTModulus {
+func newReducerNTTModulus(maxRank int, mod *num.Modulus, modPoly []int64) *reducerNTTModulus {
 	modPolyReduced := make([]uint64, len(modPoly))
 	for i := range modPolyReduced {
 		modPolyReduced[i] = dftops.ReduceInt(modPoly[i]%int64(mod.Value()), mod)
@@ -245,7 +245,7 @@ func newReducerNTTModulus(maxDeg int, mod *num.Modulus, modPoly []int64) *reduce
 	deg := len(modPoly) - 1
 
 	degNext := num.NextProdPower(deg, []int{2})
-	diffDeg := maxDeg - deg
+	diffDeg := maxRank - deg - 1
 	diffDegNext := num.NextProdPower(2*diffDeg+1, []int{2})
 
 	degNextParams := dft.NewCyclicParameters(int(degNext))
@@ -257,10 +257,10 @@ func newReducerNTTModulus(maxDeg int, mod *num.Modulus, modPoly []int64) *reduce
 	modPolyExtended := make([]uint64, degNext)
 	copy(modPolyExtended, modPolyReduced)
 
-	dividend := make([]uint64, maxDeg+1)
-	dividend[maxDeg] = 1
+	dividend := make([]uint64, maxRank)
+	dividend[maxRank-1] = 1
 	quoPoly := dftops.Quotient(dividend, modPolyExtended[:deg+1], mod)
-	quoPoly = append(quoPoly, make([]uint64, int(diffDegNext)-maxDeg+deg-1)...)
+	quoPoly = append(quoPoly, make([]uint64, int(diffDegNext)-maxRank+deg)...)
 
 	degNextNTT.ForwardInPlace(modPolyExtended)
 	diffDegNextNTT.ForwardInPlace(quoPoly)
@@ -269,7 +269,7 @@ func newReducerNTTModulus(maxDeg int, mod *num.Modulus, modPoly []int64) *reduce
 		mod: mod,
 
 		deg:         deg,
-		maxDeg:      maxDeg,
+		maxRank:     maxRank,
 		diffDeg:     diffDeg,
 		diffDegNext: diffDegNext,
 		degNext:     degNext,
@@ -280,7 +280,7 @@ func newReducerNTTModulus(maxDeg int, mod *num.Modulus, modPoly []int64) *reduce
 		modPoly: modPolyExtended,
 		quoPoly: quoPoly,
 
-		buf: newReducerBuffer(1, maxDeg+1, diffDegNext, degNext),
+		buf: newReducerBuffer(1, maxRank, diffDegNext, degNext),
 	}
 }
 
@@ -320,9 +320,9 @@ func (r *reducerNTTModulus) reduceTo(pOut, p []uint64) {
 	r.degNextNTT.InverseInPlace(r.buf.pRem[0])
 
 	// Compute pIn = pIn (mod X^degNext - 1)
-	for i := 1; i <= int(math.Ceil(float64(r.maxDeg)/float64(r.degNext))); i++ {
+	for i := 1; i <= int(math.Ceil(float64(r.maxRank-1)/float64(r.degNext))); i++ {
 		for j := 0; j < r.degNext; j++ {
-			if i*r.degNext+j > r.maxDeg {
+			if i*r.degNext+j >= r.maxRank {
 				break
 			}
 			r.buf.pIn[0][j] = num.Add(r.buf.pIn[0][j], r.buf.pIn[0][i*r.degNext+j], r.mod)
@@ -341,7 +341,7 @@ func (r *reducerNTTModulus) safeCopy() reducer {
 		mod: r.mod,
 
 		deg:         r.deg,
-		maxDeg:      r.maxDeg,
+		maxRank:     r.maxRank,
 		diffDeg:     r.diffDeg,
 		diffDegNext: r.diffDegNext,
 		degNext:     r.degNext,
@@ -352,6 +352,6 @@ func (r *reducerNTTModulus) safeCopy() reducer {
 		modPoly: r.modPoly,
 		quoPoly: r.quoPoly,
 
-		buf: newReducerBuffer(1, r.maxDeg+1, r.diffDegNext, r.degNext),
+		buf: newReducerBuffer(1, r.maxRank, r.diffDegNext, r.degNext),
 	}
 }

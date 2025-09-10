@@ -13,11 +13,11 @@ type Reducer struct {
 }
 
 // NewReducer creates a new [Reducer] for arbitrary polynomials.
-func NewReducer(maxDeg int, mod *num.Modulus, modPoly []int64) *Reducer {
+func NewReducer(maxRank int, mod *num.Modulus, modPoly []int64) *Reducer {
 	return &Reducer{
 		mod:     mod,
 		modPoly: modPoly,
-		reducer: newReducer(maxDeg, mod, modPoly),
+		reducer: newReducer(maxRank, mod, modPoly),
 	}
 }
 
@@ -72,15 +72,15 @@ type reducer interface {
 }
 
 // newReducer creates a new [reducer].
-func newReducer(maxDeg int, mod *num.Modulus, modPoly []int64) reducer {
+func newReducer(maxRank int, mod *num.Modulus, modPoly []int64) reducer {
 	deg := len(modPoly) - 1
 	degNext := num.NextProdPower(deg, []int{2})
-	diffDegNext := num.NextProdPower(2*(maxDeg-deg)+1, []int{2})
+	diffDegNext := num.NextProdPower(2*(maxRank-deg)-1, []int{2})
 
 	if dft.IsNTTFriendly(dft.NewCyclicParameters(max(degNext, diffDegNext)), mod) {
-		return newReducerNTTModulus(maxDeg, mod, modPoly)
+		return newReducerNTTModulus(maxRank, mod, modPoly)
 	}
-	return newReducerAnyModulus(maxDeg, mod, modPoly)
+	return newReducerAnyModulus(maxRank, mod, modPoly)
 }
 
 // newCyclotomicReducer creates a new [reducer] for cyclotomic rings.
