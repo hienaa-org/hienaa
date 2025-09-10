@@ -44,10 +44,10 @@ func BMul(x0, x1, q, divHi, divLo uint64) uint64 {
 	quo += quoMid1
 
 	quoMidSum, quoMidCarry := bits.Add64(quoMid0Lo, quoMid1Lo, 0)
-	quo += quoMidCarry
+	quo, _ = bits.Add64(quo, 0, quoMidCarry)
 
 	_, quoMidCarry = bits.Add64(quoMidSum, quoLo, 0)
-	quo += quoMidCarry
+	quo, _ = bits.Add64(quo, 0, quoMidCarry)
 
 	xOut := xOutLo - quo*q
 	if xOut >= q {
@@ -72,10 +72,10 @@ func BMulLazy(x0, x1, q, divHi, divLo uint64) uint64 {
 	quo += quoMid1
 
 	quoMidSum, quoMidCarry := bits.Add64(quoMid0Lo, quoMid1Lo, 0)
-	quo += quoMidCarry
+	quo, _ = bits.Add64(quo, 0, quoMidCarry)
 
 	_, quoMidCarry = bits.Add64(quoMidSum, quoLo, 0)
-	quo += quoMidCarry
+	quo, _ = bits.Add64(quo, 0, quoMidCarry)
 
 	return xOutLo - quo*q
 }
@@ -93,22 +93,12 @@ func BMod128(xHi, xLo, q, divHi, divLo uint64) uint64 {
 	quo += quoMid1
 
 	quoMidSum, quoMidCarry := bits.Add64(quoMid0Lo, quoMid1Lo, 0)
-	quo += quoMidCarry
+	quo, _ = bits.Add64(quo, 0, quoMidCarry)
 
 	_, quoMidCarry = bits.Add64(quoMidSum, quoLo, 0)
-	quo += quoMidCarry
+	quo, _ = bits.Add64(quo, 0, quoMidCarry)
 
 	xOut := xLo - quo*q
-	if xOut >= q {
-		xOut -= q
-	}
-	return xOut
-}
-
-// BMod64 returns x mod q using Barrett reduction.
-func BMod64(x, q, divHi uint64) uint64 {
-	quo, _ := bits.Mul64(x, divHi)
-	xOut := x - quo*q
 	if xOut >= q {
 		xOut -= q
 	}
@@ -129,12 +119,22 @@ func BMod128Lazy(xHi, xLo, q, divHi, divLo uint64) uint64 {
 	quo += quoMid1
 
 	quoMidSum, quoMidCarry := bits.Add64(quoMid0Lo, quoMid1Lo, 0)
-	quo += quoMidCarry
+	quo, _ = bits.Add64(quo, 0, quoMidCarry)
 
 	_, quoMidCarry = bits.Add64(quoMidSum, quoLo, 0)
-	quo += quoMidCarry
+	quo, _ = bits.Add64(quo, 0, quoMidCarry)
 
 	return xLo - quo*q
+}
+
+// BMod64 returns x mod q using Barrett reduction.
+func BMod64(x, q, divHi uint64) uint64 {
+	quo, _ := bits.Mul64(x, divHi)
+	xOut := x - quo*q
+	if xOut >= q {
+		xOut -= q
+	}
+	return xOut
 }
 
 // MForm transforms x into Montgomery form.

@@ -34,29 +34,6 @@ type Modulus struct {
 	divLo uint64
 }
 
-// Value returns the modulus value.
-func (q *Modulus) Value() uint64 {
-	return q.modulus
-}
-
-// Inv is a constant used for Montgomery multiplication.
-// Equals to the modular inverse of modulus modulo 2^64.
-// Zero if modulus is even.
-func (q *Modulus) Inv() uint64 {
-	return q.inv
-}
-
-// Div is a constant used for Barrett reduction.
-// Equals to floor(2^128 / modulus).
-func (q *Modulus) Div() (hi, lo uint64) {
-	return q.divHi, q.divLo
-}
-
-// String implements the [fmt.Stringer] interface.
-func (q *Modulus) String() string {
-	return fmt.Sprintf("%v", q.modulus)
-}
-
 // NewModulus creates a new [Modulus].
 func NewModulus[T Integer](mod T) *Modulus {
 	switch {
@@ -97,6 +74,29 @@ func NewModulus[T Integer](mod T) *Modulus {
 		divHi: divHi,
 		divLo: divLo,
 	}
+}
+
+// Value returns the modulus value.
+func (q *Modulus) Value() uint64 {
+	return q.modulus
+}
+
+// Inv is a constant used for Montgomery multiplication.
+// Equals to the modular inverse of modulus modulo 2^64.
+// Zero if modulus is even.
+func (q *Modulus) Inv() uint64 {
+	return q.inv
+}
+
+// Div is a constant used for Barrett reduction.
+// Equals to floor(2^128 / modulus).
+func (q *Modulus) Div() (hi, lo uint64) {
+	return q.divHi, q.divLo
+}
+
+// String implements the [fmt.Stringer] interface.
+func (q *Modulus) String() string {
+	return fmt.Sprintf("%v", q.modulus)
 }
 
 // Add computes x0 + x1 mod q.
@@ -221,6 +221,5 @@ func Inv(x uint64, q *Modulus) uint64 {
 		panic("Inv: x is not coprime to modulus")
 	}
 
-	r := ((s % qs) + qs) % qs
-	return uint64(r)
+	return uint64(((s % qs) + qs) % qs)
 }

@@ -312,16 +312,17 @@ func primitiveRoot(p, pExp uint64) uint64 {
 		testPows = append(testPows, phi/p)
 	}
 
+	pExpMod := NewModulus(pExp)
 	g := uint64(2)
 	for {
 		ok := true
 		for _, t := range testPows {
-			if Exp(g, t, NewModulus(pExp)) == 1 {
+			if Exp(g, t, pExpMod) == 1 {
 				ok = false
 				break
 			}
 		}
-		if ok && Exp(g, phi, NewModulus(pExp)) == 1 {
+		if ok && Exp(g, phi, pExpMod) == 1 {
 			return g
 		}
 		g++

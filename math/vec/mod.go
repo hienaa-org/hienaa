@@ -288,7 +288,7 @@ func ScalarMulLazyTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	}
 }
 
-// ScalarMulAddTo computes vOut += c * v mod q using Shoup multiplication,
+// ScalarMulAddLazyTo computes vOut += c * v mod q using Shoup multiplication,
 // but the result is in [0, 3q).
 func ScalarMulAddLazyTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	M := (len(vOut) >> 3) << 3

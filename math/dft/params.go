@@ -86,6 +86,15 @@ func NewAutFixedParameters(cycloOrd, rank int) RingParameters {
 	}
 }
 
+// NewOtherParameters creates a new [RingParameters] for arbitrary quotient ring.
+func NewOtherParameters(modPoly []int64) RingParameters {
+	return RingParameters{
+		cycloOrd: 0,
+		rank:     len(modPoly) - 1,
+		ringType: Other,
+	}
+}
+
 // CycloOrder is the order of the underlying cyclotomic polynomial.
 // 0 if the RingType is [Cyclic].
 func (p RingParameters) CycloOrder() int {
@@ -172,6 +181,8 @@ func IsNTTFriendly(params RingParameters, mod *num.Modulus) bool {
 		gap = cyclicGap(params.rank)
 	case AutFixed:
 		gap = autFixedGap(params.cycloOrd, params.rank)
+	default:
+		return false
 	}
 
 	primes, _ := num.Factor(mod.Value())
@@ -195,6 +206,8 @@ func FindNextNTTPrimes(params RingParameters, bits float64, cnt int) []*num.Modu
 		gap = cyclicGap(params.rank)
 	case AutFixed:
 		gap = autFixedGap(params.cycloOrd, params.rank)
+	default:
+		return nil
 	}
 
 	start := (uint64(math.Round(math.Exp2(bits)))/gap)*gap + 1
@@ -219,6 +232,8 @@ func FindPrevNTTPrimes(params RingParameters, bits float64, cnt int) []*num.Modu
 		gap = cyclicGap(params.rank)
 	case AutFixed:
 		gap = autFixedGap(params.cycloOrd, params.rank)
+	default:
+		return nil
 	}
 
 	start := (uint64(math.Floor(math.Exp2(bits)))/gap)*gap + 1
@@ -244,6 +259,8 @@ func FindNearestNTTPrimes(params RingParameters, bits float64, cnt int) []*num.M
 		gap = cyclicGap(params.rank)
 	case AutFixed:
 		gap = autFixedGap(params.cycloOrd, params.rank)
+	default:
+		return nil
 	}
 
 	start := (uint64(math.Round(math.Exp2(bits)))/gap)*gap + 1
