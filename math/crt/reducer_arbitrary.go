@@ -145,7 +145,7 @@ func (r *reducerAnyModulus) reduceTo(pOut, p []uint64) {
 
 	for i := 0; i < len(r.buf.pRem); i++ {
 		clear(r.buf.pRem[i])
-		for j := 0; j < min(r.diffDeg, r.degNext); j++ {
+		for j := 0; j < min(r.diffDeg+1, r.degNext); j++ {
 			r.buf.pRem[i][j] = r.buf.pQuo[0][r.diffDeg+j]
 		}
 	}
@@ -310,7 +310,7 @@ func (r *reducerNTTModulus) reduceTo(pOut, p []uint64) {
 	}
 
 	clear(r.buf.pRem[0])
-	for i := 0; i < min(r.diffDeg, r.degNext); i++ {
+	for i := 0; i < min(r.diffDeg+1, r.degNext); i++ {
 		r.buf.pRem[0][i] = r.buf.pQuo[0][r.diffDeg+i]
 	}
 

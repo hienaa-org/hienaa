@@ -78,15 +78,26 @@ type cyclotomicReducerAnyModulus struct {
 // newCyclotomicReducerAnyModulus creates a new [cyclotomicReducerAnyModulus].
 func newCyclotomicReducerAnyModulus(params dft.RingParameters, mod *num.Modulus) *cyclotomicReducerAnyModulus {
 	cycloOrd, rank := params.CycloOrder(), params.Rank()
-
 	primes, _ := num.Factor(cycloOrd)
-	leastFactor := cycloOrd
-	for _, p := range primes {
-		if p < leastFactor {
-			leastFactor = p
+
+	var redDeg, leastFactor int
+	if cycloOrd&1 == 1 {
+		leastFactor = cycloOrd
+		for _, p := range primes {
+			if p < leastFactor {
+				leastFactor = p
+			}
 		}
+		redDeg = cycloOrd - cycloOrd/leastFactor
+	} else {
+		leastFactor = cycloOrd
+		for _, p := range primes {
+			if p < leastFactor && p > 2 {
+				leastFactor = p
+			}
+		}
+		redDeg = cycloOrd/2 - cycloOrd/2/leastFactor
 	}
-	redDeg := cycloOrd - cycloOrd/leastFactor
 
 	isPrimePower := redDeg == rank
 
@@ -173,13 +184,34 @@ func (r *cyclotomicReducerAnyModulus) reduceTo(pOut, p []uint64) {
 
 	cycloOrd := r.params.CycloOrder()
 	rank := r.params.Rank()
-	skip := cycloOrd / r.leastFac
 
-	for j := 0; j < skip; j++ {
-		for i := 0; i < r.leastFac-1; i++ {
-			r.buf.pIn[0][i*skip+j] = num.Sub(r.buf.pIn[0][i*skip+j], r.buf.pIn[0][cycloOrd-skip+j], r.mod)
+	if cycloOrd&1 == 1 {
+		skip := cycloOrd / r.leastFac
+
+		for j := 0; j < skip; j++ {
+			for i := 0; i < r.leastFac-1; i++ {
+				r.buf.pIn[0][i*skip+j] = num.Sub(r.buf.pIn[0][i*skip+j], r.buf.pIn[0][cycloOrd-skip+j], r.mod)
+			}
+			r.buf.pIn[0][cycloOrd-skip+j] = 0
 		}
-		r.buf.pIn[0][cycloOrd-skip+j] = 0
+	} else {
+		skip := (cycloOrd / 2) / r.leastFac
+
+		for i := 0; i < cycloOrd/2; i++ {
+			r.buf.pIn[0][i] = num.Sub(r.buf.pIn[0][i], r.buf.pIn[0][cycloOrd/2+i], r.mod)
+			r.buf.pIn[0][cycloOrd/2+i] = 0
+		}
+
+		for j := 0; j < skip; j++ {
+			for i := 0; i < r.leastFac-1; i++ {
+				if i&1 == 0 {
+					r.buf.pIn[0][i*skip+j] = num.Sub(r.buf.pIn[0][i*skip+j], r.buf.pIn[0][cycloOrd/2-skip+j], r.mod)
+				} else {
+					r.buf.pIn[0][i*skip+j] = num.Add(r.buf.pIn[0][i*skip+j], r.buf.pIn[0][cycloOrd/2-skip+j], r.mod)
+				}
+			}
+			r.buf.pIn[0][cycloOrd/2-skip+j] = 0
+		}
 	}
 
 	if !r.isPrimePow {
