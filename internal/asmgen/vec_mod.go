@@ -17,9 +17,6 @@ func AddVecToAVX2(isLazy bool) {
 	allOne := YMM()
 	VPCMPEQQ(allOne, allOne, allOne)
 
-	maskSign := YMM()
-	VPSLLQ(Imm(63), allOne, maskSign)
-
 	var q reg.Register
 	var qv reg.VecVirtual
 	if !isLazy {
@@ -52,7 +49,7 @@ func AddVecToAVX2(isLazy bool) {
 
 	if !isLazy {
 		subQ := YMM()
-		GreaterOrEqualThanAVX2(xOut, qv, allOne, maskSign, subQ)
+		GreaterOrEqualThanAVX2(xOut, qv, allOne, subQ)
 		VPAND(qv, subQ, subQ)
 		VPSUBQ(subQ, xOut, xOut)
 	}
@@ -104,9 +101,6 @@ func ScalarAddVecToAVX2(isLazy bool) {
 	allOne := YMM()
 	VPCMPEQQ(allOne, allOne, allOne)
 
-	maskSign := YMM()
-	VPSLLQ(Imm(63), allOne, maskSign)
-
 	var q reg.Register
 	var qv reg.VecVirtual
 	if !isLazy {
@@ -141,7 +135,7 @@ func ScalarAddVecToAVX2(isLazy bool) {
 
 	if !isLazy {
 		subQ := YMM()
-		GreaterOrEqualThanAVX2(xOut, qv, allOne, maskSign, subQ)
+		GreaterOrEqualThanAVX2(xOut, qv, allOne, subQ)
 		VPAND(qv, subQ, subQ)
 		VPSUBQ(subQ, xOut, xOut)
 	}
@@ -355,9 +349,6 @@ func SubVecToAVX2(isLazy bool) {
 	allOne := YMM()
 	VPCMPEQQ(allOne, allOne, allOne)
 
-	maskSign := YMM()
-	VPSLLQ(Imm(63), allOne, maskSign)
-
 	var q reg.Register
 	var qv reg.VecVirtual
 	if !isLazy {
@@ -390,7 +381,7 @@ func SubVecToAVX2(isLazy bool) {
 
 	if !isLazy {
 		subQ := YMM()
-		GreaterOrEqualThanAVX2(xOut, qv, allOne, maskSign, subQ)
+		GreaterOrEqualThanAVX2(xOut, qv, allOne, subQ)
 		VPAND(qv, subQ, subQ)
 		VPADDQ(subQ, xOut, xOut)
 	}
@@ -442,9 +433,6 @@ func ScalarSubVecToAVX2(isLazy bool) {
 	allOne := YMM()
 	VPCMPEQQ(allOne, allOne, allOne)
 
-	maskSign := YMM()
-	VPSLLQ(Imm(63), allOne, maskSign)
-
 	var q reg.Register
 	var qv reg.VecVirtual
 	if !isLazy {
@@ -479,7 +467,7 @@ func ScalarSubVecToAVX2(isLazy bool) {
 
 	if !isLazy {
 		subQ := YMM()
-		GreaterOrEqualThanAVX2(xOut, qv, allOne, maskSign, subQ)
+		GreaterOrEqualThanAVX2(xOut, qv, allOne, subQ)
 		VPAND(qv, subQ, subQ)
 		VPADDQ(subQ, xOut, xOut)
 	}

@@ -10,16 +10,14 @@ func ShuffleForLoAVX2(x, xSwap reg.VecVirtual) {
 	VPSHUFD(Imm(0b10_11_00_01), x, xSwap)
 }
 
-func Mul64LoAVX2(x0, x1, x1Swap, xOut reg.VecVirtual) {
+func Mul64LoAVX2(x0, x1, x1Swap, maskHi, xOut reg.VecVirtual) {
 	xLoLo := YMM()
 	VPMULUDQ(x1, x0, xLoLo)
 
 	xMid0, xMid1 := YMM(), YMM()
 	VPMULLD(x1Swap, x0, xMid0)
 	VPSLLQ(Imm(32), xMid0, xMid1)
-
-	VPSRLQ(Imm(32), xMid0, xOut)
-	VPSLLQ(Imm(32), xOut, xOut)
+	VPAND(maskHi, xMid0, xOut)
 
 	VPADDQ(xMid1, xOut, xOut)
 	VPADDQ(xLoLo, xOut, xOut)
