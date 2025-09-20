@@ -571,7 +571,7 @@ func (e *polyAutEvaluatorAutFixedPrime) safeCopy() polyAutEvaluator {
 }
 
 // polyAutEvaluatorPanic always panics.
-// Used for [dft.Cyclic] rings.
+// Used for cyclic and other rings.
 type polyAutEvaluatorPanic struct{}
 
 func (e *polyAutEvaluatorPanic) Aut(p *Poly, idx int) *Poly {

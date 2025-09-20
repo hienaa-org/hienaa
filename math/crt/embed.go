@@ -184,7 +184,7 @@ func (e *Embedder) Embed(p *Poly) *Poly {
 // it only embeds the first p.ModLen() elements to pOut.ModLen() elements.
 func (e *Embedder) EmbedTo(pOut, p *Poly) {
 	if p.isNTT || pOut.isNTT {
-		panic("Embed: cannot embed NTT polynomials")
+		panic("EmbedTo: cannot embed NTT polynomials")
 	}
 	e.EmbedVecTo(p.Coeffs, pOut.Coeffs)
 }
