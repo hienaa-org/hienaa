@@ -268,13 +268,13 @@ type polyMulEvaluatorCyclotomicNonPow2 struct {
 	ambNTT    []dft.Transformer
 	embedder  []*Embedder
 
-	reducer *cyclotomicReducer
+	reducer *CyclotomicReducer
 
 	buf polyMulEvaluatorBuffer
 }
 
 // newPolyMulEvaluatorCyclotomicNonPow2 creates a new [polyMulEvaluatorCyclotomicNonPow2].
-func newPolyMulEvaluatorCyclotomicNonPow2(params dft.RingParameters, mod []*num.Modulus, reducer *cyclotomicReducer) *polyMulEvaluatorCyclotomicNonPow2 {
+func newPolyMulEvaluatorCyclotomicNonPow2(params dft.RingParameters, mod []*num.Modulus, reducer *CyclotomicReducer) *polyMulEvaluatorCyclotomicNonPow2 {
 	ambModLen := make([]int, len(mod))
 	for i := range mod {
 		if dft.IsNTTFriendly(params, mod[i]) {
@@ -308,7 +308,7 @@ func newPolyMulEvaluatorCyclotomicNonPow2(params dft.RingParameters, mod []*num.
 		ambNTT:    ambNTT,
 		embedder:  embedder,
 
-		reducer: reducer.safeCopy(),
+		reducer: reducer.SafeCopy(),
 
 		buf: newPolyMulEvaluatorBuffer(params.CycloOrder(), max(1, vec.Max(ambModLen))),
 	}
@@ -451,7 +451,7 @@ func (e *polyMulEvaluatorCyclotomicNonPow2) subEvaluator(idx ...int) polyMulEval
 		ambNTT:    ambNTTCopy,
 		embedder:  embedderCopy,
 
-		reducer: e.reducer.safeCopy(),
+		reducer: e.reducer.SafeCopy(),
 
 		buf: newPolyMulEvaluatorBuffer(e.params.CycloOrder(), max(1, maxAmbModLen)),
 	}
@@ -479,7 +479,7 @@ func (e *polyMulEvaluatorCyclotomicNonPow2) safeCopy() polyMulEvaluator {
 		ambNTT:    ambNTTCopy,
 		embedder:  embedderCopy,
 
-		reducer: e.reducer.safeCopy(),
+		reducer: e.reducer.SafeCopy(),
 
 		buf: newPolyMulEvaluatorBuffer(e.params.CycloOrder(), max(1, vec.Max(e.ambModLen))),
 	}

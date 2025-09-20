@@ -38,7 +38,7 @@ func NewPolyEvaluator(params dft.RingParameters, mod []*num.Modulus) *PolyEvalua
 				polyAutEvaluator:          newPolyAutEvaluatorCyclotomicPow2(params, mod),
 			}
 		default:
-			reducer := newCyclotomicReducer(params, mod)
+			reducer := NewCyclotomicReducer(params, mod)
 			return &PolyEvaluator{
 				polyEvaluatorBase:         newPolyEvaluatorBase(params, mod),
 				polyScalarAddSubEvaluator: newPolyScalarAddSubEvaluatorDefault(params, mod),
@@ -97,6 +97,8 @@ func (e *PolyEvaluator) SubEvaluator(idx ...int) *PolyEvaluator {
 	return &PolyEvaluator{
 		polyEvaluatorBase:         e.polyEvaluatorBase.subEvaluator(idx...),
 		polyScalarAddSubEvaluator: e.polyScalarAddSubEvaluator.subEvaluator(idx...),
+		polyMulEvaluator:          e.polyMulEvaluator.subEvaluator(idx...),
+		polyAutEvaluator:          e.polyAutEvaluator.subEvaluator(idx...),
 	}
 }
 

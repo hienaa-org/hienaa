@@ -37,18 +37,18 @@ func newReducerBuffer(lenAmbMod, in, quo, rem int) reducerBuffer {
 	}
 }
 
-// cyclotomicReducer reduces a polynomial modulo a cyclotomic polynomial.
+// CyclotomicReducer is an optimized [Reducer] for cyclotomic polynomial.
 // In other words, it computes a(X) mod \Phi_m(X), where a(X) is at most degree m-1.
 // It uses Optimised Barrett reduction for polynomial, from https://eprint.iacr.org/2017/748.
 // In this implementation, Q_sp = (X^m-1)/(X^(m/p)-1) for the smallest prime factor p.
-type cyclotomicReducer struct {
+type CyclotomicReducer struct {
 	params dft.RingParameters
 	mod    []*num.Modulus
 
 	// leastFac is the smallest prime factor of the cyclotomic polynomial.
 	leastFac int
-	// isPrimePow is true if the cyclotomic polynomial is a prime power.
-	isPrimePow bool
+	// isTrivial is true if the reduction is trivial.
+	isTrivial bool
 
 	// redDeg is the degree of the intermediate reducing polynomial Q_sp.
 	redDeg int
@@ -85,8 +85,8 @@ type cyclotomicReducer struct {
 	buf reducerBuffer
 }
 
-// newCyclotomicReducer creates a new [cyclotomicReducer].
-func newCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *cyclotomicReducer {
+// NewCyclotomicReducer creates a new [CyclotomicReducer].
+func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *CyclotomicReducer {
 	cycloOrd, rank := params.CycloOrder(), params.Rank()
 	primes, _ := num.Factor(cycloOrd)
 
@@ -99,7 +99,7 @@ func newCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *cyclot
 		redDeg = cycloOrd/2 - (cycloOrd/2)/leastFactor
 	}
 
-	isPrimePower := redDeg == rank
+	isTrivial := redDeg == rank
 
 	var ambModLen []int
 	var ambMod []*num.Modulus
@@ -109,7 +109,7 @@ func newCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *cyclot
 	var diffDegNextAmbNTT, degNextAmbNTT []dft.Transformer
 	var cycloPoly, divPoly [][][]uint64
 
-	if !isPrimePower {
+	if !isTrivial {
 		degNext = num.NextProdPower(rank, []int{2})
 		diffDeg = redDeg - rank
 		diffDegNext = num.NextProdPower(2*diffDeg+1, []int{2})
@@ -191,12 +191,12 @@ func newCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *cyclot
 		}
 	}
 
-	return &cyclotomicReducer{
+	return &CyclotomicReducer{
 		params: params,
 		mod:    mod,
 
-		leastFac:   leastFactor,
-		isPrimePow: isPrimePower,
+		leastFac:  leastFactor,
+		isTrivial: isTrivial,
 
 		redDeg:      redDeg,
 		diffDeg:     diffDeg,
@@ -221,7 +221,7 @@ func newCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *cyclot
 }
 
 // reduceTo reduces p to pOut with the idx-th modulus.
-func (r *cyclotomicReducer) reduceTo(pOut, p []uint64, idx int) {
+func (r *CyclotomicReducer) reduceTo(pOut, p []uint64, idx int) {
 	cycloOrd, rank := r.params.CycloOrder(), r.params.Rank()
 
 	copy(r.buf.pIn[0], p)
@@ -254,7 +254,7 @@ func (r *cyclotomicReducer) reduceTo(pOut, p []uint64, idx int) {
 		}
 	}
 
-	if !r.isPrimePow {
+	if !r.isTrivial {
 		// pQuo = floor(pIn / X^deg)
 		for i := 0; i < max(1, r.ambModLen[idx]); i++ {
 			clear(r.buf.pQuo[i])
@@ -329,11 +329,112 @@ func (r *cyclotomicReducer) reduceTo(pOut, p []uint64, idx int) {
 	}
 }
 
-func (r *cyclotomicReducer) safeCopy() *cyclotomicReducer {
+// Reduce reduces p.
+// Panics when p is in NTT form, or the rank of p is larger than CycloOrd.
+func (r *CyclotomicReducer) Reduce(p *Poly) *Poly {
+	pOut := NewPoly(r.params.Rank(), p.ModLen())
+	r.ReduceTo(pOut, p)
+	return pOut
+}
+
+// ReduceTo reduces p to pOut.
+// Panics when p or pOut is in NTT form, or the rank of p is larger than CycloOrd.
+func (r *CyclotomicReducer) ReduceTo(pOut, p *Poly) {
+	switch {
+	case p.isNTT:
+		panic("ReduceTo: cannot reduce NTT polynomials")
+	case p.Rank() > r.params.CycloOrder():
+		panic("ReduceTo: rank of p is larger than cycloOrd")
+	case pOut.ModLen() != len(r.mod) || p.ModLen() != len(r.mod):
+		panic("ReduceTo: inputs not consistent")
+	}
+
+	for i := range r.mod {
+		r.reduceTo(pOut.Coeffs[i], p.Coeffs[i], i)
+	}
+}
+
+// Params returns the ring parameters.
+func (r *CyclotomicReducer) Params() dft.RingParameters {
+	return r.params
+}
+
+// Modulus returns the modulus.
+func (r *CyclotomicReducer) Modulus() []*num.Modulus {
+	return r.mod
+}
+
+// SubReducer returns a reducer for modulus of given indices.
+func (r *CyclotomicReducer) SubReducer(idx ...int) *CyclotomicReducer {
+	modCopy := make([]*num.Modulus, len(idx))
+	ambModLenCopy := make([]int, len(idx))
+	cycloPolyCopy := make([][][]uint64, len(idx))
+	divPolyCopy := make([][][]uint64, len(idx))
+	for i := range idx {
+		modCopy[i] = r.mod[idx[i]]
+		ambModLenCopy[i] = r.ambModLen[idx[i]]
+		cycloPolyCopy[i] = r.cycloPoly[idx[i]]
+		divPolyCopy[i] = r.divPoly[idx[i]]
+	}
+
+	embedderCopy := make([]*Embedder, len(idx))
+	diffDegNextNTTCopy := make([]dft.Transformer, len(idx))
+	degNextNTTCopy := make([]dft.Transformer, len(idx))
+	for i := range idx {
+		if r.embedder[idx[i]] != nil {
+			embedderCopy[i] = r.embedder[idx[i]].SafeCopy()
+		}
+		if r.diffDegNextNTT[idx[i]] != nil {
+			diffDegNextNTTCopy[i] = r.diffDegNextNTT[idx[i]].SafeCopy()
+		}
+		if r.degNextNTT[idx[i]] != nil {
+			degNextNTTCopy[i] = r.degNextNTT[idx[i]].SafeCopy()
+		}
+	}
+
+	maxAmbModLen := vec.Max(ambModLenCopy)
+	diffDegNextAmbNTTCopy := make([]dft.Transformer, maxAmbModLen)
+	degNextAmbNTTCopy := make([]dft.Transformer, maxAmbModLen)
+	for i := 0; i < maxAmbModLen; i++ {
+		diffDegNextAmbNTTCopy[i] = r.diffDegNextAmbNTT[i].SafeCopy()
+		degNextAmbNTTCopy[i] = r.degNextAmbNTT[i].SafeCopy()
+	}
+
+	return &CyclotomicReducer{
+		params: r.params,
+		mod:    modCopy,
+
+		leastFac:  r.leastFac,
+		isTrivial: r.isTrivial,
+
+		redDeg:      r.redDeg,
+		diffDeg:     r.diffDeg,
+		diffDegNext: r.diffDegNext,
+		degNext:     r.degNext,
+
+		diffDegNextNTT: diffDegNextNTTCopy,
+		degNextNTT:     degNextNTTCopy,
+
+		ambModLen: ambModLenCopy,
+		ambMod:    r.ambMod[:maxAmbModLen],
+		embedder:  embedderCopy,
+
+		diffDegNextAmbNTT: diffDegNextAmbNTTCopy,
+		degNextAmbNTT:     degNextAmbNTTCopy,
+
+		cycloPoly: cycloPolyCopy,
+		divPoly:   divPolyCopy,
+
+		buf: newReducerBuffer(max(1, maxAmbModLen), r.params.CycloOrder(), r.diffDegNext, r.degNext),
+	}
+}
+
+// SafeCopy returns a thread-safe copy.
+func (r *CyclotomicReducer) SafeCopy() *CyclotomicReducer {
 	var embedderCopy []*Embedder
 	var diffDegNextNTTCopy, degNextNTTCopy []dft.Transformer
 
-	if !r.isPrimePow {
+	if !r.isTrivial {
 		embedderCopy = make([]*Embedder, len(r.mod))
 		diffDegNextNTTCopy = make([]dft.Transformer, len(r.mod))
 		degNextNTTCopy = make([]dft.Transformer, len(r.mod))
@@ -359,12 +460,12 @@ func (r *cyclotomicReducer) safeCopy() *cyclotomicReducer {
 		degNextAmbNTTCopy[i] = r.degNextAmbNTT[i].SafeCopy()
 	}
 
-	return &cyclotomicReducer{
+	return &CyclotomicReducer{
 		params: r.params,
 		mod:    r.mod,
 
-		leastFac:   r.leastFac,
-		isPrimePow: r.isPrimePow,
+		leastFac:  r.leastFac,
+		isTrivial: r.isTrivial,
 
 		redDeg:      r.redDeg,
 		diffDeg:     r.diffDeg,
@@ -423,8 +524,8 @@ type Reducer struct {
 
 	// modPoly is the polynomial we target to reduce to.
 	modPoly [][][]uint64
-	// divPoly is rounding of a monomial over the cyclotomic polynomial modulo the modulus.
-	// Precisely, it is floor(X^d_qs/\Phi_m(X)) modulo the modulus, where d_qs is the degree of the quotient polynomial Q_sp.
+	// divPoly is rounding of a monomial over the mod polynomial modulo the modulus.
+	// Precisely, it is floor(X^d_qs/modPoly(X)) modulo the modulus, where d_qs is the degree of the quotient polynomial Q_sp.
 	divPoly [][][]uint64
 
 	buf reducerBuffer
@@ -662,6 +763,69 @@ func (r *Reducer) MaxRank() int {
 // Modulus returns the modulus.
 func (r *Reducer) Modulus() []*num.Modulus {
 	return r.mod
+}
+
+// SubReducer returns a reducer for modulus of given indices.
+func (r *Reducer) SubReducer(idx ...int) *Reducer {
+	modCopy := make([]*num.Modulus, len(idx))
+	ambModLenCopy := make([]int, len(idx))
+	modPolyCopy := make([][][]uint64, len(idx))
+	divPolyCopy := make([][][]uint64, len(idx))
+	for i := range idx {
+		modCopy[i] = r.mod[idx[i]]
+		ambModLenCopy[i] = r.ambModLen[idx[i]]
+		modPolyCopy[i] = r.modPoly[idx[i]]
+		divPolyCopy[i] = r.divPoly[idx[i]]
+	}
+
+	embedderCopy := make([]*Embedder, len(idx))
+	diffDegNextNTTCopy := make([]dft.Transformer, len(idx))
+	degNextNTTCopy := make([]dft.Transformer, len(idx))
+	for i := range idx {
+		if r.embedder[idx[i]] != nil {
+			embedderCopy[i] = r.embedder[idx[i]].SafeCopy()
+		}
+		if r.diffDegNextNTT[idx[i]] != nil {
+			diffDegNextNTTCopy[i] = r.diffDegNextNTT[idx[i]].SafeCopy()
+		}
+		if r.degNextNTT[idx[i]] != nil {
+			degNextNTTCopy[i] = r.degNextNTT[idx[i]].SafeCopy()
+		}
+	}
+
+	maxAmbModLen := vec.Max(ambModLenCopy)
+	diffDegNextAmbNTTCopy := make([]dft.Transformer, maxAmbModLen)
+	degNextAmbNTTCopy := make([]dft.Transformer, maxAmbModLen)
+	for i := 0; i < maxAmbModLen; i++ {
+		diffDegNextAmbNTTCopy[i] = r.diffDegNextAmbNTT[i].SafeCopy()
+		degNextAmbNTTCopy[i] = r.degNextAmbNTT[i].SafeCopy()
+	}
+
+	return &Reducer{
+		params: r.params,
+		mod:    modCopy,
+
+		maxRank:     r.maxRank,
+		diffDeg:     r.diffDeg,
+		diffDegNext: r.diffDegNext,
+		degNext:     r.degNext,
+
+		diffDegNextNTT: diffDegNextNTTCopy,
+		degNextNTT:     degNextNTTCopy,
+
+		ambModLen: ambModLenCopy,
+		ambMod:    r.ambMod[:maxAmbModLen],
+		embedder:  embedderCopy,
+
+		diffDegNextAmbNTT: diffDegNextAmbNTTCopy,
+		degNextAmbNTT:     degNextAmbNTTCopy,
+
+		modPoly: modPolyCopy,
+		divPoly: divPolyCopy,
+
+		buf: newReducerBuffer(max(1, maxAmbModLen), r.maxRank, r.diffDegNext, r.degNext),
+	}
+
 }
 
 // SafeCopy returns a thread-safe copy.

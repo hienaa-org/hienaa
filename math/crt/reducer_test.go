@@ -2,6 +2,7 @@ package crt_test
 
 import (
 	"fmt"
+	"math"
 	"testing"
 
 	"github.com/hienaa-org/hienaa/math/crt"
@@ -51,68 +52,139 @@ func reduce(p0, p1 []uint64, q *num.Modulus) []uint64 {
 }
 
 func TestReducer(t *testing.T) {
-	N := int(rSrc.SampleN(1<<10)) + 4
-	maxRank := N + int(rSrc.SampleN(1<<10)) + 1
-	q0 := num.NewModulus(rSrc.SampleN(num.MaxModulus) | 1)
+	t.Run("type=NTT", func(t *testing.T) {
+		sqrtN := int(math.Sqrt(math.Exp2(10)))
+		m0 := num.NextPrime(sqrtN, 1)
+		m1 := num.NextPrime(m0, 2)
+		M := m0 * m1
+		rP := dft.NewCyclotomicParameters(M)
+		N := rP.Rank()
 
-	degNext := num.NextProdPower(N, []int{2})
-	diffDegNext := num.NextProdPower(2*(maxRank-N)-1, []int{2})
-	redParams := dft.NewCyclicParameters(max(degNext, diffDegNext))
-	q1 := dft.FindNearestNTTPrimes(redParams, 60, 1)[0]
+		degNext := num.NextProdPower(N, []int{2})
+		diffDegNext := num.NextProdPower(2*(M-N)-1, []int{2})
+		ambParams := dft.NewCyclicParameters(max(degNext, diffDegNext))
 
-	q := []*num.Modulus{q0, q1}
+		q := dft.FindPrevNTTPrimes(ambParams, 40, 1)
+		q = append(q, num.NewModulus(num.NextPrime(q[0].Value(), 2)))
 
-	modPoly := randTernaryPoly(N + 1)
-	reducer := crt.NewReducer(maxRank, q, modPoly)
+		cycloReducer := crt.NewCyclotomicReducer(rP, q)
+		reducer := crt.NewReducer(M, q, dft.CyclotomicPolynomial(M))
 
-	p0 := randPoly(maxRank, q)
-	pOut := reducer.Reduce(p0)
+		p := randPoly(M, q)
+		pOut := cycloReducer.Reduce(p)
+		pOutRef := reducer.Reduce(p)
 
-	assert.Equal(t, reduce(p0.Coeffs[0], vec.Reduce(modPoly, q0), q0), pOut.Coeffs[0])
-	assert.Equal(t, reduce(p0.Coeffs[1], vec.Reduce(modPoly, q1), q1), pOut.Coeffs[1])
+		assert.Equal(t, pOutRef, pOut)
+
+	})
+
+	t.Run("type=Any", func(t *testing.T) {
+		N := int(rSrc.SampleN(1<<10)) + 4
+		maxRank := N + int(rSrc.SampleN(1<<10)) + 1
+
+		degNext := num.NextProdPower(N, []int{2})
+		diffDegNext := num.NextProdPower(2*(maxRank-N)-1, []int{2})
+		ambParams := dft.NewCyclicParameters(max(degNext, diffDegNext))
+
+		q := dft.FindPrevNTTPrimes(ambParams, 40, 1)
+		q = append(q, num.NewModulus(num.NextPrime(q[0].Value(), 2)))
+
+		modPoly := randTernaryPoly(N + 1)
+		reducer := crt.NewReducer(maxRank, q, modPoly)
+
+		p := randPoly(maxRank, q)
+		pOut := reducer.Reduce(p)
+
+		assert.Equal(t, reduce(p.Coeffs[0], vec.Reduce(modPoly, q[0]), q[0]), pOut.Coeffs[0])
+		assert.Equal(t, reduce(p.Coeffs[1], vec.Reduce(modPoly, q[1]), q[1]), pOut.Coeffs[1])
+	})
 }
 
 func BenchmarkReducer(b *testing.B) {
-	b.Run("type=Any", func(b *testing.B) {
+	b.Run("type=Cyclotomic", func(b *testing.B) {
 		for _, logN := range reducerBenchLogN {
-			N := 1 << logN
-			maxRank := 2 * N
-			q := []*num.Modulus{num.NewModulus(rSrc.SampleN(num.MaxModulus) | 1)}
-
-			modPoly := randTernaryPoly(N + 1)
-			reducer := crt.NewReducer(maxRank, q, modPoly)
-
-			pOut := crt.NewPoly(N, 1)
-			p := randPoly(maxRank, q)
-
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
-				for i := 0; i < b.N; i++ {
-					reducer.ReduceTo(pOut, p)
-				}
+				sqrtN := int(math.Sqrt(math.Exp2(float64(logN))))
+				m0 := num.NextPrime(sqrtN, 1)
+				m1 := num.NextPrime(m0, 2)
+				M := m0 * m1
+				rP := dft.NewCyclotomicParameters(M)
+				N := rP.Rank()
+
+				degNext := num.NextProdPower(N, []int{2})
+				diffDegNext := num.NextProdPower(2*(M-N)-1, []int{2})
+				ambParams := dft.NewCyclicParameters(max(degNext, diffDegNext))
+
+				b.Run("Mod=NTT", func(b *testing.B) {
+					q := dft.FindPrevNTTPrimes(ambParams, num.MaxModulusBits, 1)
+
+					reducer := crt.NewCyclotomicReducer(rP, q)
+
+					p := randPoly(M, q)
+					pOut := crt.NewPoly(N, len(q))
+
+					b.ResetTimer()
+					for i := 0; i < b.N; i++ {
+						reducer.ReduceTo(pOut, p)
+					}
+				})
+
+				b.Run("Mod=Any", func(b *testing.B) {
+					q := []*num.Modulus{num.NewModulus(rSrc.SampleN(num.MaxModulus) | 1)}
+
+					reducer := crt.NewCyclotomicReducer(rP, q)
+
+					p := randPoly(M, q)
+					pOut := crt.NewPoly(N, len(q))
+
+					b.ResetTimer()
+					for i := 0; i < b.N; i++ {
+						reducer.ReduceTo(pOut, p)
+					}
+				})
 			})
 		}
 	})
 
-	b.Run("type=NTT", func(b *testing.B) {
+	b.Run("type=Any", func(b *testing.B) {
 		for _, logN := range reducerBenchLogN {
-			N := 1 << logN
-			maxRank := 2 * N
-
-			degNext := num.NextProdPower(N, []int{2})
-			diffDegNext := num.NextProdPower(2*(maxRank-N)-1, []int{2})
-			redParams := dft.NewCyclicParameters(max(degNext, diffDegNext))
-			q := dft.FindNearestNTTPrimes(redParams, 60, 1)
-
-			modPoly := randTernaryPoly(N + 1)
-			reducer := crt.NewReducer(maxRank, q, modPoly)
-
-			pOut := crt.NewPoly(N, len(q))
-			p := randPoly(maxRank, q)
-
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
-				for i := 0; i < b.N; i++ {
-					reducer.ReduceTo(pOut, p)
-				}
+				N := 1 << logN
+				maxRank := 2 * N
+
+				modPoly := randTernaryPoly(N + 1)
+
+				degNext := num.NextProdPower(N, []int{2})
+				diffDegNext := num.NextProdPower(2*(maxRank-N)-1, []int{2})
+				ambParams := dft.NewCyclicParameters(max(degNext, diffDegNext))
+
+				b.Run("Mod=NTT", func(b *testing.B) {
+					q := dft.FindPrevNTTPrimes(ambParams, num.MaxModulusBits, 1)
+
+					reducer := crt.NewReducer(maxRank, q, modPoly)
+
+					p := randPoly(maxRank, q)
+					pOut := crt.NewPoly(N, len(q))
+
+					b.ResetTimer()
+					for i := 0; i < b.N; i++ {
+						reducer.ReduceTo(pOut, p)
+					}
+				})
+
+				b.Run("Mod=Any", func(b *testing.B) {
+					q := []*num.Modulus{num.NewModulus(rSrc.SampleN(num.MaxModulus) | 1)}
+
+					reducer := crt.NewReducer(maxRank, q, modPoly)
+
+					p := randPoly(maxRank, q)
+					pOut := crt.NewPoly(N, 1)
+
+					b.ResetTimer()
+					for i := 0; i < b.N; i++ {
+						reducer.ReduceTo(pOut, p)
+					}
+				})
 			})
 		}
 	})

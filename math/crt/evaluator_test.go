@@ -2,6 +2,7 @@ package crt_test
 
 import (
 	"fmt"
+	"math"
 	"testing"
 
 	"github.com/hienaa-org/hienaa/math/crt"
@@ -632,7 +633,7 @@ func BenchmarkCyclotomicEvaluator(b *testing.B) {
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 				b.Run("Mod=NTT", func(b *testing.B) {
-					q := dft.FindPrevNTTPrimes(rP, 60, 1)
+					q := dft.FindPrevNTTPrimes(rP, num.MaxModulusBits, 1)
 
 					pev := crt.NewPolyEvaluator(rP, q)
 
@@ -791,12 +792,15 @@ func BenchmarkCyclotomicEvaluator(b *testing.B) {
 
 	b.Run("type=Any", func(b *testing.B) {
 		for _, logN := range benchLogN {
-			M := 3 * (1 << logN)
+			sqrtN := int(math.Sqrt(math.Exp2(float64(logN))))
+			m0 := num.NextPrime(sqrtN, 1)
+			m1 := num.NextPrime(m0, 2)
+			M := m0 * m1
 			rP := dft.NewCyclotomicParameters(M)
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 				b.Run("Mod=NTT", func(b *testing.B) {
-					q := dft.FindPrevNTTPrimes(rP, 60, 1)
+					q := dft.FindPrevNTTPrimes(rP, num.MaxModulusBits, 1)
 
 					pev := crt.NewPolyEvaluator(rP, q)
 
@@ -962,7 +966,7 @@ func BenchmarkCyclicEvaluator(b *testing.B) {
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 				b.Run("Mod=NTT", func(b *testing.B) {
-					q := dft.FindPrevNTTPrimes(rP, 60, 1)
+					q := dft.FindPrevNTTPrimes(rP, num.MaxModulusBits, 1)
 
 					pev := crt.NewPolyEvaluator(rP, q)
 
@@ -1097,12 +1101,15 @@ func BenchmarkCyclicEvaluator(b *testing.B) {
 
 	b.Run("type=Any", func(b *testing.B) {
 		for _, logN := range benchLogN {
-			M := 3 * (1 << logN)
+			sqrtN := int(math.Sqrt(math.Exp2(float64(logN))))
+			m0 := num.NextPrime(sqrtN, 1)
+			m1 := num.NextPrime(m0, 2)
+			M := m0 * m1
 			rP := dft.NewCyclotomicParameters(M)
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 				b.Run("Mod=NTT", func(b *testing.B) {
-					q := dft.FindPrevNTTPrimes(rP, 60, 1)
+					q := dft.FindPrevNTTPrimes(rP, num.MaxModulusBits, 1)
 
 					pev := crt.NewPolyEvaluator(rP, q)
 
@@ -1244,7 +1251,7 @@ func BenchmarkAutFixedEvaluator(b *testing.B) {
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 				b.Run("Mod=NTT", func(b *testing.B) {
-					q := dft.FindPrevNTTPrimes(rP, 60, 1)
+					q := dft.FindPrevNTTPrimes(rP, num.MaxModulusBits, 1)
 
 					pev := crt.NewPolyEvaluator(rP, q)
 
@@ -1409,7 +1416,7 @@ func BenchmarkAutFixedEvaluator(b *testing.B) {
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 				b.Run("Mod=NTT", func(b *testing.B) {
-					q := dft.FindPrevNTTPrimes(rP, 60, 1)
+					q := dft.FindPrevNTTPrimes(rP, num.MaxModulusBits, 1)
 
 					pev := crt.NewPolyEvaluator(rP, q)
 

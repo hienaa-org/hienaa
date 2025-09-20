@@ -15,8 +15,8 @@ type cyclotomicReducer struct {
 
 	// leastFac is the smallest prime factor of the cyclotomic polynomial.
 	leastFac int
-	// isPrimePow is true if the cyclotomic polynomial is a prime power.
-	isPrimePow bool
+	// isTrivial is true if the reduction is trivial.
+	isTrivial bool
 
 	// redDeg is the degree of the intermediate reducing polynomial Q_sp.
 	redDeg int
@@ -73,13 +73,13 @@ func newCyclotomicReducer(params RingParameters, mod *num.Modulus) *cyclotomicRe
 		redDeg = params.cycloOrd/2 - (params.cycloOrd/2)/leastFactor
 	}
 
-	isPrimePower := redDeg == params.rank
+	isTrivial := redDeg == params.rank
 
 	var diffDeg, diffDegNext, degNext int
 	var diffDegNextNTT, degNextNTT *cyclicPow235Transformer
 	var cycloPoly, divPoly []uint64
 
-	if !isPrimePower {
+	if !isTrivial {
 		degNext = num.NextProdPower(params.rank, []int{2})
 		diffDeg = redDeg - params.rank
 		diffDegNext = num.NextProdPower(2*diffDeg+1, []int{2})
@@ -104,8 +104,8 @@ func newCyclotomicReducer(params RingParameters, mod *num.Modulus) *cyclotomicRe
 		params: params,
 		mod:    mod,
 
-		leastFac:   leastFactor,
-		isPrimePow: isPrimePower,
+		leastFac:  leastFactor,
+		isTrivial: isTrivial,
 
 		redDeg:      redDeg,
 		diffDeg:     diffDeg,
@@ -155,7 +155,7 @@ func (r *cyclotomicReducer) reduceTo(pOut, p []uint64) {
 		}
 	}
 
-	if !r.isPrimePow {
+	if !r.isTrivial {
 		// pQuo = floor(pIn / X^deg)
 		clear(r.buf.pQuo)
 		for j := 0; j < r.diffDeg; j++ {
@@ -213,8 +213,8 @@ func (r *cyclotomicReducer) SafeCopy() *cyclotomicReducer {
 		params: r.params,
 		mod:    r.mod,
 
-		leastFac:   r.leastFac,
-		isPrimePow: r.isPrimePow,
+		leastFac:  r.leastFac,
+		isTrivial: r.isTrivial,
 
 		redDeg:      r.redDeg,
 		diffDeg:     r.diffDeg,

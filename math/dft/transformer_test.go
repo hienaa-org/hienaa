@@ -2,6 +2,7 @@ package dft_test
 
 import (
 	"fmt"
+	"math"
 	"testing"
 
 	"github.com/hienaa-org/hienaa/math/csprng"
@@ -71,8 +72,10 @@ func TestCyclotomicNTT(t *testing.T) {
 	t.Run("type=Pow2", func(t *testing.T) {
 		N := 1 << 10
 		rP := dft.NewCyclotomicParameters(2 * N)
+
 		qs := dft.FindNearestNTTPrimes(rP, 30, 2)
 		q := num.NewModulus(qs[0].Value() * qs[1].Value())
+
 		ntt := dft.NewTransformer(rP, q)
 
 		p0 := randPoly(rP, q)
@@ -94,11 +97,16 @@ func TestCyclotomicNTT(t *testing.T) {
 	})
 
 	t.Run("type=Any", func(t *testing.T) {
-		M := int(rSrc.SampleN(1 << 10))
+		sqrtN := int(math.Sqrt(math.Exp2(10)))
+		m0 := num.NextPrime(sqrtN, 1)
+		m1 := num.NextPrime(m0, 2)
+		M := m0 * m1
 		rP := dft.NewCyclotomicParameters(M)
 		N := rP.Rank()
+
 		qs := dft.FindNearestNTTPrimes(rP, 30, 2)
 		q := num.NewModulus(qs[0].Value() * qs[1].Value())
+
 		ntt := dft.NewTransformer(rP, q)
 
 		p0 := randPoly(rP, q)
@@ -130,8 +138,10 @@ func TestCyclicNTT(t *testing.T) {
 	t.Run("type=Pow235", func(t *testing.T) {
 		N := num.NextProdPower(int(rSrc.SampleN(1<<10)), []int{2, 3, 5})
 		rP := dft.NewCyclicParameters(N)
+
 		qs := dft.FindNearestNTTPrimes(rP, 30, 2)
 		q := num.NewModulus(qs[0].Value() * qs[1].Value())
+
 		ntt := dft.NewTransformer(rP, q)
 
 		p0 := randPoly(rP, q)
@@ -161,8 +171,10 @@ func TestCyclicNTT(t *testing.T) {
 			}
 		}
 		rP := dft.NewCyclicParameters(N)
+
 		qs := dft.FindNearestNTTPrimes(rP, 30, 2)
 		q := num.NewModulus(qs[0].Value() * qs[1].Value())
+
 		ntt := dft.NewTransformer(rP, q)
 
 		p0 := randPoly(rP, q)
@@ -188,23 +200,25 @@ func TestAutFixedNTT(t *testing.T) {
 	t.Run("type=Pow2", func(t *testing.T) {
 		N := 1 << 10
 		rP := dft.NewAutFixedParameters(4*N, N)
+
 		qs := dft.FindNearestNTTPrimes(rP, 30, 2)
 		q := num.NewModulus(qs[0].Value() * qs[1].Value())
+
 		ntt := dft.NewTransformer(rP, q)
 
 		p0 := randPoly(rP, q)
 		p1 := randPoly(rP, q)
 
-		p0Long := make([]uint64, 2*N)
-		p1Long := make([]uint64, 2*N)
-		copy(p0Long[:N], p0)
-		copy(p1Long[:N], p1)
+		p0Ref := make([]uint64, 2*N)
+		p1Ref := make([]uint64, 2*N)
+		copy(p0Ref[:N], p0)
+		copy(p1Ref[:N], p1)
 
-		p0Long[N] = 0
-		p1Long[N] = 0
+		p0Ref[N] = 0
+		p1Ref[N] = 0
 		for i := 1; i < N; i++ {
-			p0Long[i+N] = num.Neg(p0[N-i], q)
-			p1Long[i+N] = num.Neg(p1[N-i], q)
+			p0Ref[i+N] = num.Neg(p0[N-i], q)
+			p1Ref[i+N] = num.Neg(p1[N-i], q)
 		}
 
 		p0NTT := make([]uint64, N)
@@ -219,7 +233,7 @@ func TestAutFixedNTT(t *testing.T) {
 		vec.MMulTo(pOut, p0NTT, p1NTT, q)
 		ntt.InverseInPlace(pOut)
 
-		assert.Equal(t, cyclotomicPow2Mul(p0Long, p1Long, q)[:N], pOut)
+		assert.Equal(t, cyclotomicPow2Mul(p0Ref, p1Ref, q)[:N], pOut)
 	})
 
 	t.Run("type=Prime", func(t *testing.T) {
@@ -233,24 +247,25 @@ func TestAutFixedNTT(t *testing.T) {
 			}
 		}
 		N := (M - 1) / fold
-
 		rP := dft.NewAutFixedParameters(M, N)
+
 		qs := dft.FindNearestNTTPrimes(rP, 30, 2)
 		q := num.NewModulus(qs[0].Value() * qs[1].Value())
+
 		ntt := dft.NewTransformer(rP, q)
 
 		p0 := randPoly(rP, q)
 		p1 := randPoly(rP, q)
 
-		p0Long := make([]uint64, M)
-		p1Long := make([]uint64, M)
+		p0Ref := make([]uint64, M)
+		p1Ref := make([]uint64, M)
 
 		cycloOrdMod := num.NewModulus(uint64(M))
 		root := num.Generators(cycloOrdMod)[0]
 		idx := uint64(1)
 		for i := 0; i < fold; i++ {
 			for j := 0; j < N; j++ {
-				p0Long[idx], p1Long[idx] = p0[j], p1[j]
+				p0Ref[idx], p1Ref[idx] = p0[j], p1[j]
 				idx = num.Mul(idx, root, cycloOrdMod)
 			}
 		}
@@ -268,7 +283,7 @@ func TestAutFixedNTT(t *testing.T) {
 		ntt.InverseInPlace(pOut)
 
 		pRef := make([]uint64, N)
-		pRefLong := cyclicMul(p0Long, p1Long, q)
+		pRefLong := cyclicMul(p0Ref, p1Ref, q)
 		for i := 1; i < M; i++ {
 			pRefLong[i] = num.Sub(pRefLong[i], pRefLong[0], q)
 		}
@@ -289,7 +304,9 @@ func BenchmarkCyclotomicNTT(b *testing.B) {
 		for _, logN := range benchLogN {
 			N := 1 << logN
 			rP := dft.NewCyclotomicParameters(2 * N)
-			q := dft.FindNearestNTTPrimes(rP, 60, 1)[0]
+
+			q := dft.FindPrevNTTPrimes(rP, num.MaxModulusBits, 1)[0]
+
 			ntt := dft.NewTransformer(rP, q)
 
 			p := randPoly(rP, q)
@@ -311,9 +328,14 @@ func BenchmarkCyclotomicNTT(b *testing.B) {
 
 	b.Run("type=Any", func(b *testing.B) {
 		for _, logN := range benchLogN {
-			M := 3 * (1 << logN)
+			sqrtN := int(math.Sqrt(math.Exp2(float64(logN))))
+			m0 := num.NextPrime(sqrtN, 1)
+			m1 := num.NextPrime(m0, 2)
+			M := m0 * m1
 			rP := dft.NewCyclotomicParameters(M)
-			q := dft.FindNearestNTTPrimes(rP, 60, 1)[0]
+
+			q := dft.FindPrevNTTPrimes(rP, num.MaxModulusBits, 1)[0]
+
 			ntt := dft.NewTransformer(rP, q)
 
 			p := randPoly(rP, q)
@@ -339,7 +361,9 @@ func BenchmarkCyclicNTT(b *testing.B) {
 		for _, logN := range benchLogN {
 			N := num.NextProdPower((1<<logN)+1, []int{2, 3, 5})
 			rP := dft.NewCyclicParameters(N)
-			q := dft.FindNearestNTTPrimes(rP, 60, 1)[0]
+
+			q := dft.FindPrevNTTPrimes(rP, num.MaxModulusBits, 1)[0]
+
 			ntt := dft.NewTransformer(rP, q)
 
 			p := randPoly(rP, q)
@@ -363,7 +387,9 @@ func BenchmarkCyclicNTT(b *testing.B) {
 		for _, logN := range benchLogN {
 			N := (1 << logN) + 1
 			rP := dft.NewCyclicParameters(N)
-			q := dft.FindNearestNTTPrimes(rP, 60, 1)[0]
+
+			q := dft.FindPrevNTTPrimes(rP, num.MaxModulusBits, 1)[0]
+
 			ntt := dft.NewTransformer(rP, q)
 
 			p := randPoly(rP, q)
@@ -389,7 +415,9 @@ func BenchmarkAutFixedNTT(b *testing.B) {
 		for _, logN := range benchLogN {
 			N := 1 << logN
 			rP := dft.NewAutFixedParameters(4*N, N)
-			q := dft.FindNearestNTTPrimes(rP, 60, 1)[0]
+
+			q := dft.FindPrevNTTPrimes(rP, num.MaxModulusBits, 1)[0]
+
 			ntt := dft.NewTransformer(rP, q)
 
 			p := randPoly(rP, q)
@@ -413,9 +441,10 @@ func BenchmarkAutFixedNTT(b *testing.B) {
 		for _, logN := range benchLogN {
 			N := 1 << logN
 			M := num.NextPrime(1, N)
-
 			rP := dft.NewAutFixedParameters(M, N)
-			q := dft.FindNearestNTTPrimes(rP, 60, 1)[0]
+
+			q := dft.FindPrevNTTPrimes(rP, num.MaxModulusBits, 1)[0]
+
 			ntt := dft.NewTransformer(rP, q)
 
 			p := randPoly(rP, q)

@@ -152,7 +152,7 @@ type polyAutEvaluatorCyclotomicNonPow2 struct {
 	mod           []*num.Modulus
 	isNTTFriendly []bool
 
-	reducer *cyclotomicReducer
+	reducer *CyclotomicReducer
 
 	// primeExpMods is the prime power factors of the cyclotomic order.
 	primeExpMods []*num.Modulus
@@ -165,7 +165,7 @@ type polyAutEvaluatorCyclotomicNonPow2 struct {
 }
 
 // newPolyAutEvaluatorCyclotomicNonPow2 creates a new [polyAutEvaluatorCyclotomicNonPow2].
-func newPolyAutEvaluatorCyclotomicNonPow2(params dft.RingParameters, mod []*num.Modulus, reducer *cyclotomicReducer) *polyAutEvaluatorCyclotomicNonPow2 {
+func newPolyAutEvaluatorCyclotomicNonPow2(params dft.RingParameters, mod []*num.Modulus, reducer *CyclotomicReducer) *polyAutEvaluatorCyclotomicNonPow2 {
 	isNTTFriendly := make([]bool, len(mod))
 	for i := range isNTTFriendly {
 		isNTTFriendly[i] = dft.IsNTTFriendly(params, mod[i])
@@ -216,7 +216,7 @@ func newPolyAutEvaluatorCyclotomicNonPow2(params dft.RingParameters, mod []*num.
 		mod:           mod,
 		isNTTFriendly: isNTTFriendly,
 
-		reducer: reducer.safeCopy(),
+		reducer: reducer.SafeCopy(),
 
 		primeExpMods: pExpMods,
 		rootExps:     rootExps,
@@ -312,7 +312,7 @@ func (e *polyAutEvaluatorCyclotomicNonPow2) subEvaluator(idx ...int) polyAutEval
 		mod:           modCopy,
 		isNTTFriendly: isNTTFriendlyCopy,
 
-		reducer: e.reducer.safeCopy(),
+		reducer: e.reducer.SafeCopy(),
 
 		primeExpMods: e.primeExpMods,
 		rootExps:     e.rootExps,
@@ -329,7 +329,7 @@ func (e *polyAutEvaluatorCyclotomicNonPow2) safeCopy() polyAutEvaluator {
 		mod:           e.mod,
 		isNTTFriendly: e.isNTTFriendly,
 
-		reducer: e.reducer.safeCopy(),
+		reducer: e.reducer.SafeCopy(),
 
 		primeExpMods: e.primeExpMods,
 		rootExps:     e.rootExps,
