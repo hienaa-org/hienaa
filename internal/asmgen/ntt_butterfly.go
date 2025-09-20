@@ -6,7 +6,7 @@ import (
 	"github.com/mmcloughlin/avo/reg"
 )
 
-func ButterflyAVX2(u, v, w, wSwap, wS, wSHi, q, qSwap, twoQ, maskLo, maskHi, maskSign, allOne reg.VecVirtual) {
+func ButterflyAVX2(u, v, w, wSwap, wS, wSHi, q, qSwap, twoQ, maskLo, maskSign, allOne reg.VecVirtual) {
 	vHi := YMM()
 	VPSRLQ(Imm(32), v, vHi)
 
@@ -17,8 +17,8 @@ func ButterflyAVX2(u, v, w, wSwap, wS, wSHi, q, qSwap, twoQ, maskLo, maskHi, mas
 
 	quo, t0, t1 := YMM(), YMM(), YMM()
 	Mul64HiAVX2(v, vHi, wS, wSHi, maskLo, quo)
-	Mul64LoAVX2(v, w, wSwap, maskHi, t0)
-	Mul64LoAVX2(quo, q, qSwap, maskHi, t1)
+	Mul64LoAVX2(v, w, wSwap, t0)
+	Mul64LoAVX2(quo, q, qSwap, t1)
 	VPSUBQ(t1, t0, t0)
 
 	VPSUBQ(t0, u, v)

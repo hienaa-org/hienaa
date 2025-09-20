@@ -16,9 +16,8 @@ func NTTInPlacePow2UnrollAVX2() {
 	allOne := YMM()
 	VPCMPEQQ(allOne, allOne, allOne)
 
-	maskLo, maskHi := YMM(), YMM()
+	maskLo := YMM()
 	VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_LO"), 0), maskLo)
-	VPSLLQ(Imm(32), maskLo, maskHi)
 
 	maskSign := YMM()
 	VPSLLQ(Imm(63), allOne, maskSign)
@@ -71,7 +70,7 @@ func NTTInPlacePow2UnrollAVX2() {
 	VMOVDQU(Mem{Base: coeffs, Index: j, Scale: 8}, u)
 	VMOVDQU(Mem{Base: coeffs, Index: jt, Scale: 8}, v)
 
-	ButterflyAVX2(u, v, w, wSwap, wS, wSHi, q, qSwap, twoQ, maskLo, maskHi, maskSign, allOne)
+	ButterflyAVX2(u, v, w, wSwap, wS, wSHi, q, qSwap, twoQ, maskLo, maskSign, allOne)
 
 	VMOVDQU(u, Mem{Base: coeffs, Index: j, Scale: 8})
 	VMOVDQU(v, Mem{Base: coeffs, Index: jt, Scale: 8})
@@ -120,7 +119,7 @@ func NTTInPlacePow2UnrollAVX2() {
 	VMOVDQU(Mem{Base: coeffs, Index: j, Scale: 8}, u)
 	VMOVDQU(Mem{Base: coeffs, Index: jt, Scale: 8}, v)
 
-	ButterflyAVX2(u, v, w, wSwap, wS, wSHi, q, qSwap, twoQ, maskLo, maskHi, maskSign, allOne)
+	ButterflyAVX2(u, v, w, wSwap, wS, wSHi, q, qSwap, twoQ, maskLo, maskSign, allOne)
 
 	VMOVDQU(u, Mem{Base: coeffs, Index: j, Scale: 8})
 	VMOVDQU(v, Mem{Base: coeffs, Index: jt, Scale: 8})
