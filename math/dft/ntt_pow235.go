@@ -13,13 +13,6 @@ func nttInPlacePow2(coeffs, tw, twS []uint64, q uint64) {
 	nttInPlacePow2Unroll(coeffs, tw, twS, q)
 }
 
-// butterflyPow2NoCmp returns the Harvey butterfly without reduction.
-func butterflyPow2NoCmp(u, v, w, wS, q, twoQ uint64) (uint64, uint64) {
-	quo, _ := bits.Mul64(v, wS)
-	t := v*w - quo*q
-	return u + t, u - t + twoQ
-}
-
 // butterflyPow2 returns the Harvey butterfly.
 func butterflyPow2(u, v, w, wS, q, twoQ uint64) (uint64, uint64) {
 	if u >= twoQ {
@@ -56,13 +49,6 @@ func inttInPlacePow2(coeffs, twInv, twInvS []uint64, q uint64) {
 		return
 	}
 	inttInPlacePow2Unroll(coeffs, twInv, twInvS, q)
-}
-
-// invButterflyPow2NoCmp returns the inverse Harvey butterfly without reduction.
-func invButterflyPow2NoCmp(u, v, w, wS, q, twoQ uint64) (uint64, uint64) {
-	u, v = u+v, u-v+twoQ
-	quo, _ := bits.Mul64(v, wS)
-	return u, v*w - quo*q
 }
 
 // invButterflyPow2 returns the inverse Harvey butterfly.
@@ -137,6 +123,10 @@ func nttInPlacePow3(skip int, coeffs, tw, twS, root, rootS []uint64, q uint64) {
 				r0 := u0 + u2
 				r1 := u1 + u2
 
+				if r0 >= twoQ {
+					r0 -= twoQ
+				}
+
 				quo, _ = bits.Mul64(r1, z1S)
 				x1 := r0 + r1*z1 - quo*q
 
@@ -183,6 +173,10 @@ func inttInPlacePow3(skip int, coeffs, twInv, twInvS, root, rootS []uint64, q ui
 				u2 = twoQ - u2
 				r0 := u0 + u2
 				r1 := u1 + u2
+
+				if r0 >= twoQ {
+					r0 -= twoQ
+				}
 
 				quo, _ = bits.Mul64(r1, z2S)
 				x1 := r0 + r1*z2 - quo*q
@@ -261,6 +255,10 @@ func nttInPlacePow5(skip int, coeffs, tw, twS, root, rootS []uint64, q uint64) {
 				r1 := u1 + u4
 				r2 := u2 + u4
 				r3 := u3 + u4
+
+				if r0 >= twoQ {
+					r0 -= twoQ
+				}
 
 				quo, _ = bits.Mul64(r1, z1S)
 				x1 := r0 + r1*z1 - quo*q
@@ -364,6 +362,10 @@ func inttInPlacePow5(skip int, coeffs, twInv, twInvS, root, rootS []uint64, q ui
 				r1 := u1 + u4
 				r2 := u2 + u4
 				r3 := u3 + u4
+
+				if r0 >= twoQ {
+					r0 -= twoQ
+				}
 
 				quo, _ = bits.Mul64(r1, z4S)
 				x1 := r0 + r1*z4 - quo*q

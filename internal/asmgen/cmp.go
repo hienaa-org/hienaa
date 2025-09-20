@@ -9,20 +9,26 @@ func EqualAVX2(x, y, cmpOut reg.VecVirtual) {
 	VPCMPEQQ(x, y, cmpOut)
 }
 
-func LessThanAVX2(x, y, cmpOut reg.VecVirtual) {
-	VPCMPGTQ(x, y, cmpOut)
+func LessThanAVX2(x, y, maskSign, cmpOut reg.VecVirtual) {
+	xSigned, ySigned := YMM(), YMM()
+	VPSUBQ(maskSign, x, xSigned)
+	VPSUBQ(maskSign, y, ySigned)
+	VPCMPGTQ(xSigned, ySigned, cmpOut)
 }
 
-func LessOrEqualThanAVX2(x, y, allOne, cmpOut reg.VecVirtual) {
-	GreaterThanAVX2(x, y, cmpOut)
+func LessOrEqualThanAVX2(x, y, allOne, maskSign, cmpOut reg.VecVirtual) {
+	GreaterThanAVX2(x, y, maskSign, cmpOut)
 	VPXOR(allOne, cmpOut, cmpOut)
 }
 
-func GreaterThanAVX2(x, y, cmpOut reg.VecVirtual) {
-	VPCMPGTQ(y, x, cmpOut)
+func GreaterThanAVX2(x, y, maskSign, cmpOut reg.VecVirtual) {
+	xSigned, ySigned := YMM(), YMM()
+	VPSUBQ(maskSign, x, xSigned)
+	VPSUBQ(maskSign, y, ySigned)
+	VPCMPGTQ(ySigned, xSigned, cmpOut)
 }
 
-func GreaterOrEqualThanAVX2(x, y, allOne, cmpOut reg.VecVirtual) {
-	LessThanAVX2(x, y, cmpOut)
+func GreaterOrEqualThanAVX2(x, y, allOne, maskSign, cmpOut reg.VecVirtual) {
+	LessThanAVX2(x, y, maskSign, cmpOut)
 	VPXOR(allOne, cmpOut, cmpOut)
 }

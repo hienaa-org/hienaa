@@ -17,6 +17,9 @@ func AddVecToAVX2(isLazy bool) {
 	allOne := YMM()
 	VPCMPEQQ(allOne, allOne, allOne)
 
+	maskSign := YMM()
+	VPSLLQ(Imm(63), allOne, maskSign)
+
 	var q reg.Register
 	var qv reg.VecVirtual
 	if !isLazy {
@@ -49,7 +52,7 @@ func AddVecToAVX2(isLazy bool) {
 
 	if !isLazy {
 		subQ := YMM()
-		GreaterOrEqualThanAVX2(xOut, qv, allOne, subQ)
+		GreaterOrEqualThanAVX2(xOut, qv, allOne, maskSign, subQ)
 		VPAND(qv, subQ, subQ)
 		VPSUBQ(subQ, xOut, xOut)
 	}
@@ -76,7 +79,7 @@ func AddVecToAVX2(isLazy bool) {
 		MOVQ(y0, subQ)
 		SUBQ(q, subQ)
 		CMPQ(y0, q)
-		CMOVQGE(subQ, y0)
+		CMOVQCC(subQ, y0)
 	}
 
 	MOVQ(y0, Mem{Base: vOut, Index: i, Scale: 8})
@@ -100,6 +103,9 @@ func ScalarAddVecToAVX2(isLazy bool) {
 
 	allOne := YMM()
 	VPCMPEQQ(allOne, allOne, allOne)
+
+	maskSign := YMM()
+	VPSLLQ(Imm(63), allOne, maskSign)
 
 	var q reg.Register
 	var qv reg.VecVirtual
@@ -135,7 +141,7 @@ func ScalarAddVecToAVX2(isLazy bool) {
 
 	if !isLazy {
 		subQ := YMM()
-		GreaterOrEqualThanAVX2(xOut, qv, allOne, subQ)
+		GreaterOrEqualThanAVX2(xOut, qv, allOne, maskSign, subQ)
 		VPAND(qv, subQ, subQ)
 		VPSUBQ(subQ, xOut, xOut)
 	}
@@ -161,7 +167,7 @@ func ScalarAddVecToAVX2(isLazy bool) {
 		MOVQ(y, subQ)
 		SUBQ(q, subQ)
 		CMPQ(y, q)
-		CMOVQGE(subQ, y)
+		CMOVQCC(subQ, y)
 	}
 
 	MOVQ(y, Mem{Base: vOut, Index: i, Scale: 8})
@@ -215,7 +221,7 @@ func AddVecToAVX512(isLazy bool) {
 
 	if !isLazy {
 		subQ, subQMask := ZMM(), K()
-		VPCMPQ(Imm(0o5), qv, xOut, subQMask)
+		VPCMPUQ(Imm(0o5), qv, xOut, subQMask)
 		VMOVAPD_Z(qv, subQMask, subQ)
 		VPSUBQ(subQ, xOut, xOut)
 	}
@@ -242,7 +248,7 @@ func AddVecToAVX512(isLazy bool) {
 		MOVQ(y0, subQ)
 		SUBQ(q, subQ)
 		CMPQ(y0, q)
-		CMOVQGE(subQ, y0)
+		CMOVQCC(subQ, y0)
 	}
 
 	MOVQ(y0, Mem{Base: vOut, Index: i, Scale: 8})
@@ -298,7 +304,7 @@ func ScalarAddVecToAVX512(isLazy bool) {
 
 	if !isLazy {
 		subQ, subQMask := ZMM(), K()
-		VPCMPQ(Imm(0o5), qv, xOut, subQMask)
+		VPCMPUQ(Imm(0o5), qv, xOut, subQMask)
 		VMOVAPD_Z(qv, subQMask, subQ)
 		VPSUBQ(subQ, xOut, xOut)
 	}
@@ -324,7 +330,7 @@ func ScalarAddVecToAVX512(isLazy bool) {
 		MOVQ(y, subQ)
 		SUBQ(q, subQ)
 		CMPQ(y, q)
-		CMOVQGE(subQ, y)
+		CMOVQCC(subQ, y)
 	}
 
 	MOVQ(y, Mem{Base: vOut, Index: i, Scale: 8})
@@ -346,8 +352,11 @@ func SubVecToAVX2(isLazy bool) {
 	}
 	Pragma("noescape")
 
-	zero := YMM()
-	VPXOR(zero, zero, zero)
+	allOne := YMM()
+	VPCMPEQQ(allOne, allOne, allOne)
+
+	maskSign := YMM()
+	VPSLLQ(Imm(63), allOne, maskSign)
 
 	var q reg.Register
 	var qv reg.VecVirtual
@@ -381,7 +390,7 @@ func SubVecToAVX2(isLazy bool) {
 
 	if !isLazy {
 		subQ := YMM()
-		LessThanAVX2(xOut, zero, subQ)
+		GreaterOrEqualThanAVX2(xOut, qv, allOne, maskSign, subQ)
 		VPAND(qv, subQ, subQ)
 		VPADDQ(subQ, xOut, xOut)
 	}
@@ -430,8 +439,11 @@ func ScalarSubVecToAVX2(isLazy bool) {
 	}
 	Pragma("noescape")
 
-	zero := YMM()
-	VPXOR(zero, zero, zero)
+	allOne := YMM()
+	VPCMPEQQ(allOne, allOne, allOne)
+
+	maskSign := YMM()
+	VPSLLQ(Imm(63), allOne, maskSign)
 
 	var q reg.Register
 	var qv reg.VecVirtual
@@ -467,7 +479,7 @@ func ScalarSubVecToAVX2(isLazy bool) {
 
 	if !isLazy {
 		subQ := YMM()
-		LessThanAVX2(xOut, zero, subQ)
+		GreaterOrEqualThanAVX2(xOut, qv, allOne, maskSign, subQ)
 		VPAND(qv, subQ, subQ)
 		VPADDQ(subQ, xOut, xOut)
 	}
@@ -515,9 +527,6 @@ func SubVecToAVX512(isLazy bool) {
 	}
 	Pragma("noescape")
 
-	zero := ZMM()
-	VXORPD(zero, zero, zero)
-
 	var q reg.Register
 	var qv reg.VecVirtual
 	if !isLazy {
@@ -550,7 +559,7 @@ func SubVecToAVX512(isLazy bool) {
 
 	if !isLazy {
 		subQ, subQMask := ZMM(), K()
-		VPCMPQ(Imm(0o1), zero, xOut, subQMask)
+		VPCMPUQ(Imm(0o5), qv, xOut, subQMask)
 		VMOVAPD_Z(qv, subQMask, subQ)
 		VPADDQ(subQ, xOut, xOut)
 	}
@@ -599,9 +608,6 @@ func ScalarSubVecToAVX512(isLazy bool) {
 	}
 	Pragma("noescape")
 
-	zero := ZMM()
-	VXORPD(zero, zero, zero)
-
 	var q reg.Register
 	var qv reg.VecVirtual
 	if !isLazy {
@@ -636,7 +642,7 @@ func ScalarSubVecToAVX512(isLazy bool) {
 
 	if !isLazy {
 		subQ, subQMask := ZMM(), K()
-		VPCMPQ(Imm(0o1), zero, xOut, subQMask)
+		VPCMPUQ(Imm(0o5), qv, xOut, subQMask)
 		VMOVAPD_Z(qv, subQMask, subQ)
 		VPADDQ(subQ, xOut, xOut)
 	}

@@ -10,7 +10,7 @@ import (
 const (
 	// MaxModulusBits equals to log2(MaxModulus).
 	// See [MaxModulus] for details.
-	MaxModulusBits = 61
+	MaxModulusBits = 62
 	// MaxModulus is the maximum possible modulus value for the reduction.
 	// All numbers in HIENAA are assumed to be less than this value.
 	MaxModulus = 1 << MaxModulusBits

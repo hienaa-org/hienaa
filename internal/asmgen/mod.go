@@ -13,7 +13,7 @@ func BMod128(xHi, xLo, q, divHi, divLo, xOut reg.Register) {
 	MOVQ(xOut, xOutSubQ)
 	SUBQ(q, xOutSubQ)
 	CMPQ(xOut, q)
-	CMOVQGE(xOutSubQ, xOut)
+	CMOVQCC(xOutSubQ, xOut)
 }
 
 func BMod128Lazy(xHi, xLo, q, divHi, divLo, xOut reg.Register) {

@@ -6,14 +6,14 @@ import (
 	"github.com/mmcloughlin/avo/reg"
 )
 
-func InvButterflyAVX2(u, v, w, wSwap, wS, wSHi, q, qSwap, twoQ, maskLo, maskHi, allOne reg.VecVirtual) {
+func InvButterflyAVX2(u, v, w, wSwap, wS, wSHi, q, qSwap, twoQ, maskLo, maskHi, maskSign, allOne reg.VecVirtual) {
 	VPADDQ(v, u, u)
 	VPADDQ(v, v, v)
 	VPSUBQ(v, u, v)
 	VPADDQ(twoQ, v, v)
 
 	subQ := YMM()
-	GreaterOrEqualThanAVX2(u, twoQ, allOne, subQ)
+	GreaterOrEqualThanAVX2(u, twoQ, allOne, maskSign, subQ)
 	VPAND(twoQ, subQ, subQ)
 	VPSUBQ(subQ, u, u)
 
@@ -34,7 +34,7 @@ func InvButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo reg.VecVirtual) {
 	VPADDQ(twoQ, v, v)
 
 	subQ, subQMask := ZMM(), K()
-	VPCMPQ(Imm(0o5), twoQ, u, subQMask)
+	VPCMPUQ(Imm(0o5), twoQ, u, subQMask)
 	VMOVAPD_Z(twoQ, subQMask, subQ)
 	VPSUBQ(subQ, u, u)
 
@@ -55,7 +55,7 @@ func InvButterflyAVX512YMM(u, v, w, wS, wSHi, q, twoQ, maskLo reg.VecVirtual) {
 	VPADDQ(twoQ, v, v)
 
 	subQ, subQMask := YMM(), K()
-	VPCMPQ(Imm(0o5), twoQ, u, subQMask)
+	VPCMPUQ(Imm(0o5), twoQ, u, subQMask)
 	VMOVAPD_Z(twoQ, subQMask, subQ)
 	VPSUBQ(subQ, u, u)
 
@@ -80,7 +80,7 @@ func InvButterflyX86(u, v, w, wS, q, twoQ reg.Register) {
 	MOVQ(u, subQ)
 	SUBQ(twoQ, subQ)
 	CMPQ(u, twoQ)
-	CMOVQGE(subQ, u)
+	CMOVQCC(subQ, u)
 
 	quo := GP64()
 	MOVQ(wS, reg.RDX)
