@@ -57,7 +57,7 @@ func NewModulus[T Integer](mod T) *Modulus {
 	divLo += remSqQuo
 
 	var inv uint64
-	if q%2 != 0 {
+	if q%2 == 1 {
 		inv = 1
 		acc := q
 		for i := 0; i < 63; i++ {
@@ -126,8 +126,8 @@ func MulLazy(x0, y0 uint64, q *Modulus) uint64 {
 }
 
 // Reduce computes x mod q using Barrett reduction.
-func Reduce(x uint64, q *Modulus) uint64 {
-	return modops.BMod64(x, q.modulus, q.divHi)
+func Reduce[T int64 | uint64](x T, q *Modulus) uint64 {
+	return modops.BMod(x, q.modulus, q.divHi)
 }
 
 // Reduce128 computes x mod q using Barrett reduction.
@@ -164,7 +164,7 @@ func MMulLazy(x0M, y0M uint64, q *Modulus) uint64 {
 
 // SForm transforms x into Shoup form.
 func SForm(x uint64, q *Modulus) uint64 {
-	return modops.SForm(x, q.modulus)
+	return modops.SForm(x, q.modulus, q.divHi)
 }
 
 // SMul computes x0 * x1 mod q using Shoup multiplication.
@@ -189,7 +189,7 @@ func Exp(x, e uint64, q *Modulus) uint64 {
 
 	r := uint64(1)
 	for e > 0 {
-		if e&1 == 1 {
+		if e%2 == 1 {
 			r = Mul(r, x, q)
 		}
 		e >>= 1
@@ -198,28 +198,36 @@ func Exp(x, e uint64, q *Modulus) uint64 {
 	return r
 }
 
-// xgcd returns the extended GCD of x0 and x1.
-func xgcd(x0, x1 int64) (g, s, t int64) {
-	rr, r := x0, x1
-	ss, s := int64(1), int64(0)
-	tt, t := int64(0), int64(1)
+// Inv returns the inverse of x modulo q.
+func Inv(x uint64, q *Modulus) uint64 {
+	rr, r := x, q.Value()
+
+	ssSign, sSign := true, true
+	ss, s := uint64(1), uint64(0)
 
 	for r != 0 {
 		quo := rr / r
 		rr, r = r, rr-quo*r
-		ss, s = s, ss-quo*s
-		tt, t = t, tt-quo*t
+		if sSign != ssSign {
+			ss, s = s, ss+quo*s
+			ssSign, sSign = sSign, ssSign
+		} else {
+			if ss > quo*s {
+				ss, s = s, ss-quo*s
+				ssSign, sSign = sSign, ssSign
+			} else {
+				ss, s = s, quo*s-ss
+				ssSign, sSign = sSign, !sSign
+			}
+		}
 	}
-	return rr, ss, tt
-}
 
-// Inv returns the modular inverse of x modulo q.
-func Inv(x uint64, q *Modulus) uint64 {
-	qs := int64(q.modulus)
-	g, s, _ := xgcd(int64(Reduce(x, q)), qs)
-	if g != 1 {
-		panic("Inv: x is not coprime to modulus")
+	if rr != 1 {
+		panic("Inv: input not invertible")
 	}
 
-	return uint64(((s % qs) + qs) % qs)
+	if !ssSign {
+		return q.Value() - ss
+	}
+	return ss
 }

@@ -66,10 +66,8 @@ type embedderBuffer struct {
 // NewEmbedder creates a new [Embedder].
 func NewEmbedder(modOut []*num.Modulus, modIn []*num.Modulus) *Embedder {
 	switch {
-	case len(modIn) == 0:
-		panic("NewEmbedder: modIn cannot be empty")
-	case len(modOut) == 0:
-		panic("NewEmbedder: modOut cannot be empty")
+	case !isCoprime(modIn) || !isCoprime(modOut):
+		panic("NewEmbedder: modulus not coprime")
 	}
 
 	compInv := make([]uint64, len(modIn))
@@ -196,7 +194,7 @@ func (e *Embedder) EmbedTo(pOut, p *Poly) {
 func (e *Embedder) EmbedVec(v [][]uint64) [][]uint64 {
 	vOut := make([][]uint64, len(e.modOut))
 	for i := 0; i < len(e.modOut); i++ {
-		vOut[i] = make([]uint64, len(v[i]))
+		vOut[i] = make([]uint64, len(v[0]))
 	}
 	e.EmbedVecTo(vOut, v)
 	return vOut
@@ -430,10 +428,8 @@ type Scaler struct {
 // NewScaler creates a new [Scaler].
 func NewScaler(modOut []*num.Modulus, modIn []*num.Modulus) *Scaler {
 	switch {
-	case len(modIn) == 0:
-		panic("NewScaler: modIn cannot be empty")
-	case len(modOut) == 0:
-		panic("NewScaler: modOut cannot be empty")
+	case !isCoprime(modIn) || !isCoprime(modOut):
+		panic("NewScaler: modulus not coprime")
 	}
 
 	compInv := make([]uint64, len(modIn))
@@ -521,8 +517,6 @@ func (s *Scaler) ScaleTo(pOut, p *Poly) {
 	switch {
 	case p.isNTT || pOut.isNTT:
 		panic("ScaleTo: cannot scale NTT polynomials")
-	case p.ModLen() != len(s.modIn):
-		panic("ScaleTo: len(p.modulus) != len(s.ModIn)")
 	}
 
 	s.ScaleVecTo(p.Coeffs, pOut.Coeffs)
@@ -532,7 +526,7 @@ func (s *Scaler) ScaleTo(pOut, p *Poly) {
 func (s *Scaler) ScaleVec(v [][]uint64) [][]uint64 {
 	vOut := make([][]uint64, len(s.modOut))
 	for i := 0; i < len(s.modOut); i++ {
-		vOut[i] = make([]uint64, len(v[i]))
+		vOut[i] = make([]uint64, len(v[0]))
 	}
 	s.ScaleVecTo(vOut, v)
 	return vOut
@@ -540,15 +534,13 @@ func (s *Scaler) ScaleVec(v [][]uint64) [][]uint64 {
 
 // ScaleVecTo scales v to vOut.
 func (s *Scaler) ScaleVecTo(vOut, v [][]uint64) {
+	switch {
+	case len(v) != len(s.modIn) || len(vOut) != len(s.modOut):
+		panic("ScaleVecTo: length mismatch")
+	}
+
 	inLen, outLen := len(s.modIn), len(s.modOut)
 	M := (len(v[0]) >> 3) << 3
-
-	switch {
-	case inLen != len(v):
-		panic("ScaleTo: len(in) != len(s.modIn)")
-	case outLen != len(vOut):
-		panic("ScaleTo: len(out) != len(s.modOut)")
-	}
 
 	var hi, lo uint64
 	fHi := (*[8]uint64)(unsafe.Pointer(&s.buf.fHi[0]))
@@ -743,7 +735,12 @@ type ScaleEmbedder struct {
 }
 
 // NewScaleEmbedder creates a new [ScaleEmbedder].
-func NewScaleEmbedder(scale *big.Rat, modOut []*num.Modulus, modIn []*num.Modulus) *ScaleEmbedder {
+func NewScaleEmbedder(modOut []*num.Modulus, modIn []*num.Modulus, scale *big.Rat) *ScaleEmbedder {
+	switch {
+	case !isCoprime(modIn) || !isCoprime(modOut):
+		panic("NewScaleEmbedder: modulus not coprime")
+	}
+
 	inLen, outLen := len(modIn), len(modOut)
 
 	compInv := make([]uint64, inLen)
@@ -880,8 +877,6 @@ func (s *ScaleEmbedder) ScaleEmbedTo(pOut, p *Poly) {
 	switch {
 	case p.isNTT || pOut.isNTT:
 		panic("ScaleEmbedTo: cannot scale NTT polynomials")
-	case p.ModLen() != len(s.modIn):
-		panic("ScaleEmbedTo: len(p.modulus) != len(s.ModIn)")
 	}
 
 	s.ScaleEmbedVecTo(p.Coeffs, pOut.Coeffs)
@@ -899,15 +894,13 @@ func (s *ScaleEmbedder) ScaleEmbedVec(v [][]uint64) [][]uint64 {
 
 // ScaleEmbedVecTo scales and embeds v to vOut.
 func (s *ScaleEmbedder) ScaleEmbedVecTo(vOut, v [][]uint64) {
+	switch {
+	case len(v) != len(s.modIn) || len(vOut) != len(s.modOut):
+		panic("ScaleEmbedVecTo: length mismatch")
+	}
+
 	inLen, outLen := len(s.modIn), len(s.modOut)
 	M := (len(v[0]) >> 3) << 3
-
-	switch {
-	case inLen != len(v):
-		panic("ScaleTo: len(in) != len(s.modIn)")
-	case outLen != len(vOut):
-		panic("ScaleTo: len(out) != len(s.modOut)")
-	}
 
 	var hi, lo uint64
 	fHi := (*[8]uint64)(unsafe.Pointer(&s.buf.fHi[0]))

@@ -68,7 +68,7 @@ func NTTInPlacePow2UnrollAVX2() {
 	VMOVDQU(Mem{Base: coeffs, Index: j, Scale: 8}, u)
 	VMOVDQU(Mem{Base: coeffs, Index: jt, Scale: 8}, v)
 
-	ButterflyAVX2(false, u, v, w, wSwap, wS, wSHi, q, qSwap, twoQ, maskLo, maskHi, allOne)
+	ButterflyAVX2(u, v, w, wSwap, wS, wSHi, q, qSwap, twoQ, maskLo, maskHi, allOne)
 
 	VMOVDQU(u, Mem{Base: coeffs, Index: j, Scale: 8})
 	VMOVDQU(v, Mem{Base: coeffs, Index: jt, Scale: 8})
@@ -117,7 +117,7 @@ func NTTInPlacePow2UnrollAVX2() {
 	VMOVDQU(Mem{Base: coeffs, Index: j, Scale: 8}, u)
 	VMOVDQU(Mem{Base: coeffs, Index: jt, Scale: 8}, v)
 
-	ButterflyAVX2(true, u, v, w, wSwap, wS, wSHi, q, qSwap, twoQ, maskLo, maskHi, allOne)
+	ButterflyAVX2(u, v, w, wSwap, wS, wSHi, q, qSwap, twoQ, maskLo, maskHi, allOne)
 
 	VMOVDQU(u, Mem{Base: coeffs, Index: j, Scale: 8})
 	VMOVDQU(v, Mem{Base: coeffs, Index: jt, Scale: 8})
@@ -156,7 +156,7 @@ func NTTInPlacePow2UnrollAVX2() {
 	MOVQ(Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8}, u64)
 	MOVQ(Mem{Base: coeffs, Index: i, Disp: 2 * 8, Scale: 8}, v64)
 
-	ButterflyX86(true, u64, v64, w64, wS64, q64, twoQ64)
+	ButterflyX86(u64, v64, w64, wS64, q64, twoQ64)
 
 	MOVQ(u64, Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8})
 	MOVQ(v64, Mem{Base: coeffs, Index: i, Disp: 2 * 8, Scale: 8})
@@ -164,7 +164,7 @@ func NTTInPlacePow2UnrollAVX2() {
 	MOVQ(Mem{Base: coeffs, Index: i, Disp: 1 * 8, Scale: 8}, u64)
 	MOVQ(Mem{Base: coeffs, Index: i, Disp: 3 * 8, Scale: 8}, v64)
 
-	ButterflyX86(true, u64, v64, w64, wS64, q64, twoQ64)
+	ButterflyX86(u64, v64, w64, wS64, q64, twoQ64)
 
 	MOVQ(u64, Mem{Base: coeffs, Index: i, Disp: 1 * 8, Scale: 8})
 	MOVQ(v64, Mem{Base: coeffs, Index: i, Disp: 3 * 8, Scale: 8})
@@ -187,7 +187,7 @@ func NTTInPlacePow2UnrollAVX2() {
 	MOVQ(Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8}, u64)
 	MOVQ(Mem{Base: coeffs, Index: i, Disp: 1 * 8, Scale: 8}, v64)
 
-	ButterflyX86(false, u64, v64, w64, wS64, q64, twoQ64)
+	ButterflyX86(u64, v64, w64, wS64, q64, twoQ64)
 
 	MOVQ(u64, Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8})
 	MOVQ(v64, Mem{Base: coeffs, Index: i, Disp: 1 * 8, Scale: 8})
@@ -199,7 +199,7 @@ func NTTInPlacePow2UnrollAVX2() {
 	MOVQ(Mem{Base: coeffs, Index: i, Disp: 2 * 8, Scale: 8}, u64)
 	MOVQ(Mem{Base: coeffs, Index: i, Disp: 3 * 8, Scale: 8}, v64)
 
-	ButterflyX86(false, u64, v64, w64, wS64, q64, twoQ64)
+	ButterflyX86(u64, v64, w64, wS64, q64, twoQ64)
 
 	MOVQ(u64, Mem{Base: coeffs, Index: i, Disp: 2 * 8, Scale: 8})
 	MOVQ(v64, Mem{Base: coeffs, Index: i, Disp: 3 * 8, Scale: 8})
@@ -211,7 +211,7 @@ func NTTInPlacePow2UnrollAVX2() {
 	MOVQ(Mem{Base: coeffs, Index: i, Disp: 4 * 8, Scale: 8}, u64)
 	MOVQ(Mem{Base: coeffs, Index: i, Disp: 5 * 8, Scale: 8}, v64)
 
-	ButterflyX86(false, u64, v64, w64, wS64, q64, twoQ64)
+	ButterflyX86(u64, v64, w64, wS64, q64, twoQ64)
 
 	MOVQ(u64, Mem{Base: coeffs, Index: i, Disp: 4 * 8, Scale: 8})
 	MOVQ(v64, Mem{Base: coeffs, Index: i, Disp: 5 * 8, Scale: 8})
@@ -223,7 +223,7 @@ func NTTInPlacePow2UnrollAVX2() {
 	MOVQ(Mem{Base: coeffs, Index: i, Disp: 6 * 8, Scale: 8}, u64)
 	MOVQ(Mem{Base: coeffs, Index: i, Disp: 7 * 8, Scale: 8}, v64)
 
-	ButterflyX86(false, u64, v64, w64, wS64, q64, twoQ64)
+	ButterflyX86(u64, v64, w64, wS64, q64, twoQ64)
 
 	MOVQ(u64, Mem{Base: coeffs, Index: i, Disp: 6 * 8, Scale: 8})
 	MOVQ(v64, Mem{Base: coeffs, Index: i, Disp: 7 * 8, Scale: 8})
@@ -295,7 +295,7 @@ func NTTInPlacePow2UnrollAVX512() {
 	VMOVDQU64(Mem{Base: coeffs, Index: j, Scale: 8}, u)
 	VMOVDQU64(Mem{Base: coeffs, Index: jt, Scale: 8}, v)
 
-	ButterflyAVX512(false, u, v, w, wS, wSHi, q, twoQ, maskLo)
+	ButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo)
 
 	VMOVDQU64(u, Mem{Base: coeffs, Index: j, Scale: 8})
 	VMOVDQU64(v, Mem{Base: coeffs, Index: jt, Scale: 8})
@@ -343,7 +343,7 @@ func NTTInPlacePow2UnrollAVX512() {
 	VMOVDQU64(Mem{Base: coeffs, Index: j, Scale: 8}, u)
 	VMOVDQU64(Mem{Base: coeffs, Index: jt, Scale: 8}, v)
 
-	ButterflyAVX512(true, u, v, w, wS, wSHi, q, twoQ, maskLo)
+	ButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo)
 
 	VMOVDQU64(u, Mem{Base: coeffs, Index: j, Scale: 8})
 	VMOVDQU64(v, Mem{Base: coeffs, Index: jt, Scale: 8})
@@ -409,7 +409,7 @@ func NTTInPlacePow2UnrollAVX512() {
 	MOVQ(Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8}, u64)
 	MOVQ(Mem{Base: coeffs, Index: i, Disp: 2 * 8, Scale: 8}, v64)
 
-	ButterflyX86(true, u64, v64, w64, wS64, q64, twoQ64)
+	ButterflyX86(u64, v64, w64, wS64, q64, twoQ64)
 
 	MOVQ(u64, Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8})
 	MOVQ(v64, Mem{Base: coeffs, Index: i, Disp: 2 * 8, Scale: 8})
@@ -417,7 +417,7 @@ func NTTInPlacePow2UnrollAVX512() {
 	MOVQ(Mem{Base: coeffs, Index: i, Disp: 1 * 8, Scale: 8}, u64)
 	MOVQ(Mem{Base: coeffs, Index: i, Disp: 3 * 8, Scale: 8}, v64)
 
-	ButterflyX86(true, u64, v64, w64, wS64, q64, twoQ64)
+	ButterflyX86(u64, v64, w64, wS64, q64, twoQ64)
 
 	MOVQ(u64, Mem{Base: coeffs, Index: i, Disp: 1 * 8, Scale: 8})
 	MOVQ(v64, Mem{Base: coeffs, Index: i, Disp: 3 * 8, Scale: 8})
@@ -440,7 +440,7 @@ func NTTInPlacePow2UnrollAVX512() {
 	MOVQ(Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8}, u64)
 	MOVQ(Mem{Base: coeffs, Index: i, Disp: 1 * 8, Scale: 8}, v64)
 
-	ButterflyX86(false, u64, v64, w64, wS64, q64, twoQ64)
+	ButterflyX86(u64, v64, w64, wS64, q64, twoQ64)
 
 	MOVQ(u64, Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8})
 	MOVQ(v64, Mem{Base: coeffs, Index: i, Disp: 1 * 8, Scale: 8})
@@ -452,7 +452,7 @@ func NTTInPlacePow2UnrollAVX512() {
 	MOVQ(Mem{Base: coeffs, Index: i, Disp: 2 * 8, Scale: 8}, u64)
 	MOVQ(Mem{Base: coeffs, Index: i, Disp: 3 * 8, Scale: 8}, v64)
 
-	ButterflyX86(false, u64, v64, w64, wS64, q64, twoQ64)
+	ButterflyX86(u64, v64, w64, wS64, q64, twoQ64)
 
 	MOVQ(u64, Mem{Base: coeffs, Index: i, Disp: 2 * 8, Scale: 8})
 	MOVQ(v64, Mem{Base: coeffs, Index: i, Disp: 3 * 8, Scale: 8})
@@ -464,7 +464,7 @@ func NTTInPlacePow2UnrollAVX512() {
 	MOVQ(Mem{Base: coeffs, Index: i, Disp: 4 * 8, Scale: 8}, u64)
 	MOVQ(Mem{Base: coeffs, Index: i, Disp: 5 * 8, Scale: 8}, v64)
 
-	ButterflyX86(false, u64, v64, w64, wS64, q64, twoQ64)
+	ButterflyX86(u64, v64, w64, wS64, q64, twoQ64)
 
 	MOVQ(u64, Mem{Base: coeffs, Index: i, Disp: 4 * 8, Scale: 8})
 	MOVQ(v64, Mem{Base: coeffs, Index: i, Disp: 5 * 8, Scale: 8})
@@ -476,7 +476,7 @@ func NTTInPlacePow2UnrollAVX512() {
 	MOVQ(Mem{Base: coeffs, Index: i, Disp: 6 * 8, Scale: 8}, u64)
 	MOVQ(Mem{Base: coeffs, Index: i, Disp: 7 * 8, Scale: 8}, v64)
 
-	ButterflyX86(false, u64, v64, w64, wS64, q64, twoQ64)
+	ButterflyX86(u64, v64, w64, wS64, q64, twoQ64)
 
 	MOVQ(u64, Mem{Base: coeffs, Index: i, Disp: 6 * 8, Scale: 8})
 	MOVQ(v64, Mem{Base: coeffs, Index: i, Disp: 7 * 8, Scale: 8})

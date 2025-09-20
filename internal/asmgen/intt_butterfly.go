@@ -6,18 +6,16 @@ import (
 	"github.com/mmcloughlin/avo/reg"
 )
 
-func InvButterflyAVX2(isCmp bool, u, v, w, wSwap, wS, wSHi, q, qSwap, twoQ, maskLo, maskHi, allOne reg.VecVirtual) {
+func InvButterflyAVX2(u, v, w, wSwap, wS, wSHi, q, qSwap, twoQ, maskLo, maskHi, allOne reg.VecVirtual) {
 	VPADDQ(v, u, u)
 	VPADDQ(v, v, v)
 	VPSUBQ(v, u, v)
 	VPADDQ(twoQ, v, v)
 
-	if isCmp {
-		subQ := YMM()
-		GreaterOrEqualThanAVX2(u, twoQ, allOne, subQ)
-		VPAND(twoQ, subQ, subQ)
-		VPSUBQ(subQ, u, u)
-	}
+	subQ := YMM()
+	GreaterOrEqualThanAVX2(u, twoQ, allOne, subQ)
+	VPAND(twoQ, subQ, subQ)
+	VPSUBQ(subQ, u, u)
 
 	vHi := YMM()
 	VPSRLQ(Imm(32), v, vHi)
@@ -29,18 +27,16 @@ func InvButterflyAVX2(isCmp bool, u, v, w, wSwap, wS, wSHi, q, qSwap, twoQ, mask
 	VPSUBQ(quo, v, v)
 }
 
-func InvButterflyAVX512(isCmp bool, u, v, w, wS, wSHi, q, twoQ, maskLo reg.VecVirtual) {
+func InvButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo reg.VecVirtual) {
 	VPADDQ(v, u, u)
 	VPADDQ(v, v, v)
 	VPSUBQ(v, u, v)
 	VPADDQ(twoQ, v, v)
 
-	if isCmp {
-		subQ, subQMask := ZMM(), K()
-		VPCMPQ(Imm(0o5), twoQ, u, subQMask)
-		VMOVAPD_Z(twoQ, subQMask, subQ)
-		VPSUBQ(subQ, u, u)
-	}
+	subQ, subQMask := ZMM(), K()
+	VPCMPQ(Imm(0o5), twoQ, u, subQMask)
+	VMOVAPD_Z(twoQ, subQMask, subQ)
+	VPSUBQ(subQ, u, u)
 
 	vHi := ZMM()
 	VPSRLQ(Imm(32), v, vHi)

@@ -43,10 +43,10 @@ func NewTransformer(params RingParameters, mod *num.Modulus) Transformer {
 		}
 	case AutFixed:
 		switch {
-		case num.IsPrime(params.cycloOrd):
-			return newAutFixedPrimeTransformer(params, mod)
 		case num.IsPowerOfTwo(params.cycloOrd):
 			return newAutFixedPow2Transformer(params, mod)
+		case num.IsPrime(params.cycloOrd):
+			return newAutFixedPrimeTransformer(params, mod)
 		}
 	}
 

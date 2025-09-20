@@ -33,6 +33,7 @@ func NewPolyCustom(rank, modLen int, isNTT bool) *Poly {
 	for i := 0; i < modLen; i++ {
 		coeffs[i] = make([]uint64, rank)
 	}
+
 	return &Poly{
 		Coeffs: coeffs,
 		isNTT:  isNTT,

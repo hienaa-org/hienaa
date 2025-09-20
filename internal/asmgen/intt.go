@@ -175,7 +175,7 @@ func InvNTTInPlacePow2UnrollAVX2() {
 	VMOVDQU(Mem{Base: coeffs, Index: j, Scale: 8}, u)
 	VMOVDQU(Mem{Base: coeffs, Index: jt, Scale: 8}, v)
 
-	InvButterflyAVX2(true, u, v, w, wSwap, wS, wSHi, q, qSwap, twoQ, maskLo, maskHi, allOne)
+	InvButterflyAVX2(u, v, w, wSwap, wS, wSHi, q, qSwap, twoQ, maskLo, maskHi, allOne)
 
 	VMOVDQU(u, Mem{Base: coeffs, Index: j, Scale: 8})
 	VMOVDQU(v, Mem{Base: coeffs, Index: jt, Scale: 8})
@@ -220,7 +220,7 @@ func InvNTTInPlacePow2UnrollAVX2() {
 	VMOVDQU(Mem{Base: coeffs, Index: j, Scale: 8}, u)
 	VMOVDQU(Mem{Base: coeffs, Index: jt, Scale: 8}, v)
 
-	InvButterflyAVX2(false, u, v, w, wSwap, wS, wSHi, q, qSwap, twoQ, maskLo, maskHi, allOne)
+	InvButterflyAVX2(u, v, w, wSwap, wS, wSHi, q, qSwap, twoQ, maskLo, maskHi, allOne)
 
 	VMOVDQU(u, Mem{Base: coeffs, Index: j, Scale: 8})
 	VMOVDQU(v, Mem{Base: coeffs, Index: jt, Scale: 8})
@@ -434,7 +434,7 @@ func InvNTTInPlacePow2UnrollAVX512() {
 	VMOVDQU64(Mem{Base: coeffs, Index: j, Scale: 8}, u)
 	VMOVDQU64(Mem{Base: coeffs, Index: jt, Scale: 8}, v)
 
-	InvButterflyAVX512(true, u, v, w, wS, wSHi, q, twoQ, maskLo)
+	InvButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo)
 
 	VMOVDQU64(u, Mem{Base: coeffs, Index: j, Scale: 8})
 	VMOVDQU64(v, Mem{Base: coeffs, Index: jt, Scale: 8})
@@ -478,7 +478,7 @@ func InvNTTInPlacePow2UnrollAVX512() {
 	VMOVDQU64(Mem{Base: coeffs, Index: j, Scale: 8}, u)
 	VMOVDQU64(Mem{Base: coeffs, Index: jt, Scale: 8}, v)
 
-	InvButterflyAVX512(false, u, v, w, wS, wSHi, q, twoQ, maskLo)
+	InvButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo)
 
 	VMOVDQU64(u, Mem{Base: coeffs, Index: j, Scale: 8})
 	VMOVDQU64(v, Mem{Base: coeffs, Index: jt, Scale: 8})

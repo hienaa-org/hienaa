@@ -31,6 +31,15 @@ func CastTo[TIn, TOut num.Real](vOut []TOut, vIn []TIn) {
 	}
 }
 
+// Range returns a vector containing [start, end).
+func Range[T num.Integer](start, end T) []T {
+	v := make([]T, end-start)
+	for i := range v {
+		v[i] = start + T(i)
+	}
+	return v
+}
+
 // RadixReverseInPlace computes the radix-r reverse of v in-place.
 // Assumes len(v) is a power of r.
 func RadixReverseInPlace(v []uint64, r int) {
@@ -73,7 +82,7 @@ func Max[T num.Real](v []T) T {
 		return v[0]
 	}
 
-	r := v[1]
+	r := v[0]
 	for i := 1; i < len(v); i++ {
 		if v[i] > r {
 			r = v[i]
@@ -92,7 +101,7 @@ func Min[T num.Real](v []T) T {
 		return v[0]
 	}
 
-	r := v[1]
+	r := v[0]
 	for i := 1; i < len(v); i++ {
 		if v[i] < r {
 			r = v[i]

@@ -22,12 +22,9 @@ type PolyEvaluator struct {
 
 // NewPolyEvaluator creates a new [PolyEvaluator].
 func NewPolyEvaluator(params dft.RingParameters, mod []*num.Modulus) *PolyEvaluator {
-	gcd := uint64(1)
-	for i := range mod {
-		gcd = num.GCD(gcd, mod[i].Value())
-	}
-	if gcd != 1 {
-		panic("NewPolyEvaluator: moduli not coprime")
+	switch {
+	case !isCoprime(mod):
+		panic("NewPolyEvaluator: modulus not coprime")
 	}
 
 	switch params.RingType() {
@@ -37,19 +34,16 @@ func NewPolyEvaluator(params dft.RingParameters, mod []*num.Modulus) *PolyEvalua
 			return &PolyEvaluator{
 				polyEvaluatorBase:         newPolyEvaluatorBase(params, mod),
 				polyScalarAddSubEvaluator: newPolyScalarAddSubEvaluatorDefault(params, mod),
-				polyMulEvaluator:          NewPolyMulEvaluatorNoReduce(params, mod),
+				polyMulEvaluator:          newPolyMulEvaluatorNoReduce(params, mod),
 				polyAutEvaluator:          newPolyAutEvaluatorCyclotomicPow2(params, mod),
 			}
 		default:
-			reducers := make([]reducer, len(mod))
-			for i := range reducers {
-				reducers[i] = newCyclotomicReducer(params, mod[i])
-			}
+			reducer := newCyclotomicReducer(params, mod)
 			return &PolyEvaluator{
 				polyEvaluatorBase:         newPolyEvaluatorBase(params, mod),
 				polyScalarAddSubEvaluator: newPolyScalarAddSubEvaluatorDefault(params, mod),
-				polyMulEvaluator:          newPolyMulEvaluatorCyclotomicNonPow2(params, mod, reducers),
-				polyAutEvaluator:          newPolyAutEvaluatorCyclotomicNonPow2(params, mod, reducers),
+				polyMulEvaluator:          newPolyMulEvaluatorCyclotomicNonPow2(params, mod, reducer),
+				polyAutEvaluator:          newPolyAutEvaluatorCyclotomicNonPow2(params, mod, reducer),
 			}
 		}
 
@@ -57,30 +51,53 @@ func NewPolyEvaluator(params dft.RingParameters, mod []*num.Modulus) *PolyEvalua
 		return &PolyEvaluator{
 			polyEvaluatorBase:         newPolyEvaluatorBase(params, mod),
 			polyScalarAddSubEvaluator: newPolyScalarAddSubEvaluatorDefault(params, mod),
-			polyMulEvaluator:          NewPolyMulEvaluatorNoReduce(params, mod),
+			polyMulEvaluator:          newPolyMulEvaluatorNoReduce(params, mod),
 			polyAutEvaluator:          &polyAutEvaluatorPanic{},
 		}
 
 	case dft.AutFixed:
 		switch {
-		case num.IsPrime(params.CycloOrder()):
-			return &PolyEvaluator{
-				polyEvaluatorBase:         newPolyEvaluatorBase(params, mod),
-				polyScalarAddSubEvaluator: newPolyScalarAddSubEvaluatorAutFixedPrime(params, mod),
-				polyMulEvaluator:          NewPolyMulEvaluatorNoReduce(params, mod),
-				polyAutEvaluator:          newPolyAutEvaluatorAutFixedPrime(params, mod),
-			}
 		case num.IsPowerOfTwo(params.CycloOrder()):
 			return &PolyEvaluator{
 				polyEvaluatorBase:         newPolyEvaluatorBase(params, mod),
 				polyScalarAddSubEvaluator: newPolyScalarAddSubEvaluatorDefault(params, mod),
-				polyMulEvaluator:          NewPolyMulEvaluatorNoReduce(params, mod),
+				polyMulEvaluator:          newPolyMulEvaluatorNoReduce(params, mod),
 				polyAutEvaluator:          newPolyAutEvaluatorAutFixedPow2(params, mod),
+			}
+		case num.IsPrime(params.CycloOrder()):
+			return &PolyEvaluator{
+				polyEvaluatorBase:         newPolyEvaluatorBase(params, mod),
+				polyScalarAddSubEvaluator: newPolyScalarAddSubEvaluatorAutFixedPrime(params, mod),
+				polyMulEvaluator:          newPolyMulEvaluatorNoReduce(params, mod),
+				polyAutEvaluator:          newPolyAutEvaluatorAutFixedPrime(params, mod),
 			}
 		}
 	}
 
 	panic("NewPolyEvaluator: unsupported parameters")
+}
+
+// NewPolyEvaluatorWithModPoly creates a new [PolyEvaluator] with a given modulus polynomial.
+func NewPolyEvaluatorWithModPoly(mod []*num.Modulus, modPoly []int64) *PolyEvaluator {
+	params := dft.NewOtherParameters(modPoly)
+
+	reducer := NewReducer(num.NextProdPower(2*len(modPoly)-1, []int{2}), mod, modPoly)
+
+	return &PolyEvaluator{
+		polyEvaluatorBase:         newPolyEvaluatorBase(params, mod),
+		polyScalarAddSubEvaluator: newPolyScalarAddSubEvaluatorDefault(params, mod),
+		polyMulEvaluator:          newPolyMulEvaluatorReduce(mod, modPoly, reducer),
+		polyAutEvaluator:          &polyAutEvaluatorPanic{},
+	}
+}
+
+// SubEvaluator returns a evaluator for modulus of given indices.
+// Useful for "levelled" operations, especially with [vec.Range].
+func (e *PolyEvaluator) SubEvaluator(idx ...int) *PolyEvaluator {
+	return &PolyEvaluator{
+		polyEvaluatorBase:         e.polyEvaluatorBase.subEvaluator(idx...),
+		polyScalarAddSubEvaluator: e.polyScalarAddSubEvaluator.subEvaluator(idx...),
+	}
 }
 
 // SafeCopy returns a thread-safe copy.

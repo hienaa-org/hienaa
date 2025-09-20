@@ -1,5 +1,16 @@
 package crt
 
+import "github.com/hienaa-org/hienaa/math/num"
+
+// isCoprime checks if all modulus are coprime.
+func isCoprime(mod []*num.Modulus) bool {
+	gcd := uint64(1)
+	for i := range mod {
+		gcd = num.GCD(gcd, mod[i].Value())
+	}
+	return gcd == 1
+}
+
 // isConsistent checks if p is consistent with given ring parameters and modulus.
 func isConsistent(rank, modLen int, p *Poly) bool {
 	if len(p.Coeffs) != modLen {

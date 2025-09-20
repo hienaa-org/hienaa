@@ -17,20 +17,18 @@ type polyEvaluatorBase struct {
 // newPolyEvaluatorBase creates a new [polyEvaluatorBase].
 func newPolyEvaluatorBase(params dft.RingParameters, mod []*num.Modulus) *polyEvaluatorBase {
 	isNTTFriendly := make([]bool, len(mod))
-	for i := range isNTTFriendly {
-		isNTTFriendly[i] = dft.IsNTTFriendly(params, mod[i])
-	}
-
 	ntt := make([]dft.Transformer, len(mod))
-	for i := range ntt {
+	for i := range mod {
+		isNTTFriendly[i] = dft.IsNTTFriendly(params, mod[i])
 		if isNTTFriendly[i] {
 			ntt[i] = dft.NewTransformer(params, mod[i])
 		}
 	}
 
 	return &polyEvaluatorBase{
-		params:        params,
-		mod:           mod,
+		params: params,
+		mod:    mod,
+
 		isNTTFriendly: isNTTFriendly,
 		ntt:           ntt,
 	}
@@ -77,6 +75,7 @@ func (e *polyEvaluatorBase) AddTo(pOut, p0, p1 *Poly) {
 	for i := range e.mod {
 		vec.AddTo(pOut.Coeffs[i], p0.Coeffs[i], p1.Coeffs[i], e.mod[i])
 	}
+
 	pOut.isNTT = p0.isNTT
 }
 
@@ -96,6 +95,7 @@ func (e *polyEvaluatorBase) SubTo(pOut, p0, p1 *Poly) {
 	for i := range e.mod {
 		vec.SubTo(pOut.Coeffs[i], p0.Coeffs[i], p1.Coeffs[i], e.mod[i])
 	}
+
 	pOut.isNTT = p0.isNTT
 }
 
@@ -115,6 +115,7 @@ func (e *polyEvaluatorBase) NegTo(pOut, p *Poly) {
 	for i := range e.mod {
 		vec.NegTo(pOut.Coeffs[i], p.Coeffs[i], e.mod[i])
 	}
+
 	pOut.isNTT = p.isNTT
 }
 
@@ -186,6 +187,7 @@ func (e *polyEvaluatorBase) NTTTo(pOut, p *Poly) {
 			e.ntt[i].ForwardInPlace(pOut.Coeffs[i])
 		}
 	}
+
 	pOut.isNTT = true
 }
 
@@ -211,10 +213,31 @@ func (e *polyEvaluatorBase) InvNTTTo(pOut, p *Poly) {
 			e.ntt[i].InverseInPlace(pOut.Coeffs[i])
 		}
 	}
+
 	pOut.isNTT = false
 }
 
-// SafeCopy returns a thread-safe copy.
+func (e *polyEvaluatorBase) subEvaluator(idx ...int) *polyEvaluatorBase {
+	modCopy := make([]*num.Modulus, len(idx))
+	isNTTFriendlyCopy := make([]bool, len(idx))
+	nttCopy := make([]dft.Transformer, len(idx))
+	for i := range idx {
+		modCopy[i] = e.mod[idx[i]]
+		isNTTFriendlyCopy[i] = e.isNTTFriendly[idx[i]]
+		if e.ntt[idx[i]] != nil {
+			nttCopy[i] = e.ntt[idx[i]].SafeCopy()
+		}
+	}
+
+	return &polyEvaluatorBase{
+		params: e.params,
+		mod:    modCopy,
+
+		isNTTFriendly: isNTTFriendlyCopy,
+		ntt:           nttCopy,
+	}
+}
+
 func (e *polyEvaluatorBase) safeCopy() *polyEvaluatorBase {
 	nttCopy := make([]dft.Transformer, len(e.ntt))
 	for i := range e.ntt {
@@ -224,8 +247,9 @@ func (e *polyEvaluatorBase) safeCopy() *polyEvaluatorBase {
 	}
 
 	return &polyEvaluatorBase{
-		params:        e.params,
-		mod:           e.mod,
+		params: e.params,
+		mod:    e.mod,
+
 		isNTTFriendly: e.isNTTFriendly,
 		ntt:           nttCopy,
 	}

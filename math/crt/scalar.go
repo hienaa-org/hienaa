@@ -10,64 +10,27 @@ import (
 type Scalar []uint64
 
 // NewScalar creates a new [Scalar].
-func NewScalar[T num.Integer | *big.Int](x T, mod []*num.Modulus) Scalar {
+func NewScalar[T int64 | uint64 | *big.Int](x T, mod []*num.Modulus) Scalar {
 	r := make(Scalar, len(mod))
 
 	var z T
 	switch any(z).(type) {
 	case *big.Int:
 		u := any(x).(*big.Int)
+		q, t := new(big.Int), new(big.Int)
 		for i := range r {
-			q := new(big.Int).SetUint64(mod[i].Value())
-			r[i] = new(big.Int).Mod(u, q).Uint64()
+			q.SetUint64(mod[i].Value())
+			r[i] = t.Mod(u, q).Uint64()
 		}
-	case int8:
-		u := int64(any(x).(int8))
-		for i := range r {
-			r[i] = uint64(u % int64(mod[i].Value()))
-		}
-	case int16:
-		u := int64(any(x).(int16))
-		for i := range r {
-			r[i] = uint64(u % int64(mod[i].Value()))
-		}
-	case int32:
-		u := int64(any(x).(int32))
-		for i := range r {
-			r[i] = uint64(u % int64(mod[i].Value()))
-		}
+
 	case int64:
 		u := any(x).(int64)
 		for i := range r {
-			r[i] = uint64(u % int64(mod[i].Value()))
-		}
-	case int:
-		u := int64(any(x).(int))
-		for i := range r {
-			r[i] = uint64(u % int64(mod[i].Value()))
-		}
-	case uint8:
-		u := uint64(any(x).(uint8))
-		for i := range r {
 			r[i] = num.Reduce(u, mod[i])
 		}
-	case uint16:
-		u := uint64(any(x).(uint16))
-		for i := range r {
-			r[i] = num.Reduce(u, mod[i])
-		}
-	case uint32:
-		u := uint64(any(x).(uint32))
-		for i := range r {
-			r[i] = num.Reduce(u, mod[i])
-		}
+
 	case uint64:
 		u := any(x).(uint64)
-		for i := range r {
-			r[i] = num.Reduce(u, mod[i])
-		}
-	case uint:
-		u := uint64(any(x).(uint))
 		for i := range r {
 			r[i] = num.Reduce(u, mod[i])
 		}

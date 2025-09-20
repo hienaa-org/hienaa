@@ -60,20 +60,20 @@ func NewCyclicParameters(rank int) RingParameters {
 	}
 }
 
-// NewAutFixedParameters creates a new [RingParameters] for an AutFixed ring.
+// NewAutFixedParameters creates a new [RingParameters] for an autfixed ring.
 func NewAutFixedParameters(cycloOrd, rank int) RingParameters {
 	if rank < 1 {
 		panic("NewAutFixedParameters: rank must be larger or equal than 1")
 	}
 
 	switch {
+	case num.IsPowerOfTwo(cycloOrd):
+		if cycloOrd != 4*rank {
+			panic("NewAutFixedParameters: cycloOrd must be four times the rank for power-of-two cycloOrd")
+		}
 	case num.IsPrime(uint64(cycloOrd)):
 		if (cycloOrd-1)%rank != 0 {
 			panic("NewAutFixedParameters: rank should divide cycloOrd-1 for prime cycloOrd")
-		}
-	case num.IsPowerOfTwo(cycloOrd):
-		if cycloOrd != rank<<2 {
-			panic("NewAutFixedParameters: cycloOrd must be four times the rank for power-of-two cycloOrd")
 		}
 	default:
 		panic("NewAutFixedParameters: cycloOrd must be a prime or a power of two")
@@ -120,16 +120,14 @@ func cyclotomicGap(cycloOrd, rank int) uint64 {
 	} else {
 		bluesteinRank := num.NextProdPower(2*cycloOrd-1, []int{2})
 
-		var p int
 		primes, _ := num.Factor(cycloOrd)
-		for _, f := range primes {
-			if f%2 == 1 {
-				p = f
-				break
-			}
+		var redDeg int
+		if cycloOrd%2 == 1 {
+			redDeg = cycloOrd - cycloOrd/primes[0]
+		} else {
+			redDeg = cycloOrd/2 - (cycloOrd/2)/primes[1]
 		}
 
-		redDeg := cycloOrd - cycloOrd/p
 		if redDeg == rank {
 			gap = num.LCM(cycloOrd, bluesteinRank)
 		} else {
@@ -155,7 +153,7 @@ func cyclicGap(rank int) uint64 {
 	return uint64(gap)
 }
 
-// autFixedGap finds the "gap" of the NTT-friendly modulus for AutFixed rings.
+// autFixedGap finds the "gap" of the NTT-friendly modulus for autfixed rings.
 func autFixedGap(cycloOrd, rank int) uint64 {
 	var gap int
 

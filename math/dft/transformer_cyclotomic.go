@@ -1,7 +1,6 @@
 package dft
 
 import (
-	"github.com/hienaa-org/hienaa/math/internal/dftops"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
 )
@@ -39,13 +38,6 @@ func newCyclotomicPow2Transformer(params RingParameters, mod *num.Modulus) *cycl
 	vec.RadixReverseInPlace(tw, 2)
 	vec.RadixReverseInPlace(twInv, 2)
 
-	twS := make([]uint64, params.rank)
-	twInvS := make([]uint64, params.rank)
-	for i := 0; i < params.rank; i++ {
-		twS[i] = num.SForm(tw[i], mod)
-		twInvS[i] = num.SForm(twInv[i], mod)
-	}
-
 	rankInv := num.InvMForm(num.Inv(uint64(params.rank), mod), mod)
 
 	return &cyclotomicPow2Transformer{
@@ -53,21 +45,21 @@ func newCyclotomicPow2Transformer(params RingParameters, mod *num.Modulus) *cycl
 		mod:    mod,
 
 		tw:     tw,
-		twS:    twS,
+		twS:    vec.SForm(tw, mod),
 		twInv:  twInv,
-		twInvS: twInvS,
+		twInvS: vec.SForm(twInv, mod),
 
 		rankInv: rankInv,
 	}
 }
 
 func (ntt *cyclotomicPow2Transformer) ForwardInPlace(coeffs []uint64) {
-	dftops.NTTInPlacePow2(coeffs, ntt.tw, ntt.twS, ntt.mod.Value())
+	nttInPlacePow2(coeffs, ntt.tw, ntt.twS, ntt.mod.Value())
 	vec.MFormTo(coeffs, coeffs, ntt.mod)
 }
 
 func (ntt *cyclotomicPow2Transformer) InverseInPlace(coeffs []uint64) {
-	dftops.INTTInPlacePow2(coeffs, ntt.twInv, ntt.twInvS, ntt.mod.Value())
+	inttInPlacePow2(coeffs, ntt.twInv, ntt.twInvS, ntt.mod.Value())
 	vec.ScalarMulTo(coeffs, coeffs, ntt.rankInv, ntt.mod)
 }
 
@@ -89,7 +81,7 @@ type cyclotomicAnyTransformer struct {
 	mod    *num.Modulus
 
 	ambNTT  Transformer
-	reducer *dftops.CyclotomicReducerNTTModulus
+	reducer *cyclotomicReducer
 
 	// idx is the CRT mapping index.
 	idx []int
@@ -182,7 +174,7 @@ func newCyclotomicAnyTransformer(params RingParameters, mod *num.Modulus) *cyclo
 		mod:    mod,
 
 		ambNTT:  NewTransformer(NewCyclicParameters(params.cycloOrd), mod),
-		reducer: dftops.NewCyclotomicReducerNTTModulus(params.cycloOrd, params.rank, mod),
+		reducer: newCyclotomicReducer(params, mod),
 
 		idx: idx,
 
@@ -209,8 +201,7 @@ func (ntt *cyclotomicAnyTransformer) InverseInPlace(coeffs []uint64) {
 
 	ntt.ambNTT.InverseInPlace(ntt.buf.coeffs)
 
-	ntt.reducer.ReduceTo(ntt.buf.coeffs, ntt.buf.coeffs)
-	copy(coeffs, ntt.buf.coeffs)
+	ntt.reducer.reduceTo(coeffs, ntt.buf.coeffs)
 }
 
 func (ntt *cyclotomicAnyTransformer) Params() RingParameters {

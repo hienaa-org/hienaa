@@ -2,7 +2,6 @@ package vec_test
 
 import (
 	"fmt"
-	"slices"
 	"testing"
 
 	"github.com/hienaa-org/hienaa/math/csprng"
@@ -42,7 +41,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), q.Value())
+		assert.Less(t, vec.Max(vOut), q.Value())
 	})
 
 	t.Run("AddLazy", func(t *testing.T) {
@@ -52,7 +51,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), 2*q.Value())
+		assert.Less(t, vec.Max(vOut), 2*q.Value())
 	})
 
 	t.Run("ScalarAdd", func(t *testing.T) {
@@ -65,7 +64,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), q.Value())
+		assert.Less(t, vec.Max(vOut), q.Value())
 	})
 
 	t.Run("ScalarAddLazy", func(t *testing.T) {
@@ -75,7 +74,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), 2*q.Value())
+		assert.Less(t, vec.Max(vOut), 2*q.Value())
 	})
 
 	t.Run("Sub", func(t *testing.T) {
@@ -88,7 +87,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), q.Value())
+		assert.Less(t, vec.Max(vOut), q.Value())
 	})
 
 	t.Run("SubLazy", func(t *testing.T) {
@@ -109,7 +108,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), q.Value())
+		assert.Less(t, vec.Max(vOut), q.Value())
 	})
 
 	t.Run("ScalarSubLazy", func(t *testing.T) {
@@ -131,7 +130,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), q.Value())
+		assert.Less(t, vec.Max(vOut), q.Value())
 	})
 
 	t.Run("ScalarMul", func(t *testing.T) {
@@ -141,7 +140,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), q.Value())
+		assert.Less(t, vec.Max(vOut), q.Value())
 	})
 
 	t.Run("ScalarMulAdd", func(t *testing.T) {
@@ -154,7 +153,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), q.Value())
+		assert.Less(t, vec.Max(vOut), q.Value())
 	})
 
 	t.Run("ScalarMulSub", func(t *testing.T) {
@@ -167,7 +166,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), q.Value())
+		assert.Less(t, vec.Max(vOut), q.Value())
 	})
 
 	t.Run("ScalarMulLazy", func(t *testing.T) {
@@ -177,7 +176,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), 2*q.Value())
+		assert.Less(t, vec.Max(vOut), 2*q.Value())
 
 		for i := 0; i < N; i++ {
 			vOut[i] %= q.Value()
@@ -196,7 +195,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), 3*q.Value())
+		assert.Less(t, vec.Max(vOut), 3*q.Value())
 
 		for i := 0; i < N; i++ {
 			vOut[i] %= q.Value()
@@ -215,7 +214,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), 3*q.Value())
+		assert.Less(t, vec.Max(vOut), 3*q.Value())
 
 		for i := 0; i < N; i++ {
 			vOut[i] %= q.Value()
@@ -231,7 +230,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), q.Value())
+		assert.Less(t, vec.Max(vOut), q.Value())
 	})
 
 	t.Run("ScalarMMulAdd", func(t *testing.T) {
@@ -244,7 +243,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), q.Value())
+		assert.Less(t, vec.Max(vOut), q.Value())
 	})
 
 	t.Run("ScalarMMulSub", func(t *testing.T) {
@@ -257,7 +256,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), q.Value())
+		assert.Less(t, vec.Max(vOut), q.Value())
 	})
 
 	t.Run("ScalarMMulLazy", func(t *testing.T) {
@@ -267,7 +266,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), 2*q.Value())
+		assert.Less(t, vec.Max(vOut), 2*q.Value())
 
 		for i := 0; i < N; i++ {
 			vOut[i] %= q.Value()
@@ -286,7 +285,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), 3*q.Value())
+		assert.Less(t, vec.Max(vOut), 3*q.Value())
 
 		for i := 0; i < N; i++ {
 			vOut[i] %= q.Value()
@@ -305,7 +304,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), 3*q.Value())
+		assert.Less(t, vec.Max(vOut), 3*q.Value())
 
 		for i := 0; i < N; i++ {
 			vOut[i] %= q.Value()
@@ -321,7 +320,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), q.Value())
+		assert.Less(t, vec.Max(vOut), q.Value())
 	})
 
 	t.Run("MulAdd", func(t *testing.T) {
@@ -334,7 +333,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), 2*q.Value())
+		assert.Less(t, vec.Max(vOut), q.Value())
 	})
 
 	t.Run("MulSub", func(t *testing.T) {
@@ -347,7 +346,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), 2*q.Value())
+		assert.Less(t, vec.Max(vOut), q.Value())
 	})
 
 	t.Run("MulLazy", func(t *testing.T) {
@@ -357,7 +356,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), 2*q.Value())
+		assert.Less(t, vec.Max(vOut), q.Value())
 
 		for i := 0; i < N; i++ {
 			vOut[i] %= q.Value()
@@ -376,7 +375,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), 3*q.Value())
+		assert.Less(t, vec.Max(vOut), 3*q.Value())
 
 		for i := 0; i < N; i++ {
 			vOut[i] %= q.Value()
@@ -395,7 +394,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), 3*q.Value())
+		assert.Less(t, vec.Max(vOut), 3*q.Value())
 
 		for i := 0; i < N; i++ {
 			vOut[i] %= q.Value()
@@ -411,7 +410,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), q.Value())
+		assert.Less(t, vec.Max(vOut), q.Value())
 	})
 
 	t.Run("MMulAdd", func(t *testing.T) {
@@ -424,7 +423,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), q.Value())
+		assert.Less(t, vec.Max(vOut), q.Value())
 	})
 
 	t.Run("MMulSub", func(t *testing.T) {
@@ -437,7 +436,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), q.Value())
+		assert.Less(t, vec.Max(vOut), q.Value())
 	})
 
 	t.Run("MMulLazy", func(t *testing.T) {
@@ -447,7 +446,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), 2*q.Value())
+		assert.Less(t, vec.Max(vOut), 2*q.Value())
 
 		for i := 0; i < N; i++ {
 			vOut[i] %= q.Value()
@@ -466,7 +465,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), 3*q.Value())
+		assert.Less(t, vec.Max(vOut), 3*q.Value())
 
 		for i := 0; i < N; i++ {
 			vOut[i] %= q.Value()
@@ -485,7 +484,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), 3*q.Value())
+		assert.Less(t, vec.Max(vOut), 3*q.Value())
 
 		for i := 0; i < N; i++ {
 			vOut[i] %= q.Value()
@@ -503,7 +502,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), q.Value())
+		assert.Less(t, vec.Max(vOut), q.Value())
 	})
 
 	t.Run("SMulAdd", func(t *testing.T) {
@@ -516,7 +515,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), q.Value())
+		assert.Less(t, vec.Max(vOut), q.Value())
 	})
 
 	t.Run("SMulSub", func(t *testing.T) {
@@ -529,7 +528,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), q.Value())
+		assert.Less(t, vec.Max(vOut), q.Value())
 	})
 
 	t.Run("SMulLazy", func(t *testing.T) {
@@ -539,7 +538,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), 2*q.Value())
+		assert.Less(t, vec.Max(vOut), 2*q.Value())
 
 		for i := 0; i < N; i++ {
 			vOut[i] %= q.Value()
@@ -558,7 +557,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), 3*q.Value())
+		assert.Less(t, vec.Max(vOut), 3*q.Value())
 
 		for i := 0; i < N; i++ {
 			vOut[i] %= q.Value()
@@ -577,7 +576,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, slices.Max(vOut), 3*q.Value())
+		assert.Less(t, vec.Max(vOut), 3*q.Value())
 
 		for i := 0; i < N; i++ {
 			vOut[i] %= q.Value()

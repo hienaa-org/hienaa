@@ -176,7 +176,8 @@ func ScalarMulTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	M := (len(vOut) >> 3) << 3
 
 	qv := q.Value()
-	cS := modops.SForm(c, qv)
+	divHi, _ := q.Div()
+	cS := modops.SForm(c, qv, divHi)
 
 	for i := 0; i < M; i += 8 {
 		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
@@ -203,7 +204,8 @@ func ScalarMulAddTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	M := (len(vOut) >> 3) << 3
 
 	qv := q.Value()
-	cS := modops.SForm(c, qv)
+	divHi, _ := q.Div()
+	cS := modops.SForm(c, qv, divHi)
 
 	for i := 0; i < M; i += 8 {
 		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
@@ -230,7 +232,8 @@ func ScalarMulSubTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	M := (len(vOut) >> 3) << 3
 
 	qv := q.Value()
-	cS := modops.SForm(c, qv)
+	divHi, _ := q.Div()
+	cS := modops.SForm(c, qv, divHi)
 
 	for i := 0; i < M; i += 8 {
 		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
@@ -266,7 +269,8 @@ func ScalarMulLazyTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	M := (len(vOut) >> 3) << 3
 
 	qv := q.Value()
-	cS := modops.SForm(c, qv)
+	divHi, _ := q.Div()
+	cS := modops.SForm(c, qv, divHi)
 
 	for i := 0; i < M; i += 8 {
 		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
@@ -294,7 +298,8 @@ func ScalarMulAddLazyTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	M := (len(vOut) >> 3) << 3
 
 	qv := q.Value()
-	cS := modops.SForm(c, qv)
+	divHi, _ := q.Div()
+	cS := modops.SForm(c, qv, divHi)
 
 	for i := 0; i < M; i += 8 {
 		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
@@ -322,8 +327,9 @@ func ScalarMulSubLazyTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	M := (len(vOut) >> 3) << 3
 
 	qv := q.Value()
+	divHi, _ := q.Div()
 	cNeg := qv - c
-	cNegS := modops.SForm(cNeg, qv)
+	cNegS := modops.SForm(cNeg, qv, divHi)
 
 	for i := 0; i < M; i += 8 {
 		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
@@ -911,24 +917,25 @@ func SFormTo(vOutS, v []uint64, q *num.Modulus) {
 	M := (len(vOutS) >> 3) << 3
 
 	qv := q.Value()
+	divHi, _ := q.Div()
 
 	for i := 0; i < M; i += 8 {
 		wOut := (*[8]uint64)(unsafe.Pointer(&vOutS[i]))
 		w0 := (*[8]uint64)(unsafe.Pointer(&v[i]))
 
-		wOut[0] = modops.SForm(w0[0], qv)
-		wOut[1] = modops.SForm(w0[1], qv)
-		wOut[2] = modops.SForm(w0[2], qv)
-		wOut[3] = modops.SForm(w0[3], qv)
+		wOut[0] = modops.SForm(w0[0], qv, divHi)
+		wOut[1] = modops.SForm(w0[1], qv, divHi)
+		wOut[2] = modops.SForm(w0[2], qv, divHi)
+		wOut[3] = modops.SForm(w0[3], qv, divHi)
 
-		wOut[4] = modops.SForm(w0[4], qv)
-		wOut[5] = modops.SForm(w0[5], qv)
-		wOut[6] = modops.SForm(w0[6], qv)
-		wOut[7] = modops.SForm(w0[7], qv)
+		wOut[4] = modops.SForm(w0[4], qv, divHi)
+		wOut[5] = modops.SForm(w0[5], qv, divHi)
+		wOut[6] = modops.SForm(w0[6], qv, divHi)
+		wOut[7] = modops.SForm(w0[7], qv, divHi)
 	}
 
 	for i := M; i < len(vOutS); i++ {
-		vOutS[i] = modops.SForm(v[i], qv)
+		vOutS[i] = modops.SForm(v[i], qv, divHi)
 	}
 }
 
@@ -1111,35 +1118,35 @@ func SMulSubLazyTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
 }
 
 // Reduce returns v mod q.
-func Reduce(v []uint64, q *num.Modulus) []uint64 {
+func Reduce[T int64 | uint64](v []T, q *num.Modulus) []uint64 {
 	vOut := make([]uint64, len(v))
 	ReduceTo(vOut, v, q)
 	return vOut
 }
 
 // ReduceTo computes vOut = v mod q.
-func ReduceTo(vOut, v []uint64, q *num.Modulus) {
+func ReduceTo[T int64 | uint64](vOut []uint64, v []T, q *num.Modulus) {
 	M := (len(vOut) >> 3) << 3
 
 	qv := q.Value()
 	divHi, _ := q.Div()
 
 	for i := 0; i < M; i += 8 {
-		w0 := (*[8]uint64)(unsafe.Pointer(&v[i]))
 		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
+		w0 := (*[8]T)(unsafe.Pointer(&v[i]))
 
-		wOut[1] = modops.BMod64(w0[1], qv, divHi)
-		wOut[0] = modops.BMod64(w0[0], qv, divHi)
-		wOut[2] = modops.BMod64(w0[2], qv, divHi)
-		wOut[3] = modops.BMod64(w0[3], qv, divHi)
+		wOut[0] = modops.BMod(w0[0], qv, divHi)
+		wOut[1] = modops.BMod(w0[1], qv, divHi)
+		wOut[2] = modops.BMod(w0[2], qv, divHi)
+		wOut[3] = modops.BMod(w0[3], qv, divHi)
 
-		wOut[4] = modops.BMod64(w0[4], qv, divHi)
-		wOut[5] = modops.BMod64(w0[5], qv, divHi)
-		wOut[6] = modops.BMod64(w0[6], qv, divHi)
-		wOut[7] = modops.BMod64(w0[7], qv, divHi)
+		wOut[4] = modops.BMod(w0[4], qv, divHi)
+		wOut[5] = modops.BMod(w0[5], qv, divHi)
+		wOut[6] = modops.BMod(w0[6], qv, divHi)
+		wOut[7] = modops.BMod(w0[7], qv, divHi)
 	}
 
 	for i := M; i < len(vOut); i++ {
-		vOut[i] = modops.BMod64(v[i], qv, divHi)
+		vOut[i] = modops.BMod(v[i], qv, divHi)
 	}
 }

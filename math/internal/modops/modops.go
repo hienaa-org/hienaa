@@ -1,7 +1,9 @@
 // Package modops implements modular arithmetic operations for internal usage.
 package modops
 
-import "math/bits"
+import (
+	"math/bits"
+)
 
 // Add returns x0 + x1 mod q.
 func Add(x0, x1, q uint64) uint64 {
@@ -137,6 +139,14 @@ func BMod64(x, q, divHi uint64) uint64 {
 	return xOut
 }
 
+// BMod returns x mod q using Barrett reduction.
+func BMod[T int64 | uint64](x T, q, divHi uint64) uint64 {
+	if x < 0 {
+		return Neg(BMod64(uint64(-x), q, divHi), q)
+	}
+	return BMod64(uint64(x), q, divHi)
+}
+
 // MForm transforms x into Montgomery form.
 func MForm(x, q, divHi, divLo uint64) uint64 {
 	xM, _ := bits.Mul64(x, divLo)
@@ -182,8 +192,8 @@ func MMulLazy(x0M, x1M, q, inv uint64) uint64 {
 }
 
 // SForm transforms x into Shoup form.
-func SForm(x, q uint64) uint64 {
-	xS, _ := bits.Div64(x, 0, q)
+func SForm(x, q, divHi uint64) uint64 {
+	xS, _ := bits.Div64(BMod64(x, q, divHi), 0, q)
 	return xS
 }
 

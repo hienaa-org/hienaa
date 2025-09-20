@@ -3,7 +3,6 @@ package dft
 import (
 	"slices"
 
-	"github.com/hienaa-org/hienaa/math/internal/dftops"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
 )
@@ -32,12 +31,11 @@ type autFixedPow2Transformer struct {
 func newAutFixedPow2Transformer(params RingParameters, mod *num.Modulus) *autFixedPow2Transformer {
 	root := num.Generators(mod)
 
-	twoRank := params.rank << 1
-	twLarge := make([]uint64, twoRank)
-	twInvLarge := make([]uint64, twoRank)
+	twLarge := make([]uint64, 2*params.rank)
+	twInvLarge := make([]uint64, 2*params.rank)
 	twLarge[0], twLarge[1] = 1, num.NthRoot(params.cycloOrd, root, mod)
 	twInvLarge[0], twInvLarge[1] = 1, num.Inv(twLarge[1], mod)
-	for i := 2; i < twoRank; i++ {
+	for i := 2; i < 2*params.rank; i++ {
 		twLarge[i] = num.Mul(twLarge[i-1], twLarge[1], mod)
 		twInvLarge[i] = num.Mul(twInvLarge[i-1], twInvLarge[1], mod)
 	}
@@ -70,7 +68,7 @@ func newAutFixedPow2Transformer(params RingParameters, mod *num.Modulus) *autFix
 		twInv:  twInv,
 		twInvS: twInvS,
 
-		rankInv: num.InvMForm(num.Inv(uint64(twoRank), mod), mod),
+		rankInv: num.InvMForm(num.Inv(uint64(2*params.rank), mod), mod),
 
 		buf: newTransformerBuffer(params.rank),
 	}
@@ -81,12 +79,12 @@ func (ntt *autFixedPow2Transformer) ForwardInPlace(coeffs []uint64) {
 	slices.Reverse(coeffs[1:])
 	vec.ScalarMulSubLazyTo(ntt.buf.coeffs[1:], coeffs[1:], ntt.tw[0], ntt.mod)
 
-	dftops.NTTInPlacePow2(ntt.buf.coeffs, ntt.tw, ntt.twS, ntt.mod.Value())
+	nttInPlacePow2(ntt.buf.coeffs, ntt.tw, ntt.twS, ntt.mod.Value())
 	vec.MFormTo(coeffs, ntt.buf.coeffs, ntt.mod)
 }
 
 func (ntt *autFixedPow2Transformer) InverseInPlace(coeffs []uint64) {
-	dftops.INTTInPlacePow2(coeffs, ntt.twInv, ntt.twInvS, ntt.mod.Value())
+	inttInPlacePow2(coeffs, ntt.twInv, ntt.twInvS, ntt.mod.Value())
 
 	copy(ntt.buf.coeffs, coeffs)
 	slices.Reverse(coeffs[1:])
@@ -125,7 +123,7 @@ type autFixedPrimeTransformer struct {
 	params RingParameters
 	mod    *num.Modulus
 
-	ambNTT *dftops.CyclicPow2Transformer
+	ambNTT *cyclicPow235Transformer
 
 	// isPow2 is true of the rank is power-of-two.
 	isPow2 bool
@@ -163,7 +161,7 @@ func newAutFixedPrimeTransformer(params RingParameters, mod *num.Modulus) *autFi
 	} else {
 		ambRank = num.NextProdPower(2*params.rank-1, []int{2})
 	}
-	ambNTT := dftops.NewCyclicPow2Transformer(ambRank, mod)
+	ambNTT := newCyclicPow235Transformer(NewCyclicParameters(ambRank), mod)
 	ambRankInv := num.MForm(num.Inv(uint64(ambRank), mod), mod)
 
 	modRootPowSum := make([]uint64, ambRank)
@@ -220,12 +218,12 @@ func (ntt *autFixedPrimeTransformer) ForwardInPlace(coeffs []uint64) {
 		ntt.buf.coeffs[i] = coeffs[ntt.params.rank-i]
 	}
 
-	dftops.NTTInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.Tw, ntt.ambNTT.TwS, ntt.mod.Value())
+	nttInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.tw[0], ntt.ambNTT.twS[0], ntt.mod.Value())
 	vec.MFormTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.mod)
 
 	vec.MMulLazyTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.root, ntt.mod)
 
-	dftops.INTTInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.TwInv, ntt.ambNTT.TwInvS, ntt.mod.Value())
+	inttInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvS[0], ntt.mod.Value())
 	vec.ScalarMMulTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.ambRankInvM, ntt.mod)
 
 	if ntt.isPow2 {
@@ -245,12 +243,12 @@ func (ntt *autFixedPrimeTransformer) InverseInPlace(coeffs []uint64) {
 		sumFold = num.Add(sumFold, ntt.buf.coeffs[i], ntt.mod)
 	}
 
-	dftops.NTTInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.Tw, ntt.ambNTT.TwS, ntt.mod.Value())
+	nttInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.tw[0], ntt.ambNTT.twS[0], ntt.mod.Value())
 
 	vec.MMulLazyTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.rootInv, ntt.mod)
 
-	dftops.INTTInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.TwInv, ntt.ambNTT.TwInvS, ntt.mod.Value())
-	vec.ScalarMulLazyTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.ambNTT.RankInv, ntt.mod)
+	inttInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvS[0], ntt.mod.Value())
+	vec.ScalarMulLazyTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.ambNTT.rankInv, ntt.mod)
 
 	if !ntt.isPow2 {
 		vec.AddTo(ntt.buf.coeffs[:ntt.params.rank-1], ntt.buf.coeffs[:ntt.params.rank-1], ntt.buf.coeffs[ntt.params.rank:2*ntt.params.rank-1], ntt.mod)
@@ -285,6 +283,6 @@ func (ntt *autFixedPrimeTransformer) SafeCopy() Transformer {
 		ambRankInvM: ntt.ambRankInvM,
 		cycloOrdInv: ntt.cycloOrdInv,
 
-		buf: newTransformerBuffer(ntt.ambNTT.Rank),
+		buf: newTransformerBuffer(ntt.ambNTT.params.rank),
 	}
 }

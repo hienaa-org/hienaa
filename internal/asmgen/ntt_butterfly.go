@@ -6,16 +6,14 @@ import (
 	"github.com/mmcloughlin/avo/reg"
 )
 
-func ButterflyAVX2(isCmp bool, u, v, w, wSwap, wS, wSHi, q, qSwap, twoQ, maskLo, maskHi, allOne reg.VecVirtual) {
+func ButterflyAVX2(u, v, w, wSwap, wS, wSHi, q, qSwap, twoQ, maskLo, maskHi, allOne reg.VecVirtual) {
 	vHi := YMM()
 	VPSRLQ(Imm(32), v, vHi)
 
-	if isCmp {
-		subQ := YMM()
-		GreaterOrEqualThanAVX2(u, twoQ, allOne, subQ)
-		VPAND(twoQ, subQ, subQ)
-		VPSUBQ(subQ, u, u)
-	}
+	subQ := YMM()
+	GreaterOrEqualThanAVX2(u, twoQ, allOne, subQ)
+	VPAND(twoQ, subQ, subQ)
+	VPSUBQ(subQ, u, u)
 
 	quo, t0, t1 := YMM(), YMM(), YMM()
 	Mul64HiAVX2(v, vHi, wS, wSHi, maskLo, quo)
@@ -28,16 +26,14 @@ func ButterflyAVX2(isCmp bool, u, v, w, wSwap, wS, wSHi, q, qSwap, twoQ, maskLo,
 	VPADDQ(t0, u, u)
 }
 
-func ButterflyAVX512(isCmp bool, u, v, w, wS, wSHi, q, twoQ, maskLo reg.VecVirtual) {
+func ButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo reg.VecVirtual) {
 	vHi := ZMM()
 	VPSRLQ(Imm(32), v, vHi)
 
-	if isCmp {
-		subQ, subQMask := ZMM(), K()
-		VPCMPQ(Imm(0o5), twoQ, u, subQMask)
-		VMOVAPD_Z(twoQ, subQMask, subQ)
-		VPSUBQ(subQ, u, u)
-	}
+	subQ, subQMask := ZMM(), K()
+	VPCMPQ(Imm(0o5), twoQ, u, subQMask)
+	VMOVAPD_Z(twoQ, subQMask, subQ)
+	VPSUBQ(subQ, u, u)
 
 	quo, t0, t1 := ZMM(), ZMM(), ZMM()
 	Mul64HiAVX512(v, vHi, wS, wSHi, maskLo, quo)
@@ -70,14 +66,12 @@ func ButterflyAVX512YMM(u, v, w, wS, wSHi, q, twoQ, maskLo reg.VecVirtual) {
 	VPADDQ(t0, u, u)
 }
 
-func ButterflyX86(isCmp bool, u, v, w, wS, q, twoQ reg.Register) {
-	if isCmp {
-		subQ := GP64()
-		MOVQ(u, subQ)
-		SUBQ(twoQ, subQ)
-		CMPQ(u, twoQ)
-		CMOVQGE(subQ, u)
-	}
+func ButterflyX86(u, v, w, wS, q, twoQ reg.Register) {
+	subQ := GP64()
+	MOVQ(u, subQ)
+	SUBQ(twoQ, subQ)
+	CMPQ(u, twoQ)
+	CMOVQGE(subQ, u)
 
 	quo := GP64()
 	MOVQ(wS, reg.RDX)
