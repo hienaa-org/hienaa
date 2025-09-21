@@ -6,14 +6,17 @@ import (
 	"github.com/mmcloughlin/avo/reg"
 )
 
-func InvButterflyAVX2(u, v, w, wSwap, wS, wSHi, q, qSwap, twoQ, maskLo, maskHi, allOne reg.VecVirtual) {
+func InvButterflyAVX2(u, v, w, wSwap, wS, wSHi, q, qSwap, maskLo, maskHi, maskSign, allOne reg.VecVirtual) {
+	twoQ := YMM()
+	VPADDQ(q, q, twoQ)
+
 	VPADDQ(v, u, u)
 	VPADDQ(v, v, v)
 	VPSUBQ(v, u, v)
 	VPADDQ(twoQ, v, v)
 
 	subQ := YMM()
-	GreaterOrEqualThanAVX2(u, twoQ, allOne, subQ)
+	GreaterOrEqualThanAVX2(u, twoQ, maskSign, allOne, subQ)
 	VPAND(twoQ, subQ, subQ)
 	VPSUBQ(subQ, u, u)
 
