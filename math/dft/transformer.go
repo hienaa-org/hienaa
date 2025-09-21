@@ -12,10 +12,10 @@ type Transformer interface {
 	Params() RingParameters
 	// Modulus returns the modulus used for the transform.
 	Modulus() *num.Modulus
-	// ForwardInPlace transforms the uint64 vector to NTT form.
-	ForwardInPlace(coeffs []uint64)
-	// InverseInPlace transforms the uint64 vector to Standard form.
-	InverseInPlace(coeffs []uint64)
+	// ForwardTo transforms the uint64 vector to NTT form.
+	ForwardTo(vNTT, v []uint64)
+	// InverseTo transforms the uint64 vector to Standard form.
+	InverseTo(v, vNTT []uint64)
 	// SafeCopy returns a thread-safe copy.
 	SafeCopy() Transformer
 }

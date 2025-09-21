@@ -182,9 +182,10 @@ func (e *polyEvaluatorBase) NTTTo(pOut, p *Poly) {
 	}
 
 	for i := range e.ntt {
-		copy(pOut.Coeffs[i], p.Coeffs[i])
 		if e.ntt[i] != nil {
-			e.ntt[i].ForwardInPlace(pOut.Coeffs[i])
+			e.ntt[i].ForwardTo(pOut.Coeffs[i], p.Coeffs[i])
+		} else {
+			copy(pOut.Coeffs[i], p.Coeffs[i])
 		}
 	}
 
@@ -208,9 +209,10 @@ func (e *polyEvaluatorBase) InvNTTTo(pOut, p *Poly) {
 	}
 
 	for i := range e.ntt {
-		copy(pOut.Coeffs[i], p.Coeffs[i])
 		if e.ntt[i] != nil {
-			e.ntt[i].InverseInPlace(pOut.Coeffs[i])
+			e.ntt[i].InverseTo(pOut.Coeffs[i], p.Coeffs[i])
+		} else {
+			copy(pOut.Coeffs[i], p.Coeffs[i])
 		}
 	}
 

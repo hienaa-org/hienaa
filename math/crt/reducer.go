@@ -157,8 +157,8 @@ func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *Cyclot
 				cycloPoly[i] = [][]uint64{make([]uint64, degNext)}
 				vec.ReduceTo(cycloPoly[i][0][:rank+1], cycloPolySigned, mod[i])
 
-				divPolySigned := quotient(dividend, cycloPoly[i][0][:rank+1], mod[i])
-				divPoly[i] = [][]uint64{append(divPolySigned, make([]uint64, diffDegNext-len(divPolySigned))...)}
+				divPolyRef := quotient(dividend, cycloPoly[i][0][:rank+1], mod[i])
+				divPoly[i] = [][]uint64{append(divPolyRef, make([]uint64, diffDegNext-len(divPolyRef))...)}
 			} else {
 				cycloPoly[i] = make([][]uint64, ambModLen[i])
 				cycloPoly[i][0] = make([]uint64, degNext)
@@ -168,9 +168,9 @@ func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *Cyclot
 					copy(cycloPoly[i][j], cycloPoly[i][0])
 				}
 
-				divPolySigned := quotient(dividend, cycloPoly[i][0][:rank+1], mod[i])
+				divPolyRef := quotient(dividend, cycloPoly[i][0][:rank+1], mod[i])
 				divPoly[i] = make([][]uint64, ambModLen[i])
-				divPoly[i][0] = append(divPolySigned, make([]uint64, diffDegNext-len(divPolySigned))...)
+				divPoly[i][0] = append(divPolyRef, make([]uint64, diffDegNext-len(divPolyRef))...)
 				for j := 1; j < ambModLen[i]; j++ {
 					divPoly[i][j] = make([]uint64, diffDegNext)
 					copy(divPoly[i][j], divPoly[i][0])
@@ -180,12 +180,12 @@ func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *Cyclot
 
 		for i := range mod {
 			if ambModLen[i] == 0 {
-				diffDegNextNTT[i].ForwardInPlace(divPoly[i][0])
-				degNextNTT[i].ForwardInPlace(cycloPoly[i][0])
+				diffDegNextNTT[i].ForwardTo(divPoly[i][0], divPoly[i][0])
+				degNextNTT[i].ForwardTo(cycloPoly[i][0], cycloPoly[i][0])
 			} else {
 				for j := 0; j < ambModLen[i]; j++ {
-					diffDegNextAmbNTT[j].ForwardInPlace(divPoly[i][j])
-					degNextAmbNTT[j].ForwardInPlace(cycloPoly[i][j])
+					diffDegNextAmbNTT[j].ForwardTo(divPoly[i][j], divPoly[i][j])
+					degNextAmbNTT[j].ForwardTo(cycloPoly[i][j], cycloPoly[i][j])
 				}
 			}
 		}
@@ -265,14 +265,14 @@ func (r *CyclotomicReducer) reduceTo(pOut, p []uint64, idx int) {
 
 		// pQuo = pQuo * floor(X^(deg+diffDeg)/\Phi_m(X))
 		if r.ambModLen[idx] == 0 {
-			r.diffDegNextNTT[idx].ForwardInPlace(r.buf.pQuo[0])
+			r.diffDegNextNTT[idx].ForwardTo(r.buf.pQuo[0], r.buf.pQuo[0])
 			vec.MMulLazyTo(r.buf.pQuo[0], r.buf.pQuo[0], r.divPoly[idx][0], r.mod[idx])
-			r.diffDegNextNTT[idx].InverseInPlace(r.buf.pQuo[0])
+			r.diffDegNextNTT[idx].InverseTo(r.buf.pQuo[0], r.buf.pQuo[0])
 		} else {
 			for i := 0; i < r.ambModLen[idx]; i++ {
-				r.diffDegNextAmbNTT[i].ForwardInPlace(r.buf.pQuo[i])
+				r.diffDegNextAmbNTT[i].ForwardTo(r.buf.pQuo[i], r.buf.pQuo[i])
 				vec.MMulLazyTo(r.buf.pQuo[i], r.buf.pQuo[i], r.divPoly[idx][i], r.ambMod[i])
-				r.diffDegNextAmbNTT[i].InverseInPlace(r.buf.pQuo[i])
+				r.diffDegNextAmbNTT[i].InverseTo(r.buf.pQuo[i], r.buf.pQuo[i])
 			}
 			r.embedder[idx].EmbedVecTo(r.buf.pQuo[:1], r.buf.pQuo[:r.ambModLen[idx]])
 		}
@@ -297,14 +297,14 @@ func (r *CyclotomicReducer) reduceTo(pOut, p []uint64, idx int) {
 
 		// pRem = pRem * cycloPoly % (X^degNext - 1)
 		if r.ambModLen[idx] == 0 {
-			r.degNextNTT[idx].ForwardInPlace(r.buf.pRem[0])
+			r.degNextNTT[idx].ForwardTo(r.buf.pRem[0], r.buf.pRem[0])
 			vec.MMulLazyTo(r.buf.pRem[0], r.buf.pRem[0], r.cycloPoly[idx][0], r.mod[idx])
-			r.degNextNTT[idx].InverseInPlace(r.buf.pRem[0])
+			r.degNextNTT[idx].InverseTo(r.buf.pRem[0], r.buf.pRem[0])
 		} else {
 			for i := 0; i < r.ambModLen[idx]; i++ {
-				r.degNextAmbNTT[i].ForwardInPlace(r.buf.pRem[i])
+				r.degNextAmbNTT[i].ForwardTo(r.buf.pRem[i], r.buf.pRem[i])
 				vec.MMulLazyTo(r.buf.pRem[i], r.buf.pRem[i], r.cycloPoly[idx][i], r.ambMod[i])
-				r.degNextAmbNTT[i].InverseInPlace(r.buf.pRem[i])
+				r.degNextAmbNTT[i].InverseTo(r.buf.pRem[i], r.buf.pRem[i])
 			}
 			r.embedder[idx].EmbedVecTo(r.buf.pRem[:1], r.buf.pRem[:r.ambModLen[idx]])
 		}
@@ -589,8 +589,8 @@ func NewReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *Reducer {
 			modPolyRed[i] = [][]uint64{make([]uint64, degNext)}
 			vec.ReduceTo(modPolyRed[i][0][:rank+1], modPoly, mod[i])
 
-			divPolySigned := quotient(dividend, modPolyRed[i][0][:rank+1], mod[i])
-			divPoly[i] = [][]uint64{append(divPolySigned, make([]uint64, diffDegNext-len(divPolySigned))...)}
+			divPolyRef := quotient(dividend, modPolyRed[i][0][:rank+1], mod[i])
+			divPoly[i] = [][]uint64{append(divPolyRef, make([]uint64, diffDegNext-len(divPolyRef))...)}
 		} else {
 			modPolyRed[i] = make([][]uint64, ambModLen[i])
 			modPolyRed[i][0] = make([]uint64, degNext)
@@ -612,12 +612,12 @@ func NewReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *Reducer {
 
 	for i := range mod {
 		if ambModLen[i] == 0 {
-			diffDegNextNTT[i].ForwardInPlace(divPoly[i][0])
-			degNextNTT[i].ForwardInPlace(modPolyRed[i][0])
+			diffDegNextNTT[i].ForwardTo(divPoly[i][0], divPoly[i][0])
+			degNextNTT[i].ForwardTo(modPolyRed[i][0], modPolyRed[i][0])
 		} else {
 			for j := 0; j < ambModLen[i]; j++ {
-				diffDegNextAmbNTT[j].ForwardInPlace(divPoly[i][j])
-				degNextAmbNTT[j].ForwardInPlace(modPolyRed[i][j])
+				diffDegNextAmbNTT[j].ForwardTo(divPoly[i][j], divPoly[i][j])
+				degNextAmbNTT[j].ForwardTo(modPolyRed[i][j], modPolyRed[i][j])
 			}
 		}
 	}
@@ -664,14 +664,14 @@ func (r *Reducer) reduceTo(pOut, p []uint64, idx int) {
 
 	// pQuo = pQuo * floor(X^(deg+diffDeg)/modPoly(X))
 	if r.ambModLen[idx] == 0 {
-		r.diffDegNextNTT[idx].ForwardInPlace(r.buf.pQuo[0])
+		r.diffDegNextNTT[idx].ForwardTo(r.buf.pQuo[0], r.buf.pQuo[0])
 		vec.MMulLazyTo(r.buf.pQuo[0], r.buf.pQuo[0], r.divPoly[idx][0], r.mod[idx])
-		r.diffDegNextNTT[idx].InverseInPlace(r.buf.pQuo[0])
+		r.diffDegNextNTT[idx].InverseTo(r.buf.pQuo[0], r.buf.pQuo[0])
 	} else {
 		for i := 0; i < r.ambModLen[idx]; i++ {
-			r.diffDegNextAmbNTT[i].ForwardInPlace(r.buf.pQuo[i])
+			r.diffDegNextAmbNTT[i].ForwardTo(r.buf.pQuo[i], r.buf.pQuo[i])
 			vec.MMulLazyTo(r.buf.pQuo[i], r.buf.pQuo[i], r.divPoly[idx][i], r.ambMod[i])
-			r.diffDegNextAmbNTT[i].InverseInPlace(r.buf.pQuo[i])
+			r.diffDegNextAmbNTT[i].InverseTo(r.buf.pQuo[i], r.buf.pQuo[i])
 		}
 		r.embedder[idx].EmbedVecTo(r.buf.pQuo[:1], r.buf.pQuo[:r.ambModLen[idx]])
 	}
@@ -696,14 +696,14 @@ func (r *Reducer) reduceTo(pOut, p []uint64, idx int) {
 
 	// pRem = pRem * modPoly % (X^degNext - 1)
 	if r.ambModLen[idx] == 0 {
-		r.degNextNTT[idx].ForwardInPlace(r.buf.pRem[0])
+		r.degNextNTT[idx].ForwardTo(r.buf.pRem[0], r.buf.pRem[0])
 		vec.MMulLazyTo(r.buf.pRem[0], r.buf.pRem[0], r.modPoly[idx][0], r.mod[idx])
-		r.degNextNTT[idx].InverseInPlace(r.buf.pRem[0])
+		r.degNextNTT[idx].InverseTo(r.buf.pRem[0], r.buf.pRem[0])
 	} else {
 		for i := 0; i < r.ambModLen[idx]; i++ {
-			r.degNextAmbNTT[i].ForwardInPlace(r.buf.pRem[i])
+			r.degNextAmbNTT[i].ForwardTo(r.buf.pRem[i], r.buf.pRem[i])
 			vec.MMulLazyTo(r.buf.pRem[i], r.buf.pRem[i], r.modPoly[idx][i], r.ambMod[i])
-			r.degNextAmbNTT[i].InverseInPlace(r.buf.pRem[i])
+			r.degNextAmbNTT[i].InverseTo(r.buf.pRem[i], r.buf.pRem[i])
 		}
 		r.embedder[idx].EmbedVecTo(r.buf.pRem[:1], r.buf.pRem[:r.ambModLen[idx]])
 	}
@@ -881,22 +881,23 @@ func (r *Reducer) SafeCopy() *Reducer {
 }
 
 // quotient computes the quotient of two polynomials modulo a modulus.
-func quotient(dividend, divisor []uint64, mod *num.Modulus) []uint64 {
+func quotient(p0, p1 []uint64, mod *num.Modulus) []uint64 {
 	switch {
-	case len(dividend) < len(divisor):
+	case len(p0) < len(p1):
 		panic("quotient: dividend is shorter than divisor")
-	case num.GCD(mod.Value(), divisor[len(divisor)-1]) != 1:
+	case num.GCD(mod.Value(), p1[len(p1)-1]) != 1:
 		panic("quotient: divisor is not coprime with modulus")
 	}
 
-	quo := make([]uint64, len(dividend)-len(divisor)+1)
-	pBuff := make([]uint64, len(dividend))
-	copy(pBuff, dividend)
+	quo := make([]uint64, len(p0)-len(p1)+1)
+	rem := make([]uint64, len(p0))
+	copy(rem, p0)
 
-	for i := 0; i <= len(dividend)-len(divisor); i++ {
-		if pBuff[len(pBuff)-i-1] != 0 {
-			quo[len(quo)-i-1] = num.Mul(pBuff[len(pBuff)-i-1], num.Inv(divisor[len(divisor)-1], mod), mod)
-			vec.ScalarMulSubTo(pBuff[len(pBuff)-i-len(divisor):len(pBuff)-i], divisor, quo[len(quo)-i-1], mod)
+	lcInv := num.Inv(p1[len(p1)-1], mod)
+	for i := 0; i <= len(p0)-len(p1); i++ {
+		if rem[len(rem)-i-1] != 0 {
+			quo[len(quo)-i-1] = num.Mul(rem[len(rem)-i-1], lcInv, mod)
+			vec.ScalarMulSubTo(rem[len(rem)-i-len(p1):len(rem)-i], p1, quo[len(quo)-i-1], mod)
 		}
 	}
 

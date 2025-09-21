@@ -53,14 +53,16 @@ func newCyclotomicPow2Transformer(params RingParameters, mod *num.Modulus) *cycl
 	}
 }
 
-func (ntt *cyclotomicPow2Transformer) ForwardInPlace(coeffs []uint64) {
-	nttInPlacePow2(coeffs, ntt.tw, ntt.twS, ntt.mod.Value())
-	vec.MFormTo(coeffs, coeffs, ntt.mod)
+func (ntt *cyclotomicPow2Transformer) ForwardTo(vNTT, v []uint64) {
+	copy(vNTT, v)
+	nttInPlacePow2(vNTT, ntt.tw, ntt.twS, ntt.mod.Value())
+	vec.MFormTo(vNTT, vNTT, ntt.mod)
 }
 
-func (ntt *cyclotomicPow2Transformer) InverseInPlace(coeffs []uint64) {
-	inttInPlacePow2(coeffs, ntt.twInv, ntt.twInvS, ntt.mod.Value())
-	vec.ScalarMulTo(coeffs, coeffs, ntt.rankInv, ntt.mod)
+func (ntt *cyclotomicPow2Transformer) InverseTo(v, vNTT []uint64) {
+	copy(v, vNTT)
+	inttInPlacePow2(v, ntt.twInv, ntt.twInvS, ntt.mod.Value())
+	vec.ScalarMulTo(v, v, ntt.rankInv, ntt.mod)
 }
 
 func (ntt *cyclotomicPow2Transformer) Params() RingParameters {
@@ -182,26 +184,26 @@ func newCyclotomicAnyTransformer(params RingParameters, mod *num.Modulus) *cyclo
 	}
 }
 
-func (ntt *cyclotomicAnyTransformer) ForwardInPlace(coeffs []uint64) {
-	copy(ntt.buf.coeffs, coeffs)
+func (ntt *cyclotomicAnyTransformer) ForwardTo(vNTT, v []uint64) {
+	copy(ntt.buf.coeffs, v)
 	clear(ntt.buf.coeffs[ntt.params.rank:])
 
-	ntt.ambNTT.ForwardInPlace(ntt.buf.coeffs)
+	ntt.ambNTT.ForwardTo(ntt.buf.coeffs, ntt.buf.coeffs)
 
 	for i := 0; i < ntt.params.rank; i++ {
-		coeffs[i] = ntt.buf.coeffs[ntt.idx[i]]
+		vNTT[i] = ntt.buf.coeffs[ntt.idx[i]]
 	}
 }
 
-func (ntt *cyclotomicAnyTransformer) InverseInPlace(coeffs []uint64) {
+func (ntt *cyclotomicAnyTransformer) InverseTo(v, vNTT []uint64) {
 	clear(ntt.buf.coeffs)
 	for i := 0; i < ntt.params.rank; i++ {
-		ntt.buf.coeffs[ntt.idx[i]] = coeffs[i]
+		ntt.buf.coeffs[ntt.idx[i]] = vNTT[i]
 	}
 
-	ntt.ambNTT.InverseInPlace(ntt.buf.coeffs)
+	ntt.ambNTT.InverseTo(ntt.buf.coeffs, ntt.buf.coeffs)
 
-	ntt.reducer.reduceTo(coeffs, ntt.buf.coeffs)
+	ntt.reducer.reduceTo(v, ntt.buf.coeffs)
 }
 
 func (ntt *cyclotomicAnyTransformer) Params() RingParameters {

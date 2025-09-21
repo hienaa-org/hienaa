@@ -179,58 +179,62 @@ func newCyclicPow235Transformer(params RingParameters, mod *num.Modulus) *cyclic
 	}
 }
 
-func (ntt *cyclicPow235Transformer) ForwardInPlace(coeffs []uint64) {
+func (ntt *cyclicPow235Transformer) ForwardTo(vNTT, v []uint64) {
 	if len(ntt.idx) > 0 {
 		for i := 0; i < ntt.params.rank; i++ {
-			ntt.buf.coeffs[i] = coeffs[ntt.idx[i]]
+			ntt.buf.coeffs[i] = v[ntt.idx[i]]
 		}
-		copy(coeffs, ntt.buf.coeffs)
+		copy(vNTT, ntt.buf.coeffs)
+	} else {
+		copy(vNTT, v)
 	}
 
 	if ntt.rankFactors[0] > 1 {
 		for i := 0; i < ntt.params.rank; i += ntt.rankFactors[0] {
-			nttInPlacePow2(coeffs[i:i+ntt.rankFactors[0]], ntt.tw[0], ntt.twS[0], ntt.mod.Value())
+			nttInPlacePow2(vNTT[i:i+ntt.rankFactors[0]], ntt.tw[0], ntt.twS[0], ntt.mod.Value())
 		}
 	}
 
 	if ntt.rankFactors[1] > 1 {
 		for i := 0; i < ntt.params.rank; i += ntt.rankFactors[0] * ntt.rankFactors[1] {
-			nttInPlacePow3(ntt.rankFactors[0], coeffs[i:i+ntt.rankFactors[0]*ntt.rankFactors[1]], ntt.tw[1], ntt.twS[1], ntt.root[1], ntt.rootS[1], ntt.mod.Value())
+			nttInPlacePow3(ntt.rankFactors[0], vNTT[i:i+ntt.rankFactors[0]*ntt.rankFactors[1]], ntt.tw[1], ntt.twS[1], ntt.root[1], ntt.rootS[1], ntt.mod.Value())
 		}
 	}
 
 	if ntt.rankFactors[2] > 1 {
-		nttInPlacePow5(ntt.rankFactors[0]*ntt.rankFactors[1], coeffs, ntt.tw[2], ntt.twS[2], ntt.root[2], ntt.rootS[2], ntt.mod.Value())
+		nttInPlacePow5(ntt.rankFactors[0]*ntt.rankFactors[1], vNTT, ntt.tw[2], ntt.twS[2], ntt.root[2], ntt.rootS[2], ntt.mod.Value())
 	}
 
-	vec.MFormTo(coeffs, coeffs, ntt.mod)
+	vec.MFormTo(vNTT, vNTT, ntt.mod)
 }
 
-func (ntt *cyclicPow235Transformer) InverseInPlace(coeffs []uint64) {
+func (ntt *cyclicPow235Transformer) InverseTo(v, vNTT []uint64) {
+	copy(v, vNTT)
+
 	if ntt.rankFactors[0] > 1 {
 		for i := 0; i < ntt.params.rank; i += ntt.rankFactors[0] {
-			inttInPlacePow2(coeffs[i:i+ntt.rankFactors[0]], ntt.twInv[0], ntt.twInvS[0], ntt.mod.Value())
+			inttInPlacePow2(v[i:i+ntt.rankFactors[0]], ntt.twInv[0], ntt.twInvS[0], ntt.mod.Value())
 		}
 	}
 
 	if ntt.rankFactors[1] > 1 {
 		for i := 0; i < ntt.params.rank; i += ntt.rankFactors[0] * ntt.rankFactors[1] {
-			inttInPlacePow3(ntt.rankFactors[0], coeffs[i:i+ntt.rankFactors[0]*ntt.rankFactors[1]], ntt.twInv[1], ntt.twInvS[1], ntt.root[1], ntt.rootS[1], ntt.mod.Value())
+			inttInPlacePow3(ntt.rankFactors[0], v[i:i+ntt.rankFactors[0]*ntt.rankFactors[1]], ntt.twInv[1], ntt.twInvS[1], ntt.root[1], ntt.rootS[1], ntt.mod.Value())
 		}
 	}
 
 	if ntt.rankFactors[2] > 1 {
-		inttInPlacePow5(ntt.rankFactors[0]*ntt.rankFactors[1], coeffs, ntt.twInv[2], ntt.twInvS[2], ntt.root[2], ntt.rootS[2], ntt.mod.Value())
+		inttInPlacePow5(ntt.rankFactors[0]*ntt.rankFactors[1], v, ntt.twInv[2], ntt.twInvS[2], ntt.root[2], ntt.rootS[2], ntt.mod.Value())
 	}
 
 	if len(ntt.idx) > 0 {
 		for i := 0; i < ntt.params.rank; i++ {
-			ntt.buf.coeffs[ntt.idx[i]] = coeffs[i]
+			ntt.buf.coeffs[ntt.idx[i]] = v[i]
 		}
-		copy(coeffs, ntt.buf.coeffs)
+		copy(v, ntt.buf.coeffs)
 	}
 
-	vec.ScalarMulTo(coeffs, coeffs, ntt.rankInv, ntt.mod)
+	vec.ScalarMulTo(v, v, ntt.rankInv, ntt.mod)
 }
 
 func (ntt *cyclicPow235Transformer) Params() RingParameters {
@@ -349,8 +353,8 @@ func newCyclicBluesteinTransformer(params RingParameters, mod *num.Modulus) *cyc
 	}
 }
 
-func (ntt *cyclicBluesteinTransformer) ForwardInPlace(coeffs []uint64) {
-	vec.SMulLazyTo(ntt.buf.coeffs[:ntt.params.rank], coeffs, ntt.z, ntt.zS, ntt.mod)
+func (ntt *cyclicBluesteinTransformer) ForwardTo(vNTT, v []uint64) {
+	vec.SMulLazyTo(ntt.buf.coeffs[:ntt.params.rank], v, ntt.z, ntt.zS, ntt.mod)
 	clear(ntt.buf.coeffs[ntt.params.rank:])
 
 	nttInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.tw[0], ntt.ambNTT.twS[0], ntt.mod.Value())
@@ -359,11 +363,11 @@ func (ntt *cyclicBluesteinTransformer) ForwardInPlace(coeffs []uint64) {
 
 	inttInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvS[0], ntt.mod.Value())
 
-	vec.SMulTo(coeffs, ntt.buf.coeffs[:ntt.params.rank], ntt.z, ntt.zS, ntt.mod)
+	vec.SMulTo(vNTT, ntt.buf.coeffs[:ntt.params.rank], ntt.z, ntt.zS, ntt.mod)
 }
 
-func (ntt *cyclicBluesteinTransformer) InverseInPlace(coeffs []uint64) {
-	vec.SMulLazyTo(ntt.buf.coeffs[:ntt.params.rank], coeffs, ntt.zInv, ntt.zInvS, ntt.mod)
+func (ntt *cyclicBluesteinTransformer) InverseTo(v, vNTT []uint64) {
+	vec.SMulLazyTo(ntt.buf.coeffs[:ntt.params.rank], vNTT, ntt.zInv, ntt.zInvS, ntt.mod)
 	clear(ntt.buf.coeffs[ntt.params.rank:])
 
 	nttInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.tw[0], ntt.ambNTT.twS[0], ntt.mod.Value())
@@ -372,7 +376,7 @@ func (ntt *cyclicBluesteinTransformer) InverseInPlace(coeffs []uint64) {
 
 	inttInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvS[0], ntt.mod.Value())
 
-	vec.SMulTo(coeffs, ntt.buf.coeffs[:ntt.params.rank], ntt.zInv, ntt.zInvS, ntt.mod)
+	vec.SMulTo(v, ntt.buf.coeffs[:ntt.params.rank], ntt.zInv, ntt.zInvS, ntt.mod)
 }
 
 func (ntt *cyclicBluesteinTransformer) Params() RingParameters {

@@ -1,7 +1,7 @@
 package dft
 
 import (
-	"slices"
+	"unsafe"
 
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
@@ -74,24 +74,65 @@ func newAutFixedPow2Transformer(params RingParameters, mod *num.Modulus) *autFix
 	}
 }
 
-func (ntt *autFixedPow2Transformer) ForwardInPlace(coeffs []uint64) {
-	copy(ntt.buf.coeffs, coeffs)
-	slices.Reverse(coeffs[1:])
-	vec.ScalarMulSubLazyTo(ntt.buf.coeffs[1:], coeffs[1:], ntt.tw[0], ntt.mod)
+func (ntt *autFixedPow2Transformer) ForwardTo(vNTT, v []uint64) {
+	tw0Neg, tw0NegS := ntt.mod.Value()-ntt.tw[0], -ntt.twS[0]-1
+
+	M := ((ntt.params.rank - 1) >> 3) << 3
+
+	ntt.buf.coeffs[0] = v[0]
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Pointer(&ntt.buf.coeffs[1+i]))
+		w := (*[8]uint64)(unsafe.Pointer(&v[1+i]))
+		wRev := (*[8]uint64)(unsafe.Pointer(&v[ntt.params.rank-(i+8)]))
+
+		wOut[0] = w[0] + num.SMul(wRev[7], tw0Neg, tw0NegS, ntt.mod)
+		wOut[1] = w[1] + num.SMul(wRev[6], tw0Neg, tw0NegS, ntt.mod)
+		wOut[2] = w[2] + num.SMul(wRev[5], tw0Neg, tw0NegS, ntt.mod)
+		wOut[3] = w[3] + num.SMul(wRev[4], tw0Neg, tw0NegS, ntt.mod)
+
+		wOut[4] = w[4] + num.SMul(wRev[3], tw0Neg, tw0NegS, ntt.mod)
+		wOut[5] = w[5] + num.SMul(wRev[2], tw0Neg, tw0NegS, ntt.mod)
+		wOut[6] = w[6] + num.SMul(wRev[1], tw0Neg, tw0NegS, ntt.mod)
+		wOut[7] = w[7] + num.SMul(wRev[0], tw0Neg, tw0NegS, ntt.mod)
+	}
+
+	for i := M + 1; i < ntt.params.rank; i++ {
+		ntt.buf.coeffs[i] = v[i] + num.SMul(v[ntt.params.rank-i], tw0Neg, tw0NegS, ntt.mod)
+	}
 
 	nttInPlacePow2(ntt.buf.coeffs, ntt.tw, ntt.twS, ntt.mod.Value())
-	vec.MFormTo(coeffs, ntt.buf.coeffs, ntt.mod)
+	vec.MFormTo(vNTT, ntt.buf.coeffs, ntt.mod)
 }
 
-func (ntt *autFixedPow2Transformer) InverseInPlace(coeffs []uint64) {
-	inttInPlacePow2(coeffs, ntt.twInv, ntt.twInvS, ntt.mod.Value())
+func (ntt *autFixedPow2Transformer) InverseTo(v, vNTT []uint64) {
+	copy(v, vNTT)
 
-	copy(ntt.buf.coeffs, coeffs)
-	slices.Reverse(coeffs[1:])
-	ntt.buf.coeffs[0] = coeffs[0] + coeffs[0]
-	vec.ScalarMulAddLazyTo(ntt.buf.coeffs[1:], coeffs[1:], ntt.tw[0], ntt.mod)
+	inttInPlacePow2(v, ntt.twInv, ntt.twInvS, ntt.mod.Value())
 
-	vec.ScalarMulTo(coeffs, ntt.buf.coeffs, ntt.rankInv, ntt.mod)
+	M := ((ntt.params.rank - 1) >> 3) << 3
+
+	ntt.buf.coeffs[0] = v[0] << 1
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Pointer(&ntt.buf.coeffs[1+i]))
+		w := (*[8]uint64)(unsafe.Pointer(&v[1+i]))
+		wRev := (*[8]uint64)(unsafe.Pointer(&v[ntt.params.rank-(i+8)]))
+
+		wOut[0] = w[0] + num.SMul(wRev[7], ntt.tw[0], ntt.twS[0], ntt.mod)
+		wOut[1] = w[1] + num.SMul(wRev[6], ntt.tw[0], ntt.twS[0], ntt.mod)
+		wOut[2] = w[2] + num.SMul(wRev[5], ntt.tw[0], ntt.twS[0], ntt.mod)
+		wOut[3] = w[3] + num.SMul(wRev[4], ntt.tw[0], ntt.twS[0], ntt.mod)
+
+		wOut[4] = w[4] + num.SMul(wRev[3], ntt.tw[0], ntt.twS[0], ntt.mod)
+		wOut[5] = w[5] + num.SMul(wRev[2], ntt.tw[0], ntt.twS[0], ntt.mod)
+		wOut[6] = w[6] + num.SMul(wRev[1], ntt.tw[0], ntt.twS[0], ntt.mod)
+		wOut[7] = w[7] + num.SMul(wRev[0], ntt.tw[0], ntt.twS[0], ntt.mod)
+	}
+
+	for i := M + 1; i < ntt.params.rank; i++ {
+		ntt.buf.coeffs[i] = v[i] + num.SMul(v[ntt.params.rank-i], ntt.tw[0], ntt.twS[0], ntt.mod)
+	}
+
+	vec.ScalarMulTo(v, ntt.buf.coeffs, ntt.rankInv, ntt.mod)
 }
 
 func (ntt *autFixedPow2Transformer) Params() RingParameters {
@@ -188,8 +229,8 @@ func newAutFixedPrimeTransformer(params RingParameters, mod *num.Modulus) *autFi
 		}
 	}
 
-	ambNTT.ForwardInPlace(modRootPowSum)
-	ambNTT.ForwardInPlace(modRootPowInvSum)
+	ambNTT.ForwardTo(modRootPowSum, modRootPowSum)
+	ambNTT.ForwardTo(modRootPowInvSum, modRootPowInvSum)
 
 	return &autFixedPrimeTransformer{
 		params: params,
@@ -210,13 +251,30 @@ func newAutFixedPrimeTransformer(params RingParameters, mod *num.Modulus) *autFi
 	}
 }
 
-func (ntt *autFixedPrimeTransformer) ForwardInPlace(coeffs []uint64) {
-	clear(ntt.buf.coeffs)
+func (ntt *autFixedPrimeTransformer) ForwardTo(vNTT, v []uint64) {
+	M := ((ntt.params.rank - 1) >> 3) << 3
 
-	ntt.buf.coeffs[0] = coeffs[0]
-	for i := 1; i < ntt.params.rank; i++ {
-		ntt.buf.coeffs[i] = coeffs[ntt.params.rank-i]
+	ntt.buf.coeffs[0] = v[0]
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Pointer(&ntt.buf.coeffs[1+i]))
+		wRev := (*[8]uint64)(unsafe.Pointer(&v[ntt.params.rank-(i+8)]))
+
+		wOut[0] = wRev[7]
+		wOut[1] = wRev[6]
+		wOut[2] = wRev[5]
+		wOut[3] = wRev[4]
+
+		wOut[4] = wRev[3]
+		wOut[5] = wRev[2]
+		wOut[6] = wRev[1]
+		wOut[7] = wRev[0]
 	}
+
+	for i := M + 1; i < ntt.params.rank; i++ {
+		ntt.buf.coeffs[i] = v[ntt.params.rank-i]
+	}
+
+	clear(ntt.buf.coeffs[ntt.params.rank:])
 
 	nttInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.tw[0], ntt.ambNTT.twS[0], ntt.mod.Value())
 	vec.MFormTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.mod)
@@ -227,21 +285,48 @@ func (ntt *autFixedPrimeTransformer) ForwardInPlace(coeffs []uint64) {
 	vec.ScalarMMulTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.ambRankInvM, ntt.mod)
 
 	if ntt.isPow2 {
-		copy(coeffs, ntt.buf.coeffs)
+		copy(vNTT, ntt.buf.coeffs)
 	} else {
-		vec.AddTo(coeffs, ntt.buf.coeffs[:ntt.params.rank], ntt.buf.coeffs[ntt.params.rank:2*ntt.params.rank], ntt.mod)
+		vec.AddTo(vNTT, ntt.buf.coeffs[:ntt.params.rank], ntt.buf.coeffs[ntt.params.rank:2*ntt.params.rank], ntt.mod)
 	}
 }
 
-func (ntt *autFixedPrimeTransformer) InverseInPlace(coeffs []uint64) {
-	clear(ntt.buf.coeffs)
+func (ntt *autFixedPrimeTransformer) InverseTo(v, vNTT []uint64) {
+	M := ((ntt.params.rank - 1) >> 3) << 3
 
-	sumFold := coeffs[0]
-	ntt.buf.coeffs[0] = coeffs[0]
-	for i := 1; i < ntt.params.rank; i++ {
-		ntt.buf.coeffs[i] = coeffs[ntt.params.rank-i]
+	ntt.buf.coeffs[0] = vNTT[0]
+	sumFold := vNTT[0]
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Pointer(&ntt.buf.coeffs[1+i]))
+		wRev := (*[8]uint64)(unsafe.Pointer(&vNTT[ntt.params.rank-(i+8)]))
+
+		wOut[0] = wRev[7]
+		wOut[1] = wRev[6]
+		wOut[2] = wRev[5]
+		wOut[3] = wRev[4]
+
+		sumFold = num.Add(sumFold, wOut[0], ntt.mod)
+		sumFold = num.Add(sumFold, wOut[1], ntt.mod)
+		sumFold = num.Add(sumFold, wOut[2], ntt.mod)
+		sumFold = num.Add(sumFold, wOut[3], ntt.mod)
+
+		wOut[4] = wRev[3]
+		wOut[5] = wRev[2]
+		wOut[6] = wRev[1]
+		wOut[7] = wRev[0]
+
+		sumFold = num.Add(sumFold, wOut[4], ntt.mod)
+		sumFold = num.Add(sumFold, wOut[5], ntt.mod)
+		sumFold = num.Add(sumFold, wOut[6], ntt.mod)
+		sumFold = num.Add(sumFold, wOut[7], ntt.mod)
+	}
+
+	for i := M + 1; i < ntt.params.rank; i++ {
+		ntt.buf.coeffs[i] = vNTT[ntt.params.rank-i]
 		sumFold = num.Add(sumFold, ntt.buf.coeffs[i], ntt.mod)
 	}
+
+	clear(ntt.buf.coeffs[ntt.params.rank:])
 
 	nttInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.tw[0], ntt.ambNTT.twS[0], ntt.mod.Value())
 
@@ -255,8 +340,8 @@ func (ntt *autFixedPrimeTransformer) InverseInPlace(coeffs []uint64) {
 	}
 
 	sumFold = num.MMul(sumFold, ntt.fold, ntt.mod)
-	vec.ScalarSubTo(coeffs, ntt.buf.coeffs[:ntt.params.rank], sumFold, ntt.mod)
-	vec.ScalarMulTo(coeffs, coeffs, ntt.cycloOrdInv, ntt.mod)
+	vec.ScalarSubTo(v, ntt.buf.coeffs[:ntt.params.rank], sumFold, ntt.mod)
+	vec.ScalarMulTo(v, v, ntt.cycloOrdInv, ntt.mod)
 }
 
 func (ntt *autFixedPrimeTransformer) Params() RingParameters {

@@ -58,9 +58,10 @@ func reduce(p0, p1 []uint64, q *num.Modulus) []uint64 {
 	rem := make([]uint64, len(p0))
 	copy(rem, p0)
 
+	lcInv := num.Inv(p1[len(p1)-1], q)
 	for i := 0; i <= len(p0)-len(p1); i++ {
 		if rem[len(rem)-i-1] != 0 {
-			quo[len(quo)-i-1] = num.Mul(rem[len(rem)-i-1], num.Inv(p1[len(p1)-1], q), q)
+			quo[len(quo)-i-1] = num.Mul(rem[len(rem)-i-1], lcInv, q)
 			vec.ScalarMulSubTo(rem[len(rem)-i-len(p1):len(rem)-i], p1, quo[len(quo)-i-1], q)
 		}
 	}
@@ -82,16 +83,14 @@ func TestCyclotomicNTT(t *testing.T) {
 		p1 := randPoly(rP, q)
 
 		p0NTT := make([]uint64, N)
-		copy(p0NTT, p0)
-		ntt.ForwardInPlace(p0NTT)
+		ntt.ForwardTo(p0NTT, p0)
 
 		p1NTT := make([]uint64, N)
-		copy(p1NTT, p1)
-		ntt.ForwardInPlace(p1NTT)
+		ntt.ForwardTo(p1NTT, p1)
 
 		pOut := make([]uint64, N)
 		vec.MMulTo(pOut, p0NTT, p1NTT, q)
-		ntt.InverseInPlace(pOut)
+		ntt.InverseTo(pOut, pOut)
 
 		assert.Equal(t, cyclotomicPow2Mul(p0, p1, q), pOut)
 	})
@@ -113,16 +112,14 @@ func TestCyclotomicNTT(t *testing.T) {
 		p1 := randPoly(rP, q)
 
 		p0NTT := make([]uint64, N)
-		copy(p0NTT, p0)
-		ntt.ForwardInPlace(p0NTT)
+		ntt.ForwardTo(p0NTT, p0)
 
 		p1NTT := make([]uint64, N)
-		copy(p1NTT, p1)
-		ntt.ForwardInPlace(p1NTT)
+		ntt.ForwardTo(p1NTT, p1)
 
 		pOut := make([]uint64, N)
 		vec.MMulTo(pOut, p0NTT, p1NTT, q)
-		ntt.InverseInPlace(pOut)
+		ntt.InverseTo(pOut, pOut)
 
 		p0Ref := append(p0, make([]uint64, (2*N-1)-len(p0))...)
 		p1Ref := append(p1, make([]uint64, (2*N-1)-len(p1))...)
@@ -130,7 +127,7 @@ func TestCyclotomicNTT(t *testing.T) {
 
 		cyclo := vec.Reduce(dft.CyclotomicPolynomial(rP.CycloOrder()), q)
 
-		assert.Equal(t, reduce(pOutRef, cyclo, q)[:8], pOut[:8])
+		assert.Equal(t, reduce(pOutRef, cyclo, q), pOut)
 	})
 }
 
@@ -148,16 +145,14 @@ func TestCyclicNTT(t *testing.T) {
 		p1 := randPoly(rP, q)
 
 		p0NTT := make([]uint64, N)
-		copy(p0NTT, p0)
-		ntt.ForwardInPlace(p0NTT)
+		ntt.ForwardTo(p0NTT, p0)
 
 		p1NTT := make([]uint64, N)
-		copy(p1NTT, p1)
-		ntt.ForwardInPlace(p1NTT)
+		ntt.ForwardTo(p1NTT, p1)
 
 		pOut := make([]uint64, N)
 		vec.MMulTo(pOut, p0NTT, p1NTT, q)
-		ntt.InverseInPlace(pOut)
+		ntt.InverseTo(pOut, pOut)
 
 		assert.Equal(t, cyclicMul(p0, p1, q), pOut)
 	})
@@ -181,16 +176,14 @@ func TestCyclicNTT(t *testing.T) {
 		p1 := randPoly(rP, q)
 
 		p0NTT := make([]uint64, N)
-		copy(p0NTT, p0)
-		ntt.ForwardInPlace(p0NTT)
+		ntt.ForwardTo(p0NTT, p0)
 
 		p1NTT := make([]uint64, N)
-		copy(p1NTT, p1)
-		ntt.ForwardInPlace(p1NTT)
+		ntt.ForwardTo(p1NTT, p1)
 
 		pOut := make([]uint64, N)
 		vec.MMulTo(pOut, p0NTT, p1NTT, q)
-		ntt.InverseInPlace(pOut)
+		ntt.InverseTo(pOut, pOut)
 
 		assert.Equal(t, cyclicMul(p0, p1, q), pOut)
 	})
@@ -222,16 +215,14 @@ func TestAutFixedNTT(t *testing.T) {
 		}
 
 		p0NTT := make([]uint64, N)
-		copy(p0NTT, p0)
-		ntt.ForwardInPlace(p0NTT)
+		ntt.ForwardTo(p0NTT, p0)
 
 		p1NTT := make([]uint64, N)
-		copy(p1NTT, p1)
-		ntt.ForwardInPlace(p1NTT)
+		ntt.ForwardTo(p1NTT, p1)
 
 		pOut := make([]uint64, N)
 		vec.MMulTo(pOut, p0NTT, p1NTT, q)
-		ntt.InverseInPlace(pOut)
+		ntt.InverseTo(pOut, pOut)
 
 		assert.Equal(t, cyclotomicPow2Mul(p0Ref, p1Ref, q)[:N], pOut)
 	})
@@ -271,16 +262,14 @@ func TestAutFixedNTT(t *testing.T) {
 		}
 
 		p0NTT := make([]uint64, N)
-		copy(p0NTT, p0)
-		ntt.ForwardInPlace(p0NTT)
+		ntt.ForwardTo(p0NTT, p0)
 
 		p1NTT := make([]uint64, N)
-		copy(p1NTT, p1)
-		ntt.ForwardInPlace(p1NTT)
+		ntt.ForwardTo(p1NTT, p1)
 
 		pOut := make([]uint64, N)
 		vec.MMulTo(pOut, p0NTT, p1NTT, q)
-		ntt.InverseInPlace(pOut)
+		ntt.InverseTo(pOut, pOut)
 
 		pRef := make([]uint64, N)
 		pRefLong := cyclicMul(p0Ref, p1Ref, q)
@@ -310,16 +299,17 @@ func BenchmarkCyclotomicNTT(b *testing.B) {
 			ntt := dft.NewTransformer(rP, q)
 
 			p := randPoly(rP, q)
+			pOut := randPoly(rP, q)
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 				b.Run("NTT", func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
-						ntt.ForwardInPlace(p)
+						ntt.ForwardTo(pOut, p)
 					}
 				})
 				b.Run("InvNTT", func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
-						ntt.InverseInPlace(p)
+						ntt.InverseTo(pOut, p)
 					}
 				})
 			})
@@ -339,16 +329,17 @@ func BenchmarkCyclotomicNTT(b *testing.B) {
 			ntt := dft.NewTransformer(rP, q)
 
 			p := randPoly(rP, q)
+			pOut := randPoly(rP, q)
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 				b.Run("NTT", func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
-						ntt.ForwardInPlace(p)
+						ntt.ForwardTo(pOut, p)
 					}
 				})
 				b.Run("InvNTT", func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
-						ntt.InverseInPlace(p)
+						ntt.InverseTo(pOut, p)
 					}
 				})
 			})
@@ -367,16 +358,17 @@ func BenchmarkCyclicNTT(b *testing.B) {
 			ntt := dft.NewTransformer(rP, q)
 
 			p := randPoly(rP, q)
+			pOut := randPoly(rP, q)
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 				b.Run("NTT", func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
-						ntt.ForwardInPlace(p)
+						ntt.ForwardTo(pOut, p)
 					}
 				})
 				b.Run("InvNTT", func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
-						ntt.InverseInPlace(p)
+						ntt.InverseTo(pOut, p)
 					}
 				})
 			})
@@ -393,16 +385,17 @@ func BenchmarkCyclicNTT(b *testing.B) {
 			ntt := dft.NewTransformer(rP, q)
 
 			p := randPoly(rP, q)
+			pOut := randPoly(rP, q)
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 				b.Run("NTT", func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
-						ntt.ForwardInPlace(p)
+						ntt.ForwardTo(pOut, p)
 					}
 				})
 				b.Run("InvNTT", func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
-						ntt.InverseInPlace(p)
+						ntt.InverseTo(pOut, p)
 					}
 				})
 			})
@@ -421,16 +414,17 @@ func BenchmarkAutFixedNTT(b *testing.B) {
 			ntt := dft.NewTransformer(rP, q)
 
 			p := randPoly(rP, q)
+			pOut := randPoly(rP, q)
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 				b.Run("NTT", func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
-						ntt.ForwardInPlace(p)
+						ntt.ForwardTo(pOut, p)
 					}
 				})
 				b.Run("InvNTT", func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
-						ntt.InverseInPlace(p)
+						ntt.InverseTo(pOut, p)
 					}
 				})
 			})
@@ -448,16 +442,17 @@ func BenchmarkAutFixedNTT(b *testing.B) {
 			ntt := dft.NewTransformer(rP, q)
 
 			p := randPoly(rP, q)
+			pOut := randPoly(rP, q)
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 				b.Run("NTT", func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
-						ntt.ForwardInPlace(p)
+						ntt.ForwardTo(pOut, p)
 					}
 				})
 				b.Run("InvNTT", func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
-						ntt.InverseInPlace(p)
+						ntt.InverseTo(pOut, p)
 					}
 				})
 			})

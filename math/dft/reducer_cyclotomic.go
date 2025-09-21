@@ -96,8 +96,8 @@ func newCyclotomicReducer(params RingParameters, mod *num.Modulus) *cyclotomicRe
 		divPoly = quotient(dividend, cycloPoly[:params.rank+1], mod)
 		divPoly = append(divPoly, make([]uint64, diffDegNext-len(divPoly))...)
 
-		diffDegNextNTT.ForwardInPlace(divPoly)
-		degNextNTT.ForwardInPlace(cycloPoly)
+		diffDegNextNTT.ForwardTo(divPoly, divPoly)
+		degNextNTT.ForwardTo(cycloPoly, cycloPoly)
 	}
 
 	return &cyclotomicReducer{
@@ -163,9 +163,9 @@ func (r *cyclotomicReducer) reduceTo(pOut, p []uint64) {
 		}
 
 		// pQuo = pQuo * floor(X^(deg+diffDeg)/\Phi_m(X))
-		r.diffDegNextNTT.ForwardInPlace(r.buf.pQuo)
+		r.diffDegNextNTT.ForwardTo(r.buf.pQuo, r.buf.pQuo)
 		vec.MMulLazyTo(r.buf.pQuo, r.buf.pQuo, r.divPoly, r.mod)
-		r.diffDegNextNTT.InverseInPlace(r.buf.pQuo)
+		r.diffDegNextNTT.InverseTo(r.buf.pQuo, r.buf.pQuo)
 
 		// pRem = floor(pQuo / X^diffDeg) % (X^degNext - 1)
 		for i := 1; i <= num.DivCeil(r.diffDeg, r.degNext); i++ {
@@ -184,9 +184,9 @@ func (r *cyclotomicReducer) reduceTo(pOut, p []uint64) {
 		}
 
 		// pRem = pRem * cycloPoly % (X^degNext - 1)
-		r.degNextNTT.ForwardInPlace(r.buf.pRem)
+		r.degNextNTT.ForwardTo(r.buf.pRem, r.buf.pRem)
 		vec.MMulLazyTo(r.buf.pRem, r.buf.pRem, r.cycloPoly, r.mod)
-		r.degNextNTT.InverseInPlace(r.buf.pRem)
+		r.degNextNTT.InverseTo(r.buf.pRem, r.buf.pRem)
 
 		// pIn = pIn % X^degNext - 1
 		for i := 1; i <= num.DivCeil(r.redDeg, r.degNext); i++ {
@@ -244,30 +244,30 @@ func CyclotomicPolynomial(cycloOrd int) []int64 {
 	}
 
 	pOut := make([]int64, cycloOrd+1)
-	pBuff0 := make([]int64, cycloOrd+1)
-	pBuff1 := make([]int64, cycloOrd+1)
+	pBuf0 := make([]int64, cycloOrd+1)
+	pBuf1 := make([]int64, cycloOrd+1)
 	pOut[0], pOut[1] = -1, 1
 
 	skip := int(cycloOrd)
 
 	currDeg, prevDeg := 1, 1
 	for _, prime := range primes {
-		copy(pBuff0, pOut)
-		clear(pBuff1)
+		copy(pBuf0, pOut)
+		clear(pBuf1)
 		clear(pOut)
 
 		for i := 0; i <= prevDeg; i++ {
-			pBuff1[i*prime] = pBuff0[i]
+			pBuf1[i*prime] = pBuf0[i]
 		}
 
 		currDeg = prevDeg*prime - prevDeg
 
 		for i := 0; i <= (prime-1)*prevDeg; i++ {
-			if pBuff1[prevDeg*prime-i] != 0 {
-				pOut[currDeg-i] = pBuff1[prevDeg*prime-i] / pBuff0[prevDeg]
+			if pBuf1[prevDeg*prime-i] != 0 {
+				pOut[currDeg-i] = pBuf1[prevDeg*prime-i] / pBuf0[prevDeg]
 
 				for j := 0; j <= prevDeg; j++ {
-					pBuff1[prevDeg*prime-i-j] -= pBuff0[prevDeg-j] * pOut[currDeg-i]
+					pBuf1[prevDeg*prime-i-j] -= pBuf0[prevDeg-j] * pOut[currDeg-i]
 				}
 			}
 		}
@@ -285,10 +285,10 @@ func CyclotomicPolynomial(cycloOrd int) []int64 {
 	}
 
 	if skip > 1 {
-		copy(pBuff0, pOut)
+		copy(pBuf0, pOut)
 		clear(pOut)
 		for i := 0; i <= prevDeg; i++ {
-			pOut[i*skip] = pBuff0[i]
+			pOut[i*skip] = pBuf0[i]
 		}
 	}
 
@@ -296,22 +296,23 @@ func CyclotomicPolynomial(cycloOrd int) []int64 {
 }
 
 // quotient computes the quotient of two polynomials modulo a modulus.
-func quotient(dividend, divisor []uint64, mod *num.Modulus) []uint64 {
+func quotient(p0, p1 []uint64, mod *num.Modulus) []uint64 {
 	switch {
-	case len(dividend) < len(divisor):
+	case len(p0) < len(p1):
 		panic("quotient: dividend is shorter than divisor")
-	case num.GCD(mod.Value(), divisor[len(divisor)-1]) != 1:
+	case num.GCD(mod.Value(), p1[len(p1)-1]) != 1:
 		panic("quotient: divisor is not coprime with modulus")
 	}
 
-	quo := make([]uint64, len(dividend)-len(divisor)+1)
-	pBuff := make([]uint64, len(dividend))
-	copy(pBuff, dividend)
+	quo := make([]uint64, len(p0)-len(p1)+1)
+	rem := make([]uint64, len(p0))
+	copy(rem, p0)
 
-	for i := 0; i <= len(dividend)-len(divisor); i++ {
-		if pBuff[len(pBuff)-i-1] != 0 {
-			quo[len(quo)-i-1] = num.Mul(pBuff[len(pBuff)-i-1], num.Inv(divisor[len(divisor)-1], mod), mod)
-			vec.ScalarMulSubTo(pBuff[len(pBuff)-i-len(divisor):len(pBuff)-i], divisor, quo[len(quo)-i-1], mod)
+	lcInv := num.Inv(p1[len(p1)-1], mod)
+	for i := 0; i <= len(p0)-len(p1); i++ {
+		if rem[len(rem)-i-1] != 0 {
+			quo[len(quo)-i-1] = num.Mul(rem[len(rem)-i-1], lcInv, mod)
+			vec.ScalarMulSubTo(rem[len(rem)-i-len(p1):len(rem)-i], p1, quo[len(quo)-i-1], mod)
 		}
 	}
 

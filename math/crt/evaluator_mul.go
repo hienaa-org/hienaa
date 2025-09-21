@@ -126,12 +126,10 @@ func (e *polyMulEvaluatorNoReduce) MulTo(pOut, p0, p1 *Poly) {
 			vec.MMulTo(pOut.Coeffs[i], p0.Coeffs[i], p1.Coeffs[i], e.mod[i])
 		} else {
 			for j := 0; j < e.ambModLen[i]; j++ {
-				copy(e.buf.p0[j], p0.Coeffs[i])
-				e.ambNTT[j].ForwardInPlace(e.buf.p0[j])
-				copy(e.buf.p1[j], p1.Coeffs[i])
-				e.ambNTT[j].ForwardInPlace(e.buf.p1[j])
+				e.ambNTT[j].ForwardTo(e.buf.p0[j], p0.Coeffs[i])
+				e.ambNTT[j].ForwardTo(e.buf.p1[j], p1.Coeffs[i])
 				vec.MMulTo(e.buf.p0[j], e.buf.p0[j], e.buf.p1[j], e.ambMod[j])
-				e.ambNTT[j].InverseInPlace(e.buf.p0[j])
+				e.ambNTT[j].InverseTo(e.buf.p0[j], e.buf.p0[j])
 			}
 			e.embedder[i].EmbedVecTo(pOut.Coeffs[i:i+1], e.buf.p0[:e.ambModLen[i]])
 		}
@@ -153,12 +151,10 @@ func (e *polyMulEvaluatorNoReduce) MulAddTo(pOut, p0, p1 *Poly) {
 			vec.MMulAddTo(pOut.Coeffs[i], p0.Coeffs[i], p1.Coeffs[i], e.mod[i])
 		} else {
 			for j := 0; j < e.ambModLen[i]; j++ {
-				copy(e.buf.p0[j], p0.Coeffs[i])
-				e.ambNTT[j].ForwardInPlace(e.buf.p0[j])
-				copy(e.buf.p1[j], p1.Coeffs[i])
-				e.ambNTT[j].ForwardInPlace(e.buf.p1[j])
+				e.ambNTT[j].ForwardTo(e.buf.p0[j], p0.Coeffs[i])
+				e.ambNTT[j].ForwardTo(e.buf.p1[j], p1.Coeffs[i])
 				vec.MMulTo(e.buf.p0[j], e.buf.p0[j], e.buf.p1[j], e.ambMod[j])
-				e.ambNTT[j].InverseInPlace(e.buf.p0[j])
+				e.ambNTT[j].InverseTo(e.buf.p0[j], e.buf.p0[j])
 			}
 			e.embedder[i].EmbedVecTo(e.buf.p0[:1], e.buf.p0[:e.ambModLen[i]])
 			vec.AddTo(pOut.Coeffs[i], pOut.Coeffs[i], e.buf.p0[0], e.mod[i])
@@ -181,14 +177,10 @@ func (e *polyMulEvaluatorNoReduce) MulSubTo(pOut, p0, p1 *Poly) {
 			vec.MMulSubTo(pOut.Coeffs[i], p0.Coeffs[i], p1.Coeffs[i], e.mod[i])
 		} else {
 			for j := 0; j < e.ambModLen[i]; j++ {
-				copy(e.buf.p0[j], p0.Coeffs[i])
-				e.ambNTT[j].ForwardInPlace(e.buf.p0[j])
-
-				copy(e.buf.p1[j], p1.Coeffs[i])
-				e.ambNTT[j].ForwardInPlace(e.buf.p1[j])
-
+				e.ambNTT[j].ForwardTo(e.buf.p0[j], p0.Coeffs[i])
+				e.ambNTT[j].ForwardTo(e.buf.p1[j], p1.Coeffs[i])
 				vec.MMulTo(e.buf.p0[j], e.buf.p0[j], e.buf.p1[j], e.ambMod[j])
-				e.ambNTT[j].InverseInPlace(e.buf.p0[j])
+				e.ambNTT[j].InverseTo(e.buf.p0[j], e.buf.p0[j])
 			}
 			e.embedder[i].EmbedVecTo(e.buf.p0[:1], e.buf.p0[:e.ambModLen[i]])
 			vec.SubTo(pOut.Coeffs[i], pOut.Coeffs[i], e.buf.p0[0], e.mod[i])
@@ -336,14 +328,14 @@ func (e *polyMulEvaluatorCyclotomicNonPow2) MulTo(pOut, p0, p1 *Poly) {
 			for j := 0; j < e.ambModLen[i]; j++ {
 				copy(e.buf.p0[j], p0.Coeffs[i])
 				clear(e.buf.p0[j][rank:])
-				e.ambNTT[j].ForwardInPlace(e.buf.p0[j])
+				e.ambNTT[j].ForwardTo(e.buf.p0[j], e.buf.p0[j])
 
 				copy(e.buf.p1[j], p1.Coeffs[i])
 				clear(e.buf.p1[j][rank:])
-				e.ambNTT[j].ForwardInPlace(e.buf.p1[j])
+				e.ambNTT[j].ForwardTo(e.buf.p1[j], e.buf.p1[j])
 
 				vec.MMulTo(e.buf.p0[j], e.buf.p0[j], e.buf.p1[j], e.ambMod[j])
-				e.ambNTT[j].InverseInPlace(e.buf.p0[j])
+				e.ambNTT[j].InverseTo(e.buf.p0[j], e.buf.p0[j])
 			}
 			e.embedder[i].EmbedVecTo(e.buf.p0[:1], e.buf.p0[:e.ambModLen[i]])
 			e.reducer.reduceTo(pOut.Coeffs[i], e.buf.p0[0], i)
@@ -369,14 +361,14 @@ func (e *polyMulEvaluatorCyclotomicNonPow2) MulAddTo(pOut, p0, p1 *Poly) {
 			for j := 0; j < e.ambModLen[i]; j++ {
 				copy(e.buf.p0[j], p0.Coeffs[i])
 				clear(e.buf.p0[j][rank:])
-				e.ambNTT[j].ForwardInPlace(e.buf.p0[j])
+				e.ambNTT[j].ForwardTo(e.buf.p0[j], e.buf.p0[j])
 
 				copy(e.buf.p1[j], p1.Coeffs[i])
 				clear(e.buf.p1[j][rank:])
-				e.ambNTT[j].ForwardInPlace(e.buf.p1[j])
+				e.ambNTT[j].ForwardTo(e.buf.p1[j], e.buf.p1[j])
 
 				vec.MMulTo(e.buf.p0[j], e.buf.p0[j], e.buf.p1[j], e.ambMod[j])
-				e.ambNTT[j].InverseInPlace(e.buf.p0[j])
+				e.ambNTT[j].InverseTo(e.buf.p0[j], e.buf.p0[j])
 			}
 			e.embedder[i].EmbedVecTo(e.buf.p0[:1], e.buf.p0[:e.ambModLen[i]])
 			e.reducer.reduceTo(e.buf.p0[0][:rank], e.buf.p0[0], i)
@@ -403,14 +395,14 @@ func (e *polyMulEvaluatorCyclotomicNonPow2) MulSubTo(pOut, p0, p1 *Poly) {
 			for j := 0; j < e.ambModLen[i]; j++ {
 				copy(e.buf.p0[j], p0.Coeffs[i])
 				clear(e.buf.p0[j][rank:])
-				e.ambNTT[j].ForwardInPlace(e.buf.p0[j])
+				e.ambNTT[j].ForwardTo(e.buf.p0[j], e.buf.p0[j])
 
 				copy(e.buf.p1[j], p1.Coeffs[i])
 				clear(e.buf.p1[j][rank:])
-				e.ambNTT[j].ForwardInPlace(e.buf.p1[j])
+				e.ambNTT[j].ForwardTo(e.buf.p1[j], e.buf.p1[j])
 
 				vec.MMulTo(e.buf.p0[j], e.buf.p0[j], e.buf.p1[j], e.ambMod[j])
-				e.ambNTT[j].InverseInPlace(e.buf.p0[j])
+				e.ambNTT[j].InverseTo(e.buf.p0[j], e.buf.p0[j])
 			}
 			e.embedder[i].EmbedVecTo(e.buf.p0[:1], e.buf.p0[:e.ambModLen[i]])
 			e.reducer.reduceTo(e.buf.p0[0][:rank], e.buf.p0[0], i)
@@ -566,27 +558,27 @@ func (e *polyMulEvaluatorReduce) MulTo(pOut, p0, p1 *Poly) {
 		if e.ambModLen[i] == 0 {
 			copy(e.buf.p1[0], p1.Coeffs[i])
 			clear(e.buf.p1[0][e.rank:])
-			e.ntt[i].ForwardInPlace(e.buf.p0[0])
+			e.ntt[i].ForwardTo(e.buf.p0[0], e.buf.p0[0])
 
 			copy(e.buf.p0[0], p0.Coeffs[i])
 			clear(e.buf.p0[0][e.rank:])
-			e.ntt[i].ForwardInPlace(e.buf.p1[0])
+			e.ntt[i].ForwardTo(e.buf.p1[0], e.buf.p1[0])
 
 			vec.MMulTo(e.buf.p0[0], e.buf.p0[0], e.buf.p1[0], e.mod[i])
-			e.ntt[i].InverseInPlace(e.buf.p0[0])
+			e.ntt[i].InverseTo(e.buf.p0[0], e.buf.p0[0])
 			e.reducer.reduceTo(pOut.Coeffs[i], e.buf.p0[0], i)
 		} else {
 			for j := 0; j < e.ambModLen[i]; j++ {
 				copy(e.buf.p0[j], p0.Coeffs[i])
 				clear(e.buf.p0[j][e.rank:])
-				e.ambNTT[j].ForwardInPlace(e.buf.p0[j])
+				e.ambNTT[j].ForwardTo(e.buf.p0[j], e.buf.p0[j])
 
 				copy(e.buf.p1[j], p1.Coeffs[i])
 				clear(e.buf.p1[j][e.rank:])
-				e.ambNTT[j].ForwardInPlace(e.buf.p1[j])
+				e.ambNTT[j].ForwardTo(e.buf.p1[j], e.buf.p1[j])
 
 				vec.MMulTo(e.buf.p0[j], e.buf.p0[j], e.buf.p1[j], e.ambMod[j])
-				e.ambNTT[j].InverseInPlace(e.buf.p0[j])
+				e.ambNTT[j].InverseTo(e.buf.p0[j], e.buf.p0[j])
 			}
 			e.embedder[i].EmbedVecTo(e.buf.p0[:1], e.buf.p0[:e.ambModLen[i]])
 			e.reducer.reduceTo(pOut.Coeffs[i], e.buf.p0[0], i)
@@ -608,28 +600,28 @@ func (e *polyMulEvaluatorReduce) MulAddTo(pOut, p0, p1 *Poly) {
 		if e.ambModLen[i] == 0 {
 			copy(e.buf.p1[0], p1.Coeffs[i])
 			clear(e.buf.p1[0][e.rank:])
-			e.ntt[i].ForwardInPlace(e.buf.p0[0])
+			e.ntt[i].ForwardTo(e.buf.p0[0], e.buf.p0[0])
 
 			copy(e.buf.p0[0], p0.Coeffs[i])
 			clear(e.buf.p0[0][e.rank:])
-			e.ntt[i].ForwardInPlace(e.buf.p1[0])
+			e.ntt[i].ForwardTo(e.buf.p1[0], e.buf.p1[0])
 
 			vec.MMulTo(e.buf.p0[0], e.buf.p0[0], e.buf.p1[0], e.mod[i])
-			e.ntt[i].InverseInPlace(e.buf.p0[0])
+			e.ntt[i].InverseTo(e.buf.p0[0], e.buf.p0[0])
 			e.reducer.reduceTo(e.buf.p0[0][:e.rank], e.buf.p0[0], i)
 			vec.AddTo(pOut.Coeffs[i], pOut.Coeffs[i], e.buf.p0[0][:e.rank], e.mod[i])
 		} else {
 			for j := 0; j < e.ambModLen[i]; j++ {
 				copy(e.buf.p0[j], p0.Coeffs[i])
 				clear(e.buf.p0[j][e.rank:])
-				e.ambNTT[j].ForwardInPlace(e.buf.p0[j])
+				e.ambNTT[j].ForwardTo(e.buf.p0[j], e.buf.p0[j])
 
 				copy(e.buf.p1[j], p1.Coeffs[i])
 				clear(e.buf.p1[j][e.rank:])
-				e.ambNTT[j].ForwardInPlace(e.buf.p1[j])
+				e.ambNTT[j].ForwardTo(e.buf.p1[j], e.buf.p1[j])
 
 				vec.MMulTo(e.buf.p0[j], e.buf.p0[j], e.buf.p1[j], e.ambMod[j])
-				e.ambNTT[j].InverseInPlace(e.buf.p0[j])
+				e.ambNTT[j].InverseTo(e.buf.p0[j], e.buf.p0[j])
 			}
 			e.embedder[i].EmbedVecTo(e.buf.p0[:1], e.buf.p0[:e.ambModLen[i]])
 			e.reducer.reduceTo(e.buf.p0[0][:e.rank], e.buf.p0[0], i)
@@ -652,28 +644,28 @@ func (e *polyMulEvaluatorReduce) MulSubTo(pOut, p0, p1 *Poly) {
 		if e.ambModLen[i] == 0 {
 			copy(e.buf.p1[0], p1.Coeffs[i])
 			clear(e.buf.p1[0][e.rank:])
-			e.ntt[i].ForwardInPlace(e.buf.p0[0])
+			e.ntt[i].ForwardTo(e.buf.p0[0], e.buf.p0[0])
 
 			copy(e.buf.p0[0], p0.Coeffs[i])
 			clear(e.buf.p0[0][e.rank:])
-			e.ntt[i].ForwardInPlace(e.buf.p1[0])
+			e.ntt[i].ForwardTo(e.buf.p1[0], e.buf.p1[0])
 
 			vec.MMulTo(e.buf.p0[0], e.buf.p0[0], e.buf.p1[0], e.mod[i])
-			e.ntt[i].InverseInPlace(e.buf.p0[0])
+			e.ntt[i].InverseTo(e.buf.p0[0], e.buf.p0[0])
 			e.reducer.reduceTo(e.buf.p0[0][:e.rank], e.buf.p0[0], i)
 			vec.SubTo(pOut.Coeffs[i], pOut.Coeffs[i], e.buf.p0[0][:e.rank], e.mod[i])
 		} else {
 			for j := 0; j < e.ambModLen[i]; j++ {
 				copy(e.buf.p0[j], p0.Coeffs[i])
 				clear(e.buf.p0[j][e.rank:])
-				e.ambNTT[j].ForwardInPlace(e.buf.p0[j])
+				e.ambNTT[j].ForwardTo(e.buf.p0[j], e.buf.p0[j])
 
 				copy(e.buf.p1[j], p1.Coeffs[i])
 				clear(e.buf.p1[j][e.rank:])
-				e.ambNTT[j].ForwardInPlace(e.buf.p1[j])
+				e.ambNTT[j].ForwardTo(e.buf.p1[j], e.buf.p1[j])
 
 				vec.MMulTo(e.buf.p0[j], e.buf.p0[j], e.buf.p1[j], e.ambMod[j])
-				e.ambNTT[j].InverseInPlace(e.buf.p0[j])
+				e.ambNTT[j].InverseTo(e.buf.p0[j], e.buf.p0[j])
 			}
 			e.embedder[i].EmbedVecTo(e.buf.p0[:1], e.buf.p0[:e.ambModLen[i]])
 			e.reducer.reduceTo(e.buf.p0[0][:e.rank], e.buf.p0[0], i)
