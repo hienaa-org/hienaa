@@ -51,7 +51,7 @@ func roundTo128(xHi, xLo uint64) (uint64, uint64) {
 	carry := (xLo & roundMask) >> (fixedPrec - floatPrec - 1)
 
 	rLo, carry = bits.Add64(rLo, carry, 0)
-	rHi += carry
+	rHi, _ = bits.Add64(rHi, 0, carry)
 
 	return rHi, rLo
 }
