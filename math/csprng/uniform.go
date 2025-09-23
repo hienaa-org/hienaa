@@ -67,27 +67,34 @@ func (s *UniformSampler) Sample() uint64 {
 		s.ptr = 0
 	}
 
-	var res uint64
-	res |= uint64(s.buf[s.ptr+0])
-	res |= uint64(s.buf[s.ptr+1]) << 8
-	res |= uint64(s.buf[s.ptr+2]) << 16
-	res |= uint64(s.buf[s.ptr+3]) << 24
-	res |= uint64(s.buf[s.ptr+4]) << 32
-	res |= uint64(s.buf[s.ptr+5]) << 40
-	res |= uint64(s.buf[s.ptr+6]) << 48
-	res |= uint64(s.buf[s.ptr+7]) << 56
+	var r uint64
+	r |= uint64(s.buf[s.ptr+0])
+	r |= uint64(s.buf[s.ptr+1]) << 8
+	r |= uint64(s.buf[s.ptr+2]) << 16
+	r |= uint64(s.buf[s.ptr+3]) << 24
+	r |= uint64(s.buf[s.ptr+4]) << 32
+	r |= uint64(s.buf[s.ptr+5]) << 40
+	r |= uint64(s.buf[s.ptr+6]) << 48
+	r |= uint64(s.buf[s.ptr+7]) << 56
 	s.ptr += 8
 
-	return res
+	return r
 }
 
 // SampleN uniformly samples a random uint64 value in [0, n).
 func (s *UniformSampler) SampleN(n uint64) uint64 {
 	bound := math.MaxUint64 - math.MaxUint64%n
 	for {
-		res := s.Sample()
-		if res < bound {
-			return res % n
+		r := s.Sample()
+		if r < bound {
+			return r % n
 		}
 	}
+}
+
+// SampleFloat samples a random float64 value in [0, 1).
+func (s *UniformSampler) SampleFloat() float64 {
+	r := s.Sample() % (1 << floatPrec)
+	rf := math.Float64frombits(r | ((1023 + floatPrec) << floatPrec))
+	return (rf / (1 << floatPrec)) - 1
 }

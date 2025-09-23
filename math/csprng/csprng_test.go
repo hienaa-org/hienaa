@@ -2,6 +2,7 @@ package csprng_test
 
 import (
 	"math"
+	"math/big"
 	"testing"
 
 	"github.com/hienaa-org/hienaa/math/csprng"
@@ -53,16 +54,39 @@ func TestUniform(t *testing.T) {
 }
 
 func TestRoundedGaussian(t *testing.T) {
-	s := csprng.NewGaussianSamplerWithSeed(nil)
-	stdDevRef := 16.0
+	t.Run("float64", func(t *testing.T) {
+		s := csprng.NewRoundedGaussianSamplerWithSeed(nil)
+		centerRef := 8.0
+		stdDevRef := 16.0
 
-	v := make([]int64, 1<<10)
-	for i := range v {
-		v[i] = s.Sample(stdDevRef)
-	}
+		v := make([]int64, 1<<10)
+		for i := range v {
+			v[i] = s.Sample(centerRef, stdDevRef)
+		}
 
-	mean, stdDev := meanStdDev(vec.Cast[float64](v))
+		mean, stdDev := meanStdDev(vec.Cast[float64](v))
+		delta := stdDev / math.Sqrt(float64(len(v)))
 
-	assert.InDelta(t, 0, mean, 0.1)
-	assert.InDelta(t, stdDevRef, stdDev, 0.1)
+		assert.InDelta(t, centerRef, mean, delta)
+		assert.InDelta(t, stdDevRef, stdDev, delta)
+	})
+
+	t.Run("big.Float", func(t *testing.T) {
+		s := csprng.NewRoundedGaussianSamplerWithSeed(nil)
+		centerRef := 8.0
+		stdDevRef := 16.0
+		centerRefBig := big.NewFloat(centerRef)
+		stdDevRefBig := big.NewFloat(stdDevRef)
+
+		v := make([]int64, 1<<10)
+		for i := range v {
+			v[i] = s.SampleBig(centerRefBig, stdDevRefBig).Int64()
+		}
+
+		mean, stdDev := meanStdDev(vec.Cast[float64](v))
+		delta := stdDev / math.Sqrt(float64(len(v)))
+
+		assert.InDelta(t, centerRef, mean, delta)
+		assert.InDelta(t, stdDevRef, stdDev, delta)
+	})
 }
