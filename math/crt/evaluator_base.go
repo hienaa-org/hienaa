@@ -1,6 +1,8 @@
 package crt
 
 import (
+	"math/big"
+
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
@@ -8,8 +10,9 @@ import (
 
 // polyEvaluatorBase is the base evaluator for all rings.
 type polyEvaluatorBase struct {
-	params        dft.RingParameters
-	mod           []*num.Modulus
+	params dft.RingParameters
+	mod    []*num.Modulus
+
 	isNTTFriendly []bool
 	ntt           []dft.Transformer
 }
@@ -217,6 +220,45 @@ func (e *polyEvaluatorBase) InvNTTTo(pOut, p *Poly) {
 	}
 
 	pOut.isNTT = false
+}
+
+// AsBig returns p as *[big.Int] vector.
+func (e *polyEvaluatorBase) AsBig(p *Poly) []*big.Int {
+	if !isConsistent(e.params.Rank(), len(e.mod), p) {
+		panic("AsBig: input not consistent")
+	}
+
+	modBig := make([]*big.Int, len(e.mod))
+	modProd := big.NewInt(1)
+	for i := range e.mod {
+		modBig[i] = new(big.Int).SetUint64(e.mod[i].Value())
+		modProd.Mul(modProd, modBig[i])
+	}
+	modProdHalf := new(big.Int).Rsh(modProd, 1)
+
+	gadget := make([]*big.Int, len(e.mod))
+	for i := range modBig {
+		qStar := new(big.Int).Div(modProd, modBig[i])
+		qStarInv := new(big.Int).ModInverse(qStar, modBig[i])
+		gadget[i] = new(big.Int).Mul(qStar, qStarInv)
+		gadget[i].Mod(gadget[i], modProd)
+	}
+
+	pBig := make([]*big.Int, e.params.Rank())
+	for j := 0; j < e.params.Rank(); j++ {
+		pBig[j] = big.NewInt(0)
+		for i := range e.mod {
+			c := new(big.Int).SetUint64(p.Coeffs[i][j])
+			c.Mul(c, gadget[i])
+			pBig[j].Add(pBig[j], c)
+		}
+		pBig[j].Mod(pBig[j], modProd)
+		if pBig[j].Cmp(modProdHalf) > 0 {
+			pBig[j].Sub(pBig[j], modProd)
+		}
+	}
+
+	return pBig
 }
 
 func (e *polyEvaluatorBase) subEvaluator(idx ...int) *polyEvaluatorBase {

@@ -1,6 +1,7 @@
 package crt
 
 import (
+	"crypto/rand"
 	"math"
 	"math/big"
 
@@ -31,17 +32,21 @@ type UniformSamplerParameters struct {
 }
 
 func (p UniformSamplerParameters) Sampler() Sampler {
+	var modBig []*big.Int
 	var modProd *big.Int
 	if p.BoundMin != nil || p.BoundMax != nil {
+		modBig = make([]*big.Int, len(p.Modulus))
 		modProd = big.NewInt(1)
 		for i := range p.Modulus {
-			modProd.Mul(modProd, new(big.Int).SetUint64(p.Modulus[i].Value()))
+			modBig[i] = new(big.Int).SetUint64(p.Modulus[i].Value())
+			modProd.Mul(modProd, modBig[i])
 		}
 	}
 
 	return &UniformSampler{
 		params:  p.Params,
 		mod:     p.Modulus,
+		modBig:  modBig,
 		modProd: modProd,
 
 		baseSampler: csprng.NewUniformSampler(),
@@ -128,7 +133,7 @@ func (p RoundedGaussianSamplerParameters[T]) Sampler() Sampler {
 		}
 
 	case *big.Float:
-		stdDev := any(p.Center).(*big.Float)
+		stdDev := any(p.StdDev).(*big.Float)
 		if stdDev.Cmp(big.NewFloat(0)) != 1 {
 			panic("RoundedGaussianSamplerParameters: StdDev must be positive")
 		}
@@ -181,6 +186,7 @@ type Sampler interface {
 type UniformSampler struct {
 	params  dft.RingParameters
 	mod     []*num.Modulus
+	modBig  []*big.Int
 	modProd *big.Int
 
 	baseSampler *csprng.UniformSampler
@@ -234,6 +240,26 @@ func (s *UniformSampler) SampleTo(pOut *Poly) {
 }
 
 func (s *UniformSampler) sampleToBounded(pOut *Poly) {
+	boundMin := s.boundMin
+	if boundMin == nil {
+		boundMin = new(big.Int).Rsh(s.modProd, 1)
+		boundMin.Neg(boundMin)
+	}
+
+	boundMax := s.boundMax
+	if boundMax == nil {
+		boundMax = new(big.Int).Rsh(s.modProd, 1)
+	}
+
+	boundDiff := new(big.Int).Sub(boundMax, boundMin)
+	for j := 0; j < s.params.Rank(); j++ {
+		cInt, _ := rand.Int(s.baseSampler, boundDiff)
+		cInt.Add(cInt, boundMin)
+
+		for i := range s.mod {
+			pOut.Coeffs[i][j] = new(big.Int).Mod(cInt, s.modBig[i]).Uint64()
+		}
+	}
 }
 
 func (s *UniformSampler) SafeCopy() Sampler {
