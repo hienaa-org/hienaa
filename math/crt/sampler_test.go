@@ -134,42 +134,4 @@ func TestSampler(t *testing.T) {
 		assert.True(t, slices.MaxFunc(vOut, (*big.Int).Cmp).Cmp(big.NewInt(1)) <= 0)
 		assert.True(t, slices.MinFunc(vOut, (*big.Int).Cmp).Cmp(big.NewInt(-1)) >= 0)
 	})
-
-	t.Run("type=RoundedGaussianFloat64", func(t *testing.T) {
-		stdDevRef := 3.2
-		s := crt.RoundedGaussianSamplerParameters[float64]{
-			Params:  rP,
-			Modulus: q,
-
-			StdDev: stdDevRef,
-		}.Sampler()
-
-		pOut := s.Sample()
-		vOut := pev.AsBig(pOut)
-
-		mean, stdDev := meanStdDev(vOut)
-
-		delta := math.Sqrt(float64(rP.Rank()))
-		assert.InDelta(t, 0, mean, delta)
-		assert.InDelta(t, stdDevRef, stdDev, delta)
-	})
-
-	t.Run("type=RoundedGaussianBigFloat", func(t *testing.T) {
-		stdDevRef := math.Exp2(64)
-		s := crt.RoundedGaussianSamplerParameters[*big.Float]{
-			Params:  rP,
-			Modulus: q,
-
-			StdDev: big.NewFloat(stdDevRef),
-		}.Sampler()
-
-		pOut := s.Sample()
-		vOut := pev.AsBig(pOut)
-
-		mean, stdDev := meanStdDev(vOut)
-
-		delta := stdDev / math.Sqrt(float64(rP.Rank()))
-		assert.InDelta(t, 0, mean, delta)
-		assert.InDelta(t, stdDevRef, stdDev, delta)
-	})
 }

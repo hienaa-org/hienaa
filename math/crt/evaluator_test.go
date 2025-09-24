@@ -459,9 +459,11 @@ func TestAutFixedEvaluator(t *testing.T) {
 			p0Ref[i] = make([]uint64, M)
 			p1Ref[i] = make([]uint64, M)
 			idx := uint64(1)
-			for j := 0; j < N; j++ {
-				p0Ref[i][idx], p1Ref[i][idx] = p0.Coeffs[i][j], p1.Coeffs[i][j]
-				idx = num.Mul(idx, root, MMod)
+			for k := 0; k < fold; k++ {
+				for j := 0; j < N; j++ {
+					p0Ref[i][idx], p1Ref[i][idx] = p0.Coeffs[i][j], p1.Coeffs[i][j]
+					idx = num.Mul(idx, root, MMod)
+				}
 			}
 		}
 

@@ -271,20 +271,20 @@ func TestAutFixedNTT(t *testing.T) {
 		vec.MMulTo(pOut, p0NTT, p1NTT, q)
 		ntt.InverseTo(pOut, pOut)
 
-		pRef := make([]uint64, N)
-		pRefLong := cyclicMul(p0Ref, p1Ref, q)
+		pOutRef := make([]uint64, N)
+		pOutRefLong := cyclicMul(p0Ref, p1Ref, q)
 		for i := 1; i < M; i++ {
-			pRefLong[i] = num.Sub(pRefLong[i], pRefLong[0], q)
+			pOutRefLong[i] = num.Sub(pOutRefLong[i], pOutRefLong[0], q)
 		}
-		pRefLong[0] = 0
+		pOutRefLong[0] = 0
 
 		idx = 1
 		for i := 0; i < N; i++ {
-			pRef[i] = pRefLong[idx]
+			pOutRef[i] = pOutRefLong[idx]
 			idx = num.Mul(idx, root, cycloOrdMod)
 		}
 
-		assert.Equal(t, pRef, pOut)
+		assert.Equal(t, pOutRef, pOut)
 	})
 }
 
