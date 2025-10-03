@@ -45,16 +45,9 @@ func NewModulus[T Integer](mod T) *Modulus {
 
 	q := uint64(mod)
 
-	// 2^64 = q * x + r
-	// 2^128 = 2^64 * q * x + 2^64 * r
-	//       = 2^64 * q * x + (q * x + r) * r
-	//       = (2^64 * q + q * r) * x + r^2
-	divHi, rem := bits.Div64(1, 0, q)
-	quoRemHi, divLo := bits.Mul64(divHi, rem)
-	divHi += quoRemHi
-	remSqHi, remSqLo := bits.Mul64(rem, rem)
-	remSqQuo, _ := bits.Div64(remSqHi, remSqLo, q)
-	divLo += remSqQuo
+	var divHi, divLo, rem uint64
+	divHi, rem = bits.Div64(1, 0, q)
+	divLo, _ = bits.Div64(rem, 0, q)
 
 	var inv uint64
 	if q%2 == 1 {
