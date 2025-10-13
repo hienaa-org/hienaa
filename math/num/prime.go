@@ -344,7 +344,7 @@ func NthRootWithFactors(n int, g []uint64, q *Modulus, primes, exps []uint64) ui
 			primePows[i] *= primes[i]
 		}
 		if (primePows[i]-primePows[i]/primes[i])%uint64(n) != 0 {
-			panic("NthRootWithFactors: there is no N-th root of unity.")
+			panic("NthRootWithFactors: there is no N-th root of unity")
 		}
 	}
 

@@ -65,6 +65,17 @@ func (p *Poly) Clear() {
 	}
 }
 
+// SetCoeff sets the i-th coefficient to c.
+func (p *Poly) SetCoeff(i int, c Scalar) {
+	if len(c) != p.ModLen() {
+		panic("SetCoeff: inconsistent modulus length")
+	}
+
+	for j := range p.Coeffs {
+		p.Coeffs[j][i] = c[j]
+	}
+}
+
 // Copy returns a copy of p.
 func (p *Poly) Copy() *Poly {
 	pOut := NewPolyCustom(p.Rank(), p.ModLen(), p.isNTT)

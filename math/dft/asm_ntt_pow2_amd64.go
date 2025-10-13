@@ -12,10 +12,10 @@ import (
 // Assumes len(coeffs) >= 16.
 func nttInPlacePow2Unroll(coeffs, tw, twS []uint64, q uint64) {
 	switch {
-	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasAVX512VL:
+	case cpu.X86.HasAVX2 && cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasAVX512VL && cpu.X86.HasBMI2:
 		nttInPlacePow2UnrollAVX512(coeffs, tw, twS, q)
 		return
-	case cpu.X86.HasAVX2:
+	case cpu.X86.HasAVX && cpu.X86.HasAVX2 && cpu.X86.HasBMI2:
 		nttInPlacePow2UnrollAVX2(coeffs, tw, twS, q)
 		return
 	}
@@ -112,10 +112,10 @@ func nttInPlacePow2Unroll(coeffs, tw, twS []uint64, q uint64) {
 // Assumes len(coeffs) >= 32.
 func inttInPlacePow2Unroll(coeffs, twInv, twInvS []uint64, q uint64) {
 	switch {
-	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasAVX512VL:
+	case cpu.X86.HasAVX2 && cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasAVX512VL && cpu.X86.HasBMI2:
 		inttInPlacePow2UnrollAVX512(coeffs, twInv, twInvS, q)
 		return
-	case cpu.X86.HasAVX2:
+	case cpu.X86.HasAVX && cpu.X86.HasAVX2 && cpu.X86.HasBMI2:
 		inttInPlacePow2UnrollAVX2(coeffs, twInv, twInvS, q)
 		return
 	}
