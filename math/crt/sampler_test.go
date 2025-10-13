@@ -33,29 +33,29 @@ func entropy(v []*big.Int) float64 {
 	return e
 }
 
-func meanStdDev(v []*big.Int) (mean, stdDev float64) {
-	N := big.NewFloat(0).SetInt64(int64(len(v)))
-	sumBig := big.NewFloat(0)
-	for i := range v {
-		sumBig.Add(sumBig, big.NewFloat(0).SetInt(v[i]))
-	}
-	meanBig := sumBig.Quo(sumBig, N)
+// func meanStdDev(v []*big.Int) (mean, stdDev float64) {
+// 	N := big.NewFloat(0).SetInt64(int64(len(v)))
+// 	sumBig := big.NewFloat(0)
+// 	for i := range v {
+// 		sumBig.Add(sumBig, big.NewFloat(0).SetInt(v[i]))
+// 	}
+// 	meanBig := sumBig.Quo(sumBig, N)
 
-	variBig := big.NewFloat(0)
-	for i := range v {
-		diff := big.NewFloat(0).SetInt(v[i])
-		diff.Sub(diff, meanBig)
-		diff.Mul(diff, diff)
-		variBig.Add(variBig, diff)
-	}
-	variBig.Quo(variBig, N)
-	stdDevBig := big.NewFloat(0).Sqrt(variBig)
+// 	variBig := big.NewFloat(0)
+// 	for i := range v {
+// 		diff := big.NewFloat(0).SetInt(v[i])
+// 		diff.Sub(diff, meanBig)
+// 		diff.Mul(diff, diff)
+// 		variBig.Add(variBig, diff)
+// 	}
+// 	variBig.Quo(variBig, N)
+// 	stdDevBig := big.NewFloat(0).Sqrt(variBig)
 
-	mean, _ = meanBig.Float64()
-	stdDev, _ = stdDevBig.Float64()
+// 	mean, _ = meanBig.Float64()
+// 	stdDev, _ = stdDevBig.Float64()
 
-	return
-}
+// 	return
+// }
 
 func TestSampler(t *testing.T) {
 	rP := dft.NewCyclicParameters(1 << 10)

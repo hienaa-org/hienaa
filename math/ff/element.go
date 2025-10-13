@@ -24,9 +24,9 @@ func (e *Element) Clear() {
 	e.poly.Clear()
 }
 
-// SetCoeff sets the i-th coefficient to c.
-func (e *Element) SetCoeff(i int, c uint64) {
-	e.poly.SetCoeff(i, []uint64{c})
+// Coeffs returns the underlying coefficients of e.
+func (e *Element) Coeffs() []uint64 {
+	return e.poly.Coeffs[0]
 }
 
 // Copy returns a copy of e.
