@@ -171,7 +171,8 @@ func SMulLazy(x0, x1, x1S uint64, q *Modulus) uint64 {
 	return modops.SMulLazy(x0, x1, x1S, q.modulus)
 }
 
-// Exp returns x ** e mod q.
+// Exp returns x^e mod q.
+// If q is nil, it simply computes x^e mod 2^64.
 func Exp(x, e uint64, q *Modulus) uint64 {
 	switch e {
 	case 0:
@@ -181,13 +182,24 @@ func Exp(x, e uint64, q *Modulus) uint64 {
 	}
 
 	r := uint64(1)
-	for e > 0 {
-		if e%2 == 1 {
-			r = Mul(r, x, q)
+	if q == nil {
+		for e > 0 {
+			if e%2 == 1 {
+				r = r * x
+			}
+			e >>= 1
+			x = x * x
 		}
-		e >>= 1
-		x = Mul(x, x, q)
+	} else {
+		for e > 0 {
+			if e%2 == 1 {
+				r = Mul(r, x, q)
+			}
+			e >>= 1
+			x = Mul(x, x, q)
+		}
 	}
+
 	return r
 }
 
