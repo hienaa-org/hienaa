@@ -76,7 +76,6 @@ func TestReducer(t *testing.T) {
 		pOutRef := reducer.Reduce(p)
 
 		assert.Equal(t, pOutRef, pOut)
-
 	})
 
 	t.Run("type=Any", func(t *testing.T) {

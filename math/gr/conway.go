@@ -13,6 +13,10 @@ var conwayData []byte
 
 // findConway finds the Conway polynomial for given prime p and rank r.
 func findConway(p uint64, r int) []int64 {
+	if p%4 == 3 && r == 2 {
+		return []int64{1, 0, 1}
+	}
+
 	gz, err := gzip.NewReader(bytes.NewReader(conwayData))
 	if err != nil {
 		panic(err)
