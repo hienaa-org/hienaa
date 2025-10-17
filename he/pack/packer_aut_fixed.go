@@ -2,31 +2,462 @@ package pack
 
 import (
 	"math"
-	"math/big"
+	"math/bits"
 	"slices"
 
 	"github.com/hienaa-org/hienaa/math/crt"
-	"github.com/hienaa-org/hienaa/math/csprng"
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/gr"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
 )
 
+type autFixedPow2Mod1Packer struct {
+	params dft.RingParameters
+	mod    *num.Modulus
+
+	// packLen is the packing length.
+	packLen int
+	// ntt is the transformer for NTT.
+	ntt dft.Transformer
+
+	buf packerBuffer
+}
+
+// newAutFixedPow2Mod1Packer creates a new [autFixedPow2Mod1Packer].
+func newAutFixedPow2Mod1Packer(params dft.RingParameters, mod *num.Modulus) *autFixedPow2Mod1Packer {
+	primes, _ := num.Factor(mod.Value())
+	packLen := params.CycloOrder() >> 2
+	for i := range primes {
+		ithLogPackLen := bits.TrailingZeros64(primes[i]-1) - 2
+		if packLen > (1 << ithLogPackLen) {
+			packLen = 1 << ithLogPackLen
+		}
+	}
+
+	nttParams := dft.NewAutFixedParameters(packLen<<2, packLen)
+	ntt := dft.NewTransformer(nttParams, mod)
+
+	return &autFixedPow2Mod1Packer{
+		params: params,
+		mod:    mod,
+
+		packLen: packLen,
+		ntt:     ntt,
+
+		buf: newPackerBuffer(2, packLen),
+	}
+}
+
+// Params returns the parameters of the packer.
+func (p *autFixedPow2Mod1Packer) Params() dft.RingParameters {
+	return p.params
+}
+
+// Modulus returns the modulus of the packer.
+func (p *autFixedPow2Mod1Packer) Modulus() *num.Modulus {
+	return p.mod
+}
+
+// PackLen returns the packing length of the packer.
+func (p *autFixedPow2Mod1Packer) PackLen() int {
+	return p.packLen
+}
+
+// SafeCopy returns a safe copy of the packer.
+func (p *autFixedPow2Mod1Packer) SafeCopy() PackerInt {
+	return &autFixedPow2Mod1Packer{
+		params:  p.params,
+		mod:     p.mod,
+		packLen: p.packLen,
+
+		ntt: p.ntt.SafeCopy(),
+
+		buf: newPackerBuffer(2, p.packLen),
+	}
+}
+
+// Pack packs the input vector into a polynomial.
+func (p *autFixedPow2Mod1Packer) Pack(vIn []uint64) *crt.Poly {
+	pOut := crt.NewPoly(p.params.Rank(), 1)
+	p.PackTo(pOut, vIn)
+	return pOut
+}
+
+// PackTo packs the input vector into a polynomial.
+func (p *autFixedPow2Mod1Packer) PackTo(pOut *crt.Poly, vIn []uint64) {
+	vLen := len(vIn)
+	if p.packLen%vLen != 0 {
+		panic("packTo: message length should divide the maximum packing length")
+	}
+	if pOut.Rank() != p.params.Rank() {
+		panic("packTo: output rank should match the parameters of the packer")
+	}
+	if pOut.ModLen() != 1 {
+		panic("packTo: output modulus length should be 1")
+	}
+
+	for i := 0; i < p.packLen/vLen; i++ {
+		copy(p.buf.coeffs[0][vLen*i:vLen*(i+1)], vIn)
+	}
+
+	pow5 := 1
+	mask := p.packLen<<2 - 1
+	revShiftBits := 64 - int(num.Log2(uint64(p.packLen))+1)
+	for i := 0; i < p.packLen; i++ {
+		idx := pow5 >> 1
+		if pow5 > p.packLen<<1 {
+			idx = p.packLen<<1 - 1 - idx
+		}
+
+		idxOut := int(bits.Reverse64(uint64(idx)) >> revShiftBits)
+		if idxOut >= p.packLen {
+			idxOut = p.packLen<<1 - 1 - idxOut
+		}
+
+		p.buf.coeffs[1][idxOut] = p.buf.coeffs[0][i]
+		pow5 = (5 * pow5) & mask
+	}
+
+	vec.MFormTo(p.buf.coeffs[0], p.buf.coeffs[1], p.mod)
+	p.ntt.InverseTo(p.buf.coeffs[0], p.buf.coeffs[0])
+
+	clear(pOut.Coeffs[0])
+	skip := p.params.Rank() / p.packLen
+	for i := 0; i < p.params.Rank()/skip; i++ {
+		pOut.Coeffs[0][i*skip] = p.buf.coeffs[0][i]
+	}
+}
+
+// UnPack unpacks the polynomial into a vector.
+func (p *autFixedPow2Mod1Packer) UnPack(pIn *crt.Poly) []uint64 {
+	vOut := make([]uint64, p.packLen)
+	p.UnPackTo(vOut, pIn)
+	return vOut
+}
+
+// UnPackTo unpacks the polynomial into a vector.
+func (p *autFixedPow2Mod1Packer) UnPackTo(vOut []uint64, pIn *crt.Poly) {
+	vLen := len(vOut)
+
+	if p.packLen%vLen != 0 {
+		panic("packTo: message length should divide the maximum packing length")
+	}
+	if pIn.Rank() != p.params.Rank() {
+		panic("packTo: input rank should match the parameters of the packer")
+	}
+	if pIn.ModLen() != 1 {
+		panic("packTo: input modulus length should be 1")
+	}
+
+	skip := p.params.Rank() / p.packLen
+	for i := 0; i < p.params.Rank()/skip; i++ {
+		p.buf.coeffs[0][i] = pIn.Coeffs[0][i*skip]
+	}
+	p.ntt.ForwardTo(p.buf.coeffs[0], p.buf.coeffs[0])
+	vec.InvMFormTo(p.buf.coeffs[0], p.buf.coeffs[0], p.mod)
+
+	pow5 := 1
+	mask := p.packLen<<2 - 1
+	revShiftBits := 64 - int(num.Log2(uint64(p.packLen))+1)
+	for i := 0; i < p.packLen; i++ {
+		idx := pow5 >> 1
+		if pow5 > p.packLen<<1 {
+			idx = p.packLen<<1 - 1 - idx
+		}
+
+		idxIn := int(bits.Reverse64(uint64(idx)) >> revShiftBits)
+		if idxIn >= p.packLen {
+			idxIn = p.packLen<<1 - 1 - idxIn
+		}
+
+		p.buf.coeffs[1][i] = p.buf.coeffs[0][idxIn]
+		pow5 = (5 * pow5) & mask
+	}
+
+	copy(vOut, p.buf.coeffs[1][:vLen])
+}
+
+type autFixedPow2Mod3Packer struct {
+	params dft.RingParameters
+	mod    *num.Modulus
+
+	// packLen is the packing length.
+	packLen int
+	// nttRank is the rank of the NTT.
+	nttRank int
+	// packIdx is the index mapping for the packing.
+	packIdx []int
+
+	// r is the Galois ring.
+	r *gr.GaloisRing
+	// tw is the twiddle factor for NTT.
+	tw []*gr.Element
+	// twInv is the twiddle factor for InvNTT.
+	twInv []*gr.Element
+
+	// rankInv is the modular inverse of the rank.
+	rankInv uint64
+
+	buf pow2Mod3PackerBuffer
+}
+
+// newAutFixedPow2Mod3Packer creates a new [autFixedPow2Mod3Packer].
+func newAutFixedPow2Mod3Packer(params dft.RingParameters, mod *num.Modulus) *autFixedPow2Mod3Packer {
+	primes, _ := num.Factor(mod.Value())
+	packLen := params.CycloOrder() >> 2
+	LogPackLen := bits.TrailingZeros64(primes[0]+1) - 1
+	if packLen > (1 << LogPackLen) {
+		packLen = 1 << LogPackLen
+	}
+
+	nttRank := packLen
+	if int(primes[0])%params.CycloOrder() != params.CycloOrder()-1 {
+		packLen >>= 1
+	}
+
+	r := gr.NewGaloisRing(mod.Value(), 2)
+
+	twLarge := make([]*gr.Element, nttRank<<1)
+	twInvLarge := make([]*gr.Element, nttRank<<1)
+	twLarge[0], twLarge[1] = r.NewElementFromUint64(1), grNthRoot(r, nttRank<<2)
+	twInvLarge[0], twInvLarge[1] = r.NewElementFromUint64(1), r.Inv(twLarge[1])
+	for i := 2; i < 2*nttRank; i++ {
+		twLarge[i] = r.Mul(twLarge[i-1], twLarge[1])
+		twInvLarge[i] = r.Mul(twInvLarge[i-1], twInvLarge[1])
+	}
+	bitReverseInPlace(twLarge)
+	bitReverseInPlace(twInvLarge)
+
+	tw := make([]*gr.Element, nttRank)
+	twInv := make([]*gr.Element, nttRank)
+
+	tw[0] = twLarge[1]
+	twInv[0] = twInvLarge[1]
+	for m := 1; m <= nttRank/2; m <<= 1 {
+		copy(tw[m:2*m], twLarge[2*m:3*m])
+		copy(twInv[m:2*m], twInvLarge[2*m:3*m])
+	}
+
+	mask := nttRank<<2 - 1
+	packIdx := make([]int, nttRank)
+	revShiftBits := 64 - int(num.Log2(uint64(nttRank))+1)
+	if nttRank == packLen {
+		for i := 0; i < packLen; i++ {
+			packIdx[i] = int(num.Exp(5, uint64(i), nil)) & mask
+			if packIdx[i] > packLen<<1 {
+				packIdx[i] = mask - packIdx[i] + 1
+			}
+
+			packIdx[i] >>= 1
+			packIdx[i] = int(bits.Reverse64(uint64(packIdx[i])) >> revShiftBits)
+			if packIdx[i] >= nttRank {
+				packIdx[i] = nttRank<<1 - 1 - packIdx[i]
+			}
+		}
+	} else {
+		for i := 0; i < packLen; i++ {
+			idx1 := int(num.Exp(5, uint64(i), nil)) & mask
+			idx2 := (idx1 * int(primes[0])) & mask
+			idx3 := mask - idx1 + 1
+			idx4 := mask - idx2 + 1
+
+			if idx1 < packLen<<1 {
+				packIdx[i] = idx1
+			} else if idx2 < packLen<<1 {
+				packIdx[i] = idx2
+			} else if idx3 < packLen<<1 {
+				packIdx[i] = idx3
+			} else {
+				packIdx[i] = idx4
+			}
+
+			if packIdx[i] < idx1 && idx1 < packLen<<2 {
+				packIdx[i+packLen] = idx1
+			}
+			if packIdx[i] < idx2 && idx2 < packLen<<2 {
+				packIdx[i+packLen] = idx2
+			}
+			if packIdx[i] < idx3 && idx3 < packLen<<2 {
+				packIdx[i+packLen] = idx3
+			}
+			if packIdx[i] < idx4 && idx4 < packLen<<2 {
+				packIdx[i+packLen] = idx4
+			}
+
+			packIdx[i] >>= 1
+			packIdx[i+packLen] >>= 1
+
+			packIdx[i] = int(bits.Reverse64(uint64(packIdx[i])) >> revShiftBits)
+			if packIdx[i] >= nttRank {
+				packIdx[i] = nttRank<<1 - 1 - packIdx[i]
+			}
+
+			packIdx[i+packLen] = int(bits.Reverse64(uint64(packIdx[i+packLen])) >> revShiftBits)
+			if packIdx[i+packLen] >= nttRank {
+				packIdx[i+packLen] = nttRank<<1 - 1 - packIdx[i+packLen]
+			}
+		}
+	}
+
+	return &autFixedPow2Mod3Packer{
+		params: params,
+		mod:    mod,
+
+		packLen: packLen,
+		nttRank: nttRank,
+		packIdx: packIdx,
+
+		r:     r,
+		tw:    tw,
+		twInv: twInv,
+
+		rankInv: num.Inv(uint64(nttRank<<1), mod),
+
+		buf: newPow2Mod3PackerBuffer(nttRank),
+	}
+}
+
+// Params returns the parameters of the packer.
+func (p *autFixedPow2Mod3Packer) Params() dft.RingParameters {
+	return p.params
+}
+
+// Modulus returns the modulus of the packer.
+func (p *autFixedPow2Mod3Packer) Modulus() *num.Modulus {
+	return p.mod
+}
+
+// PackLen returns the packing length of the packer.
+func (p *autFixedPow2Mod3Packer) PackLen() int {
+	return p.packLen
+}
+
+// SafeCopy returns a safe copy of the packer.
+func (p *autFixedPow2Mod3Packer) SafeCopy() PackerInt {
+	return &autFixedPow2Mod3Packer{
+		params:  p.params,
+		mod:     p.mod,
+		packLen: p.packLen,
+
+		packIdx: p.packIdx,
+
+		r:     p.r,
+		tw:    p.tw,
+		twInv: p.twInv,
+
+		rankInv: p.rankInv,
+
+		buf: newPow2Mod3PackerBuffer(p.nttRank),
+	}
+}
+
+// Pack packs the input vector into a polynomial.
+func (p *autFixedPow2Mod3Packer) Pack(vIn []uint64) *crt.Poly {
+	pOut := crt.NewPoly(p.params.Rank(), 1)
+	p.PackTo(pOut, vIn)
+	return pOut
+}
+
+// PackTo packs the input vector into a polynomial.
+func (p *autFixedPow2Mod3Packer) PackTo(pOut *crt.Poly, vIn []uint64) {
+	vLen := len(vIn)
+	if p.packLen%vLen != 0 {
+		panic("packTo: message length should divide the maximum packing length")
+	}
+	if pOut.Rank() != p.params.Rank() {
+		panic("packTo: output rank should match the parameters of the packer")
+	}
+	if pOut.ModLen() != 1 {
+		panic("packTo: output modulus length should be 1")
+	}
+
+	for i := 0; i < p.packLen; i++ {
+		idx := p.packIdx[i]
+		p.buf.coeffs[idx].Clear()
+		p.buf.coeffs[idx].Coeffs()[0] = vIn[i&(vLen-1)]
+
+		if p.packLen != p.nttRank {
+			idx = p.packIdx[i+p.packLen]
+			p.buf.coeffs[idx].Clear()
+			p.buf.coeffs[idx].Coeffs()[0] = vIn[i&(vLen-1)]
+		}
+	}
+
+	u := p.r.NewElement()
+	invNTTGaloisRingInPlacePow2(p.buf.coeffs, p.twInv, p.r)
+
+	skip := p.params.Rank() / p.nttRank
+	pOut.Coeffs[0][0] = num.Add(p.buf.coeffs[0].Coeffs()[0], p.buf.coeffs[0].Coeffs()[0], p.mod)
+	for i := 1; i < p.nttRank; i++ {
+		p.r.MulTo(u, p.buf.coeffs[p.nttRank-i], p.tw[0])
+		pOut.Coeffs[0][i*skip] = num.Add(p.buf.coeffs[i].Coeffs()[0], u.Coeffs()[0], p.mod)
+	}
+
+	vec.ScalarMulTo(pOut.Coeffs[0], pOut.Coeffs[0], p.rankInv, p.mod)
+}
+
+func (p *autFixedPow2Mod3Packer) UnPack(pIn *crt.Poly) []uint64 {
+	vOut := make([]uint64, p.packLen)
+	p.UnPackTo(vOut, pIn)
+	return vOut
+}
+
+func (p *autFixedPow2Mod3Packer) UnPackTo(vOut []uint64, pIn *crt.Poly) {
+	vLen := len(vOut)
+
+	if p.packLen%vLen != 0 {
+		panic("packTo: message length should divide the maximum packing length")
+	}
+
+	if pIn.Rank() != p.params.Rank() {
+		panic("packTo: input rank should match the parameters of the packer")
+	}
+	if pIn.ModLen() != 1 {
+		panic("packTo: input modulus length should be 1")
+	}
+
+	skip := p.params.Rank() / p.nttRank
+	p.buf.coeffs[0].Clear()
+	p.buf.coeffs[0].Coeffs()[0] = pIn.Coeffs[0][0]
+	for i := 1; i < p.nttRank; i++ {
+		real := num.Mul(p.tw[0].Coeffs()[0], pIn.Coeffs[0][(p.nttRank-i)*skip], p.mod)
+		imag := num.Mul(p.tw[0].Coeffs()[1], pIn.Coeffs[0][(p.nttRank-i)*skip], p.mod)
+		p.buf.coeffs[i].Coeffs()[0] = num.Sub(pIn.Coeffs[0][i*skip], real, p.mod)
+		p.buf.coeffs[i].Coeffs()[1] = num.Neg(imag, p.mod)
+	}
+
+	nttGaloisRingInPlacePow2(p.buf.coeffs, p.tw, p.r)
+
+	for i := 0; i < vLen; i++ {
+		idx := p.packIdx[i]
+		vOut[i] = p.buf.coeffs[idx].Coeffs()[0]
+	}
+}
+
 // autFixedPrimePacker is a packer for autfixed ring.
 type autFixedPrimePacker struct {
-	params  dft.RingParameters
-	mod     *num.Modulus
+	params dft.RingParameters
+	mod    *num.Modulus
+
+	// packLen is the packing length.
 	packLen int
 
-	resol    [][]uint64
+	// resol is the resolution of unity.
+	resol [][]uint64
+	// invResol is the inverse resolution of unity.
 	invResol [][]uint64
 
-	ambRank   int
+	// ambRank is the rank of the ambient NTT.
+	ambRank int
+	// ambModLen is the length of the ambient modulus.
 	ambModLen int
-	ambMod    []*num.Modulus
-	ambNTT    []dft.Transformer
-	embedder  *crt.Embedder
+	// ambMod is the ambient modulus.
+	ambMod []*num.Modulus
+	// ambNTT is the ambient NTT.
+	ambNTT []dft.Transformer
+	// embedder is the embedder for the packing.
+	embedder *crt.Embedder
 
 	buf packerBuffer
 }
@@ -96,8 +527,9 @@ func newAutFixedPrimePacker(params dft.RingParameters, mod *num.Modulus) *autFix
 	embedder := crt.NewEmbedder([]*num.Modulus{mod}, ambMod)
 
 	return &autFixedPrimePacker{
-		params:  params,
-		mod:     mod,
+		params: params,
+		mod:    mod,
+
 		packLen: packLen,
 
 		resol:    resol,
@@ -127,31 +559,7 @@ func FindResolutionOfUnity(cycloOrd int, prime uint64, exp uint64) []uint64 {
 	ord := num.Order(prime, cycloOrdMod)
 	rank := int(num.Totient(uint64(cycloOrd)) / ord)
 	r := gr.NewGaloisRing(uint64(num.Exp(prime, exp, nil)), int(ord))
-
-	// Sampler.
-	// Use the same seed nil to fix the randomness.
-	rSrc := csprng.NewUniformSamplerWithSeed(nil)
-
-	// genEl is the generator of the multiplicative group of the Galois ring.
-	// root is cycloOrd-th root of unity of the multiplicative group.
-	genEl := r.NewElement()
-	root := r.NewElement()
-	one := r.NewElementFromUint64(1)
-	ordOverCycloOrd := new(big.Int).Div(r.Ord(), big.NewInt(int64(cycloOrd)))
-	tmpEl := r.NewElement()
-	genCoeffs := genEl.Coeffs()
-	for {
-		for i := 0; i < int(ord); i++ {
-			genCoeffs[i] = rSrc.SampleN(r.Modulus())
-		}
-		r.ExpBigTo(tmpEl, genEl, r.Ord())
-		if tmpEl.IsEqual(one) {
-			r.ExpBigTo(root, genEl, ordOverCycloOrd)
-			if !root.IsEqual(one) {
-				break
-			}
-		}
-	}
+	root := grNthRoot(r, cycloOrd)
 
 	// Compute the first factor of the cyclotomic polynomial.
 	factorPoly := make([]*gr.Element, int(ord)+1)

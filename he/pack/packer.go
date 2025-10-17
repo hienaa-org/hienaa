@@ -4,6 +4,7 @@ package pack
 import (
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/dft"
+	"github.com/hienaa-org/hienaa/math/gr"
 	"github.com/hienaa-org/hienaa/math/num"
 )
 
@@ -32,18 +33,44 @@ func NewPackerInt(params dft.RingParameters, mod *num.Modulus) PackerInt {
 	case dft.Cyclotomic:
 		switch {
 		case num.IsPowerOfTwo(params.CycloOrder()):
-			// TODO: Add Bruun NTT.
-			switch {
-			case mod.Value()%4 == 1:
-				return newCyclotomicPow2NTTPacker(params, mod)
+			primes, _ := num.Factor(mod.Value())
+			isMod1 := true
+			for _, prime := range primes {
+				if prime%4 != 1 {
+					isMod1 = false
+					break
+				}
+			}
+
+			if isMod1 {
+				return newCyclotomicPow2Mod1Packer(params, mod)
+			} else if len(primes) == 1 {
+				return newCyclotomicPow2Mod3Packer(params, mod)
 			}
 		case dft.IsNTTFriendly(params, mod):
 			return newCyclotomicAnyNTTPacker(params, mod)
 		}
 	case dft.AutFixed:
 		switch {
+		case num.IsPowerOfTwo(params.CycloOrder()):
+			primes, _ := num.Factor(mod.Value())
+			isMod1 := true
+			for _, prime := range primes {
+				if prime%4 != 1 {
+					isMod1 = false
+					break
+				}
+			}
+			if isMod1 {
+				return newAutFixedPow2Mod1Packer(params, mod)
+			} else if len(primes) == 1 {
+				return newAutFixedPow2Mod3Packer(params, mod)
+			}
 		case num.IsPrime(params.CycloOrder()):
-			return newAutFixedPrimePacker(params, mod)
+			primes, _ := num.Factor(mod.Value())
+			if len(primes) == 1 {
+				return newAutFixedPrimePacker(params, mod)
+			}
 		}
 	}
 
@@ -61,4 +88,17 @@ func newPackerBuffer(dim, rank int) packerBuffer {
 		coeffs[i] = make([]uint64, rank)
 	}
 	return packerBuffer{coeffs: coeffs}
+}
+
+// pow2Mod3PackerBuffer is a buffer for [pow2Mod3Packer].
+type pow2Mod3PackerBuffer struct {
+	coeffs []*gr.Element
+}
+
+func newPow2Mod3PackerBuffer(rank int) pow2Mod3PackerBuffer {
+	coeffs := make([]*gr.Element, rank)
+	for i := range coeffs {
+		coeffs[i] = gr.NewElement(2)
+	}
+	return pow2Mod3PackerBuffer{coeffs: coeffs}
 }

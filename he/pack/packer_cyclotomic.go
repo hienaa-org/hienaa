@@ -1,86 +1,94 @@
 package pack
 
 import (
+	"math/bits"
+
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/dft"
+	"github.com/hienaa-org/hienaa/math/gr"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
 )
 
-// cyclotomicPow2NTTPacker is a packer for cyclotomic NTT with power-of-two cyclotomic order.
-type cyclotomicPow2NTTPacker struct {
-	params  dft.RingParameters
-	mod     *num.Modulus
-	packLen int
+// cyclotomicPow2Mod1Packer is a packer for the power-of-two cyclotomic ring,
+// where the modulus is a multiple of prime powers that are 1 mod 4.
+type cyclotomicPow2Mod1Packer struct {
+	params dft.RingParameters
+	mod    *num.Modulus
 
+	// packLen is the packing length.
+	packLen int
+	// ntt is the transformer for NTT.
 	ntt dft.Transformer
 
 	buf packerBuffer
 }
 
-// newCyclotomicPow2NTTPacker creates a new [cyclotomicPow2NTTPacker].
-func newCyclotomicPow2NTTPacker(params dft.RingParameters, mod *num.Modulus) *cyclotomicPow2NTTPacker {
+// newCyclotomicPow2Mod1Packer creates a new [cyclotomicPow2Mod1Packer].
+func newCyclotomicPow2Mod1Packer(params dft.RingParameters, mod *num.Modulus) *cyclotomicPow2Mod1Packer {
 	primes, _ := num.Factor(mod.Value())
-	packLen := int(params.Rank())
+	packLen := params.CycloOrder() >> 1
 	for i := range primes {
-		ord := num.Order(primes[i], num.NewModulus(params.CycloOrder()))
-		if packLen > int(params.Rank())/int(ord) {
-			packLen = int(params.Rank()) / int(ord)
+		ithLogPackLen := bits.TrailingZeros64(primes[i]-1) - 1
+		if packLen > (1 << ithLogPackLen) {
+			packLen = 1 << ithLogPackLen
 		}
 	}
 	nttParams := dft.NewCyclotomicParameters(packLen << 1)
 	ntt := dft.NewTransformer(nttParams, mod)
 
-	return &cyclotomicPow2NTTPacker{
-		params:  params,
-		mod:     mod,
-		packLen: packLen,
+	return &cyclotomicPow2Mod1Packer{
+		params: params,
+		mod:    mod,
 
-		ntt: ntt,
+		packLen: packLen,
+		ntt:     ntt,
 
 		buf: newPackerBuffer(2, packLen),
 	}
 }
 
 // Params returns the parameters of the packer.
-func (p *cyclotomicPow2NTTPacker) Params() dft.RingParameters {
+func (p *cyclotomicPow2Mod1Packer) Params() dft.RingParameters {
 	return p.params
 }
 
 // Modulus returns the modulus of the packer.
-func (p *cyclotomicPow2NTTPacker) Modulus() *num.Modulus {
+func (p *cyclotomicPow2Mod1Packer) Modulus() *num.Modulus {
 	return p.mod
 }
 
 // PackLen returns the packing length of the packer.
-func (p *cyclotomicPow2NTTPacker) PackLen() int {
+func (p *cyclotomicPow2Mod1Packer) PackLen() int {
 	return p.packLen
 }
 
 // SafeCopy returns a safe copy of the packer.
-func (p *cyclotomicPow2NTTPacker) SafeCopy() PackerInt {
-	return &cyclotomicPow2NTTPacker{
-		params:  p.params,
-		mod:     p.mod,
-		packLen: p.packLen,
+func (p *cyclotomicPow2Mod1Packer) SafeCopy() PackerInt {
+	return &cyclotomicPow2Mod1Packer{
+		params: p.params,
+		mod:    p.mod,
 
-		ntt: p.ntt.SafeCopy(),
+		packLen: p.packLen,
+		ntt:     p.ntt.SafeCopy(),
 
 		buf: newPackerBuffer(2, p.packLen),
 	}
 }
 
 // Pack packs the input vector into a polynomial.
-func (p *cyclotomicPow2NTTPacker) Pack(vIn []uint64) *crt.Poly {
+func (p *cyclotomicPow2Mod1Packer) Pack(vIn []uint64) *crt.Poly {
 	pOut := crt.NewPoly(p.params.Rank(), 1)
 	p.PackTo(pOut, vIn)
 	return pOut
 }
 
 // PackTo packs the input vector into a polynomial.
-func (p *cyclotomicPow2NTTPacker) PackTo(pOut *crt.Poly, vIn []uint64) {
-	vLen := len(vIn)
+func (p *cyclotomicPow2Mod1Packer) PackTo(pOut *crt.Poly, vIn []uint64) {
+	// The hypercube structure is a two-dimensional matrix. Should we take a matrix as input?
+	// There can be two sparse packing strategy: fixing the conjugate automorphism, or not. Can the users choose whatever they want?
 
+	vLen := len(vIn)
 	if p.packLen%vLen != 0 {
 		panic("packTo: message length should divide the maximum packing length")
 	}
@@ -95,16 +103,17 @@ func (p *cyclotomicPow2NTTPacker) PackTo(pOut *crt.Poly, vIn []uint64) {
 		copy(p.buf.coeffs[0][vLen*i:vLen*(i+1)], vIn)
 	}
 
-	idx := 1
+	pow5 := 1
 	mask := p.packLen<<1 - 1
 	for i := 0; i < p.packLen>>1; i++ {
-		pOut.Coeffs[0][idx>>1] = vIn[p.packLen>>1-i-1]
-		pOut.Coeffs[0][p.packLen-idx>>1-1] = vIn[p.packLen-i-1]
-		idx = (5 * idx) & mask
+		p.buf.coeffs[1][pow5>>1] = p.buf.coeffs[0][p.packLen>>1-i-1]
+		p.buf.coeffs[1][p.packLen-pow5>>1-1] = p.buf.coeffs[0][p.packLen-i-1]
+		pow5 = (5 * pow5) & mask
 	}
 
-	copy(p.buf.coeffs[0], pOut.Coeffs[0][:p.packLen])
+	copy(p.buf.coeffs[0], p.buf.coeffs[1])
 	vec.RadixReverseInPlace(p.buf.coeffs[0], 2)
+	vec.MFormTo(p.buf.coeffs[0], p.buf.coeffs[0], p.mod)
 	p.ntt.InverseTo(p.buf.coeffs[0], p.buf.coeffs[0])
 
 	clear(pOut.Coeffs[0])
@@ -115,14 +124,14 @@ func (p *cyclotomicPow2NTTPacker) PackTo(pOut *crt.Poly, vIn []uint64) {
 }
 
 // UnPack unpacks the polynomial into a vector.
-func (p *cyclotomicPow2NTTPacker) UnPack(pIn *crt.Poly) []uint64 {
+func (p *cyclotomicPow2Mod1Packer) UnPack(pIn *crt.Poly) []uint64 {
 	vOut := make([]uint64, p.packLen)
 	p.UnPackTo(vOut, pIn)
 	return vOut
 }
 
 // UnPackTo unpacks the polynomial into a vector.
-func (p *cyclotomicPow2NTTPacker) UnPackTo(vOut []uint64, pIn *crt.Poly) {
+func (p *cyclotomicPow2Mod1Packer) UnPackTo(vOut []uint64, pIn *crt.Poly) {
 	vLen := len(vOut)
 
 	if p.packLen%vLen != 0 {
@@ -140,36 +149,223 @@ func (p *cyclotomicPow2NTTPacker) UnPackTo(vOut []uint64, pIn *crt.Poly) {
 		p.buf.coeffs[0][i] = pIn.Coeffs[0][i*skip]
 	}
 	p.ntt.ForwardTo(p.buf.coeffs[0], p.buf.coeffs[0])
+	vec.InvMFormTo(p.buf.coeffs[0], p.buf.coeffs[0], p.mod)
 	vec.RadixReverseInPlace(p.buf.coeffs[0], 2)
 
-	idx := 1
+	pow5 := 1
 	mask := p.packLen<<1 - 1
 	for i := 0; i < p.packLen>>1; i++ {
-		p.buf.coeffs[1][p.packLen>>1-i-1] = p.buf.coeffs[0][idx>>1]
-		p.buf.coeffs[1][p.packLen-i-1] = p.buf.coeffs[0][p.packLen-idx>>1-1]
-		idx = (5 * idx) & mask
+		p.buf.coeffs[1][p.packLen>>1-i-1] = p.buf.coeffs[0][pow5>>1]
+		p.buf.coeffs[1][p.packLen-i-1] = p.buf.coeffs[0][p.packLen-pow5>>1-1]
+		pow5 = (5 * pow5) & mask
 	}
 	copy(vOut, p.buf.coeffs[1][:vLen])
 }
 
-type cyclotomicAnyNTTPacker struct {
-	params  dft.RingParameters
-	mod     *num.Modulus
-	packLen int
+// cyclotomicPow2Mod3Packer is a packer for the power-of-two cyclotomic ring,
+// where the modulus is a multiple of prime powers that are 3 mod 4.
+type cyclotomicPow2Mod3Packer struct {
+	params dft.RingParameters
+	mod    *num.Modulus
 
+	// packLen is the packing length.
+	packLen int
+	// packIdx is the index mapping for the packing.
+	packIdx []int
+
+	// r is the Galois ring.
+	r *gr.GaloisRing
+	// tw is the twiddle factor for NTT.
+	tw []*gr.Element
+	// twInv is the twiddle factor for InvNTT.
+	twInv []*gr.Element
+
+	// rankInv is the modular inverse of the rank.
+	rankInv uint64
+
+	buf pow2Mod3PackerBuffer
+}
+
+// newCyclotomicPow2Mod3Packer creates a new [cyclotomicPow2Mod3Packer].
+func newCyclotomicPow2Mod3Packer(params dft.RingParameters, mod *num.Modulus) *cyclotomicPow2Mod3Packer {
+	primes, _ := num.Factor(mod.Value())
+	packLen := params.CycloOrder() >> 2
+	LogPackLen := bits.TrailingZeros64(primes[0]+1) - 1
+	if packLen > (1 << LogPackLen) {
+		packLen = 1 << LogPackLen
+	}
+
+	packIdx := make([]int, packLen<<1)
+	mask := packLen<<2 - 1
+	for i := 0; i < packLen; i++ {
+		packIdx[i] = int(num.Exp(5, uint64(i), nil) & uint64(mask))
+		packIdx[i+packLen] = (packIdx[i] * int(primes[0])) & mask
+
+		packIdx[i] >>= 1
+		packIdx[i+packLen] >>= 1
+	}
+
+	r := gr.NewGaloisRing(mod.Value(), 2)
+	root := grNthRoot(r, packLen<<2)
+	tw := make([]*gr.Element, packLen<<1)
+	twInv := make([]*gr.Element, packLen<<1)
+	tw[0], tw[1] = r.NewElementFromUint64(1), root
+	twInv[0], twInv[1] = r.NewElementFromUint64(1), r.Inv(root)
+	for i := 2; i < 2*packLen; i++ {
+		tw[i] = r.Mul(tw[i-1], tw[1])
+		twInv[i] = r.Mul(twInv[i-1], twInv[1])
+	}
+	bitReverseInPlace(tw)
+	bitReverseInPlace(twInv)
+
+	rankInv := num.Inv(uint64(packLen<<1), mod)
+
+	return &cyclotomicPow2Mod3Packer{
+		params: params,
+		mod:    mod,
+
+		packLen: packLen,
+		packIdx: packIdx,
+
+		r:     r,
+		tw:    tw,
+		twInv: twInv,
+
+		rankInv: rankInv,
+
+		buf: newPow2Mod3PackerBuffer(packLen << 1),
+	}
+}
+
+// Params returns the parameters of the packer.
+func (p *cyclotomicPow2Mod3Packer) Params() dft.RingParameters {
+	return p.params
+}
+
+// Modulus returns the modulus of the packer.
+func (p *cyclotomicPow2Mod3Packer) Modulus() *num.Modulus {
+	return p.mod
+}
+
+// PackLen returns the packing length of the packer.
+func (p *cyclotomicPow2Mod3Packer) PackLen() int {
+	return p.packLen
+}
+
+// SafeCopy returns a safe copy of the packer.
+func (p *cyclotomicPow2Mod3Packer) SafeCopy() PackerInt {
+	return &cyclotomicPow2Mod3Packer{
+		params: p.params,
+		mod:    p.mod,
+
+		packLen: p.packLen,
+		packIdx: p.packIdx,
+
+		r:     p.r,
+		tw:    p.tw,
+		twInv: p.twInv,
+
+		rankInv: p.rankInv,
+
+		buf: newPow2Mod3PackerBuffer(p.packLen << 1),
+	}
+}
+
+// Pack packs the input vector into a polynomial.
+func (p *cyclotomicPow2Mod3Packer) Pack(vIn []uint64) *crt.Poly {
+	pOut := crt.NewPoly(p.params.Rank(), 1)
+	p.PackTo(pOut, vIn)
+	return pOut
+}
+
+// PackTo packs the input vector into a polynomial.
+func (p *cyclotomicPow2Mod3Packer) PackTo(pOut *crt.Poly, vIn []uint64) {
+	vLen := len(vIn)
+
+	if p.packLen%vLen != 0 {
+		panic("packTo: message length should divide the maximum packing length")
+	}
+	if pOut.Rank() != p.params.Rank() {
+		panic("packTo: output rank should match the parameters of the packer")
+	}
+	if pOut.ModLen() != 1 {
+		panic("packTo: output modulus length should be 1")
+	}
+
+	for i := 0; i < p.packLen; i++ {
+		idx1 := p.packIdx[i]
+		idx2 := p.packIdx[i+p.packLen]
+
+		p.buf.coeffs[idx1].Clear()
+		p.buf.coeffs[idx1].Coeffs()[0] = vIn[i&(vLen-1)]
+
+		p.buf.coeffs[idx2].Clear()
+		p.buf.coeffs[idx2].Coeffs()[0] = vIn[i&(vLen-1)]
+	}
+
+	bitReverseInPlace(p.buf.coeffs)
+	invNTTGaloisRingInPlacePow2(p.buf.coeffs, p.twInv, p.r)
+
+	clear(pOut.Coeffs[0])
+	skip := p.params.Rank() / (p.packLen << 1)
+	for i := range p.buf.coeffs {
+		pOut.Coeffs[0][i*skip] = num.Mul(p.buf.coeffs[i].Coeffs()[0], p.rankInv, p.mod)
+	}
+}
+
+// UnPack unpacks the polynomial into a vector.
+func (p *cyclotomicPow2Mod3Packer) UnPack(pIn *crt.Poly) []uint64 {
+	vOut := make([]uint64, p.packLen)
+	p.UnPackTo(vOut, pIn)
+	return vOut
+}
+
+// UnPackTo unpacks the polynomial into a vector.
+func (p *cyclotomicPow2Mod3Packer) UnPackTo(vOut []uint64, pIn *crt.Poly) {
+	vLen := len(vOut)
+
+	if p.packLen%vLen != 0 {
+		panic("packTo: message length should divide the maximum packing length")
+	}
+
+	skip := p.params.Rank() / (p.packLen << 1)
+	for i := range p.buf.coeffs {
+		p.buf.coeffs[i].Clear()
+		p.buf.coeffs[i].Coeffs()[0] = pIn.Coeffs[0][i*skip]
+	}
+
+	nttGaloisRingInPlacePow2(p.buf.coeffs, p.tw, p.r)
+	bitReverseInPlace(p.buf.coeffs)
+
+	for i := range vOut {
+		idx := p.packIdx[i]
+		vOut[i] = p.buf.coeffs[idx].Coeffs()[0]
+	}
+}
+
+// cyclotomicAnyNTTPacker is a packer for the cyclotomic ring,
+// where the modulus is a multiple of prime powers that are 1 mod 4.
+type cyclotomicAnyNTTPacker struct {
+	params dft.RingParameters
+	mod    *num.Modulus
+
+	// packLen is the packing length.
+	packLen int
+	// ntt is the transformer for NTT.
 	ntt dft.Transformer
 }
 
+// newCyclotomicAnyNTTPacker creates a new [cyclotomicAnyNTTPacker].
 func newCyclotomicAnyNTTPacker(params dft.RingParameters, mod *num.Modulus) *cyclotomicAnyNTTPacker {
 	packLen := int(params.Rank())
 	ntt := dft.NewTransformer(params, mod)
 
 	return &cyclotomicAnyNTTPacker{
-		params:  params,
-		mod:     mod,
-		packLen: packLen,
+		params: params,
+		mod:    mod,
 
-		ntt: ntt,
+		packLen: packLen,
+		ntt:     ntt,
 	}
 }
 
@@ -220,7 +416,8 @@ func (p *cyclotomicAnyNTTPacker) PackTo(pOut *crt.Poly, vIn []uint64) {
 		panic("packTo: output modulus length should be 1")
 	}
 
-	p.ntt.InverseTo(pOut.Coeffs[0], vIn)
+	vec.MFormTo(pOut.Coeffs[0], vIn, p.mod)
+	p.ntt.InverseTo(pOut.Coeffs[0], pOut.Coeffs[0])
 }
 
 // UnPack unpacks the polynomial into a vector.
@@ -245,4 +442,5 @@ func (p *cyclotomicAnyNTTPacker) UnPackTo(vOut []uint64, pIn *crt.Poly) {
 	}
 
 	p.ntt.ForwardTo(vOut, pIn.Coeffs[0])
+	vec.InvMFormTo(vOut, vOut, p.mod)
 }

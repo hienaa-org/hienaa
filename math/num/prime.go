@@ -260,10 +260,7 @@ func Generators(q *Modulus) []uint64 {
 func GeneratorsWithFactors(q *Modulus, primes, exps []uint64) []uint64 {
 	primePows := make([]uint64, len(primes))
 	for i := range primePows {
-		primePows[i] = uint64(1)
-		for j := uint64(0); j < exps[i]; j++ {
-			primePows[i] *= primes[i]
-		}
+		primePows[i] = Exp(primes[i], exps[i], nil)
 	}
 
 	subGens := make([]uint64, len(primes))
@@ -339,10 +336,7 @@ func NthRoot(n int, g []uint64, q *Modulus) uint64 {
 func NthRootWithFactors(n int, g []uint64, q *Modulus, primes, exps []uint64) uint64 {
 	primePows := make([]uint64, len(primes))
 	for i := range primePows {
-		primePows[i] = uint64(1)
-		for j := uint64(0); j < exps[i]; j++ {
-			primePows[i] *= primes[i]
-		}
+		primePows[i] = Exp(primes[i], exps[i], nil)
 		if (primePows[i]-primePows[i]/primes[i])%uint64(n) != 0 {
 			panic("NthRootWithFactors: there is no N-th root of unity")
 		}

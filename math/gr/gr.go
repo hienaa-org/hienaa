@@ -189,7 +189,8 @@ func (gr *GaloisRing) MulSubTo(xOut, x0, x1 *Element) {
 }
 
 // Exp computes xOut = x^e.
-func (gr *GaloisRing) Exp(xOut, x *Element, e uint64) *Element {
+func (gr *GaloisRing) Exp(x *Element, e uint64) *Element {
+	xOut := gr.NewElement()
 	gr.ExpTo(xOut, x, e)
 	return xOut
 }
