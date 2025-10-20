@@ -3,9 +3,9 @@ package pack
 import (
 	"math/bits"
 
+	"github.com/hienaa-org/hienaa/he/pack/internal/gnum"
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/dft"
-	"github.com/hienaa-org/hienaa/math/gr"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
 )
@@ -173,12 +173,10 @@ type cyclotomicPow2Mod3Packer struct {
 	// packIdx is the index mapping for the packing.
 	packIdx []int
 
-	// r is the Galois ring.
-	r *gr.GaloisRing
 	// tw is the twiddle factor for NTT.
-	tw []*gr.Element
+	tw []gnum.GaussianInt
 	// twInv is the twiddle factor for InvNTT.
-	twInv []*gr.Element
+	twInv []gnum.GaussianInt
 
 	// rankInv is the modular inverse of the rank.
 	rankInv uint64
@@ -205,15 +203,14 @@ func newCyclotomicPow2Mod3Packer(params dft.RingParameters, mod *num.Modulus) *c
 		packIdx[i+packLen] >>= 1
 	}
 
-	r := gr.NewGaloisRing(mod.Value(), 2)
-	root := grNthRoot(r, packLen<<2)
-	tw := make([]*gr.Element, packLen<<1)
-	twInv := make([]*gr.Element, packLen<<1)
-	tw[0], tw[1] = r.NewElementFromUint64(1), root
-	twInv[0], twInv[1] = r.NewElementFromUint64(1), r.Inv(root)
+	root := gIntNthRoot(packLen<<2, mod)
+	tw := make([]gnum.GaussianInt, packLen<<1)
+	twInv := make([]gnum.GaussianInt, packLen<<1)
+	tw[0], tw[1] = gnum.GaussianInt{Real: 1, Imag: 0}, root
+	twInv[0], twInv[1] = gnum.GaussianInt{Real: 1, Imag: 0}, gnum.Inv(root, mod)
 	for i := 2; i < 2*packLen; i++ {
-		tw[i] = r.Mul(tw[i-1], tw[1])
-		twInv[i] = r.Mul(twInv[i-1], twInv[1])
+		tw[i] = gnum.Mul(tw[i-1], tw[1], mod)
+		twInv[i] = gnum.Mul(twInv[i-1], twInv[1], mod)
 	}
 	bitReverseInPlace(tw)
 	bitReverseInPlace(twInv)
@@ -227,7 +224,6 @@ func newCyclotomicPow2Mod3Packer(params dft.RingParameters, mod *num.Modulus) *c
 		packLen: packLen,
 		packIdx: packIdx,
 
-		r:     r,
 		tw:    tw,
 		twInv: twInv,
 
@@ -261,7 +257,6 @@ func (p *cyclotomicPow2Mod3Packer) SafeCopy() PackerInt {
 		packLen: p.packLen,
 		packIdx: p.packIdx,
 
-		r:     p.r,
 		tw:    p.tw,
 		twInv: p.twInv,
 
@@ -296,20 +291,20 @@ func (p *cyclotomicPow2Mod3Packer) PackTo(pOut *crt.Poly, vIn []uint64) {
 		idx1 := p.packIdx[i]
 		idx2 := p.packIdx[i+p.packLen]
 
-		p.buf.coeffs[idx1].Clear()
-		p.buf.coeffs[idx1].Coeffs()[0] = vIn[i&(vLen-1)]
+		p.buf.coeffs[idx1].Real = vIn[i&(vLen-1)]
+		p.buf.coeffs[idx1].Imag = 0
 
-		p.buf.coeffs[idx2].Clear()
-		p.buf.coeffs[idx2].Coeffs()[0] = vIn[i&(vLen-1)]
+		p.buf.coeffs[idx2].Real = vIn[i&(vLen-1)]
+		p.buf.coeffs[idx2].Imag = 0
 	}
 
 	bitReverseInPlace(p.buf.coeffs)
-	invNTTGaloisRingInPlacePow2(p.buf.coeffs, p.twInv, p.r)
+	invNTTGaloisRingInPlacePow2(p.buf.coeffs, p.twInv, p.mod)
 
 	clear(pOut.Coeffs[0])
 	skip := p.params.Rank() / (p.packLen << 1)
 	for i := range p.buf.coeffs {
-		pOut.Coeffs[0][i*skip] = num.Mul(p.buf.coeffs[i].Coeffs()[0], p.rankInv, p.mod)
+		pOut.Coeffs[0][i*skip] = num.Mul(p.buf.coeffs[i].Real, p.rankInv, p.mod)
 	}
 }
 
@@ -330,16 +325,16 @@ func (p *cyclotomicPow2Mod3Packer) UnPackTo(vOut []uint64, pIn *crt.Poly) {
 
 	skip := p.params.Rank() / (p.packLen << 1)
 	for i := range p.buf.coeffs {
-		p.buf.coeffs[i].Clear()
-		p.buf.coeffs[i].Coeffs()[0] = pIn.Coeffs[0][i*skip]
+		p.buf.coeffs[i].Real = pIn.Coeffs[0][i*skip]
+		p.buf.coeffs[i].Imag = 0
 	}
 
-	nttGaloisRingInPlacePow2(p.buf.coeffs, p.tw, p.r)
+	nttGaloisRingInPlacePow2(p.buf.coeffs, p.tw, p.mod)
 	bitReverseInPlace(p.buf.coeffs)
 
 	for i := range vOut {
 		idx := p.packIdx[i]
-		vOut[i] = p.buf.coeffs[idx].Coeffs()[0]
+		vOut[i] = p.buf.coeffs[idx].Real
 	}
 }
 

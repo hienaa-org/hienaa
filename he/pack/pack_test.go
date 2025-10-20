@@ -378,7 +378,7 @@ func BenchmarkPackerInt(b *testing.B) {
 				M = num.NextPrime(M, 1)
 				ord := num.Order(uint64(prime), num.NewModulus(M))
 				N = (M - 1) / int(ord)
-				if N > 1<<logN-1000 && N < 1<<logN+1000 {
+				if N > 1<<(logN-1) && N < 3*(1<<(logN-1)) {
 					break
 				}
 			}

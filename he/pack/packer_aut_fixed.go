@@ -5,6 +5,7 @@ import (
 	"math/bits"
 	"slices"
 
+	"github.com/hienaa-org/hienaa/he/pack/internal/gnum"
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/gr"
@@ -189,12 +190,10 @@ type autFixedPow2Mod3Packer struct {
 	// packIdx is the index mapping for the packing.
 	packIdx []int
 
-	// r is the Galois ring.
-	r *gr.GaloisRing
 	// tw is the twiddle factor for NTT.
-	tw []*gr.Element
+	tw []gnum.GaussianInt
 	// twInv is the twiddle factor for InvNTT.
-	twInv []*gr.Element
+	twInv []gnum.GaussianInt
 
 	// rankInv is the modular inverse of the rank.
 	rankInv uint64
@@ -216,21 +215,19 @@ func newAutFixedPow2Mod3Packer(params dft.RingParameters, mod *num.Modulus) *aut
 		packLen >>= 1
 	}
 
-	r := gr.NewGaloisRing(mod.Value(), 2)
-
-	twLarge := make([]*gr.Element, nttRank<<1)
-	twInvLarge := make([]*gr.Element, nttRank<<1)
-	twLarge[0], twLarge[1] = r.NewElementFromUint64(1), grNthRoot(r, nttRank<<2)
-	twInvLarge[0], twInvLarge[1] = r.NewElementFromUint64(1), r.Inv(twLarge[1])
+	twLarge := make([]gnum.GaussianInt, nttRank<<1)
+	twInvLarge := make([]gnum.GaussianInt, nttRank<<1)
+	twLarge[0], twLarge[1] = gnum.GaussianInt{Real: 1, Imag: 0}, gIntNthRoot(nttRank<<2, mod)
+	twInvLarge[0], twInvLarge[1] = gnum.GaussianInt{Real: 1, Imag: 0}, gnum.Inv(twLarge[1], mod)
 	for i := 2; i < 2*nttRank; i++ {
-		twLarge[i] = r.Mul(twLarge[i-1], twLarge[1])
-		twInvLarge[i] = r.Mul(twInvLarge[i-1], twInvLarge[1])
+		twLarge[i] = gnum.Mul(twLarge[i-1], twLarge[1], mod)
+		twInvLarge[i] = gnum.Mul(twInvLarge[i-1], twInvLarge[1], mod)
 	}
 	bitReverseInPlace(twLarge)
 	bitReverseInPlace(twInvLarge)
 
-	tw := make([]*gr.Element, nttRank)
-	twInv := make([]*gr.Element, nttRank)
+	tw := make([]gnum.GaussianInt, nttRank)
+	twInv := make([]gnum.GaussianInt, nttRank)
 
 	tw[0] = twLarge[1]
 	twInv[0] = twInvLarge[1]
@@ -308,7 +305,6 @@ func newAutFixedPow2Mod3Packer(params dft.RingParameters, mod *num.Modulus) *aut
 		nttRank: nttRank,
 		packIdx: packIdx,
 
-		r:     r,
 		tw:    tw,
 		twInv: twInv,
 
@@ -342,7 +338,6 @@ func (p *autFixedPow2Mod3Packer) SafeCopy() PackerInt {
 
 		packIdx: p.packIdx,
 
-		r:     p.r,
 		tw:    p.tw,
 		twInv: p.twInv,
 
@@ -374,24 +369,24 @@ func (p *autFixedPow2Mod3Packer) PackTo(pOut *crt.Poly, vIn []uint64) {
 
 	for i := 0; i < p.packLen; i++ {
 		idx := p.packIdx[i]
-		p.buf.coeffs[idx].Clear()
-		p.buf.coeffs[idx].Coeffs()[0] = vIn[i&(vLen-1)]
+		p.buf.coeffs[idx].Real = vIn[i&(vLen-1)]
+		p.buf.coeffs[idx].Imag = 0
 
 		if p.packLen != p.nttRank {
 			idx = p.packIdx[i+p.packLen]
-			p.buf.coeffs[idx].Clear()
-			p.buf.coeffs[idx].Coeffs()[0] = vIn[i&(vLen-1)]
+			p.buf.coeffs[idx].Real = vIn[i&(vLen-1)]
+			p.buf.coeffs[idx].Imag = 0
 		}
 	}
 
-	u := p.r.NewElement()
-	invNTTGaloisRingInPlacePow2(p.buf.coeffs, p.twInv, p.r)
+	invNTTGaloisRingInPlacePow2(p.buf.coeffs, p.twInv, p.mod)
 
+	var u gnum.GaussianInt
 	skip := p.params.Rank() / p.nttRank
-	pOut.Coeffs[0][0] = num.Add(p.buf.coeffs[0].Coeffs()[0], p.buf.coeffs[0].Coeffs()[0], p.mod)
+	pOut.Coeffs[0][0] = num.Add(p.buf.coeffs[0].Real, p.buf.coeffs[0].Real, p.mod)
 	for i := 1; i < p.nttRank; i++ {
-		p.r.MulTo(u, p.buf.coeffs[p.nttRank-i], p.tw[0])
-		pOut.Coeffs[0][i*skip] = num.Add(p.buf.coeffs[i].Coeffs()[0], u.Coeffs()[0], p.mod)
+		u = gnum.Mul(p.buf.coeffs[p.nttRank-i], p.tw[0], p.mod)
+		pOut.Coeffs[0][i*skip] = num.Add(p.buf.coeffs[i].Real, u.Real, p.mod)
 	}
 
 	vec.ScalarMulTo(pOut.Coeffs[0], pOut.Coeffs[0], p.rankInv, p.mod)
@@ -418,20 +413,20 @@ func (p *autFixedPow2Mod3Packer) UnPackTo(vOut []uint64, pIn *crt.Poly) {
 	}
 
 	skip := p.params.Rank() / p.nttRank
-	p.buf.coeffs[0].Clear()
-	p.buf.coeffs[0].Coeffs()[0] = pIn.Coeffs[0][0]
+	p.buf.coeffs[0].Real = pIn.Coeffs[0][0]
+	p.buf.coeffs[0].Imag = 0
 	for i := 1; i < p.nttRank; i++ {
-		real := num.Mul(p.tw[0].Coeffs()[0], pIn.Coeffs[0][(p.nttRank-i)*skip], p.mod)
-		imag := num.Mul(p.tw[0].Coeffs()[1], pIn.Coeffs[0][(p.nttRank-i)*skip], p.mod)
-		p.buf.coeffs[i].Coeffs()[0] = num.Sub(pIn.Coeffs[0][i*skip], real, p.mod)
-		p.buf.coeffs[i].Coeffs()[1] = num.Neg(imag, p.mod)
+		real := num.Mul(p.tw[0].Real, pIn.Coeffs[0][(p.nttRank-i)*skip], p.mod)
+		imag := num.Mul(p.tw[0].Imag, pIn.Coeffs[0][(p.nttRank-i)*skip], p.mod)
+		p.buf.coeffs[i].Real = num.Sub(pIn.Coeffs[0][i*skip], real, p.mod)
+		p.buf.coeffs[i].Imag = num.Neg(imag, p.mod)
 	}
 
-	nttGaloisRingInPlacePow2(p.buf.coeffs, p.tw, p.r)
+	nttGaloisRingInPlacePow2(p.buf.coeffs, p.tw, p.mod)
 
 	for i := 0; i < vLen; i++ {
 		idx := p.packIdx[i]
-		vOut[i] = p.buf.coeffs[idx].Coeffs()[0]
+		vOut[i] = p.buf.coeffs[idx].Real
 	}
 }
 
@@ -487,7 +482,7 @@ func newAutFixedPrimePacker(params dft.RingParameters, mod *num.Modulus) *autFix
 	vec.ScalarAddTo(invResolution, invResolution, num.Reduce(ord, mod), mod)
 
 	// Reduce the resolution of unity to the packing length.
-	packLen := int(num.GCD(uint64(params.Rank()), uint64(len(resolution))))
+	packLen := num.GCD(params.Rank(), len(resolution))
 	for i := 1; i < resolLen/packLen; i++ {
 		vec.AddTo(resolution[:packLen], resolution[:packLen], resolution[packLen*i:packLen*(i+1)], mod)
 		vec.AddTo(invResolution[:packLen], invResolution[:packLen], invResolution[packLen*i:packLen*(i+1)], mod)

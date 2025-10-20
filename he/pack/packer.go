@@ -2,9 +2,9 @@
 package pack
 
 import (
+	"github.com/hienaa-org/hienaa/he/pack/internal/gnum"
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/dft"
-	"github.com/hienaa-org/hienaa/math/gr"
 	"github.com/hienaa-org/hienaa/math/num"
 )
 
@@ -92,13 +92,13 @@ func newPackerBuffer(dim, rank int) packerBuffer {
 
 // pow2Mod3PackerBuffer is a buffer for [pow2Mod3Packer].
 type pow2Mod3PackerBuffer struct {
-	coeffs []*gr.Element
+	coeffs []gnum.GaussianInt
 }
 
 func newPow2Mod3PackerBuffer(rank int) pow2Mod3PackerBuffer {
-	coeffs := make([]*gr.Element, rank)
+	coeffs := make([]gnum.GaussianInt, rank)
 	for i := range coeffs {
-		coeffs[i] = gr.NewElement(2)
+		coeffs[i] = gnum.GaussianInt{Real: 0, Imag: 0}
 	}
 	return pow2Mod3PackerBuffer{coeffs: coeffs}
 }

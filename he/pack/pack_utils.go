@@ -3,6 +3,7 @@ package pack
 import (
 	"math/big"
 
+	"github.com/hienaa-org/hienaa/he/pack/internal/gnum"
 	"github.com/hienaa-org/hienaa/math/csprng"
 	"github.com/hienaa-org/hienaa/math/gr"
 	"github.com/hienaa-org/hienaa/math/num"
@@ -74,8 +75,57 @@ func grNthRoot(r *gr.GaloisRing, n int) *gr.Element {
 	return root
 }
 
+// gIntNthRoot returns the n-th root of unity of the multiplicative group of the Gaussian integers modulo q.
+func gIntNthRoot(n int, q *num.Modulus) gnum.GaussianInt {
+	rSrc := csprng.NewUniformSamplerWithSeed(nil)
+
+	qPrimes, qExps := num.Factor(q.Value())
+	if len(qPrimes) != 1 {
+		panic("gIntNthRoot: q must be a prime power")
+	}
+
+	ord := new(big.Int).SetUint64(qPrimes[0])
+	tmp := new(big.Int).SetUint64(qPrimes[0])
+	ord.Exp(ord, big.NewInt(int64(qExps[0]-1)*2), nil)
+	tmp.Exp(tmp, big.NewInt(2), nil)
+	tmp.Sub(tmp, big.NewInt(1))
+	ord.Mul(ord, tmp)
+
+	primes, _ := num.Factor(n)
+	checkOrd := make([]*big.Int, len(primes))
+	for i := range checkOrd {
+		checkOrd[i] = new(big.Int).Div(ord, big.NewInt(int64(primes[i])))
+	}
+
+	var genEl, root, genElPow gnum.GaussianInt
+
+	rootOrd := ord.Div(ord, big.NewInt(int64(n)))
+	for {
+		genEl.Real = rSrc.SampleN(q.Value())
+		genEl.Imag = rSrc.SampleN(q.Value())
+
+		ok := true
+		for i := range checkOrd {
+			genElPow = gnum.ExpBig(genEl, checkOrd[i], q)
+			if genElPow.Real == 1 && genElPow.Imag == 0 {
+				ok = false
+				break
+			}
+		}
+
+		if ok {
+			root = gnum.ExpBig(genEl, rootOrd, q)
+			if !(root.Real == 1 && root.Imag == 0) {
+				break
+			}
+		}
+	}
+
+	return root
+}
+
 // bitReverseInPlace computes the bit reverse of v in-place.
-func bitReverseInPlace(v []*gr.Element) {
+func bitReverseInPlace(v []gnum.GaussianInt) {
 	var bit, j int
 	for i := 1; i < len(v); i++ {
 		bit = len(v) >> 1
@@ -91,20 +141,20 @@ func bitReverseInPlace(v []*gr.Element) {
 }
 
 // nttGaloisRingInPlacePow2 performs NTT over the Galois ring in-place.
-func nttGaloisRingInPlacePow2(coeffs []*gr.Element, tw []*gr.Element, r *gr.GaloisRing) {
+func nttGaloisRingInPlacePow2(coeffs []gnum.GaussianInt, tw []gnum.GaussianInt, q *num.Modulus) {
 	t := len(coeffs) >> 1
-	u := r.NewElement()
-	v := r.NewElement()
+
+	var u, v gnum.GaussianInt
 	for m := 1; m < len(coeffs); m <<= 1 {
 		for i := 0; i < m; i++ {
 			j1 := i * t << 1
 			j2 := j1 + t
 			w := tw[m+i]
 			for j := j1; j < j2; j++ {
-				u.CopyFrom(coeffs[j])
-				r.MulTo(v, coeffs[j+t], w)
-				r.AddTo(coeffs[j], u, v)
-				r.SubTo(coeffs[j+t], u, v)
+				u = coeffs[j]
+				v = gnum.Mul(coeffs[j+t], w, q)
+				coeffs[j] = gnum.Add(u, v, q)
+				coeffs[j+t] = gnum.Sub(u, v, q)
 			}
 		}
 		t >>= 1
@@ -112,21 +162,20 @@ func nttGaloisRingInPlacePow2(coeffs []*gr.Element, tw []*gr.Element, r *gr.Galo
 }
 
 // invNTTGaloisRingInPlacePow2 performs inverse NTT over the Galois ring in-place.
-func invNTTGaloisRingInPlacePow2(coeffs []*gr.Element, twInv []*gr.Element, r *gr.GaloisRing) {
+func invNTTGaloisRingInPlacePow2(coeffs []gnum.GaussianInt, twInv []gnum.GaussianInt, q *num.Modulus) {
 	t := 1
-	u := r.NewElement()
-	v := r.NewElement()
+
+	var u, v gnum.GaussianInt
 	for m := len(coeffs) >> 1; m >= 1; m >>= 1 {
 		for i := 0; i < m; i++ {
 			j1 := i * t << 1
 			j2 := j1 + t
 			w := twInv[m+i]
 			for j := j1; j < j2; j++ {
-				r.AddTo(u, coeffs[j], coeffs[j+t])
-				r.SubTo(v, coeffs[j], coeffs[j+t])
-				r.MulTo(v, v, w)
-				coeffs[j].CopyFrom(u)
-				coeffs[j+t].CopyFrom(v)
+				u = gnum.Add(coeffs[j], coeffs[j+t], q)
+				v = gnum.Sub(coeffs[j], coeffs[j+t], q)
+				coeffs[j] = u
+				coeffs[j+t] = gnum.Mul(v, w, q)
 			}
 		}
 		t <<= 1
