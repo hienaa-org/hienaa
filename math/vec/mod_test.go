@@ -44,8 +44,8 @@ func TestOps(t *testing.T) {
 		assert.Less(t, vec.Max(vOut), q.Value())
 	})
 
-	t.Run("AddLazy", func(t *testing.T) {
-		vec.AddLazyTo(vOut, v0, v1)
+	t.Run("AddWord", func(t *testing.T) {
+		vec.AddTo(vOut, v0, v1, nil)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = v0[i] + v1[i]
 		}
@@ -67,8 +67,8 @@ func TestOps(t *testing.T) {
 		assert.Less(t, vec.Max(vOut), q.Value())
 	})
 
-	t.Run("ScalarAddLazy", func(t *testing.T) {
-		vec.ScalarAddLazyTo(vOut, v0, v1[0])
+	t.Run("ScalarAddWord", func(t *testing.T) {
+		vec.ScalarAddTo(vOut, v0, v1[0], nil)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = v0[i] + v1[0]
 		}
@@ -90,8 +90,8 @@ func TestOps(t *testing.T) {
 		assert.Less(t, vec.Max(vOut), q.Value())
 	})
 
-	t.Run("SubLazy", func(t *testing.T) {
-		vec.SubLazyTo(vOut, v0, v1)
+	t.Run("SubWord", func(t *testing.T) {
+		vec.SubTo(vOut, v0, v1, nil)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = v0[i] - v1[i]
 		}
@@ -111,8 +111,8 @@ func TestOps(t *testing.T) {
 		assert.Less(t, vec.Max(vOut), q.Value())
 	})
 
-	t.Run("ScalarSubLazy", func(t *testing.T) {
-		vec.ScalarSubLazyTo(vOut, v0, v1[0])
+	t.Run("ScalarSubWord", func(t *testing.T) {
+		vec.ScalarSubTo(vOut, v0, v1[0], nil)
 		for i := 0; i < N; i++ {
 			vOutCheck[i] = v0[i] - v1[0]
 		}
@@ -131,6 +131,14 @@ func TestOps(t *testing.T) {
 		assert.Equal(t, vOutCheck, vOut)
 
 		assert.Less(t, vec.Max(vOut), q.Value())
+	})
+
+	t.Run("NegWord", func(t *testing.T) {
+		vec.NegTo(vOut, v0, nil)
+		for i := 0; i < N; i++ {
+			vOutCheck[i] = -v0[i]
+		}
+		assert.Equal(t, vOutCheck, vOut)
 	})
 
 	t.Run("ScalarMul", func(t *testing.T) {
@@ -219,6 +227,36 @@ func TestOps(t *testing.T) {
 		for i := 0; i < N; i++ {
 			vOut[i] %= q.Value()
 			vOutCheck[i] = num.Sub(vOutInit[i], num.Mul(v0[i], v1[0], q), q)
+		}
+		assert.Equal(t, vOutCheck, vOut)
+	})
+
+	t.Run("ScalarMulWord", func(t *testing.T) {
+		vec.ScalarMulTo(vOut, v0, v1[0], nil)
+		for i := 0; i < N; i++ {
+			vOutCheck[i] = v0[i] * v1[0]
+		}
+		assert.Equal(t, vOutCheck, vOut)
+	})
+
+	t.Run("ScalarMulAddWord", func(t *testing.T) {
+		copy(vOut, vOutInit)
+		copy(vOutCheck, vOutInit)
+
+		vec.ScalarMulAddTo(vOut, v0, v1[0], nil)
+		for i := 0; i < N; i++ {
+			vOutCheck[i] += v0[i] * v1[0]
+		}
+		assert.Equal(t, vOutCheck, vOut)
+	})
+
+	t.Run("ScalarMulSubWord", func(t *testing.T) {
+		copy(vOut, vOutInit)
+		copy(vOutCheck, vOutInit)
+
+		vec.ScalarMulSubTo(vOut, v0, v1[0], nil)
+		for i := 0; i < N; i++ {
+			vOutCheck[i] -= v0[i] * v1[0]
 		}
 		assert.Equal(t, vOutCheck, vOut)
 	})
@@ -399,6 +437,36 @@ func TestOps(t *testing.T) {
 		for i := 0; i < N; i++ {
 			vOut[i] %= q.Value()
 			vOutCheck[i] = num.Sub(vOutInit[i], num.Mul(v0[i], v1[i], q), q)
+		}
+		assert.Equal(t, vOutCheck, vOut)
+	})
+
+	t.Run("MulWord", func(t *testing.T) {
+		vec.MulTo(vOut, v0, v1, nil)
+		for i := 0; i < N; i++ {
+			vOutCheck[i] = v0[i] * v1[i]
+		}
+		assert.Equal(t, vOutCheck, vOut)
+	})
+
+	t.Run("MulAddWord", func(t *testing.T) {
+		copy(vOut, vOutInit)
+		copy(vOutCheck, vOutInit)
+
+		vec.MulAddTo(vOut, v0, v1, nil)
+		for i := 0; i < N; i++ {
+			vOutCheck[i] += v0[i] * v1[i]
+		}
+		assert.Equal(t, vOutCheck, vOut)
+	})
+
+	t.Run("MulSubWord", func(t *testing.T) {
+		copy(vOut, vOutInit)
+		copy(vOutCheck, vOutInit)
+
+		vec.MulSubTo(vOut, v0, v1, nil)
+		for i := 0; i < N; i++ {
+			vOutCheck[i] -= v0[i] * v1[i]
 		}
 		assert.Equal(t, vOutCheck, vOut)
 	})
@@ -621,9 +689,9 @@ func BenchmarkOps(b *testing.B) {
 				}
 			})
 
-			b.Run("AddLazy", func(b *testing.B) {
+			b.Run("AddWord", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					vec.AddLazyTo(vOut, v0, v1)
+					vec.AddTo(vOut, v0, v1, nil)
 				}
 			})
 
@@ -633,9 +701,9 @@ func BenchmarkOps(b *testing.B) {
 				}
 			})
 
-			b.Run("ScalarAddLazy", func(b *testing.B) {
+			b.Run("ScalarAddWord", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					vec.ScalarAddLazyTo(vOut, v0, v1[0])
+					vec.ScalarAddTo(vOut, v0, v1[0], nil)
 				}
 			})
 
@@ -645,9 +713,9 @@ func BenchmarkOps(b *testing.B) {
 				}
 			})
 
-			b.Run("SubLazy", func(b *testing.B) {
+			b.Run("SubWord", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					vec.SubLazyTo(vOut, v0, v1)
+					vec.SubTo(vOut, v0, v1, nil)
 				}
 			})
 
@@ -657,9 +725,9 @@ func BenchmarkOps(b *testing.B) {
 				}
 			})
 
-			b.Run("ScalarSubLazy", func(b *testing.B) {
+			b.Run("ScalarSubWord", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					vec.ScalarSubLazyTo(vOut, v0, v1[0])
+					vec.ScalarSubTo(vOut, v0, v1[0], nil)
 				}
 			})
 
@@ -702,6 +770,24 @@ func BenchmarkOps(b *testing.B) {
 			b.Run("ScalarMulSubLazy", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					vec.ScalarMulSubLazyTo(vOut, v0, v1[0], q)
+				}
+			})
+
+			b.Run("ScalarMulWord", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					vec.ScalarMulTo(vOut, v0, v1[0], nil)
+				}
+			})
+
+			b.Run("ScalarMulAddWord", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					vec.ScalarMulAddTo(vOut, v0, v1[0], nil)
+				}
+			})
+
+			b.Run("ScalarMulSubWord", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					vec.ScalarMulSubTo(vOut, v0, v1[0], nil)
 				}
 			})
 
@@ -774,6 +860,24 @@ func BenchmarkOps(b *testing.B) {
 			b.Run("MulSubLazy", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					vec.MulSubLazyTo(vOut, v0, v1, q)
+				}
+			})
+
+			b.Run("MulWord", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					vec.MulTo(vOut, v0, v1, nil)
+				}
+			})
+
+			b.Run("MulAddWord", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					vec.MulAddTo(vOut, v0, v1, nil)
+				}
+			})
+
+			b.Run("MulSubWord", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					vec.MulSubTo(vOut, v0, v1, nil)
 				}
 			})
 

@@ -55,9 +55,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func addLazyToAVX2(vOut []uint64, v0 []uint64, v1 []uint64)
+// func addWordToAVX2(vOut []uint64, v0 []uint64, v1 []uint64)
 // Requires: AVX, AVX2
-TEXT ·addLazyToAVX2(SB), NOSPLIT, $0-72
+TEXT ·addWordToAVX2(SB), NOSPLIT, $0-72
 	VPCMPEQQ Y0, Y0, Y0
 	VPSLLQ   $0x3f, Y0, Y0
 	MOVQ     vOut_len+8(FP), AX
@@ -140,9 +140,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func addLazyToAVX512(vOut []uint64, v0 []uint64, v1 []uint64)
+// func addWordToAVX512(vOut []uint64, v0 []uint64, v1 []uint64)
 // Requires: AVX512F
-TEXT ·addLazyToAVX512(SB), NOSPLIT, $0-72
+TEXT ·addWordToAVX512(SB), NOSPLIT, $0-72
 	MOVQ vOut_len+8(FP), AX
 	MOVQ vOut_base+0(FP), CX
 	MOVQ v0_base+24(FP), DX
@@ -227,9 +227,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarAddLazyToAVX2(vOut []uint64, v []uint64, c uint64)
+// func scalarAddWordToAVX2(vOut []uint64, v []uint64, c uint64)
 // Requires: AVX, AVX2
-TEXT ·scalarAddLazyToAVX2(SB), NOSPLIT, $0-56
+TEXT ·scalarAddWordToAVX2(SB), NOSPLIT, $0-56
 	VPCMPEQQ     Y0, Y0, Y0
 	VPSLLQ       $0x3f, Y0, Y0
 	MOVQ         vOut_len+8(FP), AX
@@ -310,9 +310,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarAddLazyToAVX512(vOut []uint64, v []uint64, c uint64)
+// func scalarAddWordToAVX512(vOut []uint64, v []uint64, c uint64)
 // Requires: AVX512F
-TEXT ·scalarAddLazyToAVX512(SB), NOSPLIT, $0-56
+TEXT ·scalarAddWordToAVX512(SB), NOSPLIT, $0-56
 	MOVQ         vOut_len+8(FP), AX
 	MOVQ         vOut_base+0(FP), CX
 	MOVQ         v_base+24(FP), DX
@@ -397,9 +397,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func subLazyToAVX2(vOut []uint64, v0 []uint64, v1 []uint64)
+// func subWordToAVX2(vOut []uint64, v0 []uint64, v1 []uint64)
 // Requires: AVX, AVX2
-TEXT ·subLazyToAVX2(SB), NOSPLIT, $0-72
+TEXT ·subWordToAVX2(SB), NOSPLIT, $0-72
 	VPCMPEQQ Y0, Y0, Y0
 	VPSLLQ   $0x3f, Y0, Y0
 	MOVQ     vOut_len+8(FP), AX
@@ -482,9 +482,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func subLazyToAVX512(vOut []uint64, v0 []uint64, v1 []uint64)
+// func subWordToAVX512(vOut []uint64, v0 []uint64, v1 []uint64)
 // Requires: AVX512F
-TEXT ·subLazyToAVX512(SB), NOSPLIT, $0-72
+TEXT ·subWordToAVX512(SB), NOSPLIT, $0-72
 	MOVQ vOut_len+8(FP), AX
 	MOVQ vOut_base+0(FP), CX
 	MOVQ v0_base+24(FP), DX
@@ -569,9 +569,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarSubLazyToAVX2(vOut []uint64, v []uint64, c uint64)
+// func scalarSubWordToAVX2(vOut []uint64, v []uint64, c uint64)
 // Requires: AVX, AVX2
-TEXT ·scalarSubLazyToAVX2(SB), NOSPLIT, $0-56
+TEXT ·scalarSubWordToAVX2(SB), NOSPLIT, $0-56
 	VPCMPEQQ     Y0, Y0, Y0
 	VPSLLQ       $0x3f, Y0, Y0
 	MOVQ         vOut_len+8(FP), AX
@@ -652,9 +652,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarSubLazyToAVX512(vOut []uint64, v []uint64, c uint64)
+// func scalarSubWordToAVX512(vOut []uint64, v []uint64, c uint64)
 // Requires: AVX512F
-TEXT ·scalarSubLazyToAVX512(SB), NOSPLIT, $0-56
+TEXT ·scalarSubWordToAVX512(SB), NOSPLIT, $0-56
 	MOVQ         vOut_len+8(FP), AX
 	MOVQ         vOut_base+0(FP), CX
 	MOVQ         v_base+24(FP), DX

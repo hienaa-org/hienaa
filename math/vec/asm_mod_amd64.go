@@ -11,7 +11,18 @@ import (
 )
 
 // AddTo computes vOut = v0 + v1 mod q.
+// x0 and x1 must be in [0, q).
+// If q is nil, then it returns x0 + x1.
 func AddTo(vOut, v0, v1 []uint64, q *num.Modulus) {
+	if q != nil {
+		addTo(vOut, v0, v1, q)
+		return
+	}
+	addWordTo(vOut, v0, v1)
+}
+
+// addTo computes vOut = v0 + v1 mod q.
+func addTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 	switch {
 	case cpu.X86.HasAVX512F:
 		addToAVX512(vOut, v0, v1, q.Value())
@@ -46,14 +57,14 @@ func AddTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 	}
 }
 
-// AddLazyTo computes vOut = v0 + v1.
-func AddLazyTo(vOut, v0, v1 []uint64) {
+// addWordTo computes vOut = v0 + v1.
+func addWordTo(vOut, v0, v1 []uint64) {
 	switch {
 	case cpu.X86.HasAVX512F:
-		addLazyToAVX512(vOut, v0, v1)
+		addWordToAVX512(vOut, v0, v1)
 		return
 	case cpu.X86.HasAVX && cpu.X86.HasAVX2:
-		addLazyToAVX2(vOut, v0, v1)
+		addWordToAVX2(vOut, v0, v1)
 		return
 	}
 
@@ -81,7 +92,18 @@ func AddLazyTo(vOut, v0, v1 []uint64) {
 }
 
 // ScalarAddTo computes vOut = v + c mod q.
-func ScalarAddTo(vOut []uint64, v []uint64, c uint64, q *num.Modulus) {
+// v and c must be in [0, q).
+// If q is nil, then it returns v + c.
+func ScalarAddTo(vOut, v []uint64, c uint64, q *num.Modulus) {
+	if q != nil {
+		scalarAddTo(vOut, v, c, q)
+		return
+	}
+	scalarAddWordTo(vOut, v, c)
+}
+
+// scalarAddTo computes vOut = v + c mod q.
+func scalarAddTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	switch {
 	case cpu.X86.HasAVX512F:
 		scalarAddToAVX512(vOut, v, c, q.Value())
@@ -115,14 +137,14 @@ func ScalarAddTo(vOut []uint64, v []uint64, c uint64, q *num.Modulus) {
 	}
 }
 
-// ScalarAddLazyTo computes vOut = v + c.
-func ScalarAddLazyTo(vOut, v []uint64, c uint64) {
+// scalarAddWordTo computes vOut = v + c.
+func scalarAddWordTo(vOut, v []uint64, c uint64) {
 	switch {
 	case cpu.X86.HasAVX512F:
-		scalarAddLazyToAVX512(vOut, v, c)
+		scalarAddWordToAVX512(vOut, v, c)
 		return
 	case cpu.X86.HasAVX && cpu.X86.HasAVX2:
-		scalarAddLazyToAVX2(vOut, v, c)
+		scalarAddWordToAVX2(vOut, v, c)
 		return
 	}
 
@@ -148,8 +170,19 @@ func ScalarAddLazyTo(vOut, v []uint64, c uint64) {
 	}
 }
 
-// SubTo computes vOut = v0 - v1 mod q.
+// Sub returns v0 - v1 mod q.
+// v0 and v1 must be in [0, q).
+// If q is nil, then it returns v0 - v1.
 func SubTo(vOut, v0, v1 []uint64, q *num.Modulus) {
+	if q != nil {
+		subTo(vOut, v0, v1, q)
+		return
+	}
+	subWordTo(vOut, v0, v1)
+}
+
+// subTo computes vOut = v0 - v1 mod q.
+func subTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 	switch {
 	case cpu.X86.HasAVX512F:
 		subToAVX512(vOut, v0, v1, q.Value())
@@ -184,14 +217,14 @@ func SubTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 	}
 }
 
-// SubLazyTo computes vOut = v0 - v1.
-func SubLazyTo(vOut, v0, v1 []uint64) {
+// subWordTo computes vOut = v0 - v1.
+func subWordTo(vOut, v0, v1 []uint64) {
 	switch {
 	case cpu.X86.HasAVX512F:
-		subLazyToAVX512(vOut, v0, v1)
+		subWordToAVX512(vOut, v0, v1)
 		return
 	case cpu.X86.HasAVX && cpu.X86.HasAVX2:
-		subLazyToAVX2(vOut, v0, v1)
+		subWordToAVX2(vOut, v0, v1)
 		return
 	}
 
@@ -218,8 +251,19 @@ func SubLazyTo(vOut, v0, v1 []uint64) {
 	}
 }
 
-// ScalarSubTo computes vOut = v - c mod q.
-func ScalarSubTo(vOut []uint64, v []uint64, c uint64, q *num.Modulus) {
+// ScalarSub returns v - c mod q.
+// v and c must be in [0, q).
+// If q is nil, then it returns v - c.
+func ScalarSubTo(vOut, v []uint64, c uint64, q *num.Modulus) {
+	if q != nil {
+		scalarSubTo(vOut, v, c, q)
+		return
+	}
+	scalarSubWordTo(vOut, v, c)
+}
+
+// scalarSubTo computes vOut = v - c mod q.
+func scalarSubTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	switch {
 	case cpu.X86.HasAVX512F:
 		scalarSubToAVX512(vOut, v, c, q.Value())
@@ -253,14 +297,14 @@ func ScalarSubTo(vOut []uint64, v []uint64, c uint64, q *num.Modulus) {
 	}
 }
 
-// ScalarSubLazyTo computes vOut = v - c.
-func ScalarSubLazyTo(vOut, v []uint64, c uint64) {
+// scalarSubWordTo computes vOut = v - c.
+func scalarSubWordTo(vOut, v []uint64, c uint64) {
 	switch {
 	case cpu.X86.HasAVX512F:
-		scalarSubLazyToAVX512(vOut, v, c)
+		scalarSubWordToAVX512(vOut, v, c)
 		return
 	case cpu.X86.HasAVX && cpu.X86.HasAVX2:
-		scalarSubLazyToAVX2(vOut, v, c)
+		scalarSubWordToAVX2(vOut, v, c)
 		return
 	}
 

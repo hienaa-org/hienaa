@@ -92,87 +92,134 @@ func (q *Modulus) String() string {
 	return fmt.Sprintf("%v", q.modulus)
 }
 
-// Add computes x0 + x1 mod q.
+// Add returns x0 + x1 mod q.
+// x0 and x1 must be in [0, q).
+// If q is nil, then it returns x0 + x1.
 func Add(x0, x1 uint64, q *Modulus) uint64 {
-	return modops.Add(x0, x1, q.modulus)
+	if q != nil {
+		return modops.Add(x0, x1, q.modulus)
+	}
+	return x0 + x1
 }
 
-// Sub computes x0 - x1 mod q.
+// Sub returns x0 - x1 mod q.
+// x0 and x1 must be in [0, q).
+// If q is nil, then it returns x0 - x1.
 func Sub(x0, x1 uint64, q *Modulus) uint64 {
-	return modops.Sub(x0, x1, q.modulus)
+	if q != nil {
+		return modops.Sub(x0, x1, q.modulus)
+	}
+	return x0 - x1
 }
 
-// Neg computes -x mod q.
+// Neg returns -x mod q.
+// x must be in [0, q).
+// If q is nil, then it returns -x.
 func Neg(x uint64, q *Modulus) uint64 {
-	return modops.Neg(x, q.modulus)
+	if q != nil {
+		return modops.Neg(x, q.modulus)
+	}
+	return -x
 }
 
-// Mul computes x * y mod q using Barrett reduction.
-func Mul(x0, y0 uint64, q *Modulus) uint64 {
-	return modops.BMul(x0, y0, q.modulus, q.divHi, q.divLo)
+// Mul returns x0 * x1 mod q using Barrett reduction.
+// If q is nil, then it returns x0 * x1.
+func Mul(x0, x1 uint64, q *Modulus) uint64 {
+	if q != nil {
+		return modops.BMul(x0, x1, q.modulus, q.divHi, q.divLo)
+	}
+	return x0 * x1
 }
 
-// MulLazy computes x * y mod q using Barrett reduction,
+// MulLazy returns x0 * x1 mod q using Barrett reduction,
 // but the result is in [0, 2q).
-func MulLazy(x0, y0 uint64, q *Modulus) uint64 {
-	return modops.BMulLazy(x0, y0, q.modulus, q.divHi, q.divLo)
+//
+// Panics if q is nil.
+func MulLazy(x0, x1 uint64, q *Modulus) uint64 {
+	return modops.BMulLazy(x0, x1, q.modulus, q.divHi, q.divLo)
 }
 
-// Reduce computes x mod q using Barrett reduction.
-func Reduce[T int64 | uint64](x T, q *Modulus) uint64 {
+// Reduce returns x mod q using Barrett reduction.
+//
+// Panics if q is nil.
+func Reduce[T Integer](x T, q *Modulus) uint64 {
 	return modops.BMod(x, q.modulus, q.divHi)
 }
 
-// Reduce128 computes x mod q using Barrett reduction.
+// Reduce128 returns x mod q using Barrett reduction.
+//
+// Panics if q is nil.
 func Reduce128(xHi, xLo uint64, q *Modulus) uint64 {
 	return modops.BMod128(xHi, xLo, q.modulus, q.divHi, q.divLo)
 }
 
-// Reduce128Lazy computes x mod q using Barret reduction,
+// Reduce128Lazy returns x mod q using Barret reduction,
 // but the result is in [0, 2q).
+//
+// Panics if q is nil.
 func Reduce128Lazy(xHi, xLo uint64, q *Modulus) uint64 {
 	return modops.BMod128Lazy(xHi, xLo, q.modulus, q.divHi, q.divLo)
 }
 
 // MForm transforms x into Montgomery form.
+//
+// Panics if q is even or nil.
 func MForm(x uint64, q *Modulus) uint64 {
+	if q.inv == 0 {
+		panic("MForm: modulus is even")
+	}
 	return modops.MForm(x, q.modulus, q.divHi, q.divLo)
 }
 
 // InvMForm transforms xM to Normal form.
+//
+// Panics if q is even or nil.
 func InvMForm(xM uint64, q *Modulus) uint64 {
+	if q.inv == 0 {
+		panic("InvMForm: modulus is even")
+	}
 	return modops.InvMForm(xM, q.modulus, q.inv)
 }
 
-// MMul computes x0 * x1 mod q in Montgomery form.
+// MMul returns x0 * x1 mod q in Montgomery form.
+//
+// Panics if q is nil.
 func MMul(x0M, x1M uint64, q *Modulus) uint64 {
 	return modops.MMul(x0M, x1M, q.modulus, q.inv)
 }
 
-// MMulLazy computes x0 * x1 mod q in Montgomery form,
+// MMulLazy returns x0 * x1 mod q in Montgomery form,
 // but the result is in [0, 2q).
+//
+// Panics if q is nil.
 func MMulLazy(x0M, y0M uint64, q *Modulus) uint64 {
 	return modops.MMulLazy(x0M, y0M, q.modulus, q.inv)
 }
 
 // SForm transforms x into Shoup form.
+//
+// Panics if q is nil.
 func SForm(x uint64, q *Modulus) uint64 {
 	return modops.SForm(x, q.modulus, q.divHi)
 }
 
-// SMul computes x0 * x1 mod q using Shoup multiplication.
+// SMul returns x0 * x1 mod q using Shoup multiplication.
+//
+// Panics if q is nil.
 func SMul(x0, x1, x1S uint64, q *Modulus) uint64 {
 	return modops.SMul(x0, x1, x1S, q.modulus)
 }
 
-// SMulLazy computes x0 * x1 mod q using Shoup multiplication,
+// SMulLazy returns x0 * x1 mod q using Shoup multiplication,
 // but the result is in [0, 2q).
+//
+// Panics if q is nil.
 func SMulLazy(x0, x1, x1S uint64, q *Modulus) uint64 {
 	return modops.SMulLazy(x0, x1, x1S, q.modulus)
 }
 
 // Exp returns x^e mod q.
-// If q is nil, it simply computes x^e mod 2^64.
+// If q is nil, then it returns x^e.
 func Exp(x, e uint64, q *Modulus) uint64 {
 	switch e {
 	case 0:
@@ -204,6 +251,8 @@ func Exp(x, e uint64, q *Modulus) uint64 {
 }
 
 // Inv returns the inverse of x modulo q.
+//
+// Panics if q is nil.
 func Inv(x uint64, q *Modulus) uint64 {
 	rr, r := x, q.Value()
 

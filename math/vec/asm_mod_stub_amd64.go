@@ -8,46 +8,46 @@ package vec
 func addToAVX2(vOut []uint64, v0 []uint64, v1 []uint64, q uint64)
 
 //go:noescape
-func addLazyToAVX2(vOut []uint64, v0 []uint64, v1 []uint64)
+func addWordToAVX2(vOut []uint64, v0 []uint64, v1 []uint64)
 
 //go:noescape
 func addToAVX512(vOut []uint64, v0 []uint64, v1 []uint64, q uint64)
 
 //go:noescape
-func addLazyToAVX512(vOut []uint64, v0 []uint64, v1 []uint64)
+func addWordToAVX512(vOut []uint64, v0 []uint64, v1 []uint64)
 
 //go:noescape
 func scalarAddToAVX2(vOut []uint64, v []uint64, c uint64, q uint64)
 
 //go:noescape
-func scalarAddLazyToAVX2(vOut []uint64, v []uint64, c uint64)
+func scalarAddWordToAVX2(vOut []uint64, v []uint64, c uint64)
 
 //go:noescape
 func scalarAddToAVX512(vOut []uint64, v []uint64, c uint64, q uint64)
 
 //go:noescape
-func scalarAddLazyToAVX512(vOut []uint64, v []uint64, c uint64)
+func scalarAddWordToAVX512(vOut []uint64, v []uint64, c uint64)
 
 //go:noescape
 func subToAVX2(vOut []uint64, v0 []uint64, v1 []uint64, q uint64)
 
 //go:noescape
-func subLazyToAVX2(vOut []uint64, v0 []uint64, v1 []uint64)
+func subWordToAVX2(vOut []uint64, v0 []uint64, v1 []uint64)
 
 //go:noescape
 func subToAVX512(vOut []uint64, v0 []uint64, v1 []uint64, q uint64)
 
 //go:noescape
-func subLazyToAVX512(vOut []uint64, v0 []uint64, v1 []uint64)
+func subWordToAVX512(vOut []uint64, v0 []uint64, v1 []uint64)
 
 //go:noescape
 func scalarSubToAVX2(vOut []uint64, v []uint64, c uint64, q uint64)
 
 //go:noescape
-func scalarSubLazyToAVX2(vOut []uint64, v []uint64, c uint64)
+func scalarSubWordToAVX2(vOut []uint64, v []uint64, c uint64)
 
 //go:noescape
 func scalarSubToAVX512(vOut []uint64, v []uint64, c uint64, q uint64)
 
 //go:noescape
-func scalarSubLazyToAVX512(vOut []uint64, v []uint64, c uint64)
+func scalarSubWordToAVX512(vOut []uint64, v []uint64, c uint64)

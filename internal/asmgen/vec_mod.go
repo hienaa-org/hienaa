@@ -6,9 +6,9 @@ import (
 	"github.com/mmcloughlin/avo/reg"
 )
 
-func AddVecToAVX2(isLazy bool) {
-	if isLazy {
-		TEXT("addLazyToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64)")
+func AddVecToAVX2(isWordOp bool) {
+	if isWordOp {
+		TEXT("addWordToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64)")
 	} else {
 		TEXT("addToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64)")
 	}
@@ -22,7 +22,7 @@ func AddVecToAVX2(isLazy bool) {
 
 	var q reg.Register
 	var qv reg.VecVirtual
-	if !isLazy {
+	if !isWordOp {
 		q = Load(Param("q"), GP64())
 		qv = YMM()
 		VPBROADCASTQ(NewParamAddr("q", 72), qv)
@@ -50,7 +50,7 @@ func AddVecToAVX2(isLazy bool) {
 	xOut := YMM()
 	VPADDQ(x1, x0, xOut)
 
-	if !isLazy {
+	if !isWordOp {
 		subQ := YMM()
 		GreaterOrEqualThanAVX2(xOut, qv, maskSign, allOne, subQ)
 		VPAND(qv, subQ, subQ)
@@ -74,7 +74,7 @@ func AddVecToAVX2(isLazy bool) {
 
 	ADDQ(y1, y0)
 
-	if !isLazy {
+	if !isWordOp {
 		subQ := GP64()
 		MOVQ(y0, subQ)
 		SUBQ(q, subQ)
@@ -93,9 +93,9 @@ func AddVecToAVX2(isLazy bool) {
 	RET()
 }
 
-func ScalarAddVecToAVX2(isLazy bool) {
-	if isLazy {
-		TEXT("scalarAddLazyToAVX2", NOSPLIT, "func(vOut, v []uint64, c uint64)")
+func ScalarAddVecToAVX2(isWordOp bool) {
+	if isWordOp {
+		TEXT("scalarAddWordToAVX2", NOSPLIT, "func(vOut, v []uint64, c uint64)")
 	} else {
 		TEXT("scalarAddToAVX2", NOSPLIT, "func(vOut, v []uint64, c, q uint64)")
 	}
@@ -109,7 +109,7 @@ func ScalarAddVecToAVX2(isLazy bool) {
 
 	var q reg.Register
 	var qv reg.VecVirtual
-	if !isLazy {
+	if !isWordOp {
 		q = Load(Param("q"), GP64())
 		qv = YMM()
 		VPBROADCASTQ(NewParamAddr("q", 56), qv)
@@ -139,7 +139,7 @@ func ScalarAddVecToAVX2(isLazy bool) {
 	xOut := YMM()
 	VPADDQ(c, x, xOut)
 
-	if !isLazy {
+	if !isWordOp {
 		subQ := YMM()
 		GreaterOrEqualThanAVX2(xOut, qv, maskSign, allOne, subQ)
 		VPAND(qv, subQ, subQ)
@@ -162,7 +162,7 @@ func ScalarAddVecToAVX2(isLazy bool) {
 
 	ADDQ(c64, y)
 
-	if !isLazy {
+	if !isWordOp {
 		subQ := GP64()
 		MOVQ(y, subQ)
 		SUBQ(q, subQ)
@@ -181,9 +181,9 @@ func ScalarAddVecToAVX2(isLazy bool) {
 	RET()
 }
 
-func AddVecToAVX512(isLazy bool) {
-	if isLazy {
-		TEXT("addLazyToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64)")
+func AddVecToAVX512(isWordOp bool) {
+	if isWordOp {
+		TEXT("addWordToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64)")
 	} else {
 		TEXT("addToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64)")
 	}
@@ -191,7 +191,7 @@ func AddVecToAVX512(isLazy bool) {
 
 	var q reg.Register
 	var qv reg.VecVirtual
-	if !isLazy {
+	if !isWordOp {
 		q = Load(Param("q"), GP64())
 		qv = ZMM()
 		VPBROADCASTQ(NewParamAddr("q", 72), qv)
@@ -219,7 +219,7 @@ func AddVecToAVX512(isLazy bool) {
 	xOut := ZMM()
 	VPADDQ(x1, x0, xOut)
 
-	if !isLazy {
+	if !isWordOp {
 		subQ, subQMask := ZMM(), K()
 		VPCMPUQ(Imm(0o5), qv, xOut, subQMask)
 		VMOVAPD_Z(qv, subQMask, subQ)
@@ -243,7 +243,7 @@ func AddVecToAVX512(isLazy bool) {
 
 	ADDQ(y1, y0)
 
-	if !isLazy {
+	if !isWordOp {
 		subQ := GP64()
 		MOVQ(y0, subQ)
 		SUBQ(q, subQ)
@@ -262,9 +262,9 @@ func AddVecToAVX512(isLazy bool) {
 	RET()
 }
 
-func ScalarAddVecToAVX512(isLazy bool) {
-	if isLazy {
-		TEXT("scalarAddLazyToAVX512", NOSPLIT, "func(vOut, v []uint64, c uint64)")
+func ScalarAddVecToAVX512(isWordOp bool) {
+	if isWordOp {
+		TEXT("scalarAddWordToAVX512", NOSPLIT, "func(vOut, v []uint64, c uint64)")
 	} else {
 		TEXT("scalarAddToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q uint64)")
 	}
@@ -272,7 +272,7 @@ func ScalarAddVecToAVX512(isLazy bool) {
 
 	var q reg.Register
 	var qv reg.VecVirtual
-	if !isLazy {
+	if !isWordOp {
 		q = Load(Param("q"), GP64())
 		qv = ZMM()
 		VPBROADCASTQ(NewParamAddr("q", 56), qv)
@@ -302,7 +302,7 @@ func ScalarAddVecToAVX512(isLazy bool) {
 	xOut := ZMM()
 	VPADDQ(c, x, xOut)
 
-	if !isLazy {
+	if !isWordOp {
 		subQ, subQMask := ZMM(), K()
 		VPCMPUQ(Imm(0o5), qv, xOut, subQMask)
 		VMOVAPD_Z(qv, subQMask, subQ)
@@ -325,7 +325,7 @@ func ScalarAddVecToAVX512(isLazy bool) {
 
 	ADDQ(c64, y)
 
-	if !isLazy {
+	if !isWordOp {
 		subQ := GP64()
 		MOVQ(y, subQ)
 		SUBQ(q, subQ)
@@ -344,9 +344,9 @@ func ScalarAddVecToAVX512(isLazy bool) {
 	RET()
 }
 
-func SubVecToAVX2(isLazy bool) {
-	if isLazy {
-		TEXT("subLazyToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64)")
+func SubVecToAVX2(isWordOp bool) {
+	if isWordOp {
+		TEXT("subWordToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64)")
 	} else {
 		TEXT("subToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64)")
 	}
@@ -360,7 +360,7 @@ func SubVecToAVX2(isLazy bool) {
 
 	var q reg.Register
 	var qv reg.VecVirtual
-	if !isLazy {
+	if !isWordOp {
 		q = Load(Param("q"), GP64())
 		qv = YMM()
 		VPBROADCASTQ(NewParamAddr("q", 72), qv)
@@ -388,7 +388,7 @@ func SubVecToAVX2(isLazy bool) {
 	xOut := YMM()
 	VPSUBQ(x1, x0, xOut)
 
-	if !isLazy {
+	if !isWordOp {
 		subQ := YMM()
 		GreaterOrEqualThanAVX2(xOut, qv, maskSign, allOne, subQ)
 		VPAND(qv, subQ, subQ)
@@ -412,7 +412,7 @@ func SubVecToAVX2(isLazy bool) {
 
 	SUBQ(y1, y0)
 
-	if !isLazy {
+	if !isWordOp {
 		subQ := GP64()
 		MOVQ(y0, subQ)
 		ADDQ(q, subQ)
@@ -431,9 +431,9 @@ func SubVecToAVX2(isLazy bool) {
 	RET()
 }
 
-func ScalarSubVecToAVX2(isLazy bool) {
-	if isLazy {
-		TEXT("scalarSubLazyToAVX2", NOSPLIT, "func(vOut, v []uint64, c uint64)")
+func ScalarSubVecToAVX2(isWordOp bool) {
+	if isWordOp {
+		TEXT("scalarSubWordToAVX2", NOSPLIT, "func(vOut, v []uint64, c uint64)")
 	} else {
 		TEXT("scalarSubToAVX2", NOSPLIT, "func(vOut, v []uint64, c, q uint64)")
 	}
@@ -447,7 +447,7 @@ func ScalarSubVecToAVX2(isLazy bool) {
 
 	var q reg.Register
 	var qv reg.VecVirtual
-	if !isLazy {
+	if !isWordOp {
 		q = Load(Param("q"), GP64())
 		qv = YMM()
 		VPBROADCASTQ(NewParamAddr("q", 56), qv)
@@ -477,7 +477,7 @@ func ScalarSubVecToAVX2(isLazy bool) {
 	xOut := YMM()
 	VPSUBQ(c, x, xOut)
 
-	if !isLazy {
+	if !isWordOp {
 		subQ := YMM()
 		GreaterOrEqualThanAVX2(xOut, qv, maskSign, allOne, subQ)
 		VPAND(qv, subQ, subQ)
@@ -500,7 +500,7 @@ func ScalarSubVecToAVX2(isLazy bool) {
 
 	SUBQ(c64, y)
 
-	if !isLazy {
+	if !isWordOp {
 		subQ := GP64()
 		MOVQ(y, subQ)
 		ADDQ(q, subQ)
@@ -519,9 +519,9 @@ func ScalarSubVecToAVX2(isLazy bool) {
 	RET()
 }
 
-func SubVecToAVX512(isLazy bool) {
-	if isLazy {
-		TEXT("subLazyToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64)")
+func SubVecToAVX512(isWordOp bool) {
+	if isWordOp {
+		TEXT("subWordToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64)")
 	} else {
 		TEXT("subToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64)")
 	}
@@ -529,7 +529,7 @@ func SubVecToAVX512(isLazy bool) {
 
 	var q reg.Register
 	var qv reg.VecVirtual
-	if !isLazy {
+	if !isWordOp {
 		q = Load(Param("q"), GP64())
 		qv = ZMM()
 		VPBROADCASTQ(NewParamAddr("q", 72), qv)
@@ -557,7 +557,7 @@ func SubVecToAVX512(isLazy bool) {
 	xOut := ZMM()
 	VPSUBQ(x1, x0, xOut)
 
-	if !isLazy {
+	if !isWordOp {
 		subQ, subQMask := ZMM(), K()
 		VPCMPUQ(Imm(0o5), qv, xOut, subQMask)
 		VMOVAPD_Z(qv, subQMask, subQ)
@@ -581,7 +581,7 @@ func SubVecToAVX512(isLazy bool) {
 
 	SUBQ(y1, y0)
 
-	if !isLazy {
+	if !isWordOp {
 		subQ := GP64()
 		MOVQ(y0, subQ)
 		ADDQ(q, subQ)
@@ -600,9 +600,9 @@ func SubVecToAVX512(isLazy bool) {
 	RET()
 }
 
-func ScalarSubVecToAVX512(isLazy bool) {
-	if isLazy {
-		TEXT("scalarSubLazyToAVX512", NOSPLIT, "func(vOut, v []uint64, c uint64)")
+func ScalarSubVecToAVX512(isWordOp bool) {
+	if isWordOp {
+		TEXT("scalarSubWordToAVX512", NOSPLIT, "func(vOut, v []uint64, c uint64)")
 	} else {
 		TEXT("scalarSubToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q uint64)")
 	}
@@ -610,7 +610,7 @@ func ScalarSubVecToAVX512(isLazy bool) {
 
 	var q reg.Register
 	var qv reg.VecVirtual
-	if !isLazy {
+	if !isWordOp {
 		q = Load(Param("q"), GP64())
 		qv = ZMM()
 		VPBROADCASTQ(NewParamAddr("q", 56), qv)
@@ -640,7 +640,7 @@ func ScalarSubVecToAVX512(isLazy bool) {
 	xOut := ZMM()
 	VPSUBQ(c, x, xOut)
 
-	if !isLazy {
+	if !isWordOp {
 		subQ, subQMask := ZMM(), K()
 		VPCMPUQ(Imm(0o5), qv, xOut, subQMask)
 		VMOVAPD_Z(qv, subQMask, subQ)
@@ -663,7 +663,7 @@ func ScalarSubVecToAVX512(isLazy bool) {
 
 	SUBQ(c64, y)
 
-	if !isLazy {
+	if !isWordOp {
 		subQ := GP64()
 		MOVQ(y, subQ)
 		ADDQ(q, subQ)

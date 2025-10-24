@@ -5,6 +5,16 @@ import (
 	"math/bits"
 )
 
+// Unsigned represents the unsigned Integer type.
+type Unsigned interface {
+	~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64
+}
+
+// Integer represents the Integer type.
+type Integer interface {
+	Unsigned | ~int | ~int8 | ~int16 | ~int32 | ~int64
+}
+
 // Add returns x0 + x1 mod q.
 func Add(x0, x1, q uint64) uint64 {
 	xOut := x0 + x1
@@ -140,7 +150,7 @@ func BMod64(x, q, divHi uint64) uint64 {
 }
 
 // BMod returns x mod q using Barrett reduction.
-func BMod[T int64 | uint64](x T, q, divHi uint64) uint64 {
+func BMod[T Integer](x T, q, divHi uint64) uint64 {
 	if x < 0 {
 		return Neg(BMod64(uint64(-x), q, divHi), q)
 	}
