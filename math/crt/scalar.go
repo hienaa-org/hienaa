@@ -10,7 +10,7 @@ import (
 type Scalar []uint64
 
 // NewScalar creates a new [Scalar].
-func NewScalar[T int64 | uint64 | *big.Int](x T, mod []*num.Modulus) Scalar {
+func NewScalar[T num.Integer | *big.Int](x T, mod []*num.Modulus) Scalar {
 	r := make(Scalar, len(mod))
 
 	var z T

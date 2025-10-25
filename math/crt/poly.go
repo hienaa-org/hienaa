@@ -86,16 +86,16 @@ func (p *Poly) Copy() *Poly {
 }
 
 // CopyFrom copies the coefficients from p0 to p.
-// Panics when p and p0 are not consistent.
-func (p *Poly) CopyFrom(p0 *Poly) {
-	if !p.IsConsistent(p0) {
+// Panics when p and pIn are not consistent.
+func (p *Poly) CopyFrom(pIn *Poly) {
+	if !p.IsConsistent(pIn) {
 		panic("CopyFrom: inconsistent polynomials")
 	}
 
 	for i := range p.Coeffs {
-		copy(p.Coeffs[i], p0.Coeffs[i])
+		copy(p.Coeffs[i], pIn.Coeffs[i])
 	}
-	p.isNTT = p0.isNTT
+	p.isNTT = pIn.isNTT
 }
 
 // IsEqual checks if p is equal to p0.

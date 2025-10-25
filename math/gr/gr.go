@@ -10,10 +10,13 @@ import (
 
 // GaloisRing represents a galois ring as [*crt.PolyEvaluator].
 type GaloisRing struct {
-	polyEval *crt.PolyEvaluator
+	polyEvaluator *crt.PolyEvaluator
 	// ord is the order of the multiplicative group of the Galois ring.
 	// Equals prime^((exp-1)*rank) * (prime^rank - 1).
 	ord *big.Int
+	// invExp is the exponent for computing inverses.
+	// Equals ord - 1.
+	invExp *big.Int
 
 	buf galoisRingBuffer
 }
@@ -31,43 +34,42 @@ type galoisRingBuffer struct {
 // In this case, find a irreducible polynomial of given rank + 1, and use
 // [NewGaloisRingCustom].
 func NewGaloisRing(modulus uint64, rank int) *GaloisRing {
-	primes, exps := num.Factor(modulus)
-	if len(primes) != 1 {
-		panic("NewGaloisRing: modulus must be a prime power")
-	} else if !num.IsPrime(primes[0]) {
-		panic("NewGaloisRing: modulus must be a prime")
-	}
-	prime, _ := primes[0], exps[0]
-	return NewGaloisRingCustom(modulus, findConway(prime, rank))
+	primes, _ := num.Factor(modulus)
+	return NewGaloisRingCustom(modulus, findConway(primes[0], rank))
 }
 
 // NewGaloisRingCustom creates a new [GaloisRing] with a custom irreducible polynomial.
 func NewGaloisRingCustom(modulus uint64, modPoly []int64) *GaloisRing {
 	primes, exps := num.Factor(modulus)
-	if len(primes) != 1 {
-		panic("NewGaloisRingCustom: modulus must be a prime power")
-	} else if !num.IsPrime(primes[0]) {
-		panic("NewGaloisRingCustom: modulus must be a prime")
+	switch {
+	case len(primes) != 1:
+		panic("NewGaloisRing: modulus must be a prime power")
+	case !num.IsPrime(primes[0]):
+		panic("NewGaloisRing: modulus must be a prime")
 	}
 	prime, exp := primes[0], exps[0]
 
 	rank := len(modPoly) - 1
 	ord := new(big.Int).SetUint64(prime)
-	tmp := new(big.Int).SetUint64(prime)
 	ord.Exp(ord, big.NewInt(int64(exp-1)*int64(rank)), nil)
-	tmp.Exp(tmp, big.NewInt(int64(rank)), nil)
-	tmp.Sub(tmp, big.NewInt(1))
-	ord.Mul(ord, tmp)
+
+	modSubOne := new(big.Int).SetUint64(prime)
+	modSubOne.Exp(modSubOne, big.NewInt(int64(rank)), nil)
+	modSubOne.Sub(modSubOne, big.NewInt(1))
+	ord.Mul(ord, modSubOne)
+
+	invExp := new(big.Int).Sub(ord, big.NewInt(1))
 
 	return &GaloisRing{
-		polyEval: crt.NewPolyEvaluatorWithModPoly([]*num.Modulus{num.NewModulus(modulus)}, modPoly),
-		ord:      ord,
+		polyEvaluator: crt.NewPolyEvaluatorWithModPoly([]*num.Modulus{num.NewModulus(modulus)}, modPoly),
+		ord:           ord,
+		invExp:        invExp,
 
 		buf: newGaloisRingBuffer(modulus, rank),
 	}
 }
 
-// newGaloisRingBuffer creates a new [finiteFieldBuffer].
+// newGaloisRingBuffer creates a new [galoisRingBuffer].
 func newGaloisRingBuffer(modulus uint64, rank int) galoisRingBuffer {
 	exp := new(big.Int).SetUint64(modulus)
 	exp.Exp(exp, big.NewInt(int64(rank)), nil)
@@ -82,25 +84,25 @@ func newGaloisRingBuffer(modulus uint64, rank int) galoisRingBuffer {
 // NewElement creates a new [Element] in the finite field.
 func (gr *GaloisRing) NewElement() *Element {
 	return &Element{
-		poly: gr.polyEval.NewNTTPoly(),
+		poly: gr.polyEvaluator.NewNTTPoly(),
 	}
 }
 
 // NewElementFromUint64 creates a new [Element] from a uint64 value.
 func (gr *GaloisRing) NewElementFromUint64(x uint64) *Element {
 	e := gr.NewElement()
-	e.poly.Coeffs[0][0] = num.Reduce(x, gr.polyEval.Modulus()[0])
+	e.poly.Coeffs[0][0] = num.Reduce(x, gr.polyEvaluator.Modulus()[0])
 	return e
 }
 
 // Modulus returns the modulus of the finite field.
 func (gr *GaloisRing) Modulus() uint64 {
-	return gr.polyEval.Modulus()[0].Value()
+	return gr.polyEvaluator.Modulus()[0].Value()
 }
 
 // Rank returns the rank of the finite field.
 func (gr *GaloisRing) Rank() int {
-	return gr.polyEval.Params().Rank()
+	return gr.polyEvaluator.Params().Rank()
 }
 
 // Ord returns the order of the multiplicative group of the Galois ring.
@@ -117,7 +119,7 @@ func (gr *GaloisRing) Add(x0, x1 *Element) *Element {
 
 // AddTo computes xOut = x0 + x1.
 func (gr *GaloisRing) AddTo(xOut, x0, x1 *Element) {
-	gr.polyEval.AddTo(xOut.poly, x0.poly, x1.poly)
+	gr.polyEvaluator.AddTo(xOut.poly, x0.poly, x1.poly)
 }
 
 // Sub returns x0 - x1.
@@ -129,19 +131,19 @@ func (gr *GaloisRing) Sub(x0, x1 *Element) *Element {
 
 // SubTo computes xOut = x0 - x1.
 func (gr *GaloisRing) SubTo(xOut, x0, x1 *Element) {
-	gr.polyEval.SubTo(xOut.poly, x0.poly, x1.poly)
+	gr.polyEvaluator.SubTo(xOut.poly, x0.poly, x1.poly)
 }
 
 // Neg returns -x.
 func (gr *GaloisRing) Neg(x *Element) *Element {
 	xOut := gr.NewElement()
-	gr.polyEval.NegTo(xOut.poly, x.poly)
+	gr.polyEvaluator.NegTo(xOut.poly, x.poly)
 	return xOut
 }
 
 // NegTo computes xOut = -x.
 func (gr *GaloisRing) NegTo(xOut, x *Element) {
-	gr.polyEval.NegTo(xOut.poly, x.poly)
+	gr.polyEvaluator.NegTo(xOut.poly, x.poly)
 }
 
 // ScalarMul returns x * c.
@@ -153,17 +155,17 @@ func (gr *GaloisRing) ScalarMul(x *Element, c uint64) *Element {
 
 // ScalarMulTo computes xOut = x * c.
 func (gr *GaloisRing) ScalarMulTo(xOut, x *Element, c uint64) {
-	gr.polyEval.ScalarMulTo(xOut.poly, x.poly, crt.Scalar{c})
+	gr.polyEvaluator.ScalarMulTo(xOut.poly, x.poly, crt.Scalar{c})
 }
 
 // ScalarMulAddTo computes xOut += x * c.
 func (gr *GaloisRing) ScalarMulAddTo(xOut, x *Element, c uint64) {
-	gr.polyEval.ScalarMulAddTo(xOut.poly, x.poly, crt.Scalar{c})
+	gr.polyEvaluator.ScalarMulAddTo(xOut.poly, x.poly, crt.Scalar{c})
 }
 
 // ScalarMulSubTo computes xOut -= x * c.
 func (gr *GaloisRing) ScalarMulSubTo(xOut, x *Element, c uint64) {
-	gr.polyEval.ScalarMulSubTo(xOut.poly, x.poly, crt.Scalar{c})
+	gr.polyEvaluator.ScalarMulSubTo(xOut.poly, x.poly, crt.Scalar{c})
 }
 
 // Mul returns x0 * x1.
@@ -175,20 +177,20 @@ func (gr *GaloisRing) Mul(x0, x1 *Element) *Element {
 
 // MulTo computes xOut = x0 * x1.
 func (gr *GaloisRing) MulTo(xOut, x0, x1 *Element) {
-	gr.polyEval.MulTo(xOut.poly, x0.poly, x1.poly)
+	gr.polyEvaluator.MulTo(xOut.poly, x0.poly, x1.poly)
 }
 
 // MulAddTo computes xOut += x0 * x1.
 func (gr *GaloisRing) MulAddTo(xOut, x0, x1 *Element) {
-	gr.polyEval.MulAddTo(xOut.poly, x0.poly, x1.poly)
+	gr.polyEvaluator.MulAddTo(xOut.poly, x0.poly, x1.poly)
 }
 
 // MulSubTo computes xOut -= x0 * x1.
 func (gr *GaloisRing) MulSubTo(xOut, x0, x1 *Element) {
-	gr.polyEval.MulSubTo(xOut.poly, x0.poly, x1.poly)
+	gr.polyEvaluator.MulSubTo(xOut.poly, x0.poly, x1.poly)
 }
 
-// Exp computes xOut = x^e.
+// Exp returns xOut = x^e.
 func (gr *GaloisRing) Exp(x *Element, e uint64) *Element {
 	xOut := gr.NewElement()
 	gr.ExpTo(xOut, x, e)
@@ -212,7 +214,7 @@ func (gr *GaloisRing) ExpTo(xOut, x *Element, e uint64) {
 	xOut.CopyFrom(gr.buf.xOut)
 }
 
-// ExpBig computes xOut = x^e.
+// ExpBig returns xOut = x^e.
 func (gr *GaloisRing) ExpBig(xOut, x *Element, e *big.Int) *Element {
 	gr.ExpBigTo(xOut, x, e)
 	return xOut
@@ -245,15 +247,15 @@ func (gr *GaloisRing) Inv(x *Element) *Element {
 
 // InvTo computes xOut = x^-1.
 func (gr *GaloisRing) InvTo(xOut, x *Element) {
-	invExp := new(big.Int).Sub(gr.ord, big.NewInt(1))
-	gr.ExpBigTo(xOut, x, invExp)
+	gr.ExpBigTo(xOut, x, gr.invExp)
 }
 
 // SafeCopy returns a thread-safe copy.
 func (gr *GaloisRing) SafeCopy() *GaloisRing {
 	return &GaloisRing{
-		polyEval: gr.polyEval.SafeCopy(),
-		ord:      gr.ord,
+		polyEvaluator: gr.polyEvaluator.SafeCopy(),
+		ord:           gr.ord,
+		invExp:        gr.invExp,
 
 		buf: newGaloisRingBuffer(gr.Modulus(), gr.Rank()),
 	}
