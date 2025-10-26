@@ -58,7 +58,7 @@ func NewTransformer(params RingParameters, mod *num.Modulus) Transformer {
 	switch params.ringType {
 	case Cyclotomic:
 		switch {
-		case num.IsPowerOfTwo(uint64(params.cycloOrd)):
+		case num.IsPowerOfTwo(params.cycloOrd):
 			return newPow2CyclotomicTransformer(params, mod)
 		default:
 			return newAnyCyclotomicTransformer(params, mod)

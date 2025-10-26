@@ -251,7 +251,7 @@ func TestAutFixedNTT(t *testing.T) {
 		p0Ref := make([]uint64, M)
 		p1Ref := make([]uint64, M)
 
-		cycloOrdMod := num.NewModulus(uint64(M))
+		cycloOrdMod := num.NewModulus(M)
 		root := num.Generators(cycloOrdMod)[0]
 		idx := uint64(1)
 		for i := 0; i < fold; i++ {
