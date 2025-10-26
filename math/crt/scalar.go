@@ -23,14 +23,54 @@ func NewScalar[T num.Integer | *big.Int](x T, mod []*num.Modulus) Scalar {
 			r[i] = t.Mod(u, q).Uint64()
 		}
 
+	case int8:
+		u := any(x).(int8)
+		for i := range r {
+			r[i] = num.Reduce(u, mod[i])
+		}
+	case int16:
+		u := any(x).(int16)
+		for i := range r {
+			r[i] = num.Reduce(u, mod[i])
+		}
+	case int32:
+		u := any(x).(int32)
+		for i := range r {
+			r[i] = num.Reduce(u, mod[i])
+		}
 	case int64:
 		u := any(x).(int64)
 		for i := range r {
 			r[i] = num.Reduce(u, mod[i])
 		}
+	case int:
+		u := any(x).(int)
+		for i := range r {
+			r[i] = num.Reduce(u, mod[i])
+		}
 
+	case uint8:
+		u := any(x).(uint8)
+		for i := range r {
+			r[i] = num.Reduce(u, mod[i])
+		}
+	case uint16:
+		u := any(x).(uint16)
+		for i := range r {
+			r[i] = num.Reduce(u, mod[i])
+		}
+	case uint32:
+		u := any(x).(uint32)
+		for i := range r {
+			r[i] = num.Reduce(u, mod[i])
+		}
 	case uint64:
 		u := any(x).(uint64)
+		for i := range r {
+			r[i] = num.Reduce(u, mod[i])
+		}
+	case uint:
+		u := any(x).(uint)
 		for i := range r {
 			r[i] = num.Reduce(u, mod[i])
 		}

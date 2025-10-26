@@ -8,7 +8,7 @@ import (
 	"github.com/hienaa-org/hienaa/math/vec"
 )
 
-// reducerBuffer is a buffer for [cyclotomicReducerNTTModulus].
+// reducerBuffer is a buffer for [Reducer].
 type reducerBuffer struct {
 	// pIn is a buffer for the input polynomial.
 	pIn [][]uint64
@@ -60,9 +60,9 @@ type CyclotomicReducer struct {
 	degNext int
 
 	// diffDegNextNTT is the NTT transformer for degree diffDegNext.
-	diffDegNextNTT []dft.Transformer
+	diffDegNextNTT []*dft.Pow235CyclicTransformer
 	// degNextNTT is the NTT transformer for degree degNext.
-	degNextNTT []dft.Transformer
+	degNextNTT []*dft.Pow235CyclicTransformer
 
 	// ambModLen is the optimal length of ambient modulus for each non-NTT friendly modulus.
 	ambModLen []int
@@ -72,9 +72,9 @@ type CyclotomicReducer struct {
 	embedder []*Embedder
 
 	// diffDegNextAmbNTT is diffDegNextNTT for ambient modulus.
-	diffDegNextAmbNTT []dft.Transformer
+	diffDegNextAmbNTT []*dft.Pow235CyclicTransformer
 	// degNextAmbNTT is the degNextAmbNTT for ambient modulus.
-	degNextAmbNTT []dft.Transformer
+	degNextAmbNTT []*dft.Pow235CyclicTransformer
 
 	// cycloPoly is the cyclotomic polynomial modulo the modulus.
 	cycloPoly [][][]uint64
@@ -105,8 +105,8 @@ func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *Cyclot
 	var ambMod []*num.Modulus
 	var embedder []*Embedder
 	var diffDeg, diffDegNext, degNext int
-	var diffDegNextNTT, degNextNTT []dft.Transformer
-	var diffDegNextAmbNTT, degNextAmbNTT []dft.Transformer
+	var diffDegNextNTT, degNextNTT []*dft.Pow235CyclicTransformer
+	var diffDegNextAmbNTT, degNextAmbNTT []*dft.Pow235CyclicTransformer
 	var cycloPoly, divPoly [][][]uint64
 
 	if !isTrivial {
@@ -127,20 +127,20 @@ func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *Cyclot
 		}
 
 		ambMod = dft.FindPrevNTTPrimes(params, num.MaxModulusBits, vec.Max(ambModLen))
-		diffDegNextAmbNTT = make([]dft.Transformer, len(ambMod))
-		degNextAmbNTT = make([]dft.Transformer, len(ambMod))
+		diffDegNextAmbNTT = make([]*dft.Pow235CyclicTransformer, len(ambMod))
+		degNextAmbNTT = make([]*dft.Pow235CyclicTransformer, len(ambMod))
 		for i := range ambMod {
-			diffDegNextAmbNTT[i] = dft.NewTransformer(diffDegNextParams, ambMod[i])
-			degNextAmbNTT[i] = dft.NewTransformer(degNextParams, ambMod[i])
+			diffDegNextAmbNTT[i] = dft.NewTransformer(diffDegNextParams, ambMod[i]).(*dft.Pow235CyclicTransformer)
+			degNextAmbNTT[i] = dft.NewTransformer(degNextParams, ambMod[i]).(*dft.Pow235CyclicTransformer)
 		}
 
 		embedder = make([]*Embedder, len(mod))
-		diffDegNextNTT = make([]dft.Transformer, len(mod))
-		degNextNTT = make([]dft.Transformer, len(mod))
+		diffDegNextNTT = make([]*dft.Pow235CyclicTransformer, len(mod))
+		degNextNTT = make([]*dft.Pow235CyclicTransformer, len(mod))
 		for i := range mod {
 			if ambModLen[i] == 0 {
-				diffDegNextNTT[i] = dft.NewTransformer(diffDegNextParams, mod[i])
-				degNextNTT[i] = dft.NewTransformer(degNextParams, mod[i])
+				diffDegNextNTT[i] = dft.NewTransformer(diffDegNextParams, mod[i]).(*dft.Pow235CyclicTransformer)
+				degNextNTT[i] = dft.NewTransformer(degNextParams, mod[i]).(*dft.Pow235CyclicTransformer)
 			} else {
 				embedder[i] = NewEmbedder([]*num.Modulus{mod[i]}, ambMod[:ambModLen[i]])
 			}
@@ -378,26 +378,26 @@ func (r *CyclotomicReducer) SubReducer(idx ...int) *CyclotomicReducer {
 	}
 
 	embedderCopy := make([]*Embedder, len(idx))
-	diffDegNextNTTCopy := make([]dft.Transformer, len(idx))
-	degNextNTTCopy := make([]dft.Transformer, len(idx))
+	diffDegNextNTTCopy := make([]*dft.Pow235CyclicTransformer, len(idx))
+	degNextNTTCopy := make([]*dft.Pow235CyclicTransformer, len(idx))
 	for i := range idx {
 		if r.embedder[idx[i]] != nil {
 			embedderCopy[i] = r.embedder[idx[i]].SafeCopy()
 		}
 		if r.diffDegNextNTT[idx[i]] != nil {
-			diffDegNextNTTCopy[i] = r.diffDegNextNTT[idx[i]].SafeCopy()
+			diffDegNextNTTCopy[i] = r.diffDegNextNTT[idx[i]].SafeCopy().(*dft.Pow235CyclicTransformer)
 		}
 		if r.degNextNTT[idx[i]] != nil {
-			degNextNTTCopy[i] = r.degNextNTT[idx[i]].SafeCopy()
+			degNextNTTCopy[i] = r.degNextNTT[idx[i]].SafeCopy().(*dft.Pow235CyclicTransformer)
 		}
 	}
 
 	maxAmbModLen := vec.Max(ambModLenCopy)
-	diffDegNextAmbNTTCopy := make([]dft.Transformer, maxAmbModLen)
-	degNextAmbNTTCopy := make([]dft.Transformer, maxAmbModLen)
+	diffDegNextAmbNTTCopy := make([]*dft.Pow235CyclicTransformer, maxAmbModLen)
+	degNextAmbNTTCopy := make([]*dft.Pow235CyclicTransformer, maxAmbModLen)
 	for i := 0; i < maxAmbModLen; i++ {
-		diffDegNextAmbNTTCopy[i] = r.diffDegNextAmbNTT[i].SafeCopy()
-		degNextAmbNTTCopy[i] = r.degNextAmbNTT[i].SafeCopy()
+		diffDegNextAmbNTTCopy[i] = r.diffDegNextAmbNTT[i].SafeCopy().(*dft.Pow235CyclicTransformer)
+		degNextAmbNTTCopy[i] = r.degNextAmbNTT[i].SafeCopy().(*dft.Pow235CyclicTransformer)
 	}
 
 	return &CyclotomicReducer{
@@ -432,32 +432,32 @@ func (r *CyclotomicReducer) SubReducer(idx ...int) *CyclotomicReducer {
 // SafeCopy returns a thread-safe copy.
 func (r *CyclotomicReducer) SafeCopy() *CyclotomicReducer {
 	var embedderCopy []*Embedder
-	var diffDegNextNTTCopy, degNextNTTCopy []dft.Transformer
+	var diffDegNextNTTCopy, degNextNTTCopy []*dft.Pow235CyclicTransformer
 
 	if !r.isTrivial {
 		embedderCopy = make([]*Embedder, len(r.mod))
-		diffDegNextNTTCopy = make([]dft.Transformer, len(r.mod))
-		degNextNTTCopy = make([]dft.Transformer, len(r.mod))
+		diffDegNextNTTCopy = make([]*dft.Pow235CyclicTransformer, len(r.mod))
+		degNextNTTCopy = make([]*dft.Pow235CyclicTransformer, len(r.mod))
 		for i := range r.mod {
 			if r.embedder[i] != nil {
 				embedderCopy[i] = r.embedder[i].SafeCopy()
 			}
 			if r.diffDegNextNTT[i] != nil {
-				diffDegNextNTTCopy[i] = r.diffDegNextNTT[i].SafeCopy()
+				diffDegNextNTTCopy[i] = r.diffDegNextNTT[i].SafeCopy().(*dft.Pow235CyclicTransformer)
 			}
 			if r.degNextNTT[i] != nil {
-				degNextNTTCopy[i] = r.degNextNTT[i].SafeCopy()
+				degNextNTTCopy[i] = r.degNextNTT[i].SafeCopy().(*dft.Pow235CyclicTransformer)
 			}
 		}
 	}
 
-	diffDegNextAmbNTTCopy := make([]dft.Transformer, len(r.diffDegNextAmbNTT))
+	diffDegNextAmbNTTCopy := make([]*dft.Pow235CyclicTransformer, len(r.diffDegNextAmbNTT))
 	for i := range r.diffDegNextAmbNTT {
-		diffDegNextAmbNTTCopy[i] = r.diffDegNextAmbNTT[i].SafeCopy()
+		diffDegNextAmbNTTCopy[i] = r.diffDegNextAmbNTT[i].SafeCopy().(*dft.Pow235CyclicTransformer)
 	}
-	degNextAmbNTTCopy := make([]dft.Transformer, len(r.degNextAmbNTT))
+	degNextAmbNTTCopy := make([]*dft.Pow235CyclicTransformer, len(r.degNextAmbNTT))
 	for i := range r.degNextAmbNTT {
-		degNextAmbNTTCopy[i] = r.degNextAmbNTT[i].SafeCopy()
+		degNextAmbNTTCopy[i] = r.degNextAmbNTT[i].SafeCopy().(*dft.Pow235CyclicTransformer)
 	}
 
 	return &CyclotomicReducer{
@@ -506,9 +506,9 @@ type Reducer struct {
 	degNext int
 
 	// diffDegNextNTT is the NTT transformer for degree diffDegNext.
-	diffDegNextNTT []dft.Transformer
+	diffDegNextNTT []*dft.Pow235CyclicTransformer
 	// degNextNTT is the NTT transformer for degree degNext.
-	degNextNTT []dft.Transformer
+	degNextNTT []*dft.Pow235CyclicTransformer
 
 	// ambModLen is the optimal length of ambient modulus for each non-NTT friendly modulus.
 	ambModLen []int
@@ -518,9 +518,9 @@ type Reducer struct {
 	embedder []*Embedder
 
 	// diffDegNextAmbNTT is diffDegNextNTT for ambient modulus.
-	diffDegNextAmbNTT []dft.Transformer
+	diffDegNextAmbNTT []*dft.Pow235CyclicTransformer
 	// degNextAmbNTT is the degNextAmbNTT for ambient modulus.
-	degNextAmbNTT []dft.Transformer
+	degNextAmbNTT []*dft.Pow235CyclicTransformer
 
 	// modPoly is the polynomial we target to reduce to.
 	modPoly [][][]uint64
@@ -560,20 +560,20 @@ func NewReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *Reducer {
 	}
 
 	ambMod := dft.FindPrevNTTPrimes(ambParams, num.MaxModulusBits, vec.Max(ambModLen))
-	diffDegNextAmbNTT := make([]dft.Transformer, len(ambMod))
-	degNextAmbNTT := make([]dft.Transformer, len(ambMod))
+	diffDegNextAmbNTT := make([]*dft.Pow235CyclicTransformer, len(ambMod))
+	degNextAmbNTT := make([]*dft.Pow235CyclicTransformer, len(ambMod))
 	for i := range ambMod {
-		diffDegNextAmbNTT[i] = dft.NewTransformer(diffDegNextParams, ambMod[i])
-		degNextAmbNTT[i] = dft.NewTransformer(degNextParams, ambMod[i])
+		diffDegNextAmbNTT[i] = dft.NewTransformer(diffDegNextParams, ambMod[i]).(*dft.Pow235CyclicTransformer)
+		degNextAmbNTT[i] = dft.NewTransformer(degNextParams, ambMod[i]).(*dft.Pow235CyclicTransformer)
 	}
 
 	embedder := make([]*Embedder, len(mod))
-	diffDegNextNTT := make([]dft.Transformer, len(mod))
-	degNextNTT := make([]dft.Transformer, len(mod))
+	diffDegNextNTT := make([]*dft.Pow235CyclicTransformer, len(mod))
+	degNextNTT := make([]*dft.Pow235CyclicTransformer, len(mod))
 	for i := range mod {
 		if ambModLen[i] == 0 {
-			diffDegNextNTT[i] = dft.NewTransformer(diffDegNextParams, mod[i])
-			degNextNTT[i] = dft.NewTransformer(degNextParams, mod[i])
+			diffDegNextNTT[i] = dft.NewTransformer(diffDegNextParams, mod[i]).(*dft.Pow235CyclicTransformer)
+			degNextNTT[i] = dft.NewTransformer(degNextParams, mod[i]).(*dft.Pow235CyclicTransformer)
 		} else {
 			embedder[i] = NewEmbedder([]*num.Modulus{mod[i]}, ambMod[:ambModLen[i]])
 		}
@@ -779,26 +779,26 @@ func (r *Reducer) SubReducer(idx ...int) *Reducer {
 	}
 
 	embedderCopy := make([]*Embedder, len(idx))
-	diffDegNextNTTCopy := make([]dft.Transformer, len(idx))
-	degNextNTTCopy := make([]dft.Transformer, len(idx))
+	diffDegNextNTTCopy := make([]*dft.Pow235CyclicTransformer, len(idx))
+	degNextNTTCopy := make([]*dft.Pow235CyclicTransformer, len(idx))
 	for i := range idx {
 		if r.embedder[idx[i]] != nil {
 			embedderCopy[i] = r.embedder[idx[i]].SafeCopy()
 		}
 		if r.diffDegNextNTT[idx[i]] != nil {
-			diffDegNextNTTCopy[i] = r.diffDegNextNTT[idx[i]].SafeCopy()
+			diffDegNextNTTCopy[i] = r.diffDegNextNTT[idx[i]].SafeCopy().(*dft.Pow235CyclicTransformer)
 		}
 		if r.degNextNTT[idx[i]] != nil {
-			degNextNTTCopy[i] = r.degNextNTT[idx[i]].SafeCopy()
+			degNextNTTCopy[i] = r.degNextNTT[idx[i]].SafeCopy().(*dft.Pow235CyclicTransformer)
 		}
 	}
 
 	maxAmbModLen := vec.Max(ambModLenCopy)
-	diffDegNextAmbNTTCopy := make([]dft.Transformer, maxAmbModLen)
-	degNextAmbNTTCopy := make([]dft.Transformer, maxAmbModLen)
+	diffDegNextAmbNTTCopy := make([]*dft.Pow235CyclicTransformer, maxAmbModLen)
+	degNextAmbNTTCopy := make([]*dft.Pow235CyclicTransformer, maxAmbModLen)
 	for i := 0; i < maxAmbModLen; i++ {
-		diffDegNextAmbNTTCopy[i] = r.diffDegNextAmbNTT[i].SafeCopy()
-		degNextAmbNTTCopy[i] = r.degNextAmbNTT[i].SafeCopy()
+		diffDegNextAmbNTTCopy[i] = r.diffDegNextAmbNTT[i].SafeCopy().(*dft.Pow235CyclicTransformer)
+		degNextAmbNTTCopy[i] = r.degNextAmbNTT[i].SafeCopy().(*dft.Pow235CyclicTransformer)
 	}
 
 	return &Reducer{
@@ -831,27 +831,27 @@ func (r *Reducer) SubReducer(idx ...int) *Reducer {
 // SafeCopy returns a thread-safe copy.
 func (r *Reducer) SafeCopy() *Reducer {
 	embedderCopy := make([]*Embedder, len(r.mod))
-	diffDegNextNTTCopy := make([]dft.Transformer, len(r.mod))
-	degNextNTTCopy := make([]dft.Transformer, len(r.mod))
+	diffDegNextNTTCopy := make([]*dft.Pow235CyclicTransformer, len(r.mod))
+	degNextNTTCopy := make([]*dft.Pow235CyclicTransformer, len(r.mod))
 	for i := range r.mod {
 		if r.embedder[i] != nil {
 			embedderCopy[i] = r.embedder[i].SafeCopy()
 		}
 		if r.diffDegNextNTT[i] != nil {
-			diffDegNextNTTCopy[i] = r.diffDegNextNTT[i].SafeCopy()
+			diffDegNextNTTCopy[i] = r.diffDegNextNTT[i].SafeCopy().(*dft.Pow235CyclicTransformer)
 		}
 		if r.degNextNTT[i] != nil {
-			degNextNTTCopy[i] = r.degNextNTT[i].SafeCopy()
+			degNextNTTCopy[i] = r.degNextNTT[i].SafeCopy().(*dft.Pow235CyclicTransformer)
 		}
 	}
 
-	diffDegNextAmbNTTCopy := make([]dft.Transformer, len(r.diffDegNextAmbNTT))
+	diffDegNextAmbNTTCopy := make([]*dft.Pow235CyclicTransformer, len(r.diffDegNextAmbNTT))
 	for i := range r.diffDegNextAmbNTT {
-		diffDegNextAmbNTTCopy[i] = r.diffDegNextAmbNTT[i].SafeCopy()
+		diffDegNextAmbNTTCopy[i] = r.diffDegNextAmbNTT[i].SafeCopy().(*dft.Pow235CyclicTransformer)
 	}
-	degNextAmbNTTCopy := make([]dft.Transformer, len(r.degNextAmbNTT))
+	degNextAmbNTTCopy := make([]*dft.Pow235CyclicTransformer, len(r.degNextAmbNTT))
 	for i := range r.degNextAmbNTT {
-		degNextAmbNTTCopy[i] = r.degNextAmbNTT[i].SafeCopy()
+		degNextAmbNTTCopy[i] = r.degNextAmbNTT[i].SafeCopy().(*dft.Pow235CyclicTransformer)
 	}
 
 	return &Reducer{
