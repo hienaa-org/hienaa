@@ -157,7 +157,7 @@ func TestCyclicNTT(t *testing.T) {
 		assert.Equal(t, cyclicMul(p0, p1, q), pOut)
 	})
 
-	t.Run("type=Bluestein", func(t *testing.T) {
+	t.Run("type=Any", func(t *testing.T) {
 		var N int
 		for {
 			N = int(rSrc.SampleN(1 << 10))
@@ -375,7 +375,7 @@ func BenchmarkCyclicNTT(b *testing.B) {
 		}
 	})
 
-	b.Run("type=Bluestein", func(b *testing.B) {
+	b.Run("type=Any", func(b *testing.B) {
 		for _, logN := range benchLogN {
 			N := (1 << logN) + 1
 			rP := dft.NewCyclicParameters(N)

@@ -20,7 +20,36 @@ type Transformer interface {
 	SafeCopy() Transformer
 }
 
+// CyclotomicTransformer is a Transformer for cyclotomic ring.
+type CyclotomicTransformer interface {
+	Transformer
+	isCyclotomic()
+}
+
+// CyclicTransformer is a Transformer for cyclic ring.
+type CyclicTransformer interface {
+	Transformer
+	isCyclic()
+}
+
+// AutFixedTransformer is a Transformer for AutFixed ring.
+type AutFixedTransformer interface {
+	Transformer
+	isAutFixed()
+}
+
 // NewTransformer creates a new [Transformer].
+// Currently, the following cases are supported, which one can cast using type assertion:
+//
+//   - [*Pow2CyclotomicTransformer]
+//   - [*AnyCyclotomicTransformer]
+//   - [*Pow235CyclicTransformer]
+//   - [*AnyCyclicTransformer]
+//   - [*Pow2AutFixedTransformer]
+//   - [*PrimeAutFixedTransformer]
+//
+// Corresponding transformers also implement ring-specific interfaces, namely
+// [CyclotomicTransformer], [CyclicTransformer], and [AutFixedTransformer].
 func NewTransformer(params RingParameters, mod *num.Modulus) Transformer {
 	if !IsNTTFriendly(params, mod) {
 		panic("NewTransformer: unsupported ring parameters or modulus")
@@ -30,23 +59,23 @@ func NewTransformer(params RingParameters, mod *num.Modulus) Transformer {
 	case Cyclotomic:
 		switch {
 		case num.IsPowerOfTwo(uint64(params.cycloOrd)):
-			return newCyclotomicPow2Transformer(params, mod)
+			return newPow2CyclotomicTransformer(params, mod)
 		default:
-			return newCyclotomicAnyTransformer(params, mod)
+			return newAnyCyclotomicTransformer(params, mod)
 		}
 	case Cyclic:
 		switch {
 		case num.IsProdPowerOf(params.rank, cyclicNTTFactors):
 			return newCyclicPow235Transformer(params, mod)
 		default:
-			return newCyclicBluesteinTransformer(params, mod)
+			return newAnyCyclicTransformer(params, mod)
 		}
 	case AutFixed:
 		switch {
 		case num.IsPowerOfTwo(params.cycloOrd):
-			return newAutFixedPow2Transformer(params, mod)
+			return newPow2AutFixedTransformer(params, mod)
 		case num.IsPrime(params.cycloOrd):
-			return newAutFixedPrimeTransformer(params, mod)
+			return newPrimeAutFixedTransformer(params, mod)
 		}
 	}
 
