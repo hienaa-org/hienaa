@@ -46,6 +46,11 @@ func cyclicMul(p0, p1 []uint64, q *num.Modulus) []uint64 {
 	return pOut
 }
 
+func reduce(p []uint64, q *num.Modulus, modPoly []int64) []uint64 {
+	reducer := crt.NewLongDivReducer(len(p), []*num.Modulus{q}, modPoly)
+	return reducer.Reduce(&crt.Poly{Coeffs: [][]uint64{p}}).Coeffs[0]
+}
+
 func TestCyclotomicEvaluator(t *testing.T) {
 	t.Run("type=Pow2", func(t *testing.T) {
 		N := 1 << 10
@@ -128,10 +133,6 @@ func TestCyclotomicEvaluator(t *testing.T) {
 		q = append(q, num.NewModulus(num.NextPrime(q[0].Value(), 2)))
 
 		cycloSigned := dft.CyclotomicPolynomial(rP.CycloOrder())
-		cyclo := make([][]uint64, len(q))
-		for i := range q {
-			cyclo[i] = vec.Reduce(cycloSigned, q[i])
-		}
 
 		pev := crt.NewPolyEvaluator(rP, q)
 
@@ -159,7 +160,7 @@ func TestCyclotomicEvaluator(t *testing.T) {
 			pOutRef := make([][]uint64, len(q))
 			for i := range q {
 				pMulRef := cyclicMul(p0Ref[i], p1Ref[i], q[i])
-				pOutRef[i] = reduce(pMulRef, cyclo[i], q[i])
+				pOutRef[i] = reduce(pMulRef, q[i], cycloSigned)
 			}
 
 			assert.Equal(t, pOutRef, pOut.Coeffs)
@@ -174,7 +175,7 @@ func TestCyclotomicEvaluator(t *testing.T) {
 
 			for i := range q {
 				pMulRef := cyclicMul(p0Ref[i], p1Ref[i], q[i])
-				vec.AddTo(pOutRef[i], pOutRef[i], reduce(pMulRef, cyclo[i], q[i]), q[i])
+				vec.AddTo(pOutRef[i], pOutRef[i], reduce(pMulRef, q[i], cycloSigned), q[i])
 			}
 
 			assert.Equal(t, pOutRef, pOut.Coeffs)
@@ -189,7 +190,7 @@ func TestCyclotomicEvaluator(t *testing.T) {
 
 			for i := range q {
 				pMulRef := cyclicMul(p0Ref[i], p1Ref[i], q[i])
-				vec.SubTo(pOutRef[i], pOutRef[i], reduce(pMulRef, cyclo[i], q[i]), q[i])
+				vec.SubTo(pOutRef[i], pOutRef[i], reduce(pMulRef, q[i], cycloSigned), q[i])
 			}
 
 			assert.Equal(t, pOutRef, pOut.Coeffs)
@@ -559,10 +560,6 @@ func TestAnyEvaluator(t *testing.T) {
 		q := []*num.Modulus{num.NewModulus(num.NextPrime(1<<60+1, 2))}
 
 		modPolySigned := randTernaryPoly(N + 1)
-		modPoly := make([][]uint64, len(q))
-		for i := range q {
-			modPoly[i] = vec.Reduce(modPolySigned, q[i])
-		}
 
 		pev := crt.NewPolyEvaluatorWithModPoly(q, modPolySigned)
 
@@ -589,7 +586,7 @@ func TestAnyEvaluator(t *testing.T) {
 
 			pOutRef := make([][]uint64, len(q))
 			for i := range q {
-				pOutRef[i] = reduce(cyclicMul(p0Ref[i], p1Ref[i], q[i]), modPoly[i], q[i])
+				pOutRef[i] = reduce(cyclicMul(p0Ref[i], p1Ref[i], q[i]), q[i], modPolySigned)
 			}
 
 			assert.Equal(t, pOutRef, pOut.Coeffs)
@@ -603,7 +600,7 @@ func TestAnyEvaluator(t *testing.T) {
 			pev.InvNTTTo(pOut, pOutNTT)
 
 			for i := range q {
-				pMulRef := reduce(cyclicMul(p0Ref[i], p1Ref[i], q[i]), modPoly[i], q[i])
+				pMulRef := reduce(cyclicMul(p0Ref[i], p1Ref[i], q[i]), q[i], modPolySigned)
 				vec.AddTo(pOutRef[i], pOutRef[i], pMulRef, q[i])
 			}
 
@@ -618,7 +615,7 @@ func TestAnyEvaluator(t *testing.T) {
 			pev.InvNTTTo(pOut, pOutNTT)
 
 			for i := range q {
-				pMulRef := reduce(cyclicMul(p0Ref[i], p1Ref[i], q[i]), modPoly[i], q[i])
+				pMulRef := reduce(cyclicMul(p0Ref[i], p1Ref[i], q[i]), q[i], modPolySigned)
 				vec.SubTo(pOutRef[i], pOutRef[i], pMulRef, q[i])
 			}
 

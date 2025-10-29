@@ -8,7 +8,6 @@ import (
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
-	"github.com/hienaa-org/hienaa/math/vec"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -36,24 +35,8 @@ func randPoly(rank int, q []*num.Modulus) *crt.Poly {
 	return p
 }
 
-func reduce(p0, p1 []uint64, q *num.Modulus) []uint64 {
-	quo := make([]uint64, len(p0)-len(p1)+1)
-	rem := make([]uint64, len(p0))
-	copy(rem, p0)
-
-	lcInv := num.Inv(p1[len(p1)-1], q)
-	for i := 0; i <= len(p0)-len(p1); i++ {
-		if rem[len(rem)-i-1] != 0 {
-			quo[len(quo)-i-1] = num.Mul(rem[len(rem)-i-1], lcInv, q)
-			vec.ScalarMulSubTo(rem[len(rem)-i-len(p1):len(rem)-i], p1, quo[len(quo)-i-1], q)
-		}
-	}
-
-	return rem[:len(p1)-1]
-}
-
 func TestReducer(t *testing.T) {
-	t.Run("type=NTT", func(t *testing.T) {
+	t.Run("type=Cyclotomic", func(t *testing.T) {
 		sqrtN := int(math.Sqrt(math.Exp2(10)))
 		m0 := num.NextPrime(sqrtN, 1)
 		m1 := num.NextPrime(m0, 2)
@@ -69,11 +52,11 @@ func TestReducer(t *testing.T) {
 		q = append(q, num.NewModulus(num.NextPrime(q[0].Value(), 2)))
 
 		cycloReducer := crt.NewCyclotomicReducer(rP, q)
-		reducer := crt.NewReducer(M, q, dft.CyclotomicPolynomial(M))
+		longDivReducer := crt.NewLongDivReducer(M, q, dft.CyclotomicPolynomial(M))
 
 		p := randPoly(M, q)
 		pOut := cycloReducer.Reduce(p)
-		pOutRef := reducer.Reduce(p)
+		pOutRef := longDivReducer.Reduce(p)
 
 		assert.Equal(t, pOutRef, pOut)
 	})
@@ -91,12 +74,13 @@ func TestReducer(t *testing.T) {
 
 		modPoly := randTernaryPoly(N + 1)
 		reducer := crt.NewReducer(maxRank, q, modPoly)
+		longDivReducer := crt.NewLongDivReducer(maxRank, q, modPoly)
 
 		p := randPoly(maxRank, q)
 		pOut := reducer.Reduce(p)
+		pOutRef := longDivReducer.Reduce(p)
 
-		assert.Equal(t, reduce(p.Coeffs[0], vec.Reduce(modPoly, q[0]), q[0]), pOut.Coeffs[0])
-		assert.Equal(t, reduce(p.Coeffs[1], vec.Reduce(modPoly, q[1]), q[1]), pOut.Coeffs[1])
+		assert.Equal(t, pOutRef, pOut)
 	})
 }
 
