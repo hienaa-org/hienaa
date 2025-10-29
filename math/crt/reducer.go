@@ -37,6 +37,189 @@ func newReducerBuffer(lenAmbMod, in, quo, rem int) reducerBuffer {
 	}
 }
 
+// LongDivReducer reduces a polynomial modulo modulus polynomial using long division.
+// In cases where the modulus polynomial is small or sparse, this might be more efficient than [Reducer].
+type LongDivReducer struct {
+	params dft.RingParameters
+	mod    []*num.Modulus
+
+	// maxRank is the maximum rank of the input polynomial.
+	maxRank int
+
+	// modPoly is the polynomial we target to reduce to.
+	modPoly [][]uint64
+
+	buf reducerBuffer
+}
+
+// NewLongDivReducer creates a new [LongDivReducer].
+func NewLongDivReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *LongDivReducer {
+	switch {
+	case maxRank < len(modPoly)-1:
+		panic("NewReducer: maxRank smaller than modPoly degree")
+	case modPoly[len(modPoly)-1] != 1:
+		panic("NewReducer: modPoly not monic")
+	}
+
+	modPolyRed := make([][]uint64, len(mod))
+	for i := range mod {
+		modPolyRed[i] = vec.Reduce(modPoly, mod[i])
+	}
+
+	return &LongDivReducer{
+		params: dft.NewOtherParameters(modPoly),
+		mod:    mod,
+
+		maxRank: maxRank,
+		modPoly: modPolyRed,
+
+		buf: newReducerBuffer(1, maxRank, maxRank-len(modPoly)+1, maxRank),
+	}
+}
+
+// quoRemTo computes quotient and remainder of p to pQuo, pRem with the idx-th modulus.
+func (r *LongDivReducer) quoRemTo(pQuo, pRem, p []uint64, idx int) {
+	clear(pQuo)
+	clear(r.buf.pIn[0])
+	copy(r.buf.pIn[0], p)
+
+	for i := 0; i <= len(p)-len(r.modPoly[idx]); i++ {
+		if r.buf.pIn[0][len(r.buf.pIn[0])-i-1] != 0 {
+			pQuo[len(pQuo)-i-1] = r.buf.pIn[0][len(r.buf.pIn[0])-i-1]
+			vec.ScalarMulSubTo(
+				r.buf.pIn[0][len(r.buf.pIn[0])-i-len(r.modPoly[idx]):len(r.buf.pIn[0])-i],
+				r.modPoly[idx],
+				pQuo[len(pQuo)-i-1],
+				r.mod[idx],
+			)
+		}
+	}
+
+	copy(pRem, r.buf.pIn[0][:r.params.Rank()])
+}
+
+// Reduce reduces p.
+//
+// Panics when p is in NTT form, or the rank of p is larger than maxRank.
+func (r *LongDivReducer) Reduce(p *Poly) *Poly {
+	pOut := NewPoly(r.params.Rank(), p.ModLen())
+	r.ReduceTo(pOut, p)
+	return pOut
+}
+
+// ReduceTo reduces p to pOut.
+//
+// Panics when p is in NTT form, or the rank of p is larger than maxRank.
+func (r *LongDivReducer) ReduceTo(pOut, p *Poly) {
+	switch {
+	case p.isNTT:
+		panic("ReduceTo: cannot reduce NTT polynomials")
+	case p.Rank() > r.maxRank:
+		panic("ReduceTo: rank of p is larger than maxRank")
+	case pOut.ModLen() != len(r.mod) || p.ModLen() != len(r.mod):
+		panic("ReduceTo: inputs not consistent")
+	}
+
+	for i := range r.mod {
+		r.quoRemTo(r.buf.pQuo[0], pOut.Coeffs[i], p.Coeffs[i], i)
+	}
+}
+
+// Quotient returns p / modPoly.
+//
+// Panics when p is in NTT form, or the rank of p is larger than maxRank.
+func (r *LongDivReducer) Quotient(p *Poly) *Poly {
+	pOut := NewPoly(p.Rank()-r.params.Rank(), p.ModLen())
+	r.QuotientTo(pOut, p)
+	return pOut
+}
+
+// QuotientTo computes pOut = p / modPoly.
+//
+// Panics when p is in NTT form, or the rank of p is larger than maxRank.
+func (r *LongDivReducer) QuotientTo(pOut, p *Poly) {
+	switch {
+	case p.isNTT:
+		panic("ReduceTo: cannot reduce NTT polynomials")
+	case p.Rank() > r.maxRank:
+		panic("ReduceTo: rank of p is larger than maxRank")
+	case pOut.ModLen() != len(r.mod) || p.ModLen() != len(r.mod):
+		panic("ReduceTo: inputs not consistent")
+	}
+
+	for i := range r.mod {
+		r.quoRemTo(pOut.Coeffs[i], r.buf.pRem[0], p.Coeffs[i], i)
+	}
+}
+
+// QuoRem returns p / modPoly and p % modPoly.
+//
+// Panics when p is in NTT form, or the rank of p is larger than maxRank.
+func (r *LongDivReducer) QuoRem(p *Poly) (pQuo, pRem *Poly) {
+	pQuo = NewPoly(p.Rank()-r.params.Rank(), p.ModLen())
+	pRem = NewPoly(r.params.Rank(), p.ModLen())
+	r.QuoRemTo(pQuo, pRem, p)
+	return
+}
+
+// QuoRemTo computes pQuo = p / modPoly and pRem = p % modPoly.
+//
+// Panics when p, pQuo or pRem is in NTT form, or the rank of p is larger than maxRank.
+func (r *LongDivReducer) QuoRemTo(pQuo, pRem, p *Poly) {
+	switch {
+	case p.isNTT:
+		panic("ReduceTo: cannot reduce NTT polynomials")
+	case p.Rank() > r.maxRank:
+		panic("ReduceTo: rank of p is larger than maxRank")
+	case pQuo.ModLen() != len(r.mod) || pRem.ModLen() != len(r.mod) || p.ModLen() != len(r.mod):
+		panic("ReduceTo: inputs not consistent")
+	}
+
+	for i := range r.mod {
+		r.quoRemTo(pQuo.Coeffs[i], pRem.Coeffs[i], p.Coeffs[i], i)
+	}
+}
+
+// Modulus returns the modulus.
+func (r *LongDivReducer) Modulus() []*num.Modulus {
+	return r.mod
+}
+
+// SubReducer returns a reducer for modulus of given indices.
+func (r *LongDivReducer) SubReducer(idx ...int) *LongDivReducer {
+	modCopy := make([]*num.Modulus, len(idx))
+	modPolyCopy := make([][]uint64, len(idx))
+	for i := range idx {
+		modCopy[i] = r.mod[idx[i]]
+		modPolyCopy[i] = r.modPoly[idx[i]]
+	}
+
+	return &LongDivReducer{
+		params: r.params,
+		mod:    modCopy,
+
+		maxRank: r.maxRank,
+
+		modPoly: modPolyCopy,
+
+		buf: newReducerBuffer(1, r.maxRank, r.maxRank-len(modPolyCopy[0])+1, r.maxRank),
+	}
+}
+
+// SafeCopy returns a thread-safe copy.
+func (r *LongDivReducer) SafeCopy() *LongDivReducer {
+	return &LongDivReducer{
+		params: r.params,
+		mod:    r.mod,
+
+		maxRank: r.maxRank,
+
+		modPoly: r.modPoly,
+
+		buf: newReducerBuffer(1, r.maxRank, r.maxRank-len(r.modPoly[0])+1, r.maxRank),
+	}
+}
+
 // CyclotomicReducer is an optimized [Reducer] for cyclotomic polynomial.
 // In other words, it computes a(X) mod \Phi_m(X), where a(X) is at most degree m-1.
 // It uses Optimised Barrett reduction for polynomial, from https://eprint.iacr.org/2017/748.
@@ -147,17 +330,17 @@ func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *Cyclot
 		}
 
 		cycloPolySigned := dft.CyclotomicPolynomial(cycloOrd)
-		dividend := make([]uint64, redDeg+1)
-		dividend[redDeg] = 1
+		dividend := NewPoly(redDeg+1, 1)
+		dividend.Coeffs[0][redDeg] = 1
 
 		cycloPoly = make([][][]uint64, len(mod))
 		divPoly = make([][][]uint64, len(mod))
 		for i := range mod {
+			divReducer := NewLongDivReducer(redDeg+1, []*num.Modulus{mod[i]}, cycloPolySigned)
+			divPolyRef := divReducer.Quotient(dividend).Coeffs[0]
 			if ambModLen[i] == 0 {
 				cycloPoly[i] = [][]uint64{make([]uint64, degNext)}
 				vec.ReduceTo(cycloPoly[i][0][:rank+1], cycloPolySigned, mod[i])
-
-				divPolyRef := quotient(dividend, cycloPoly[i][0][:rank+1], mod[i])
 				divPoly[i] = [][]uint64{append(divPolyRef, make([]uint64, diffDegNext-len(divPolyRef))...)}
 			} else {
 				cycloPoly[i] = make([][]uint64, ambModLen[i])
@@ -168,7 +351,6 @@ func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *Cyclot
 					copy(cycloPoly[i][j], cycloPoly[i][0])
 				}
 
-				divPolyRef := quotient(dividend, cycloPoly[i][0][:rank+1], mod[i])
 				divPoly[i] = make([][]uint64, ambModLen[i])
 				divPoly[i][0] = append(divPolyRef, make([]uint64, diffDegNext-len(divPolyRef))...)
 				for j := 1; j < ambModLen[i]; j++ {
@@ -330,6 +512,7 @@ func (r *CyclotomicReducer) reduceTo(pOut, p []uint64, idx int) {
 }
 
 // Reduce reduces p.
+//
 // Panics when p is in NTT form, or the rank of p is larger than CycloOrd.
 func (r *CyclotomicReducer) Reduce(p *Poly) *Poly {
 	pOut := NewPoly(r.params.Rank(), p.ModLen())
@@ -338,7 +521,8 @@ func (r *CyclotomicReducer) Reduce(p *Poly) *Poly {
 }
 
 // ReduceTo reduces p to pOut.
-// Panics when p or pOut is in NTT form, or the rank of p is larger than CycloOrd.
+//
+// Panics when p is in NTT form, or the rank of p is larger than CycloOrd.
 func (r *CyclotomicReducer) ReduceTo(pOut, p *Poly) {
 	switch {
 	case p.isNTT:
@@ -352,11 +536,6 @@ func (r *CyclotomicReducer) ReduceTo(pOut, p *Poly) {
 	for i := range r.mod {
 		r.reduceTo(pOut.Coeffs[i], p.Coeffs[i], i)
 	}
-}
-
-// Params returns the ring parameters.
-func (r *CyclotomicReducer) Params() dft.RingParameters {
-	return r.params
 }
 
 // Modulus returns the modulus.
@@ -579,17 +758,19 @@ func NewReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *Reducer {
 		}
 	}
 
-	dividend := make([]uint64, maxRank)
-	dividend[maxRank-1] = 1
+	dividend := NewPoly(maxRank, 1)
+	dividend.Coeffs[0][maxRank-1] = 1
 
 	modPolyRed := make([][][]uint64, len(mod))
 	divPoly := make([][][]uint64, len(mod))
 	for i := range mod {
+		divReducer := NewLongDivReducer(maxRank, []*num.Modulus{mod[i]}, modPoly)
+		divPolyRef := divReducer.Quotient(dividend).Coeffs[0]
+
 		if ambModLen[i] == 0 {
 			modPolyRed[i] = [][]uint64{make([]uint64, degNext)}
 			vec.ReduceTo(modPolyRed[i][0][:rank+1], modPoly, mod[i])
 
-			divPolyRef := quotient(dividend, modPolyRed[i][0][:rank+1], mod[i])
 			divPoly[i] = [][]uint64{append(divPolyRef, make([]uint64, diffDegNext-len(divPolyRef))...)}
 		} else {
 			modPolyRed[i] = make([][]uint64, ambModLen[i])
@@ -600,7 +781,6 @@ func NewReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *Reducer {
 				copy(modPolyRed[i][j], modPolyRed[i][0])
 			}
 
-			divPolyRef := quotient(dividend, modPolyRed[i][0][:rank+1], mod[i])
 			divPoly[i] = make([][]uint64, ambModLen[i])
 			divPoly[i][0] = append(divPolyRef, make([]uint64, diffDegNext-len(divPolyRef))...)
 			for j := 1; j < ambModLen[i]; j++ {
@@ -726,6 +906,7 @@ func (r *Reducer) reduceTo(pOut, p []uint64, idx int) {
 }
 
 // Reduce reduces p.
+//
 // Panics when p is in NTT form, or the rank of p is larger than MaxRank.
 func (r *Reducer) Reduce(p *Poly) *Poly {
 	pOut := NewPoly(r.params.Rank(), p.ModLen())
@@ -734,7 +915,8 @@ func (r *Reducer) Reduce(p *Poly) *Poly {
 }
 
 // ReduceTo reduces p to pOut.
-// Panics when p or pOut is in NTT form, or the rank of p is larger than MaxRank.
+//
+// Panics when p is in NTT form, or the rank of p is larger than MaxRank.
 func (r *Reducer) ReduceTo(pOut, p *Poly) {
 	switch {
 	case p.isNTT:
@@ -878,28 +1060,4 @@ func (r *Reducer) SafeCopy() *Reducer {
 
 		buf: newReducerBuffer(max(1, vec.Max(r.ambModLen)), r.maxRank, r.diffDegNext, r.degNext),
 	}
-}
-
-// quotient computes the quotient of two polynomials modulo a modulus.
-func quotient(p0, p1 []uint64, mod *num.Modulus) []uint64 {
-	switch {
-	case len(p0) < len(p1):
-		panic("quotient: dividend is shorter than divisor")
-	case num.GCD(mod.Value(), p1[len(p1)-1]) != 1:
-		panic("quotient: divisor is not coprime with modulus")
-	}
-
-	quo := make([]uint64, len(p0)-len(p1)+1)
-	rem := make([]uint64, len(p0))
-	copy(rem, p0)
-
-	lcInv := num.Inv(p1[len(p1)-1], mod)
-	for i := 0; i <= len(p0)-len(p1); i++ {
-		if rem[len(rem)-i-1] != 0 {
-			quo[len(quo)-i-1] = num.Mul(rem[len(rem)-i-1], lcInv, mod)
-			vec.ScalarMulSubTo(rem[len(rem)-i-len(p1):len(rem)-i], p1, quo[len(quo)-i-1], mod)
-		}
-	}
-
-	return quo
 }

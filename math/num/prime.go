@@ -113,6 +113,7 @@ func NextProdPower[T Integer](x T, factors []T) T {
 }
 
 // Factor factors x. The resulting primes are sorted in ascending order.
+//
 // Panics when x < 0.
 func Factor[T Integer](x T) (primes []T, exps []T) {
 	if x < 0 {
@@ -226,6 +227,7 @@ func Order(x uint64, q *Modulus) uint64 {
 }
 
 // Totient returns the Euler-Phi function of x.
+//
 // Panics when x < 0.
 func Totient[T Integer](x T) T {
 	primes, exps := Factor(x)
@@ -233,6 +235,7 @@ func Totient[T Integer](x T) T {
 }
 
 // TotientWithFactors returns the Euler-Phi function of x, given its factorization.
+//
 // Panics when x < 0.
 func TotientWithFactors[T Integer](x T, primes, exps []T) T {
 	switch {

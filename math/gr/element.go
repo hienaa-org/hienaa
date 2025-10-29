@@ -37,6 +37,7 @@ func (e *Element) Copy() *Element {
 }
 
 // CopyFrom copies the coefficients from e0 to e.
+//
 // Panics when e and eIn are not consistent.
 func (e *Element) CopyFrom(eIn *Element) {
 	e.poly.CopyFrom(eIn.poly)

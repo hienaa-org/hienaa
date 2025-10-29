@@ -86,6 +86,7 @@ func (p *Poly) Copy() *Poly {
 }
 
 // CopyFrom copies the coefficients from p0 to p.
+//
 // Panics when p and pIn are not consistent.
 func (p *Poly) CopyFrom(pIn *Poly) {
 	if !p.IsConsistent(pIn) {
