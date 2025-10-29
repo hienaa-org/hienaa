@@ -5,8 +5,8 @@ import (
 	"github.com/hienaa-org/hienaa/math/vec"
 )
 
-// Pow2CyclotomicTransformer is a transformer for power-of-two cyclotomic ring.
-type Pow2CyclotomicTransformer struct {
+// pow2CyclotomicTransformer is a transformer for power-of-two cyclotomic ring.
+type pow2CyclotomicTransformer struct {
 	params RingParameters
 	mod    *num.Modulus
 
@@ -23,8 +23,8 @@ type Pow2CyclotomicTransformer struct {
 	rankInv uint64
 }
 
-// newPow2CyclotomicTransformer creates a new [Pow2CyclotomicTransformer].
-func newPow2CyclotomicTransformer(params RingParameters, mod *num.Modulus) *Pow2CyclotomicTransformer {
+// newPow2CyclotomicTransformer creates a new [pow2CyclotomicTransformer].
+func newPow2CyclotomicTransformer(params RingParameters, mod *num.Modulus) *pow2CyclotomicTransformer {
 	root := num.Generators(mod)
 
 	tw := make([]uint64, params.rank)
@@ -40,7 +40,7 @@ func newPow2CyclotomicTransformer(params RingParameters, mod *num.Modulus) *Pow2
 
 	rankInv := num.InvMForm(num.Inv(uint64(params.rank), mod), mod)
 
-	return &Pow2CyclotomicTransformer{
+	return &pow2CyclotomicTransformer{
 		params: params,
 		mod:    mod,
 
@@ -54,38 +54,36 @@ func newPow2CyclotomicTransformer(params RingParameters, mod *num.Modulus) *Pow2
 }
 
 // ForwardTo transforms the uint64 vector to NTT form.
-func (ntt *Pow2CyclotomicTransformer) ForwardTo(vNTT, v []uint64) {
+func (ntt *pow2CyclotomicTransformer) ForwardTo(vNTT, v []uint64) {
 	copy(vNTT, v)
 	nttInPlacePow2(vNTT, ntt.tw, ntt.twS, ntt.mod.Value())
 	vec.MFormTo(vNTT, vNTT, ntt.mod)
 }
 
 // InverseTo transforms the uint64 vector to Standard form.
-func (ntt *Pow2CyclotomicTransformer) InverseTo(v, vNTT []uint64) {
+func (ntt *pow2CyclotomicTransformer) InverseTo(v, vNTT []uint64) {
 	copy(v, vNTT)
 	inttInPlacePow2(v, ntt.twInv, ntt.twInvS, ntt.mod.Value())
 	vec.ScalarMulTo(v, v, ntt.rankInv, ntt.mod)
 }
 
 // Params returns the ring parameters.
-func (ntt *Pow2CyclotomicTransformer) Params() RingParameters {
+func (ntt *pow2CyclotomicTransformer) Params() RingParameters {
 	return ntt.params
 }
 
 // Modulus returns the modulus used for the transform.
-func (ntt *Pow2CyclotomicTransformer) Modulus() *num.Modulus {
+func (ntt *pow2CyclotomicTransformer) Modulus() *num.Modulus {
 	return ntt.mod
 }
 
 // SafeCopy returns a thread-safe copy.
-func (ntt *Pow2CyclotomicTransformer) SafeCopy() Transformer {
+func (ntt *pow2CyclotomicTransformer) SafeCopy() Transformer {
 	return ntt
 }
 
-func (ntt *Pow2CyclotomicTransformer) isCyclotomic() {}
-
-// AnyCyclotomicTransformer is a transformer for arbitrary order cyclotomic ring.
-type AnyCyclotomicTransformer struct {
+// anyCyclotomicTransformer is a transformer for arbitrary order cyclotomic ring.
+type anyCyclotomicTransformer struct {
 	params RingParameters
 	mod    *num.Modulus
 
@@ -98,8 +96,8 @@ type AnyCyclotomicTransformer struct {
 	buf transformerBuffer
 }
 
-// newAnyCyclotomicTransformer creates a new [AnyCyclotomicTransformer].
-func newAnyCyclotomicTransformer(params RingParameters, mod *num.Modulus) *AnyCyclotomicTransformer {
+// newAnyCyclotomicTransformer creates a new [anyCyclotomicTransformer].
+func newAnyCyclotomicTransformer(params RingParameters, mod *num.Modulus) *anyCyclotomicTransformer {
 	cycloOrdMod := num.NewModulus(params.cycloOrd)
 	primes, exps := num.Factor(params.cycloOrd)
 
@@ -178,7 +176,7 @@ func newAnyCyclotomicTransformer(params RingParameters, mod *num.Modulus) *AnyCy
 		}
 	}
 
-	return &AnyCyclotomicTransformer{
+	return &anyCyclotomicTransformer{
 		params: params,
 		mod:    mod,
 
@@ -192,7 +190,7 @@ func newAnyCyclotomicTransformer(params RingParameters, mod *num.Modulus) *AnyCy
 }
 
 // ForwardTo transforms the uint64 vector to NTT form.
-func (ntt *AnyCyclotomicTransformer) ForwardTo(vNTT, v []uint64) {
+func (ntt *anyCyclotomicTransformer) ForwardTo(vNTT, v []uint64) {
 	copy(ntt.buf.coeffs, v)
 	clear(ntt.buf.coeffs[ntt.params.rank:])
 
@@ -204,7 +202,7 @@ func (ntt *AnyCyclotomicTransformer) ForwardTo(vNTT, v []uint64) {
 }
 
 // InverseTo transforms the uint64 vector to Standard form.
-func (ntt *AnyCyclotomicTransformer) InverseTo(v, vNTT []uint64) {
+func (ntt *anyCyclotomicTransformer) InverseTo(v, vNTT []uint64) {
 	clear(ntt.buf.coeffs)
 	for i := 0; i < ntt.params.rank; i++ {
 		ntt.buf.coeffs[ntt.idx[i]] = vNTT[i]
@@ -216,18 +214,18 @@ func (ntt *AnyCyclotomicTransformer) InverseTo(v, vNTT []uint64) {
 }
 
 // Params returns the ring parameters.
-func (ntt *AnyCyclotomicTransformer) Params() RingParameters {
+func (ntt *anyCyclotomicTransformer) Params() RingParameters {
 	return ntt.params
 }
 
 // Modulus returns the modulus used for the transform.
-func (ntt *AnyCyclotomicTransformer) Modulus() *num.Modulus {
+func (ntt *anyCyclotomicTransformer) Modulus() *num.Modulus {
 	return ntt.mod
 }
 
 // SafeCopy returns a thread-safe copy.
-func (ntt *AnyCyclotomicTransformer) SafeCopy() Transformer {
-	return &AnyCyclotomicTransformer{
+func (ntt *anyCyclotomicTransformer) SafeCopy() Transformer {
+	return &anyCyclotomicTransformer{
 		params: ntt.params,
 		mod:    ntt.mod,
 
@@ -240,4 +238,4 @@ func (ntt *AnyCyclotomicTransformer) SafeCopy() Transformer {
 	}
 }
 
-func (ntt *AnyCyclotomicTransformer) isCyclotomic() {}
+func (ntt *anyCyclotomicTransformer) isCyclotomic() {}

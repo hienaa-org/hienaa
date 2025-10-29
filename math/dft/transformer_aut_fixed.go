@@ -7,8 +7,8 @@ import (
 	"github.com/hienaa-org/hienaa/math/vec"
 )
 
-// Pow2AutFixedTransformer is a transformer for power-of-two conjugate invariant ring.
-type Pow2AutFixedTransformer struct {
+// pow2AutFixedTransformer is a transformer for power-of-two conjugate invariant ring.
+type pow2AutFixedTransformer struct {
 	params RingParameters
 	mod    *num.Modulus
 
@@ -27,8 +27,8 @@ type Pow2AutFixedTransformer struct {
 	buf transformerBuffer
 }
 
-// newPow2AutFixedTransformer creates a new [Pow2AutFixedTransformer].
-func newPow2AutFixedTransformer(params RingParameters, mod *num.Modulus) *Pow2AutFixedTransformer {
+// newPow2AutFixedTransformer creates a new [pow2AutFixedTransformer].
+func newPow2AutFixedTransformer(params RingParameters, mod *num.Modulus) *pow2AutFixedTransformer {
 	root := num.Generators(mod)
 
 	twLarge := make([]uint64, 2*params.rank)
@@ -59,7 +59,7 @@ func newPow2AutFixedTransformer(params RingParameters, mod *num.Modulus) *Pow2Au
 		twInvS[i] = num.SForm(twInv[i], mod)
 	}
 
-	return &Pow2AutFixedTransformer{
+	return &pow2AutFixedTransformer{
 		params: params,
 		mod:    mod,
 
@@ -75,7 +75,7 @@ func newPow2AutFixedTransformer(params RingParameters, mod *num.Modulus) *Pow2Au
 }
 
 // ForwardTo transforms the uint64 vector to NTT form.
-func (ntt *Pow2AutFixedTransformer) ForwardTo(vNTT, v []uint64) {
+func (ntt *pow2AutFixedTransformer) ForwardTo(vNTT, v []uint64) {
 	tw0Neg, tw0NegS := ntt.mod.Value()-ntt.tw[0], -ntt.twS[0]-1
 
 	M := ((ntt.params.rank - 1) >> 3) << 3
@@ -106,7 +106,7 @@ func (ntt *Pow2AutFixedTransformer) ForwardTo(vNTT, v []uint64) {
 }
 
 // InverseTo transforms the uint64 vector to Standard form.
-func (ntt *Pow2AutFixedTransformer) InverseTo(v, vNTT []uint64) {
+func (ntt *pow2AutFixedTransformer) InverseTo(v, vNTT []uint64) {
 	copy(v, vNTT)
 
 	inttInPlacePow2(v, ntt.twInv, ntt.twInvS, ntt.mod.Value())
@@ -138,18 +138,18 @@ func (ntt *Pow2AutFixedTransformer) InverseTo(v, vNTT []uint64) {
 }
 
 // Params returns the ring parameters.
-func (ntt *Pow2AutFixedTransformer) Params() RingParameters {
+func (ntt *pow2AutFixedTransformer) Params() RingParameters {
 	return ntt.params
 }
 
 // Modulus returns the modulus used for the transform.
-func (ntt *Pow2AutFixedTransformer) Modulus() *num.Modulus {
+func (ntt *pow2AutFixedTransformer) Modulus() *num.Modulus {
 	return ntt.mod
 }
 
 // SafeCopy returns a thread-safe copy.
-func (ntt *Pow2AutFixedTransformer) SafeCopy() Transformer {
-	return &Pow2AutFixedTransformer{
+func (ntt *pow2AutFixedTransformer) SafeCopy() Transformer {
+	return &pow2AutFixedTransformer{
 		params: ntt.params,
 		mod:    ntt.mod,
 
@@ -164,14 +164,14 @@ func (ntt *Pow2AutFixedTransformer) SafeCopy() Transformer {
 	}
 }
 
-func (ntt *Pow2AutFixedTransformer) isAutFixed() {}
+func (ntt *pow2AutFixedTransformer) isAutFixed() {}
 
-// PrimeAutFixedTransformer is a transformer for prime order decomposition ring.
-type PrimeAutFixedTransformer struct {
+// primeAutFixedTransformer is a transformer for prime order decomposition ring.
+type primeAutFixedTransformer struct {
 	params RingParameters
 	mod    *num.Modulus
 
-	ambNTT *Pow235CyclicTransformer
+	ambNTT *pow235CyclicTransformer
 
 	// isPow2 is true of the rank is power-of-two.
 	isPow2 bool
@@ -193,8 +193,8 @@ type PrimeAutFixedTransformer struct {
 	buf transformerBuffer
 }
 
-// newPrimeAutFixedTransformer creates a new [PrimeAutFixedTransformer].
-func newPrimeAutFixedTransformer(params RingParameters, mod *num.Modulus) *PrimeAutFixedTransformer {
+// newPrimeAutFixedTransformer creates a new [primeAutFixedTransformer].
+func newPrimeAutFixedTransformer(params RingParameters, mod *num.Modulus) *primeAutFixedTransformer {
 	fold := int((params.cycloOrd - 1) / params.rank)
 
 	isPow2 := num.IsPowerOfTwo(params.rank)
@@ -239,7 +239,7 @@ func newPrimeAutFixedTransformer(params RingParameters, mod *num.Modulus) *Prime
 	ambNTT.ForwardTo(modRootPowSum, modRootPowSum)
 	ambNTT.ForwardTo(modRootPowInvSum, modRootPowInvSum)
 
-	return &PrimeAutFixedTransformer{
+	return &primeAutFixedTransformer{
 		params: params,
 		mod:    mod,
 
@@ -259,7 +259,7 @@ func newPrimeAutFixedTransformer(params RingParameters, mod *num.Modulus) *Prime
 }
 
 // ForwardTo transforms the uint64 vector to NTT form.
-func (ntt *PrimeAutFixedTransformer) ForwardTo(vNTT, v []uint64) {
+func (ntt *primeAutFixedTransformer) ForwardTo(vNTT, v []uint64) {
 	M := ((ntt.params.rank - 1) >> 3) << 3
 
 	ntt.buf.coeffs[0] = v[0]
@@ -300,7 +300,7 @@ func (ntt *PrimeAutFixedTransformer) ForwardTo(vNTT, v []uint64) {
 }
 
 // InverseTo transforms the uint64 vector to Standard form.
-func (ntt *PrimeAutFixedTransformer) InverseTo(v, vNTT []uint64) {
+func (ntt *primeAutFixedTransformer) InverseTo(v, vNTT []uint64) {
 	M := ((ntt.params.rank - 1) >> 3) << 3
 
 	ntt.buf.coeffs[0] = vNTT[0]
@@ -354,18 +354,18 @@ func (ntt *PrimeAutFixedTransformer) InverseTo(v, vNTT []uint64) {
 }
 
 // Params returns the ring parameters.
-func (ntt *PrimeAutFixedTransformer) Params() RingParameters {
+func (ntt *primeAutFixedTransformer) Params() RingParameters {
 	return ntt.params
 }
 
 // Modulus returns the modulus used for the transform.
-func (ntt *PrimeAutFixedTransformer) Modulus() *num.Modulus {
+func (ntt *primeAutFixedTransformer) Modulus() *num.Modulus {
 	return ntt.mod
 }
 
 // SafeCopy returns a thread-safe copy.
-func (ntt *PrimeAutFixedTransformer) SafeCopy() Transformer {
-	return &PrimeAutFixedTransformer{
+func (ntt *primeAutFixedTransformer) SafeCopy() Transformer {
+	return &primeAutFixedTransformer{
 		params: ntt.params,
 		mod:    ntt.mod,
 
@@ -384,4 +384,4 @@ func (ntt *PrimeAutFixedTransformer) SafeCopy() Transformer {
 	}
 }
 
-func (ntt *PrimeAutFixedTransformer) isAutFixed() {}
+func (ntt *primeAutFixedTransformer) isAutFixed() {}

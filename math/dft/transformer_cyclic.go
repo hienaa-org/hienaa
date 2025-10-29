@@ -60,8 +60,8 @@ func cyclicTwiddleFactor(rank, radix int, root []uint64, mod *num.Modulus) (tw, 
 	return tw, twInv
 }
 
-// Pow235CyclicTransformer is a transformer for cyclic ring with ranks multiple of 2, 3 and 5.
-type Pow235CyclicTransformer struct {
+// pow235CyclicTransformer is a transformer for cyclic ring with ranks multiple of 2, 3 and 5.
+type pow235CyclicTransformer struct {
 	params RingParameters
 	mod    *num.Modulus
 
@@ -99,7 +99,7 @@ type Pow235CyclicTransformer struct {
 }
 
 // newCyclicPow235Transformer creates a new [cyclicNativeTransformer].
-func newCyclicPow235Transformer(params RingParameters, mod *num.Modulus) *Pow235CyclicTransformer {
+func newCyclicPow235Transformer(params RingParameters, mod *num.Modulus) *pow235CyclicTransformer {
 	rankFactors := make([]int, len(cyclicNTTFactors))
 	rankTmp := params.rank
 	for i, f := range cyclicNTTFactors {
@@ -158,7 +158,7 @@ func newCyclicPow235Transformer(params RingParameters, mod *num.Modulus) *Pow235
 		buf = newTransformerBuffer(params.rank)
 	}
 
-	return &Pow235CyclicTransformer{
+	return &pow235CyclicTransformer{
 		params:      params,
 		mod:         mod,
 		rankFactors: rankFactors,
@@ -180,7 +180,7 @@ func newCyclicPow235Transformer(params RingParameters, mod *num.Modulus) *Pow235
 }
 
 // ForwardTo transforms the uint64 vector to NTT form.
-func (ntt *Pow235CyclicTransformer) ForwardTo(vNTT, v []uint64) {
+func (ntt *pow235CyclicTransformer) ForwardTo(vNTT, v []uint64) {
 	if len(ntt.idx) > 0 {
 		for i := 0; i < ntt.params.rank; i++ {
 			ntt.buf.coeffs[i] = v[ntt.idx[i]]
@@ -210,7 +210,7 @@ func (ntt *Pow235CyclicTransformer) ForwardTo(vNTT, v []uint64) {
 }
 
 // InverseTo transforms the uint64 vector to Standard form.
-func (ntt *Pow235CyclicTransformer) InverseTo(v, vNTT []uint64) {
+func (ntt *pow235CyclicTransformer) InverseTo(v, vNTT []uint64) {
 	copy(v, vNTT)
 
 	if ntt.rankFactors[0] > 1 {
@@ -240,22 +240,22 @@ func (ntt *Pow235CyclicTransformer) InverseTo(v, vNTT []uint64) {
 }
 
 // Params returns the ring parameters.
-func (ntt *Pow235CyclicTransformer) Params() RingParameters {
+func (ntt *pow235CyclicTransformer) Params() RingParameters {
 	return ntt.params
 }
 
 // Modulus returns the modulus used for the transform.
-func (ntt *Pow235CyclicTransformer) Modulus() *num.Modulus {
+func (ntt *pow235CyclicTransformer) Modulus() *num.Modulus {
 	return ntt.mod
 }
 
 // SafeCopy returns a thread-safe copy.
-func (ntt *Pow235CyclicTransformer) SafeCopy() Transformer {
+func (ntt *pow235CyclicTransformer) SafeCopy() Transformer {
 	if len(ntt.idx) == 0 {
 		return ntt
 	}
 
-	return &Pow235CyclicTransformer{
+	return &pow235CyclicTransformer{
 		params:      ntt.params,
 		mod:         ntt.mod,
 		rankFactors: ntt.rankFactors,
@@ -276,15 +276,15 @@ func (ntt *Pow235CyclicTransformer) SafeCopy() Transformer {
 	}
 }
 
-func (ntt *Pow235CyclicTransformer) isCyclic() {}
+func (ntt *pow235CyclicTransformer) isCyclic() {}
 
-// AnyCyclicTransformer is a transformer for aribtrary rank cyclic ring.
+// anyCyclicTransformer is a transformer for aribtrary rank cyclic ring.
 // Internally, it uses Bluestein NTT.
-type AnyCyclicTransformer struct {
+type anyCyclicTransformer struct {
 	params RingParameters
 	mod    *num.Modulus
 
-	ambNTT *Pow235CyclicTransformer
+	ambNTT *pow235CyclicTransformer
 
 	// z is the factor for Z-transform.
 	z []uint64
@@ -305,8 +305,8 @@ type AnyCyclicTransformer struct {
 	buf transformerBuffer
 }
 
-// newAnyCyclicTransformer creates a new [AnyCyclicTransformer].
-func newAnyCyclicTransformer(params RingParameters, mod *num.Modulus) *AnyCyclicTransformer {
+// newAnyCyclicTransformer creates a new [anyCyclicTransformer].
+func newAnyCyclicTransformer(params RingParameters, mod *num.Modulus) *anyCyclicTransformer {
 	ambRank := num.NextProdPower(2*params.rank-1, []int{2})
 
 	root := num.Generators(mod)
@@ -341,7 +341,7 @@ func newAnyCyclicTransformer(params RingParameters, mod *num.Modulus) *AnyCyclic
 	nttInPlacePow2(chirpInv, ambNTT.tw[0], ambNTT.twS[0], mod.Value())
 	vec.ReduceTo(chirpInv, chirpInv, mod)
 
-	return &AnyCyclicTransformer{
+	return &anyCyclicTransformer{
 		params: params,
 		mod:    mod,
 
@@ -361,7 +361,7 @@ func newAnyCyclicTransformer(params RingParameters, mod *num.Modulus) *AnyCyclic
 }
 
 // ForwardTo transforms the uint64 vector to NTT form.
-func (ntt *AnyCyclicTransformer) ForwardTo(vNTT, v []uint64) {
+func (ntt *anyCyclicTransformer) ForwardTo(vNTT, v []uint64) {
 	vec.SMulLazyTo(ntt.buf.coeffs[:ntt.params.rank], v, ntt.z, ntt.zS, ntt.mod)
 	clear(ntt.buf.coeffs[ntt.params.rank:])
 
@@ -375,7 +375,7 @@ func (ntt *AnyCyclicTransformer) ForwardTo(vNTT, v []uint64) {
 }
 
 // InverseTo transforms the uint64 vector to Standard form.
-func (ntt *AnyCyclicTransformer) InverseTo(v, vNTT []uint64) {
+func (ntt *anyCyclicTransformer) InverseTo(v, vNTT []uint64) {
 	vec.SMulLazyTo(ntt.buf.coeffs[:ntt.params.rank], vNTT, ntt.zInv, ntt.zInvS, ntt.mod)
 	clear(ntt.buf.coeffs[ntt.params.rank:])
 
@@ -389,22 +389,22 @@ func (ntt *AnyCyclicTransformer) InverseTo(v, vNTT []uint64) {
 }
 
 // Params returns the ring parameters.
-func (ntt *AnyCyclicTransformer) Params() RingParameters {
+func (ntt *anyCyclicTransformer) Params() RingParameters {
 	return ntt.params
 }
 
 // Modulus returns the modulus used for the transform.
-func (ntt *AnyCyclicTransformer) Modulus() *num.Modulus {
+func (ntt *anyCyclicTransformer) Modulus() *num.Modulus {
 	return ntt.mod
 }
 
 // SafeCopy returns a thread-safe copy.
-func (ntt *AnyCyclicTransformer) SafeCopy() Transformer {
-	return &AnyCyclicTransformer{
+func (ntt *anyCyclicTransformer) SafeCopy() Transformer {
+	return &anyCyclicTransformer{
 		params: ntt.params,
 		mod:    ntt.mod,
 
-		ambNTT: ntt.ambNTT.SafeCopy().(*Pow235CyclicTransformer),
+		ambNTT: ntt.ambNTT.SafeCopy().(*pow235CyclicTransformer),
 
 		z:     ntt.z,
 		zS:    ntt.zS,
@@ -417,4 +417,4 @@ func (ntt *AnyCyclicTransformer) SafeCopy() Transformer {
 	}
 }
 
-func (ntt *AnyCyclicTransformer) isCyclic() {}
+func (ntt *anyCyclicTransformer) isCyclic() {}

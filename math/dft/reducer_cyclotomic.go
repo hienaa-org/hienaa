@@ -28,9 +28,9 @@ type cyclotomicReducer struct {
 	degNext int
 
 	// diffDegNextNTT is the NTT transformer for degree diffDegNext.
-	diffDegNextNTT *Pow235CyclicTransformer
+	diffDegNextNTT *pow235CyclicTransformer
 	// degNextNTT is the NTT transformer for degree degNext.
-	degNextNTT *Pow235CyclicTransformer
+	degNextNTT *pow235CyclicTransformer
 
 	// cycloPoly is the cyclotomic polynomial modulo the modulus.
 	cycloPoly []uint64
@@ -76,7 +76,7 @@ func newCyclotomicReducer(params RingParameters, mod *num.Modulus) *cyclotomicRe
 	isTrivial := redDeg == params.rank
 
 	var diffDeg, diffDegNext, degNext int
-	var diffDegNextNTT, degNextNTT *Pow235CyclicTransformer
+	var diffDegNextNTT, degNextNTT *pow235CyclicTransformer
 	var cycloPoly, divPoly []uint64
 
 	if !isTrivial {

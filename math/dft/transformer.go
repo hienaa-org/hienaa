@@ -20,36 +20,9 @@ type Transformer interface {
 	SafeCopy() Transformer
 }
 
-// CyclotomicTransformer is a Transformer for cyclotomic ring.
-type CyclotomicTransformer interface {
-	Transformer
-	isCyclotomic()
-}
-
-// CyclicTransformer is a Transformer for cyclic ring.
-type CyclicTransformer interface {
-	Transformer
-	isCyclic()
-}
-
-// AutFixedTransformer is a Transformer for AutFixed ring.
-type AutFixedTransformer interface {
-	Transformer
-	isAutFixed()
-}
-
 // NewTransformer creates a new [Transformer].
-// Currently, the following cases are supported, which one can cast using type assertion:
 //
-//   - [*Pow2CyclotomicTransformer]
-//   - [*AnyCyclotomicTransformer]
-//   - [*Pow235CyclicTransformer]
-//   - [*AnyCyclicTransformer]
-//   - [*Pow2AutFixedTransformer]
-//   - [*PrimeAutFixedTransformer]
-//
-// Corresponding transformers also implement ring-specific interfaces, namely
-// [CyclotomicTransformer], [CyclicTransformer], and [AutFixedTransformer].
+// Panics when the ring parameters or modulus are unsupported.
 func NewTransformer(params RingParameters, mod *num.Modulus) Transformer {
 	if !IsNTTFriendly(params, mod) {
 		panic("NewTransformer: unsupported ring parameters or modulus")

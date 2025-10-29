@@ -18,8 +18,8 @@ const (
 )
 
 var (
-	vec = flag.Bool("vec", false, "vec/asm_mod_amd64.s")
-	ntt = flag.Bool("ntt", false, "rns/asm_ntt_pow2.s")
+	vec = flag.Bool("vec", false, "asm_mod_amd64.s")
+	ntt = flag.Bool("ntt", false, "asm_ntt_pow2.s")
 )
 
 func main() {
