@@ -164,9 +164,7 @@ func (ntt *pow2AutFixedTransformer) SafeCopy() Transformer {
 	}
 }
 
-func (ntt *pow2AutFixedTransformer) isAutFixed() {}
-
-// primeAutFixedTransformer is a transformer for prime order decomposition ring.
+// primeAutFixedTransformer is a transformer for prime order autfixed ring.
 type primeAutFixedTransformer struct {
 	params RingParameters
 	mod    *num.Modulus
@@ -383,5 +381,3 @@ func (ntt *primeAutFixedTransformer) SafeCopy() Transformer {
 		buf: newTransformerBuffer(ntt.ambNTT.params.rank),
 	}
 }
-
-func (ntt *primeAutFixedTransformer) isAutFixed() {}

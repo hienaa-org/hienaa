@@ -10,6 +10,8 @@ import (
 
 // polyAutEvaluator is the evaluator for automorphism.
 type polyAutEvaluator interface {
+	// CanAut returns whether the given automorphism index is valid.
+	CanAut(idx int) bool
 	// Aut returns aut_idx(p).
 	// Panics when automorphism is invalid.
 	// Notable cases include:
@@ -24,10 +26,6 @@ type polyAutEvaluator interface {
 	//	- In cyclotomic/autfixed rings, it panics when idx is not coprime with the cyclotomic order.
 	//	- In any other rings, automorphism is not supported and it always panics.
 	AutTo(pOut, p *Poly, idx int)
-	// subEvaluator returns a evaluator for modulus of given indices.
-	subEvaluator(idx ...int) polyAutEvaluator
-	// safeCopy returns a thread-safe copy.
-	safeCopy() polyAutEvaluator
 }
 
 // polyAutEvaluatorBuffer is a buffer for [polyAutEvaluator].
@@ -42,8 +40,8 @@ func newPolyAutEvaluatorBuffer(rank int) polyAutEvaluatorBuffer {
 	}
 }
 
-// polyAutEvaluatorCyclotomicPow2 is a [polyAutEvaluator] for power-of-two cyclotomic rings.
-type polyAutEvaluatorCyclotomicPow2 struct {
+// pow2CyclotomicPolyAutEvaluator is a [polyAutEvaluator] for power-of-two cyclotomic ring.
+type pow2CyclotomicPolyAutEvaluator struct {
 	params        dft.RingParameters
 	mod           []*num.Modulus
 	isNTTFriendly []bool
@@ -51,14 +49,14 @@ type polyAutEvaluatorCyclotomicPow2 struct {
 	buf polyAutEvaluatorBuffer
 }
 
-// newPolyAutEvaluatorCyclotomicPow2 creates a new [polyAutEvaluatorCyclotomicPow2].
-func newPolyAutEvaluatorCyclotomicPow2(params dft.RingParameters, mod []*num.Modulus) *polyAutEvaluatorCyclotomicPow2 {
+// newPow2CyclotomicPolyAutEvaluator creates a new [pow2CyclotomicPolyAutEvaluator].
+func newPow2CyclotomicPolyAutEvaluator(params dft.RingParameters, mod []*num.Modulus) pow2CyclotomicPolyAutEvaluator {
 	isNTTFriendly := make([]bool, len(mod))
 	for i := range mod {
 		isNTTFriendly[i] = dft.IsNTTFriendly(params, mod[i])
 	}
 
-	return &polyAutEvaluatorCyclotomicPow2{
+	return pow2CyclotomicPolyAutEvaluator{
 		params:        params,
 		mod:           mod,
 		isNTTFriendly: isNTTFriendly,
@@ -67,25 +65,43 @@ func newPolyAutEvaluatorCyclotomicPow2(params dft.RingParameters, mod []*num.Mod
 	}
 }
 
-func (e *polyAutEvaluatorCyclotomicPow2) Aut(p *Poly, idx int) *Poly {
+// CanAut returns whether the given automorphism index is valid.
+func (e *pow2CyclotomicPolyAutEvaluator) CanAut(idx int) bool {
+	cycloOrd := e.params.CycloOrder()
+	idx = (idx%cycloOrd + cycloOrd) % cycloOrd
+	return idx%2 == 1
+}
+
+// Aut returns aut_idx(p).
+// Panics when automorphism is invalid.
+// Notable cases include:
+//
+//   - In cyclotomic/autfixed rings, it panics when idx is not coprime with the cyclotomic order.
+//   - In any other rings, automorphism is not supported and it always panics.
+func (e *pow2CyclotomicPolyAutEvaluator) Aut(p *Poly, idx int) *Poly {
 	pOut := NewPoly(e.params.Rank(), len(e.mod))
 	e.AutTo(pOut, p, idx)
 	return pOut
 }
 
-func (e *polyAutEvaluatorCyclotomicPow2) AutTo(pOut, p *Poly, idx int) {
-	if !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p) {
+// AutTo computes pOut = aut_idx(p).
+// Panics when automorphism is invalid.
+// Notable cases include:
+//
+//   - In cyclotomic/autfixed rings, it panics when idx is not coprime with the cyclotomic order.
+//   - In any other rings, automorphism is not supported and it always panics.
+func (e *pow2CyclotomicPolyAutEvaluator) AutTo(pOut, p *Poly, idx int) {
+	switch {
+	case !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p):
 		panic("AutTo: inputs not consistent")
+	case !e.CanAut(idx):
+		panic("AutTo: idx not supported")
 	}
 
 	cycloOrd, rank := e.params.CycloOrder(), e.params.Rank()
-
 	idx = (idx%cycloOrd + cycloOrd) % cycloOrd
 
-	switch {
-	case idx%2 != 1:
-		panic("AutTo: idx must be odd")
-	case idx == 1:
+	if idx == 1 {
 		pOut.CopyFrom(p)
 		return
 	}
@@ -118,7 +134,7 @@ func (e *polyAutEvaluatorCyclotomicPow2) AutTo(pOut, p *Poly, idx int) {
 	pOut.isNTT = p.isNTT
 }
 
-func (e *polyAutEvaluatorCyclotomicPow2) subEvaluator(idx ...int) polyAutEvaluator {
+func (e *pow2CyclotomicPolyAutEvaluator) subEvaluator(idx ...int) pow2CyclotomicPolyAutEvaluator {
 	modCopy := make([]*num.Modulus, len(idx))
 	isNTTFriendlyCopy := make([]bool, len(idx))
 	for i := range idx {
@@ -126,7 +142,7 @@ func (e *polyAutEvaluatorCyclotomicPow2) subEvaluator(idx ...int) polyAutEvaluat
 		isNTTFriendlyCopy[i] = e.isNTTFriendly[idx[i]]
 	}
 
-	return &polyAutEvaluatorCyclotomicPow2{
+	return pow2CyclotomicPolyAutEvaluator{
 		params:        e.params,
 		mod:           modCopy,
 		isNTTFriendly: isNTTFriendlyCopy,
@@ -135,8 +151,8 @@ func (e *polyAutEvaluatorCyclotomicPow2) subEvaluator(idx ...int) polyAutEvaluat
 	}
 }
 
-func (e *polyAutEvaluatorCyclotomicPow2) safeCopy() polyAutEvaluator {
-	return &polyAutEvaluatorCyclotomicPow2{
+func (e *pow2CyclotomicPolyAutEvaluator) safeCopy() pow2CyclotomicPolyAutEvaluator {
+	return pow2CyclotomicPolyAutEvaluator{
 		params:        e.params,
 		mod:           e.mod,
 		isNTTFriendly: e.isNTTFriendly,
@@ -145,8 +161,8 @@ func (e *polyAutEvaluatorCyclotomicPow2) safeCopy() polyAutEvaluator {
 	}
 }
 
-// polyAutEvaluatorCyclotomicNonPow2 is a [polyAutEvaluator] for non power-of-two cyclotomic rings.
-type polyAutEvaluatorCyclotomicNonPow2 struct {
+// anyCyclotomicPolyAutEvaluator is a [polyAutEvaluator] for arbitrary order cyclotomic ring.
+type anyCyclotomicPolyAutEvaluator struct {
 	params        dft.RingParameters
 	cycloOrdMod   *num.Modulus
 	mod           []*num.Modulus
@@ -164,8 +180,8 @@ type polyAutEvaluatorCyclotomicNonPow2 struct {
 	buf polyAutEvaluatorBuffer
 }
 
-// newPolyAutEvaluatorCyclotomicNonPow2 creates a new [polyAutEvaluatorCyclotomicNonPow2].
-func newPolyAutEvaluatorCyclotomicNonPow2(params dft.RingParameters, mod []*num.Modulus, reducer *CyclotomicReducer) *polyAutEvaluatorCyclotomicNonPow2 {
+// newAnyCyclotomicPolyAutEvaluator creates a new [polyAutEvaluatorCyclotomicNonPow2].
+func newAnyCyclotomicPolyAutEvaluator(params dft.RingParameters, mod []*num.Modulus, reducer *CyclotomicReducer) anyCyclotomicPolyAutEvaluator {
 	isNTTFriendly := make([]bool, len(mod))
 	for i := range isNTTFriendly {
 		isNTTFriendly[i] = dft.IsNTTFriendly(params, mod[i])
@@ -210,7 +226,7 @@ func newPolyAutEvaluatorCyclotomicNonPow2(params dft.RingParameters, mod []*num.
 		}
 	}
 
-	return &polyAutEvaluatorCyclotomicNonPow2{
+	return anyCyclotomicPolyAutEvaluator{
 		params:        params,
 		cycloOrdMod:   num.NewModulus(params.CycloOrder()),
 		mod:           mod,
@@ -226,25 +242,43 @@ func newPolyAutEvaluatorCyclotomicNonPow2(params dft.RingParameters, mod []*num.
 	}
 }
 
-func (e *polyAutEvaluatorCyclotomicNonPow2) Aut(p *Poly, idx int) *Poly {
+// CanAut returns whether the given automorphism index is valid.
+func (e *anyCyclotomicPolyAutEvaluator) CanAut(idx int) bool {
+	cycloOrd := e.params.CycloOrder()
+	idx = (idx%cycloOrd + cycloOrd) % cycloOrd
+	return num.GCD(idx, cycloOrd) == 1
+}
+
+// Aut returns aut_idx(p).
+// Panics when automorphism is invalid.
+// Notable cases include:
+//
+//   - In cyclotomic/autfixed rings, it panics when idx is not coprime with the cyclotomic order.
+//   - In any other rings, automorphism is not supported and it always panics.
+func (e *anyCyclotomicPolyAutEvaluator) Aut(p *Poly, idx int) *Poly {
 	pOut := NewPoly(e.params.Rank(), len(e.mod))
 	e.AutTo(pOut, p, idx)
 	return pOut
 }
 
-func (e *polyAutEvaluatorCyclotomicNonPow2) AutTo(pOut, p *Poly, idx int) {
-	if !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p) {
+// AutTo computes pOut = aut_idx(p).
+// Panics when automorphism is invalid.
+// Notable cases include:
+//
+//   - In cyclotomic/autfixed rings, it panics when idx is not coprime with the cyclotomic order.
+//   - In any other rings, automorphism is not supported and it always panics.
+func (e *anyCyclotomicPolyAutEvaluator) AutTo(pOut, p *Poly, idx int) {
+	switch {
+	case !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p):
 		panic("AutTo: inputs not consistent")
+	case !e.CanAut(idx):
+		panic("AutTo: idx not supported")
 	}
 
 	cycloOrd, rank := e.params.CycloOrder(), e.params.Rank()
-
 	idx = (idx%cycloOrd + cycloOrd) % cycloOrd
 
-	switch {
-	case num.GCD(idx, cycloOrd) != 1:
-		panic("AutTo: idx must be coprime with cyclotomic order")
-	case idx == 1:
+	if idx == 1 {
 		pOut.CopyFrom(p)
 		return
 	}
@@ -298,7 +332,7 @@ func (e *polyAutEvaluatorCyclotomicNonPow2) AutTo(pOut, p *Poly, idx int) {
 	pOut.isNTT = p.isNTT
 }
 
-func (e *polyAutEvaluatorCyclotomicNonPow2) subEvaluator(idx ...int) polyAutEvaluator {
+func (e *anyCyclotomicPolyAutEvaluator) subEvaluator(idx ...int) anyCyclotomicPolyAutEvaluator {
 	modCopy := make([]*num.Modulus, len(idx))
 	isNTTFriendlyCopy := make([]bool, len(idx))
 	for i := range idx {
@@ -306,7 +340,7 @@ func (e *polyAutEvaluatorCyclotomicNonPow2) subEvaluator(idx ...int) polyAutEval
 		isNTTFriendlyCopy[i] = e.isNTTFriendly[idx[i]]
 	}
 
-	return &polyAutEvaluatorCyclotomicNonPow2{
+	return anyCyclotomicPolyAutEvaluator{
 		params:        e.params,
 		cycloOrdMod:   e.cycloOrdMod,
 		mod:           modCopy,
@@ -322,8 +356,8 @@ func (e *polyAutEvaluatorCyclotomicNonPow2) subEvaluator(idx ...int) polyAutEval
 	}
 }
 
-func (e *polyAutEvaluatorCyclotomicNonPow2) safeCopy() polyAutEvaluator {
-	return &polyAutEvaluatorCyclotomicNonPow2{
+func (e *anyCyclotomicPolyAutEvaluator) safeCopy() anyCyclotomicPolyAutEvaluator {
+	return anyCyclotomicPolyAutEvaluator{
 		params:        e.params,
 		cycloOrdMod:   e.cycloOrdMod,
 		mod:           e.mod,
@@ -339,8 +373,8 @@ func (e *polyAutEvaluatorCyclotomicNonPow2) safeCopy() polyAutEvaluator {
 	}
 }
 
-// polyAutEvaluatorAutFixedPow2 is a [polyAutEvaluator] for power-of-two autfixed rings.
-type polyAutEvaluatorAutFixedPow2 struct {
+// pow2AutFixedPolyAutEvaluator is a [polyAutEvaluator] for power-of-two conjugate invariant ring.
+type pow2AutFixedPolyAutEvaluator struct {
 	params        dft.RingParameters
 	mod           []*num.Modulus
 	isNTTFriendly []bool
@@ -348,14 +382,14 @@ type polyAutEvaluatorAutFixedPow2 struct {
 	buf polyAutEvaluatorBuffer
 }
 
-// newPolyAutEvaluatorAutFixedPow2 creates a new [polyAutEvaluatorAutFixedPow2].
-func newPolyAutEvaluatorAutFixedPow2(params dft.RingParameters, mod []*num.Modulus) *polyAutEvaluatorAutFixedPow2 {
+// newPow2AutFixedPolyAutEvaluator creates a new [pow2AutFixedPolyAutEvaluator].
+func newPow2AutFixedPolyAutEvaluator(params dft.RingParameters, mod []*num.Modulus) pow2AutFixedPolyAutEvaluator {
 	isNTTFriendly := make([]bool, len(mod))
 	for i := range mod {
 		isNTTFriendly[i] = dft.IsNTTFriendly(params, mod[i])
 	}
 
-	return &polyAutEvaluatorAutFixedPow2{
+	return pow2AutFixedPolyAutEvaluator{
 		params:        params,
 		mod:           mod,
 		isNTTFriendly: isNTTFriendly,
@@ -364,25 +398,43 @@ func newPolyAutEvaluatorAutFixedPow2(params dft.RingParameters, mod []*num.Modul
 	}
 }
 
-func (e *polyAutEvaluatorAutFixedPow2) Aut(p *Poly, idx int) *Poly {
+// CanAut returns whether the given automorphism index is valid.
+func (e *pow2AutFixedPolyAutEvaluator) CanAut(idx int) bool {
+	cycloOrd := e.params.CycloOrder()
+	idx = (idx%cycloOrd + cycloOrd) % cycloOrd
+	return idx%4 == 1
+}
+
+// Aut returns aut_idx(p).
+// Panics when automorphism is invalid.
+// Notable cases include:
+//
+//   - In cyclotomic/autfixed rings, it panics when idx is not coprime with the cyclotomic order.
+//   - In any other rings, automorphism is not supported and it always panics.
+func (e *pow2AutFixedPolyAutEvaluator) Aut(p *Poly, idx int) *Poly {
 	pOut := NewPoly(e.params.Rank(), len(e.mod))
 	e.AutTo(pOut, p, idx)
 	return pOut
 }
 
-func (e *polyAutEvaluatorAutFixedPow2) AutTo(pOut, p *Poly, idx int) {
-	if !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p) {
+// AutTo computes pOut = aut_idx(p).
+// Panics when automorphism is invalid.
+// Notable cases include:
+//
+//   - In cyclotomic/autfixed rings, it panics when idx is not coprime with the cyclotomic order.
+//   - In any other rings, automorphism is not supported and it always panics.
+func (e *pow2AutFixedPolyAutEvaluator) AutTo(pOut, p *Poly, idx int) {
+	switch {
+	case !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p):
 		panic("AutTo: inputs not consistent")
+	case !e.CanAut(idx):
+		panic("AutTo: idx not supported")
 	}
 
 	cycloOrd, rank := e.params.CycloOrder(), e.params.Rank()
-
 	idx = (idx%cycloOrd + cycloOrd) % cycloOrd
 
-	switch {
-	case idx%4 != 1:
-		panic("AutTo: idx must be 1 mod 4")
-	case idx == 1:
+	if idx == 1 {
 		pOut.CopyFrom(p)
 		return
 	}
@@ -425,7 +477,7 @@ func (e *polyAutEvaluatorAutFixedPow2) AutTo(pOut, p *Poly, idx int) {
 	pOut.isNTT = p.isNTT
 }
 
-func (e *polyAutEvaluatorAutFixedPow2) subEvaluator(idx ...int) polyAutEvaluator {
+func (e *pow2AutFixedPolyAutEvaluator) subEvaluator(idx ...int) pow2AutFixedPolyAutEvaluator {
 	modCopy := make([]*num.Modulus, len(idx))
 	isNTTFriendlyCopy := make([]bool, len(idx))
 	for i := range idx {
@@ -433,7 +485,7 @@ func (e *polyAutEvaluatorAutFixedPow2) subEvaluator(idx ...int) polyAutEvaluator
 		isNTTFriendlyCopy[i] = e.isNTTFriendly[idx[i]]
 	}
 
-	return &polyAutEvaluatorAutFixedPow2{
+	return pow2AutFixedPolyAutEvaluator{
 		params:        e.params,
 		mod:           modCopy,
 		isNTTFriendly: isNTTFriendlyCopy,
@@ -442,8 +494,8 @@ func (e *polyAutEvaluatorAutFixedPow2) subEvaluator(idx ...int) polyAutEvaluator
 	}
 }
 
-func (e *polyAutEvaluatorAutFixedPow2) safeCopy() polyAutEvaluator {
-	return &polyAutEvaluatorAutFixedPow2{
+func (e *pow2AutFixedPolyAutEvaluator) safeCopy() pow2AutFixedPolyAutEvaluator {
+	return pow2AutFixedPolyAutEvaluator{
 		params:        e.params,
 		mod:           e.mod,
 		isNTTFriendly: e.isNTTFriendly,
@@ -452,8 +504,8 @@ func (e *polyAutEvaluatorAutFixedPow2) safeCopy() polyAutEvaluator {
 	}
 }
 
-// polyAutEvaluatorAutFixedPrime is a [polyAutEvaluator] for prime-order autfixed rings.
-type polyAutEvaluatorAutFixedPrime struct {
+// primeAutFixedPolyAutEvaluator is a [polyAutEvaluator] for prime order autfixed ring.
+type primeAutFixedPolyAutEvaluator struct {
 	params        dft.RingParameters
 	mod           []*num.Modulus
 	isNTTFriendly []bool
@@ -466,8 +518,8 @@ type polyAutEvaluatorAutFixedPrime struct {
 	buf polyAutEvaluatorBuffer
 }
 
-// newPolyAutEvaluatorAutFixedPrime creates a new [polyAutEvaluatorAutFixedPrime].
-func newPolyAutEvaluatorAutFixedPrime(params dft.RingParameters, mod []*num.Modulus) *polyAutEvaluatorAutFixedPrime {
+// newPrimeAutFixedPolyAutEvaluator creates a new [primeAutFixedPolyAutEvaluator].
+func newPrimeAutFixedPolyAutEvaluator(params dft.RingParameters, mod []*num.Modulus) primeAutFixedPolyAutEvaluator {
 	isNTTFriendly := make([]bool, len(mod))
 	for i := range mod {
 		isNTTFriendly[i] = dft.IsNTTFriendly(params, mod[i])
@@ -486,7 +538,7 @@ func newPolyAutEvaluatorAutFixedPrime(params dft.RingParameters, mod []*num.Modu
 		rootPowInv[i] = num.Mul(rootPowInv[i-1], rootInv, cycloOrdMod)
 	}
 
-	return &polyAutEvaluatorAutFixedPrime{
+	return primeAutFixedPolyAutEvaluator{
 		params:        params,
 		mod:           mod,
 		isNTTFriendly: isNTTFriendly,
@@ -498,27 +550,56 @@ func newPolyAutEvaluatorAutFixedPrime(params dft.RingParameters, mod []*num.Modu
 	}
 }
 
-func (e *polyAutEvaluatorAutFixedPrime) Aut(p *Poly, idx int) *Poly {
+// CanAut returns whether the given automorphism index is valid.
+func (e *primeAutFixedPolyAutEvaluator) CanAut(idx int) bool {
+	cycloOrd := e.params.CycloOrder()
+	idx = (idx%cycloOrd + cycloOrd) % cycloOrd
+	rotIdx := slices.Index(e.rootPow, uint64(idx))
+	if rotIdx == -1 {
+		rotIdx = slices.Index(e.rootPowInv, uint64(idx))
+		if rotIdx == -1 {
+			return false
+		}
+	}
+	return true
+}
+
+// Aut returns aut_idx(p).
+// Panics when automorphism is invalid.
+// Notable cases include:
+//
+//   - In cyclotomic/autfixed rings, it panics when idx is not coprime with the cyclotomic order.
+//   - In any other rings, automorphism is not supported and it always panics.
+func (e *primeAutFixedPolyAutEvaluator) Aut(p *Poly, idx int) *Poly {
 	pOut := NewPoly(e.params.Rank(), len(e.mod))
 	e.AutTo(pOut, p, idx)
 	return pOut
 }
 
-func (e *polyAutEvaluatorAutFixedPrime) AutTo(pOut, p *Poly, idx int) {
+// AutTo computes pOut = aut_idx(p).
+// Panics when automorphism is invalid.
+// Notable cases include:
+//
+//   - In cyclotomic/autfixed rings, it panics when idx is not coprime with the cyclotomic order.
+//   - In any other rings, automorphism is not supported and it always panics.
+func (e *primeAutFixedPolyAutEvaluator) AutTo(pOut, p *Poly, idx int) {
+	switch {
+	case !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p):
+		panic("AutTo: inputs not consistent")
+	case !e.CanAut(idx):
+		panic("AutTo: idx not valid")
+	}
+
 	if !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p) {
 		panic("AutTo: inputs not consistent")
 	}
 
 	cycloOrd, rank := e.params.CycloOrder(), e.params.Rank()
-
 	idx = (idx%cycloOrd + cycloOrd) % cycloOrd
 
 	rotIdx := slices.Index(e.rootPow, uint64(idx))
 	if rotIdx == -1 {
 		rotIdx = slices.Index(e.rootPowInv, uint64(idx))
-		if rotIdx == -1 {
-			panic("AutTo: idx not valid")
-		}
 		rotIdx = (rank - rotIdx) % rank
 	}
 
@@ -537,7 +618,7 @@ func (e *polyAutEvaluatorAutFixedPrime) AutTo(pOut, p *Poly, idx int) {
 	pOut.isNTT = p.isNTT
 }
 
-func (e *polyAutEvaluatorAutFixedPrime) subEvaluator(idx ...int) polyAutEvaluator {
+func (e *primeAutFixedPolyAutEvaluator) subEvaluator(idx ...int) primeAutFixedPolyAutEvaluator {
 	modCopy := make([]*num.Modulus, len(idx))
 	isNTTFriendlyCopy := make([]bool, len(idx))
 	for i := range idx {
@@ -545,7 +626,7 @@ func (e *polyAutEvaluatorAutFixedPrime) subEvaluator(idx ...int) polyAutEvaluato
 		isNTTFriendlyCopy[i] = e.isNTTFriendly[idx[i]]
 	}
 
-	return &polyAutEvaluatorAutFixedPrime{
+	return primeAutFixedPolyAutEvaluator{
 		params:        e.params,
 		mod:           modCopy,
 		isNTTFriendly: isNTTFriendlyCopy,
@@ -557,8 +638,8 @@ func (e *polyAutEvaluatorAutFixedPrime) subEvaluator(idx ...int) polyAutEvaluato
 	}
 }
 
-func (e *polyAutEvaluatorAutFixedPrime) safeCopy() polyAutEvaluator {
-	return &polyAutEvaluatorAutFixedPrime{
+func (e *primeAutFixedPolyAutEvaluator) safeCopy() primeAutFixedPolyAutEvaluator {
+	return primeAutFixedPolyAutEvaluator{
 		params:        e.params,
 		mod:           e.mod,
 		isNTTFriendly: e.isNTTFriendly,
@@ -570,22 +651,31 @@ func (e *polyAutEvaluatorAutFixedPrime) safeCopy() polyAutEvaluator {
 	}
 }
 
-// polyAutEvaluatorPanic always panics.
+// noAutPolyAutEvaluator always panics.
 // Used for cyclic and other rings.
-type polyAutEvaluatorPanic struct{}
+type noAutPolyAutEvaluator struct{}
 
-func (e *polyAutEvaluatorPanic) Aut(p *Poly, idx int) *Poly {
+// CanAut returns whether the given automorphism index is valid.
+func (e *noAutPolyAutEvaluator) CanAut(idx int) bool {
+	return false
+}
+
+// Aut returns aut_idx(p).
+// Panics when automorphism is invalid.
+// Notable cases include:
+//
+//   - In cyclotomic/autfixed rings, it panics when idx is not coprime with the cyclotomic order.
+//   - In any other rings, automorphism is not supported and it always panics.
+func (e *noAutPolyAutEvaluator) Aut(p *Poly, idx int) *Poly {
 	panic("Aut: automorphism not supported in this ring")
 }
 
-func (e *polyAutEvaluatorPanic) AutTo(pOut, p *Poly, idx int) {
+// AutTo computes pOut = aut_idx(p).
+// Panics when automorphism is invalid.
+// Notable cases include:
+//
+//   - In cyclotomic/autfixed rings, it panics when idx is not coprime with the cyclotomic order.
+//   - In any other rings, automorphism is not supported and it always panics.
+func (e *noAutPolyAutEvaluator) AutTo(pOut, p *Poly, idx int) {
 	panic("AutTo: automorphism not supported in this ring")
-}
-
-func (e *polyAutEvaluatorPanic) subEvaluator(idx ...int) polyAutEvaluator {
-	return &polyAutEvaluatorPanic{}
-}
-
-func (e *polyAutEvaluatorPanic) safeCopy() polyAutEvaluator {
-	return &polyAutEvaluatorPanic{}
 }

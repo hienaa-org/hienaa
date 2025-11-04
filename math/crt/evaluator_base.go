@@ -8,17 +8,18 @@ import (
 	"github.com/hienaa-org/hienaa/math/vec"
 )
 
-// polyEvaluatorBase is the base evaluator for all rings.
-type polyEvaluatorBase struct {
-	params dft.RingParameters
-	mod    []*num.Modulus
+// polyBaseEvaluator is the base evaluator for all rings.
+type polyBaseEvaluator struct {
+	params  dft.RingParameters
+	mod     []*num.Modulus
+	modPoly []int64
 
 	isNTTFriendly []bool
 	ntt           []dft.Transformer
 }
 
-// newPolyEvaluatorBase creates a new [polyEvaluatorBase].
-func newPolyEvaluatorBase(params dft.RingParameters, mod []*num.Modulus) *polyEvaluatorBase {
+// newPolyBaseEvaluator creates a new [polyBaseEvaluator].
+func newPolyBaseEvaluator(params dft.RingParameters, mod []*num.Modulus, modPoly []int64) polyBaseEvaluator {
 	isNTTFriendly := make([]bool, len(mod))
 	ntt := make([]dft.Transformer, len(mod))
 	for i := range mod {
@@ -28,9 +29,10 @@ func newPolyEvaluatorBase(params dft.RingParameters, mod []*num.Modulus) *polyEv
 		}
 	}
 
-	return &polyEvaluatorBase{
-		params: params,
-		mod:    mod,
+	return polyBaseEvaluator{
+		params:  params,
+		mod:     mod,
+		modPoly: modPoly,
 
 		isNTTFriendly: isNTTFriendly,
 		ntt:           ntt,
@@ -38,145 +40,44 @@ func newPolyEvaluatorBase(params dft.RingParameters, mod []*num.Modulus) *polyEv
 }
 
 // NewPoly returns a new [Poly].
-func (e *polyEvaluatorBase) NewPoly() *Poly {
+func (e *polyBaseEvaluator) NewPoly() *Poly {
 	return NewPolyCustom(e.params.Rank(), len(e.mod), false)
 }
 
 // NewNTTPoly returns a new [Poly] in NTT form.
-func (e *polyEvaluatorBase) NewNTTPoly() *Poly {
+func (e *polyBaseEvaluator) NewNTTPoly() *Poly {
 	return NewPolyCustom(e.params.Rank(), len(e.mod), true)
 }
 
 // NewPolyCustom creates a new [Poly] with the given parameters.
-func (e *polyEvaluatorBase) NewPolyCustom(isNTT bool) *Poly {
+func (e *polyBaseEvaluator) NewPolyCustom(isNTT bool) *Poly {
 	return NewPolyCustom(e.params.Rank(), len(e.mod), isNTT)
 }
 
 // Params returns the ring parameters.
-func (e *polyEvaluatorBase) Params() dft.RingParameters {
+func (e *polyBaseEvaluator) Params() dft.RingParameters {
 	return e.params
 }
 
 // Modulus returns the modulus.
-func (e *polyEvaluatorBase) Modulus() []*num.Modulus {
+func (e *polyBaseEvaluator) Modulus() []*num.Modulus {
 	return e.mod
 }
 
-// Add returns p0 + p1.
-func (e *polyEvaluatorBase) Add(p0, p1 *Poly) *Poly {
-	pOut := e.NewPoly()
-	e.AddTo(pOut, p0, p1)
-	return pOut
-}
-
-// AddTo computes pOut = p0 + p1.
-func (e *polyEvaluatorBase) AddTo(pOut, p0, p1 *Poly) {
-	if !isTernaryToOperable(e.params.Rank(), len(e.mod), pOut, p0, p1) {
-		panic("AddTo: inputs not consistent")
-	}
-
-	for i := range e.mod {
-		vec.AddTo(pOut.Coeffs[i], p0.Coeffs[i], p1.Coeffs[i], e.mod[i])
-	}
-
-	pOut.isNTT = p0.isNTT
-}
-
-// Sub returns p0 - p1.
-func (e *polyEvaluatorBase) Sub(p0, p1 *Poly) *Poly {
-	pOut := e.NewPoly()
-	e.SubTo(pOut, p0, p1)
-	return pOut
-}
-
-// SubTo computes pOut = p0 - p1.
-func (e *polyEvaluatorBase) SubTo(pOut, p0, p1 *Poly) {
-	if !isTernaryToOperable(e.params.Rank(), len(e.mod), pOut, p0, p1) {
-		panic("SubTo: inputs not consistent")
-	}
-
-	for i := range e.mod {
-		vec.SubTo(pOut.Coeffs[i], p0.Coeffs[i], p1.Coeffs[i], e.mod[i])
-	}
-
-	pOut.isNTT = p0.isNTT
-}
-
-// Neg returns -p.
-func (e *polyEvaluatorBase) Neg(p *Poly) *Poly {
-	pOut := NewPolyCustom(e.params.Rank(), len(e.mod), p.isNTT)
-	e.NegTo(pOut, p)
-	return pOut
-}
-
-// NegTo computes pOut = -p.
-func (e *polyEvaluatorBase) NegTo(pOut, p *Poly) {
-	if !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p) {
-		panic("NegTo: inputs not consistent")
-	}
-
-	for i := range e.mod {
-		vec.NegTo(pOut.Coeffs[i], p.Coeffs[i], e.mod[i])
-	}
-
-	pOut.isNTT = p.isNTT
-}
-
-// ScalarMul returns p * c.
-func (e *polyEvaluatorBase) ScalarMul(p *Poly, c Scalar) *Poly {
-	pOut := e.NewPoly()
-	e.ScalarMulTo(pOut, p, c)
-	return pOut
-}
-
-// ScalarMulTo computes pOut = p * c.
-func (e *polyEvaluatorBase) ScalarMulTo(pOut, p *Poly, c Scalar) {
-	if !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p) || !isScalarToOperable(len(e.mod), c) {
-		panic("ScalarMulTo: inputs not consistent")
-	}
-
-	for i := range e.mod {
-		vec.ScalarMulTo(pOut.Coeffs[i], p.Coeffs[i], c[i], e.mod[i])
-	}
-
-	pOut.isNTT = p.isNTT
-}
-
-// ScalarMulAddTo computes pOut += p * c.
-func (e *polyEvaluatorBase) ScalarMulAddTo(pOut, p *Poly, c Scalar) {
-	if !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p) || !isScalarToOperable(len(e.mod), c) {
-		panic("ScalarMulAddTo: inputs not consistent")
-	}
-
-	for i := range e.mod {
-		vec.ScalarMulAddTo(pOut.Coeffs[i], p.Coeffs[i], c[i], e.mod[i])
-	}
-
-	pOut.isNTT = p.isNTT
-}
-
-// ScalarMulSubTo computes pOut -= p * c.
-func (e *polyEvaluatorBase) ScalarMulSubTo(pOut, p *Poly, c Scalar) {
-	if !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p) || !isScalarToOperable(len(e.mod), c) {
-		panic("ScalarMulAddTo: inputs not consistent")
-	}
-
-	for i := range e.mod {
-		vec.ScalarMulSubTo(pOut.Coeffs[i], p.Coeffs[i], c[i], e.mod[i])
-	}
-
-	pOut.isNTT = p.isNTT
+// ModulusPoly returns the quotient polynomial of the ring.
+func (e *polyBaseEvaluator) ModulusPoly() []int64 {
+	return e.modPoly
 }
 
 // NTT returns NTT(p).
-func (e *polyEvaluatorBase) NTT(p *Poly) *Poly {
+func (e *polyBaseEvaluator) NTT(p *Poly) *Poly {
 	pOut := e.NewPoly()
 	e.NTTTo(pOut, p)
 	return pOut
 }
 
 // NTTTo computes pOut = NTT(p).
-func (e *polyEvaluatorBase) NTTTo(pOut, p *Poly) {
+func (e *polyBaseEvaluator) NTTTo(pOut, p *Poly) {
 	switch {
 	case !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p):
 		panic("NTTTo: inputs not consistent")
@@ -196,14 +97,14 @@ func (e *polyEvaluatorBase) NTTTo(pOut, p *Poly) {
 }
 
 // InvNTT returns InvNTT(p).
-func (e *polyEvaluatorBase) InvNTT(p *Poly) *Poly {
+func (e *polyBaseEvaluator) InvNTT(p *Poly) *Poly {
 	pOut := e.NewPoly()
 	e.InvNTTTo(pOut, p)
 	return pOut
 }
 
 // InvNTTTo computes pOut = InvNTT(p).
-func (e *polyEvaluatorBase) InvNTTTo(pOut, p *Poly) {
+func (e *polyBaseEvaluator) InvNTTTo(pOut, p *Poly) {
 	switch {
 	case !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p):
 		panic("InvNTTTo: inputs not consistent")
@@ -222,8 +123,114 @@ func (e *polyEvaluatorBase) InvNTTTo(pOut, p *Poly) {
 	pOut.isNTT = false
 }
 
+// Add returns p0 + p1.
+func (e *polyBaseEvaluator) Add(p0, p1 *Poly) *Poly {
+	pOut := e.NewPoly()
+	e.AddTo(pOut, p0, p1)
+	return pOut
+}
+
+// AddTo computes pOut = p0 + p1.
+func (e *polyBaseEvaluator) AddTo(pOut, p0, p1 *Poly) {
+	if !isTernaryToOperable(e.params.Rank(), len(e.mod), pOut, p0, p1) {
+		panic("AddTo: inputs not consistent")
+	}
+
+	for i := range e.mod {
+		vec.AddTo(pOut.Coeffs[i], p0.Coeffs[i], p1.Coeffs[i], e.mod[i])
+	}
+
+	pOut.isNTT = p0.isNTT
+}
+
+// Sub returns p0 - p1.
+func (e *polyBaseEvaluator) Sub(p0, p1 *Poly) *Poly {
+	pOut := e.NewPoly()
+	e.SubTo(pOut, p0, p1)
+	return pOut
+}
+
+// SubTo computes pOut = p0 - p1.
+func (e *polyBaseEvaluator) SubTo(pOut, p0, p1 *Poly) {
+	if !isTernaryToOperable(e.params.Rank(), len(e.mod), pOut, p0, p1) {
+		panic("SubTo: inputs not consistent")
+	}
+
+	for i := range e.mod {
+		vec.SubTo(pOut.Coeffs[i], p0.Coeffs[i], p1.Coeffs[i], e.mod[i])
+	}
+
+	pOut.isNTT = p0.isNTT
+}
+
+// Neg returns -p.
+func (e *polyBaseEvaluator) Neg(p *Poly) *Poly {
+	pOut := NewPolyCustom(e.params.Rank(), len(e.mod), p.isNTT)
+	e.NegTo(pOut, p)
+	return pOut
+}
+
+// NegTo computes pOut = -p.
+func (e *polyBaseEvaluator) NegTo(pOut, p *Poly) {
+	if !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p) {
+		panic("NegTo: inputs not consistent")
+	}
+
+	for i := range e.mod {
+		vec.NegTo(pOut.Coeffs[i], p.Coeffs[i], e.mod[i])
+	}
+
+	pOut.isNTT = p.isNTT
+}
+
+// ScalarMul returns p * c.
+func (e *polyBaseEvaluator) ScalarMul(p *Poly, c Scalar) *Poly {
+	pOut := e.NewPoly()
+	e.ScalarMulTo(pOut, p, c)
+	return pOut
+}
+
+// ScalarMulTo computes pOut = p * c.
+func (e *polyBaseEvaluator) ScalarMulTo(pOut, p *Poly, c Scalar) {
+	if !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p) || !isScalarToOperable(len(e.mod), c) {
+		panic("ScalarMulTo: inputs not consistent")
+	}
+
+	for i := range e.mod {
+		vec.ScalarMulTo(pOut.Coeffs[i], p.Coeffs[i], c[i], e.mod[i])
+	}
+
+	pOut.isNTT = p.isNTT
+}
+
+// ScalarMulAddTo computes pOut += p * c.
+func (e *polyBaseEvaluator) ScalarMulAddTo(pOut, p *Poly, c Scalar) {
+	if !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p) || !isScalarToOperable(len(e.mod), c) {
+		panic("ScalarMulAddTo: inputs not consistent")
+	}
+
+	for i := range e.mod {
+		vec.ScalarMulAddTo(pOut.Coeffs[i], p.Coeffs[i], c[i], e.mod[i])
+	}
+
+	pOut.isNTT = p.isNTT
+}
+
+// ScalarMulSubTo computes pOut -= p * c.
+func (e *polyBaseEvaluator) ScalarMulSubTo(pOut, p *Poly, c Scalar) {
+	if !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p) || !isScalarToOperable(len(e.mod), c) {
+		panic("ScalarMulAddTo: inputs not consistent")
+	}
+
+	for i := range e.mod {
+		vec.ScalarMulSubTo(pOut.Coeffs[i], p.Coeffs[i], c[i], e.mod[i])
+	}
+
+	pOut.isNTT = p.isNTT
+}
+
 // AsBig returns p as *[big.Int] vector.
-func (e *polyEvaluatorBase) AsBig(p *Poly) []*big.Int {
+func (e *polyBaseEvaluator) AsBig(p *Poly) []*big.Int {
 	if !isConsistent(e.params.Rank(), len(e.mod), p) {
 		panic("AsBig: input not consistent")
 	}
@@ -261,7 +268,7 @@ func (e *polyEvaluatorBase) AsBig(p *Poly) []*big.Int {
 	return pBig
 }
 
-func (e *polyEvaluatorBase) subEvaluator(idx ...int) *polyEvaluatorBase {
+func (e *polyBaseEvaluator) subEvaluator(idx ...int) polyBaseEvaluator {
 	modCopy := make([]*num.Modulus, len(idx))
 	isNTTFriendlyCopy := make([]bool, len(idx))
 	nttCopy := make([]dft.Transformer, len(idx))
@@ -273,16 +280,17 @@ func (e *polyEvaluatorBase) subEvaluator(idx ...int) *polyEvaluatorBase {
 		}
 	}
 
-	return &polyEvaluatorBase{
-		params: e.params,
-		mod:    modCopy,
+	return polyBaseEvaluator{
+		params:  e.params,
+		mod:     modCopy,
+		modPoly: e.modPoly,
 
 		isNTTFriendly: isNTTFriendlyCopy,
 		ntt:           nttCopy,
 	}
 }
 
-func (e *polyEvaluatorBase) safeCopy() *polyEvaluatorBase {
+func (e *polyBaseEvaluator) safeCopy() polyBaseEvaluator {
 	nttCopy := make([]dft.Transformer, len(e.ntt))
 	for i := range e.ntt {
 		if e.ntt[i] != nil {
@@ -290,9 +298,10 @@ func (e *polyEvaluatorBase) safeCopy() *polyEvaluatorBase {
 		}
 	}
 
-	return &polyEvaluatorBase{
-		params: e.params,
-		mod:    e.mod,
+	return polyBaseEvaluator{
+		params:  e.params,
+		mod:     e.mod,
+		modPoly: e.modPoly,
 
 		isNTTFriendly: e.isNTTFriendly,
 		ntt:           nttCopy,

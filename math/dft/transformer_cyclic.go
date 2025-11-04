@@ -276,8 +276,6 @@ func (ntt *pow235CyclicTransformer) SafeCopy() Transformer {
 	}
 }
 
-func (ntt *pow235CyclicTransformer) isCyclic() {}
-
 // anyCyclicTransformer is a transformer for aribtrary rank cyclic ring.
 // Internally, it uses Bluestein NTT.
 type anyCyclicTransformer struct {
@@ -416,5 +414,3 @@ func (ntt *anyCyclicTransformer) SafeCopy() Transformer {
 		chirpInv: ntt.chirpInv,
 	}
 }
-
-func (ntt *anyCyclicTransformer) isCyclic() {}

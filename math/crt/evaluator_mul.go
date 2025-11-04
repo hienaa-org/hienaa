@@ -22,10 +22,6 @@ type polyMulEvaluator interface {
 	// MulSubTo computes pOut -= p0 * p1.
 	// Panics when p0 and p1 are not both in NTT form.
 	MulSubTo(pOut, p0, p1 *Poly)
-	// subEvaluator returns a evaluator for modulus of given indices.
-	subEvaluator(idx ...int) polyMulEvaluator
-	// SafeCopy returns a thread-safe copy.
-	safeCopy() polyMulEvaluator
 }
 
 // polyMulEvaluatorBuffer is a buffer for [polyMulEvaluator].
@@ -49,9 +45,9 @@ func newPolyMulEvaluatorBuffer(rank, modLen int) polyMulEvaluatorBuffer {
 	}
 }
 
-// polyMulEvaluatorNoReduce is a [polyMulEvaluator] for rings that polynomials are automatically reduced.
-// This includes power-of-two cyclotomic rings and autfixed rings.
-type polyMulEvaluatorNoReduce struct {
+// noReducePolyMulEvaluator is a [polyMulEvaluator] for rings that polynomials are automatically reduced.
+// This includes power-of-two cyclotomic rings and autfixed ring.
+type noReducePolyMulEvaluator struct {
 	rank int
 	mod  []*num.Modulus
 
@@ -63,8 +59,8 @@ type polyMulEvaluatorNoReduce struct {
 	buf polyMulEvaluatorBuffer
 }
 
-// newPolyMulEvaluatorNoReduce creates a new [polyMulEvaluatorNoReduce].
-func newPolyMulEvaluatorNoReduce(params dft.RingParameters, mod []*num.Modulus) *polyMulEvaluatorNoReduce {
+// newNoReducePolyMulEvaluator creates a new [noReducePolyMulEvaluator].
+func newNoReducePolyMulEvaluator(params dft.RingParameters, mod []*num.Modulus) noReducePolyMulEvaluator {
 	ambModLen := make([]int, len(mod))
 	for i := range mod {
 		if dft.IsNTTFriendly(params, mod[i]) {
@@ -94,7 +90,7 @@ func newPolyMulEvaluatorNoReduce(params dft.RingParameters, mod []*num.Modulus) 
 		embedder[i] = NewEmbedder([]*num.Modulus{mod[i]}, ambMod[:ambModLen[i]])
 	}
 
-	return &polyMulEvaluatorNoReduce{
+	return noReducePolyMulEvaluator{
 		rank: params.Rank(),
 		mod:  mod,
 
@@ -107,13 +103,17 @@ func newPolyMulEvaluatorNoReduce(params dft.RingParameters, mod []*num.Modulus) 
 	}
 }
 
-func (e *polyMulEvaluatorNoReduce) Mul(p0, p1 *Poly) *Poly {
+// Mul returns p0 * p1.
+// Panics when p0 and p1 are not both in NTT form.
+func (e *noReducePolyMulEvaluator) Mul(p0, p1 *Poly) *Poly {
 	pOut := NewNTTPoly(e.rank, len(e.mod))
 	e.MulTo(pOut, p0, p1)
 	return pOut
 }
 
-func (e *polyMulEvaluatorNoReduce) MulTo(pOut, p0, p1 *Poly) {
+// MulTo computes pOut = p0 * p1.
+// Panics when p0 and p1 are not both in NTT form.
+func (e *noReducePolyMulEvaluator) MulTo(pOut, p0, p1 *Poly) {
 	switch {
 	case !isTernaryToOperable(e.rank, len(e.mod), pOut, p0, p1):
 		panic("MulTo: inputs not consistent")
@@ -138,7 +138,9 @@ func (e *polyMulEvaluatorNoReduce) MulTo(pOut, p0, p1 *Poly) {
 	pOut.isNTT = true
 }
 
-func (e *polyMulEvaluatorNoReduce) MulAddTo(pOut, p0, p1 *Poly) {
+// MulAddTo computes pOut += p0 * p1.
+// Panics when p0 and p1 are not both in NTT form.
+func (e *noReducePolyMulEvaluator) MulAddTo(pOut, p0, p1 *Poly) {
 	switch {
 	case !isTernaryToOperable(e.rank, len(e.mod), pOut, p0, p1):
 		panic("MulTo: inputs not consistent")
@@ -164,7 +166,9 @@ func (e *polyMulEvaluatorNoReduce) MulAddTo(pOut, p0, p1 *Poly) {
 	pOut.isNTT = true
 }
 
-func (e *polyMulEvaluatorNoReduce) MulSubTo(pOut, p0, p1 *Poly) {
+// MulSubTo computes pOut -= p0 * p1.
+// Panics when p0 and p1 are not both in NTT form.
+func (e *noReducePolyMulEvaluator) MulSubTo(pOut, p0, p1 *Poly) {
 	switch {
 	case !isTernaryToOperable(e.rank, len(e.mod), pOut, p0, p1):
 		panic("MulTo: inputs not consistent")
@@ -190,7 +194,7 @@ func (e *polyMulEvaluatorNoReduce) MulSubTo(pOut, p0, p1 *Poly) {
 	pOut.isNTT = true
 }
 
-func (e *polyMulEvaluatorNoReduce) subEvaluator(idx ...int) polyMulEvaluator {
+func (e *noReducePolyMulEvaluator) subEvaluator(idx ...int) noReducePolyMulEvaluator {
 	modCopy := make([]*num.Modulus, len(idx))
 	ambModLenCopy := make([]int, len(idx))
 	for i := range idx {
@@ -211,7 +215,7 @@ func (e *polyMulEvaluatorNoReduce) subEvaluator(idx ...int) polyMulEvaluator {
 		}
 	}
 
-	return &polyMulEvaluatorNoReduce{
+	return noReducePolyMulEvaluator{
 		rank: e.rank,
 		mod:  modCopy,
 
@@ -224,7 +228,7 @@ func (e *polyMulEvaluatorNoReduce) subEvaluator(idx ...int) polyMulEvaluator {
 	}
 }
 
-func (e *polyMulEvaluatorNoReduce) safeCopy() polyMulEvaluator {
+func (e *noReducePolyMulEvaluator) safeCopy() noReducePolyMulEvaluator {
 	ambNTTCopy := make([]dft.Transformer, len(e.ambNTT))
 	for i := range e.ambNTT {
 		ambNTTCopy[i] = e.ambNTT[i].SafeCopy()
@@ -237,7 +241,7 @@ func (e *polyMulEvaluatorNoReduce) safeCopy() polyMulEvaluator {
 		}
 	}
 
-	return &polyMulEvaluatorNoReduce{
+	return noReducePolyMulEvaluator{
 		rank: e.rank,
 		mod:  e.mod,
 
@@ -250,8 +254,8 @@ func (e *polyMulEvaluatorNoReduce) safeCopy() polyMulEvaluator {
 	}
 }
 
-// polyMulEvaluatorCyclotomicNonPow2 is a [polyMulEvaluator] for non power-of-two cyclotomic rings.
-type polyMulEvaluatorCyclotomicNonPow2 struct {
+// anyCyclotomicPolyMulEvaluator is a [polyMulEvaluator] for non power-of-two cyclotomic ring.
+type anyCyclotomicPolyMulEvaluator struct {
 	params dft.RingParameters
 	mod    []*num.Modulus
 
@@ -265,8 +269,8 @@ type polyMulEvaluatorCyclotomicNonPow2 struct {
 	buf polyMulEvaluatorBuffer
 }
 
-// newPolyMulEvaluatorCyclotomicNonPow2 creates a new [polyMulEvaluatorCyclotomicNonPow2].
-func newPolyMulEvaluatorCyclotomicNonPow2(params dft.RingParameters, mod []*num.Modulus, reducer *CyclotomicReducer) *polyMulEvaluatorCyclotomicNonPow2 {
+// newAnyCyclotomicPolyMulEvaluator creates a new [anyCyclotomicPolyMulEvaluator].
+func newAnyCyclotomicPolyMulEvaluator(params dft.RingParameters, mod []*num.Modulus, reducer *CyclotomicReducer) anyCyclotomicPolyMulEvaluator {
 	ambModLen := make([]int, len(mod))
 	for i := range mod {
 		if dft.IsNTTFriendly(params, mod[i]) {
@@ -291,7 +295,7 @@ func newPolyMulEvaluatorCyclotomicNonPow2(params dft.RingParameters, mod []*num.
 		embedder[i] = NewEmbedder([]*num.Modulus{mod[i]}, ambMod[:ambModLen[i]])
 	}
 
-	return &polyMulEvaluatorCyclotomicNonPow2{
+	return anyCyclotomicPolyMulEvaluator{
 		params: params,
 		mod:    mod,
 
@@ -306,13 +310,17 @@ func newPolyMulEvaluatorCyclotomicNonPow2(params dft.RingParameters, mod []*num.
 	}
 }
 
-func (e *polyMulEvaluatorCyclotomicNonPow2) Mul(p0, p1 *Poly) *Poly {
+// Mul returns p0 * p1.
+// Panics when p0 and p1 are not both in NTT form.
+func (e *anyCyclotomicPolyMulEvaluator) Mul(p0, p1 *Poly) *Poly {
 	pOut := NewNTTPoly(e.params.Rank(), len(e.mod))
 	e.MulTo(pOut, p0, p1)
 	return pOut
 }
 
-func (e *polyMulEvaluatorCyclotomicNonPow2) MulTo(pOut, p0, p1 *Poly) {
+// MulTo computes pOut = p0 * p1.
+// Panics when p0 and p1 are not both in NTT form.
+func (e *anyCyclotomicPolyMulEvaluator) MulTo(pOut, p0, p1 *Poly) {
 	switch {
 	case !isTernaryToOperable(e.params.Rank(), len(e.mod), pOut, p0, p1):
 		panic("MulTo: inputs not consistent")
@@ -345,7 +353,9 @@ func (e *polyMulEvaluatorCyclotomicNonPow2) MulTo(pOut, p0, p1 *Poly) {
 	pOut.isNTT = true
 }
 
-func (e *polyMulEvaluatorCyclotomicNonPow2) MulAddTo(pOut, p0, p1 *Poly) {
+// MulAddTo computes pOut += p0 * p1.
+// Panics when p0 and p1 are not both in NTT form.
+func (e *anyCyclotomicPolyMulEvaluator) MulAddTo(pOut, p0, p1 *Poly) {
 	switch {
 	case !isTernaryToOperable(e.params.Rank(), len(e.mod), pOut, p0, p1):
 		panic("MulTo: inputs not consistent")
@@ -379,7 +389,9 @@ func (e *polyMulEvaluatorCyclotomicNonPow2) MulAddTo(pOut, p0, p1 *Poly) {
 	pOut.isNTT = true
 }
 
-func (e *polyMulEvaluatorCyclotomicNonPow2) MulSubTo(pOut, p0, p1 *Poly) {
+// MulSubTo computes pOut -= p0 * p1.
+// Panics when p0 and p1 are not both in NTT form.
+func (e *anyCyclotomicPolyMulEvaluator) MulSubTo(pOut, p0, p1 *Poly) {
 	switch {
 	case !isTernaryToOperable(e.params.Rank(), len(e.mod), pOut, p0, p1):
 		panic("MulTo: inputs not consistent")
@@ -413,7 +425,7 @@ func (e *polyMulEvaluatorCyclotomicNonPow2) MulSubTo(pOut, p0, p1 *Poly) {
 	pOut.isNTT = true
 }
 
-func (e *polyMulEvaluatorCyclotomicNonPow2) subEvaluator(idx ...int) polyMulEvaluator {
+func (e *anyCyclotomicPolyMulEvaluator) subEvaluator(idx ...int) anyCyclotomicPolyMulEvaluator {
 	modCopy := make([]*num.Modulus, len(idx))
 	ambModLenCopy := make([]int, len(idx))
 	for i := range idx {
@@ -434,7 +446,7 @@ func (e *polyMulEvaluatorCyclotomicNonPow2) subEvaluator(idx ...int) polyMulEval
 		}
 	}
 
-	return &polyMulEvaluatorCyclotomicNonPow2{
+	return anyCyclotomicPolyMulEvaluator{
 		params: e.params,
 		mod:    modCopy,
 
@@ -449,7 +461,7 @@ func (e *polyMulEvaluatorCyclotomicNonPow2) subEvaluator(idx ...int) polyMulEval
 	}
 }
 
-func (e *polyMulEvaluatorCyclotomicNonPow2) safeCopy() polyMulEvaluator {
+func (e *anyCyclotomicPolyMulEvaluator) safeCopy() anyCyclotomicPolyMulEvaluator {
 	ambNTTCopy := make([]dft.Transformer, len(e.ambNTT))
 	for i := range e.ambNTT {
 		ambNTTCopy[i] = e.ambNTT[i].SafeCopy()
@@ -462,7 +474,7 @@ func (e *polyMulEvaluatorCyclotomicNonPow2) safeCopy() polyMulEvaluator {
 		}
 	}
 
-	return &polyMulEvaluatorCyclotomicNonPow2{
+	return anyCyclotomicPolyMulEvaluator{
 		params: e.params,
 		mod:    e.mod,
 
@@ -477,8 +489,8 @@ func (e *polyMulEvaluatorCyclotomicNonPow2) safeCopy() polyMulEvaluator {
 	}
 }
 
-// polyMulEvaluatorReduce is a [polyMulEvaluator] for arbitrary modulo rings.
-type polyMulEvaluatorReduce struct {
+// reducePolyMulEvaluator is a [polyMulEvaluator] for arbitrary modulo rings.
+type reducePolyMulEvaluator struct {
 	rank    int
 	ambRank int
 	mod     []*num.Modulus
@@ -495,8 +507,8 @@ type polyMulEvaluatorReduce struct {
 	buf polyMulEvaluatorBuffer
 }
 
-// newPolyMulEvaluatorReduce creates a new [polyMulEvaluatorCyclotomicReduce].
-func newPolyMulEvaluatorReduce(mod []*num.Modulus, modPoly []int64, reducer *Reducer) *polyMulEvaluatorReduce {
+// newReducePolyMulEvaluator creates a new [reducePolyMulEvaluator].
+func newReducePolyMulEvaluator(mod []*num.Modulus, modPoly []int64, reducer *Reducer) reducePolyMulEvaluator {
 	ambParams := dft.NewCyclicParameters(num.NextProdPower(2*len(modPoly)-1, []int{2}))
 	ambModLen := make([]int, len(mod))
 	ntt := make([]dft.Transformer, len(mod))
@@ -522,7 +534,7 @@ func newPolyMulEvaluatorReduce(mod []*num.Modulus, modPoly []int64, reducer *Red
 		embedder[i] = NewEmbedder([]*num.Modulus{mod[i]}, ambMod[:ambModLen[i]])
 	}
 
-	return &polyMulEvaluatorReduce{
+	return reducePolyMulEvaluator{
 		rank:    len(modPoly) - 1,
 		ambRank: ambParams.Rank(),
 		mod:     mod,
@@ -540,13 +552,17 @@ func newPolyMulEvaluatorReduce(mod []*num.Modulus, modPoly []int64, reducer *Red
 	}
 }
 
-func (e *polyMulEvaluatorReduce) Mul(p0, p1 *Poly) *Poly {
+// Mul returns p0 * p1.
+// Panics when p0 and p1 are not both in NTT form.
+func (e *reducePolyMulEvaluator) Mul(p0, p1 *Poly) *Poly {
 	pOut := NewNTTPoly(e.rank, len(e.mod))
 	e.MulTo(pOut, p0, p1)
 	return pOut
 }
 
-func (e *polyMulEvaluatorReduce) MulTo(pOut, p0, p1 *Poly) {
+// MulTo computes pOut = p0 * p1.
+// Panics when p0 and p1 are not both in NTT form.
+func (e *reducePolyMulEvaluator) MulTo(pOut, p0, p1 *Poly) {
 	switch {
 	case !isTernaryToOperable(e.rank, len(e.mod), pOut, p0, p1):
 		panic("MulTo: inputs not consistent")
@@ -588,7 +604,9 @@ func (e *polyMulEvaluatorReduce) MulTo(pOut, p0, p1 *Poly) {
 	pOut.isNTT = true
 }
 
-func (e *polyMulEvaluatorReduce) MulAddTo(pOut, p0, p1 *Poly) {
+// MulAddTo computes pOut += p0 * p1.
+// Panics when p0 and p1 are not both in NTT form.
+func (e *reducePolyMulEvaluator) MulAddTo(pOut, p0, p1 *Poly) {
 	switch {
 	case !isTernaryToOperable(e.rank, len(e.mod), pOut, p0, p1):
 		panic("MulAddTo: inputs not consistent")
@@ -632,7 +650,9 @@ func (e *polyMulEvaluatorReduce) MulAddTo(pOut, p0, p1 *Poly) {
 	pOut.isNTT = true
 }
 
-func (e *polyMulEvaluatorReduce) MulSubTo(pOut, p0, p1 *Poly) {
+// MulSubTo computes pOut -= p0 * p1.
+// Panics when p0 and p1 are not both in NTT form.
+func (e *reducePolyMulEvaluator) MulSubTo(pOut, p0, p1 *Poly) {
 	switch {
 	case !isTernaryToOperable(e.rank, len(e.mod), pOut, p0, p1):
 		panic("MulSubTo: inputs not consistent")
@@ -676,7 +696,7 @@ func (e *polyMulEvaluatorReduce) MulSubTo(pOut, p0, p1 *Poly) {
 	pOut.isNTT = true
 }
 
-func (e *polyMulEvaluatorReduce) subEvaluator(idx ...int) polyMulEvaluator {
+func (e *reducePolyMulEvaluator) subEvaluator(idx ...int) reducePolyMulEvaluator {
 	modCopy := make([]*num.Modulus, len(idx))
 	ambModLenCopy := make([]int, len(idx))
 	for i := range idx {
@@ -697,7 +717,7 @@ func (e *polyMulEvaluatorReduce) subEvaluator(idx ...int) polyMulEvaluator {
 		}
 	}
 
-	return &polyMulEvaluatorReduce{
+	return reducePolyMulEvaluator{
 		rank:    e.rank,
 		ambRank: e.ambRank,
 		mod:     modCopy,
@@ -713,7 +733,7 @@ func (e *polyMulEvaluatorReduce) subEvaluator(idx ...int) polyMulEvaluator {
 	}
 }
 
-func (e *polyMulEvaluatorReduce) safeCopy() polyMulEvaluator {
+func (e *reducePolyMulEvaluator) safeCopy() reducePolyMulEvaluator {
 	ambNTTCopy := make([]dft.Transformer, len(e.ambNTT))
 	for i := range e.ambNTT {
 		ambNTTCopy[i] = e.ambNTT[i].SafeCopy()
@@ -726,7 +746,7 @@ func (e *polyMulEvaluatorReduce) safeCopy() polyMulEvaluator {
 		}
 	}
 
-	return &polyMulEvaluatorReduce{
+	return reducePolyMulEvaluator{
 		rank:    e.rank,
 		ambRank: e.ambRank,
 		mod:     e.mod,

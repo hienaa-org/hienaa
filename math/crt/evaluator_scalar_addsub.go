@@ -17,38 +17,36 @@ type polyScalarAddSubEvaluator interface {
 	ScalarSub(p *Poly, c Scalar) *Poly
 	// ScalarSubTo computes pOut = p - c.
 	ScalarSubTo(pOut, p *Poly, c Scalar)
-	// subEvaluator returns a evaluator for modulus of given indices.
-	subEvaluator(idx ...int) polyScalarAddSubEvaluator
 }
 
-// polyScalarAddSubEvaluatorDefault is a [polyScalarAddSubEvaluator] for every ring
+// defaultPolyScalarAddSubEvaluator is a [polyScalarAddSubEvaluator] for every ring
 // except prime-order autfixed ring.
-type polyScalarAddSubEvaluatorDefault struct {
+type defaultPolyScalarAddSubEvaluator struct {
 	rank          int
 	mod           []*num.Modulus
 	isNTTFriendly []bool
 }
 
-// newPolyScalarAddSubEvaluatorDefault creates a new [polyScalarEvaluatorDefault].
-func newPolyScalarAddSubEvaluatorDefault(params dft.RingParameters, mod []*num.Modulus) *polyScalarAddSubEvaluatorDefault {
+// newDefaultPolyScalarAddSubEvaluator creates a new [defaultPolyScalarAddSubEvaluator].
+func newDefaultPolyScalarAddSubEvaluator(params dft.RingParameters, mod []*num.Modulus) defaultPolyScalarAddSubEvaluator {
 	isNTTFriendly := make([]bool, len(mod))
 	for i := range mod {
 		isNTTFriendly[i] = dft.IsNTTFriendly(params, mod[i])
 	}
 
-	return &polyScalarAddSubEvaluatorDefault{
+	return defaultPolyScalarAddSubEvaluator{
 		rank: params.Rank(),
 		mod:  mod,
 	}
 }
 
-func (e *polyScalarAddSubEvaluatorDefault) ScalarAdd(p *Poly, c Scalar) *Poly {
+func (e *defaultPolyScalarAddSubEvaluator) ScalarAdd(p *Poly, c Scalar) *Poly {
 	pOut := NewPoly(e.rank, len(e.mod))
 	e.ScalarAddTo(pOut, p, c)
 	return pOut
 }
 
-func (e *polyScalarAddSubEvaluatorDefault) ScalarAddTo(pOut, p *Poly, c Scalar) {
+func (e *defaultPolyScalarAddSubEvaluator) ScalarAddTo(pOut, p *Poly, c Scalar) {
 	if !isBinaryToOperable(e.rank, len(e.mod), pOut, p) || !isScalarToOperable(len(e.mod), c) {
 		panic("ScalarAddTo: inputs not consistent")
 	}
@@ -64,13 +62,13 @@ func (e *polyScalarAddSubEvaluatorDefault) ScalarAddTo(pOut, p *Poly, c Scalar) 
 	pOut.isNTT = p.isNTT
 }
 
-func (e *polyScalarAddSubEvaluatorDefault) ScalarSub(p *Poly, c Scalar) *Poly {
+func (e *defaultPolyScalarAddSubEvaluator) ScalarSub(p *Poly, c Scalar) *Poly {
 	pOut := NewPoly(e.rank, len(e.mod))
 	e.ScalarSubTo(pOut, p, c)
 	return pOut
 }
 
-func (e *polyScalarAddSubEvaluatorDefault) ScalarSubTo(pOut, p *Poly, c Scalar) {
+func (e *defaultPolyScalarAddSubEvaluator) ScalarSubTo(pOut, p *Poly, c Scalar) {
 	if !isBinaryToOperable(e.rank, len(e.mod), pOut, p) || isScalarToOperable(len(e.mod), c) {
 		panic("ScalarSubTo: inputs not consistent")
 	}
@@ -86,7 +84,7 @@ func (e *polyScalarAddSubEvaluatorDefault) ScalarSubTo(pOut, p *Poly, c Scalar) 
 	pOut.isNTT = p.isNTT
 }
 
-func (e *polyScalarAddSubEvaluatorDefault) subEvaluator(idx ...int) polyScalarAddSubEvaluator {
+func (e *defaultPolyScalarAddSubEvaluator) subEvaluator(idx ...int) defaultPolyScalarAddSubEvaluator {
 	modCopy := make([]*num.Modulus, len(idx))
 	isNTTFriendlyCopy := make([]bool, len(idx))
 	for i := range idx {
@@ -94,41 +92,41 @@ func (e *polyScalarAddSubEvaluatorDefault) subEvaluator(idx ...int) polyScalarAd
 		isNTTFriendlyCopy[i] = e.isNTTFriendly[idx[i]]
 	}
 
-	return &polyScalarAddSubEvaluatorDefault{
+	return defaultPolyScalarAddSubEvaluator{
 		rank:          e.rank,
 		mod:           modCopy,
 		isNTTFriendly: isNTTFriendlyCopy,
 	}
 }
 
-// polyScalarAddSubEvaluatorAutFixedPrime is a [polyScalarAddSubEvaluator] for prime-order autfixed ring.
-type polyScalarAddSubEvaluatorAutFixedPrime struct {
+// primeAutFixedPolyScalarAddSubEvaluator is a [polyScalarAddSubEvaluator] for prime-order autfixed ring.
+type primeAutFixedPolyScalarAddSubEvaluator struct {
 	rank          int
 	mod           []*num.Modulus
 	isNTTFriendly []bool
 }
 
-// newPolyScalarAddSubEvaluatorAutFixedPrime creates a new [polyScalarAddSubEvaluatorAutFixedPrime].
-func newPolyScalarAddSubEvaluatorAutFixedPrime(params dft.RingParameters, mod []*num.Modulus) *polyScalarAddSubEvaluatorAutFixedPrime {
+// newPrimeAutFixedPolyScalarAddSubEvaluator creates a new [primeAutFixedPolyScalarAddSubEvaluator].
+func newPrimeAutFixedPolyScalarAddSubEvaluator(params dft.RingParameters, mod []*num.Modulus) primeAutFixedPolyScalarAddSubEvaluator {
 	isNTTFriendly := make([]bool, len(mod))
 	for i := range mod {
 		isNTTFriendly[i] = dft.IsNTTFriendly(params, mod[i])
 	}
 
-	return &polyScalarAddSubEvaluatorAutFixedPrime{
+	return primeAutFixedPolyScalarAddSubEvaluator{
 		rank:          params.Rank(),
 		mod:           mod,
 		isNTTFriendly: isNTTFriendly,
 	}
 }
 
-func (e *polyScalarAddSubEvaluatorAutFixedPrime) ScalarAdd(p *Poly, c Scalar) *Poly {
+func (e *primeAutFixedPolyScalarAddSubEvaluator) ScalarAdd(p *Poly, c Scalar) *Poly {
 	pOut := NewPoly(e.rank, len(e.mod))
 	e.ScalarAddTo(pOut, p, c)
 	return pOut
 }
 
-func (e *polyScalarAddSubEvaluatorAutFixedPrime) ScalarAddTo(pOut, p *Poly, c Scalar) {
+func (e *primeAutFixedPolyScalarAddSubEvaluator) ScalarAddTo(pOut, p *Poly, c Scalar) {
 	if !isBinaryToOperable(e.rank, len(e.mod), pOut, p) || !isScalarToOperable(len(e.mod), c) {
 		panic("ScalarAddTo: inputs not consistent")
 	}
@@ -144,13 +142,13 @@ func (e *polyScalarAddSubEvaluatorAutFixedPrime) ScalarAddTo(pOut, p *Poly, c Sc
 	pOut.isNTT = p.isNTT
 }
 
-func (e *polyScalarAddSubEvaluatorAutFixedPrime) ScalarSub(p *Poly, c Scalar) *Poly {
+func (e *primeAutFixedPolyScalarAddSubEvaluator) ScalarSub(p *Poly, c Scalar) *Poly {
 	pOut := NewPoly(e.rank, len(e.mod))
 	e.ScalarSubTo(pOut, p, c)
 	return pOut
 }
 
-func (e *polyScalarAddSubEvaluatorAutFixedPrime) ScalarSubTo(pOut, p *Poly, c Scalar) {
+func (e *primeAutFixedPolyScalarAddSubEvaluator) ScalarSubTo(pOut, p *Poly, c Scalar) {
 	if !isBinaryToOperable(e.rank, len(e.mod), pOut, p) || isScalarToOperable(len(e.mod), c) {
 		panic("ScalarSubTo: inputs not consistent")
 	}
@@ -166,7 +164,7 @@ func (e *polyScalarAddSubEvaluatorAutFixedPrime) ScalarSubTo(pOut, p *Poly, c Sc
 	pOut.isNTT = p.isNTT
 }
 
-func (e *polyScalarAddSubEvaluatorAutFixedPrime) subEvaluator(idx ...int) polyScalarAddSubEvaluator {
+func (e *primeAutFixedPolyScalarAddSubEvaluator) subEvaluator(idx ...int) primeAutFixedPolyScalarAddSubEvaluator {
 	modCopy := make([]*num.Modulus, len(idx))
 	isNTTFriendlyCopy := make([]bool, len(idx))
 	for i := range idx {
@@ -174,7 +172,7 @@ func (e *polyScalarAddSubEvaluatorAutFixedPrime) subEvaluator(idx ...int) polySc
 		isNTTFriendlyCopy[i] = e.isNTTFriendly[idx[i]]
 	}
 
-	return &polyScalarAddSubEvaluatorAutFixedPrime{
+	return primeAutFixedPolyScalarAddSubEvaluator{
 		rank:          e.rank,
 		mod:           modCopy,
 		isNTTFriendly: isNTTFriendlyCopy,

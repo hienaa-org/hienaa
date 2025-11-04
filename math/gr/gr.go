@@ -10,7 +10,7 @@ import (
 
 // GaloisRing represents a galois ring as [*crt.PolyEvaluator].
 type GaloisRing struct {
-	polyEvaluator *crt.PolyEvaluator
+	polyEvaluator crt.PolyEvaluator
 	// ord is the order of the multiplicative group of the Galois ring.
 	// Equals prime^((exp-1)*rank) * (prime^rank - 1).
 	ord *big.Int

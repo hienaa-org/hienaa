@@ -237,5 +237,3 @@ func (ntt *anyCyclotomicTransformer) SafeCopy() Transformer {
 		buf: newTransformerBuffer(ntt.params.cycloOrd),
 	}
 }
-
-func (ntt *anyCyclotomicTransformer) isCyclotomic() {}
