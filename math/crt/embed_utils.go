@@ -1,69 +1,90 @@
 package crt
 
 import (
-	"math/bits"
+	"math"
+	"math/big"
 
 	"github.com/hienaa-org/hienaa/math/num"
 )
 
-const (
-	// fixedPrec is the precision of fixed-point 128-bit real number.
-	fixedPrec = 124
-	// floatPrec is the precision of floating-point 128-bit real number.
-	floatPrec = 62
-	// roundMask is the mask for rounding.
-	roundMask = 1<<(fixedPrec-floatPrec) - 1
-)
+func qFloatFromBigRat(f *big.Rat) (hi, lo float64) {
+	hi, _ = f.Float64()
+	rHi, _ := big.NewFloat(hi).Rat(nil)
+	rLo := big.NewRat(0, 1).Sub(f, rHi)
+	lo, _ = rLo.Float64()
 
-// mulAndFloor returns floor((x * (yHi * 2^64 + yLo)) / 2^float_prec).
-// Output is in [0, 2^128).
-func mulAndFloor(x, yHi, yLo uint64) (uint64, uint64) {
-	rHi, rLo := bits.Mul64(x, yHi)
-	rHi <<= 64 - floatPrec
-	rHi += rLo >> floatPrec
-	rLo <<= 64 - floatPrec
-
-	tHi, tLo := bits.Mul64(x, yLo)
-	tLo >>= floatPrec
-	tLo += tHi << (64 - floatPrec)
-	tHi >>= floatPrec
-
-	rLo, carry := bits.Add64(rLo, tLo, 0)
-	rHi, _ = bits.Add64(rHi, tHi, carry)
-
-	return rHi, rLo
+	return
 }
 
-// roundTo64 returns round((xHi * 2^64 + xLo) / 2^fixed_prec).
-func roundTo64(xHi, xLo uint64) uint64 {
-	r := (xLo >> (fixedPrec - floatPrec)) + (xHi << (64 - fixedPrec + floatPrec))
-	carry := (xLo & roundMask) >> (fixedPrec - floatPrec - 1)
-	r += carry
+func qFloatFromInt[T num.Integer](x T) (hi, lo float64) {
+	hi = float64(x)
+	x -= T(hi)
+	lo = float64(x)
 
-	return r
+	return
 }
 
-// roundTo128 returns round((xHi * 2^64 + xLo) / 2^fixed_prec).
-// Output is in [0, 2^128).
-func roundTo128(xHi, xLo uint64) (uint64, uint64) {
-	rLo := (xLo >> (fixedPrec - floatPrec)) + (xHi << (64 - fixedPrec + floatPrec))
-	rHi := xHi >> (fixedPrec - floatPrec)
-	carry := (xLo & roundMask) >> (fixedPrec - floatPrec - 1)
+func qFloatAdd(x0Hi, x0Lo, x1Hi, x1Lo float64) (hi, lo float64) {
+	sHi := x0Hi + x1Hi
+	sLo := x0Lo + x1Lo
 
-	rLo, carry = bits.Add64(rLo, carry, 0)
-	rHi, _ = bits.Add64(rHi, 0, carry)
+	xHiF := sHi - x1Hi
+	xLoF := sLo - x1Lo
 
-	return rHi, rLo
+	eHi := (x0Hi - xHiF) + (x1Hi - (sHi - xHiF))
+	eLo := (x0Lo - xLoF) + (x1Lo - (sLo - xLoF))
+
+	ssHi := sHi + sLo
+	esLo := sLo - (ssHi - sHi)
+	eHi = (eHi + eLo) + esLo
+
+	hi = ssHi + eHi
+	lo = eHi - (hi - ssHi)
+
+	return
 }
 
-// roundTo128Signed returns round((xHi * 2^64 + xLo) / 2^fixed_prec) for int128.
-func roundTo128Signed(xHi, xLo uint64) (uint64, uint64) {
-	if xHi>>63 != 0 {
-		rHi, rLo := roundTo128(-xHi, -xLo)
-		return -rHi, -rLo
-	} else {
-		return roundTo128(xHi, xLo)
-	}
+func qFloatSub(x0Hi, x0Lo, x1Hi, x1Lo float64) (hi, lo float64) {
+	sHi := x0Hi - x1Hi
+	sLo := x0Lo - x1Lo
+
+	xHiF := sHi + x1Hi
+	xLoF := sLo + x1Lo
+
+	eHi := (x0Hi - xHiF) + (-x1Hi - (sHi - xHiF))
+	eLo := (x0Lo - xLoF) + (-x1Lo - (sLo - xLoF))
+
+	ssHi := sHi + sLo
+	esLo := sLo - (ssHi - sHi)
+	eHi = (eHi + eLo) + esLo
+
+	hi = ssHi + eHi
+	lo = eHi - (hi - ssHi)
+
+	return
+}
+
+func qFloatMul(x0Hi, x0Lo, x1Hi, x1Lo float64) (hi, lo float64) {
+	p00 := x0Hi * x1Hi
+	e00 := math.FMA(x0Hi, x1Hi, -p00) + (x0Hi*x1Lo + x0Lo*x1Hi)
+	hi = p00 + e00
+	lo = e00 - (hi - p00)
+
+	return
+}
+
+func qFloatRoundAsInt[T num.Integer](xHi, xLo float64) T {
+	return T(math.Round(xHi)) + T(math.Round(xLo))
+}
+
+func qFloatRoundAsUint128(xHi, xLo float64) (hi, lo uint64) {
+	hi = uint64(math.Round(xHi/math.Pow(2, 64))) + uint64(math.Round(xLo/math.Pow(2, 64)))
+
+	x64Hi, x64Lo := qFloatFromInt(hi)
+	xHi, xLo = qFloatSub(xHi, xLo, x64Hi, x64Lo)
+	lo = uint64(math.Round(xHi)) + uint64(math.Round(xLo))
+
+	return
 }
 
 // reduceModInToModOutSigned returns sign(x) mod qOut for x in [0, qIn).
@@ -80,18 +101,4 @@ func add64To128Signed(x0, x1Hi, x1Lo uint64, q *num.Modulus) uint64 {
 		return num.Sub(x0, num.Reduce128(-x1Hi, -x1Lo, q), q)
 	}
 	return num.Add(x0, num.Reduce128(x1Hi, x1Lo, q), q)
-}
-
-// add128 returns x0 + x1.
-func add128(x0Hi, x0Lo, x1Hi, x1Lo uint64) (uint64, uint64) {
-	rLo, carry := bits.Add64(x0Lo, x1Lo, 0)
-	rHi, _ := bits.Add64(x0Hi, x1Hi, carry)
-	return rHi, rLo
-}
-
-// sub128 returns x0 - x1.
-func sub128(x0Hi, x0Lo, x1Hi, x1Lo uint64) (uint64, uint64) {
-	rLo, borrow := bits.Sub64(x0Lo, x1Lo, 0)
-	rHi, _ := bits.Sub64(x0Hi, x1Hi, borrow)
-	return rHi, rLo
 }
