@@ -7,6 +7,7 @@ import (
 	"github.com/hienaa-org/hienaa/math/num"
 )
 
+// qFloatFromBigRat converts a big.Rat to a quadruple float.
 func qFloatFromBigRat(f *big.Rat) (hi, lo float64) {
 	hi, _ = f.Float64()
 	rHi, _ := big.NewFloat(hi).Rat(nil)
@@ -16,14 +17,18 @@ func qFloatFromBigRat(f *big.Rat) (hi, lo float64) {
 	return
 }
 
-func qFloatFromInt[T num.Integer](x T) (hi, lo float64) {
-	hi = float64(x)
-	x -= T(hi)
-	lo = float64(x)
+// qFloatFromUint64 converts a uint64 to a quadruple float.
+func qFloatFromUint64(x uint64) (hi, lo float64) {
+	xint := int64(x)
+
+	hi = float64(xint)
+	xint -= int64(hi)
+	lo = float64(xint)
 
 	return
 }
 
+// qFloatAdd adds two quadruple floats.
 func qFloatAdd(x0Hi, x0Lo, x1Hi, x1Lo float64) (hi, lo float64) {
 	sHi := x0Hi + x1Hi
 	sLo := x0Lo + x1Lo
@@ -44,6 +49,7 @@ func qFloatAdd(x0Hi, x0Lo, x1Hi, x1Lo float64) (hi, lo float64) {
 	return
 }
 
+// qFloatSub subtracts two quadruple floats.
 func qFloatSub(x0Hi, x0Lo, x1Hi, x1Lo float64) (hi, lo float64) {
 	sHi := x0Hi - x1Hi
 	sLo := x0Lo - x1Lo
@@ -64,6 +70,7 @@ func qFloatSub(x0Hi, x0Lo, x1Hi, x1Lo float64) (hi, lo float64) {
 	return
 }
 
+// qFloatMul multiplies two quadruple floats.
 func qFloatMul(x0Hi, x0Lo, x1Hi, x1Lo float64) (hi, lo float64) {
 	p00 := x0Hi * x1Hi
 	e00 := math.FMA(x0Hi, x1Hi, -p00) + (x0Hi*x1Lo + x0Lo*x1Hi)
@@ -73,14 +80,18 @@ func qFloatMul(x0Hi, x0Lo, x1Hi, x1Lo float64) (hi, lo float64) {
 	return
 }
 
-func qFloatRoundAsInt[T num.Integer](xHi, xLo float64) T {
-	return T(math.Round(xHi)) + T(math.Round(xLo))
+// qFloatRoundAsUint64 rounds a quadruple float to a uint64.
+// This function assumes that the input quadruple float is positive.
+func qFloatRoundAsUint64(xHi, xLo float64) uint64 {
+	return uint64(int64(math.Round(xHi)) + int64(math.Round(xLo)))
 }
 
+// qFloatRoundAsUint128 rounds a quadruple float to a uint128.
+// This function assumes that the input quadruple float is positive.
 func qFloatRoundAsUint128(xHi, xLo float64) (hi, lo uint64) {
 	hi = uint64(math.Round(xHi/math.Pow(2, 64))) + uint64(math.Round(xLo/math.Pow(2, 64)))
 
-	x64Hi, x64Lo := qFloatFromInt(hi)
+	x64Hi, x64Lo := qFloatFromUint64(hi)
 	xHi, xLo = qFloatSub(xHi, xLo, x64Hi, x64Lo)
 	lo = uint64(math.Round(xHi)) + uint64(math.Round(xLo))
 

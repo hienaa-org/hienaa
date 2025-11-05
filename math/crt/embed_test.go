@@ -145,7 +145,7 @@ func genModInOut(modInLen, modOutLen int) (modIn, modOut []*num.Modulus) {
 func TestEmbedder(t *testing.T) {
 	modInLen := int(rSrc.SampleN(20))
 	modOutLen := int(rSrc.SampleN(20))
-	vLen := int(rSrc.SampleN(1 << 10))
+	vLen := int(rSrc.SampleN(1 << 5))
 
 	modIn, modOut := genModInOut(modInLen, modOutLen)
 

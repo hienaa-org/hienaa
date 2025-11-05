@@ -34,9 +34,9 @@ type Embedder struct {
 	// negModS is the Shoup form of negMod.
 	negModS []uint64
 
-	// invHi is the high 64 bits of the floating-point approximation of the inverse of the input modulus limb.
+	// invHi is the high bits of the floating-point approximation of the inverse of the input modulus limb.
 	invHi []float64
-	// invLo is the low 64 bits of the floating-point approximation of the inverse of the input modulus limb.
+	// invLo is the low bits of the floating-point approximation of the inverse of the input modulus limb.
 	invLo []float64
 
 	// idx holds the index of the input modulus limb if it overlaps with the output modulus limb.
@@ -49,10 +49,10 @@ type Embedder struct {
 
 // embedderBuffer is a buffer for [Embedder].
 type embedderBuffer struct {
-	// fHi is a buffer for the high 64 bits of the floating-point number.
+	// fHi is a buffer for the high bits of the floating-point number.
 	// Always has length 8.
 	fHi []float64
-	// fLo is a buffer for the low 64 bits of the floating-point number.
+	// fLo is a buffer for the low bits of the floating-point number.
 	// Always has length 8.
 	fLo []float64
 	// i64 is a buffer for the 64-bit integers.
@@ -255,48 +255,48 @@ func (e *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 			bufIn[6] = num.SMul(wIn[6], compInv, compInvS, modIn)
 			bufIn[7] = num.SMul(wIn[7], compInv, compInvS, modIn)
 
-			bufHi, bufLo = qFloatFromInt[uint64](bufIn[0])
+			bufHi, bufLo = qFloatFromUint64(bufIn[0])
 			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
 			fHi[0], fLo[0] = qFloatAdd(fHi[0], fLo[0], hi, lo)
 
-			bufHi, bufLo = qFloatFromInt[uint64](bufIn[1])
+			bufHi, bufLo = qFloatFromUint64(bufIn[1])
 			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
 			fHi[1], fLo[1] = qFloatAdd(fHi[1], fLo[1], hi, lo)
 
-			bufHi, bufLo = qFloatFromInt[uint64](bufIn[2])
+			bufHi, bufLo = qFloatFromUint64(bufIn[2])
 			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
 			fHi[2], fLo[2] = qFloatAdd(fHi[2], fLo[2], hi, lo)
 
-			bufHi, bufLo = qFloatFromInt[uint64](bufIn[3])
+			bufHi, bufLo = qFloatFromUint64(bufIn[3])
 			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
 			fHi[3], fLo[3] = qFloatAdd(fHi[3], fLo[3], hi, lo)
 
-			bufHi, bufLo = qFloatFromInt[uint64](bufIn[4])
+			bufHi, bufLo = qFloatFromUint64(bufIn[4])
 			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
 			fHi[4], fLo[4] = qFloatAdd(fHi[4], fLo[4], hi, lo)
 
-			bufHi, bufLo = qFloatFromInt[uint64](bufIn[5])
+			bufHi, bufLo = qFloatFromUint64(bufIn[5])
 			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
 			fHi[5], fLo[5] = qFloatAdd(fHi[5], fLo[5], hi, lo)
 
-			bufHi, bufLo = qFloatFromInt[uint64](bufIn[6])
+			bufHi, bufLo = qFloatFromUint64(bufIn[6])
 			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
 			fHi[6], fLo[6] = qFloatAdd(fHi[6], fLo[6], hi, lo)
 
-			bufHi, bufLo = qFloatFromInt[uint64](bufIn[7])
+			bufHi, bufLo = qFloatFromUint64(bufIn[7])
 			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
 			fHi[7], fLo[7] = qFloatAdd(fHi[7], fLo[7], hi, lo)
 		}
 
-		i64[0] = qFloatRoundAsInt[uint64](fHi[0], fLo[0])
-		i64[1] = qFloatRoundAsInt[uint64](fHi[1], fLo[1])
-		i64[2] = qFloatRoundAsInt[uint64](fHi[2], fLo[2])
-		i64[3] = qFloatRoundAsInt[uint64](fHi[3], fLo[3])
+		i64[0] = qFloatRoundAsUint64(fHi[0], fLo[0])
+		i64[1] = qFloatRoundAsUint64(fHi[1], fLo[1])
+		i64[2] = qFloatRoundAsUint64(fHi[2], fLo[2])
+		i64[3] = qFloatRoundAsUint64(fHi[3], fLo[3])
 
-		i64[4] = qFloatRoundAsInt[uint64](fHi[4], fLo[4])
-		i64[5] = qFloatRoundAsInt[uint64](fHi[5], fLo[5])
-		i64[6] = qFloatRoundAsInt[uint64](fHi[6], fLo[6])
-		i64[7] = qFloatRoundAsInt[uint64](fHi[7], fLo[7])
+		i64[4] = qFloatRoundAsUint64(fHi[4], fLo[4])
+		i64[5] = qFloatRoundAsUint64(fHi[5], fLo[5])
+		i64[6] = qFloatRoundAsUint64(fHi[6], fLo[6])
+		i64[7] = qFloatRoundAsUint64(fHi[7], fLo[7])
 
 		for i := 0; i < outLen; i++ {
 			wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i][k]))
@@ -343,11 +343,11 @@ func (e *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 		for i := 0; i < inLen; i++ {
 			e.buf.in[i][0] = num.SMul(v[i][k], e.compInv[i], e.compInvS[i], e.modIn[i])
 
-			bufHi, bufLo = qFloatFromInt[uint64](e.buf.in[i][0])
+			bufHi, bufLo = qFloatFromUint64(e.buf.in[i][0])
 			hi, lo = qFloatMul(bufHi, bufLo, e.invHi[i], e.invLo[i])
 			fHi[0], fLo[0] = qFloatAdd(fHi[0], fLo[0], hi, lo)
 		}
-		i64[0] = qFloatRoundAsInt[uint64](fHi[0], fLo[0])
+		i64[0] = qFloatRoundAsUint64(fHi[0], fLo[0])
 
 		for i := 0; i < outLen; i++ {
 			if 0 <= e.idx[i] && e.idx[i] < inLen {
@@ -418,9 +418,9 @@ type Scaler struct {
 	// scIntS is the Shoup form of modScInt.
 	scIntS [][]uint64
 
-	// scFracHi is the high 64 bits of the floating-point approximation of the fractional part of the modulus scaling factor.
+	// scFracHi is the high bits of the floating-point approximation of the fractional part of the modulus scaling factor.
 	scFracHi []float64
-	// scFracLo is the low 64 bits of the floating-point approximation of the fractional part of the modulus scaling factor.
+	// scFracLo is the low bits of the floating-point approximation of the fractional part of the modulus scaling factor.
 	scFracLo []float64
 
 	buf scalerBuffer
@@ -428,16 +428,16 @@ type Scaler struct {
 
 // scalerBuffer is a buffer for [Scaler].
 type scalerBuffer struct {
-	// fHi is a buffer for the high 64 bits of the floating-point number.
+	// fHi is a buffer for the high bits of the floating-point number.
 	// Always has length 8.
 	fHi []float64
-	// fLo is a buffer for the low 64 bits of the floating-point number.
+	// fLo is a buffer for the low bits of the floating-point number.
 	// Always has length 8.
 	fLo []float64
-	// iHi is a buffer for the high 64 bits of the 64-bit integers.
+	// iHi is a buffer for the high bits of the 64-bit integers.
 	// Always has length 8.
 	iHi []uint64
-	// iLo is a buffer for the low 64 bits of the 64-bit integers.
+	// iLo is a buffer for the low bits of the 64-bit integers.
 	// Always has length 8.
 	iLo []uint64
 	// in is a buffer for input coefficient.
@@ -597,35 +597,35 @@ func (s *Scaler) ScaleVecTo(vOut, v [][]uint64) {
 			bufIn[6] = num.SMul(wIn[6], compInv, compInvS, modIn)
 			bufIn[7] = num.SMul(wIn[7], compInv, compInvS, modIn)
 
-			bufHi, bufLo = qFloatFromInt(bufIn[0])
+			bufHi, bufLo = qFloatFromUint64(bufIn[0])
 			hi, lo = qFloatMul(bufHi, bufLo, scFracHi, scFracLo)
 			fHi[0], fLo[0] = qFloatAdd(fHi[0], fLo[0], hi, lo)
 
-			bufHi, bufLo = qFloatFromInt(bufIn[1])
+			bufHi, bufLo = qFloatFromUint64(bufIn[1])
 			hi, lo = qFloatMul(bufHi, bufLo, scFracHi, scFracLo)
 			fHi[1], fLo[1] = qFloatAdd(fHi[1], fLo[1], hi, lo)
 
-			bufHi, bufLo = qFloatFromInt(bufIn[2])
+			bufHi, bufLo = qFloatFromUint64(bufIn[2])
 			hi, lo = qFloatMul(bufHi, bufLo, scFracHi, scFracLo)
 			fHi[2], fLo[2] = qFloatAdd(fHi[2], fLo[2], hi, lo)
 
-			bufHi, bufLo = qFloatFromInt(bufIn[3])
+			bufHi, bufLo = qFloatFromUint64(bufIn[3])
 			hi, lo = qFloatMul(bufHi, bufLo, scFracHi, scFracLo)
 			fHi[3], fLo[3] = qFloatAdd(fHi[3], fLo[3], hi, lo)
 
-			bufHi, bufLo = qFloatFromInt(bufIn[4])
+			bufHi, bufLo = qFloatFromUint64(bufIn[4])
 			hi, lo = qFloatMul(bufHi, bufLo, scFracHi, scFracLo)
 			fHi[4], fLo[4] = qFloatAdd(fHi[4], fLo[4], hi, lo)
 
-			bufHi, bufLo = qFloatFromInt(bufIn[5])
+			bufHi, bufLo = qFloatFromUint64(bufIn[5])
 			hi, lo = qFloatMul(bufHi, bufLo, scFracHi, scFracLo)
 			fHi[5], fLo[5] = qFloatAdd(fHi[5], fLo[5], hi, lo)
 
-			bufHi, bufLo = qFloatFromInt(bufIn[6])
+			bufHi, bufLo = qFloatFromUint64(bufIn[6])
 			hi, lo = qFloatMul(bufHi, bufLo, scFracHi, scFracLo)
 			fHi[6], fLo[6] = qFloatAdd(fHi[6], fLo[6], hi, lo)
 
-			bufHi, bufLo = qFloatFromInt(bufIn[7])
+			bufHi, bufLo = qFloatFromUint64(bufIn[7])
 			hi, lo = qFloatMul(bufHi, bufLo, scFracHi, scFracLo)
 			fHi[7], fLo[7] = qFloatAdd(fHi[7], fLo[7], hi, lo)
 		}
@@ -679,7 +679,7 @@ func (s *Scaler) ScaleVecTo(vOut, v [][]uint64) {
 		fHi[0], fLo[0] = 0, 0
 		for i := 0; i < inLen; i++ {
 			s.buf.in[i][0] = num.SMul(v[i][k], s.compInv[i], s.compInvS[i], s.modIn[i])
-			bufHi, bufLo = qFloatFromInt(s.buf.in[i][0])
+			bufHi, bufLo = qFloatFromUint64(s.buf.in[i][0])
 			hi, lo = qFloatMul(bufHi, bufLo, s.scFracHi[i], s.scFracLo[i])
 			fHi[0], fLo[0] = qFloatAdd(fHi[0], fLo[0], hi, lo)
 		}
@@ -743,9 +743,9 @@ type ScaleEmbedder struct {
 	// compInvS is the Shoup form of compInv.
 	compInvS []uint64
 
-	// invHi is the high 64 bits of the fixed-point approximation of the inverse of the input modulus limb.
+	// invHi is the high bits of the floating-point approximation of the inverse of the input modulus limb.
 	invHi []float64
-	// invLo is the low 64 bits of the fixed-point approximation of the inverse of the input modulus limb.
+	// invLo is the low bits of the floating-point approximation of the inverse of the input modulus limb.
 	invLo []float64
 
 	// scInt is the integer part of the modulus scaling factor.
@@ -753,9 +753,9 @@ type ScaleEmbedder struct {
 	// scIntS is the Shoup form of modScInt.
 	scIntS [][]uint64
 
-	// scFracHi is the high 64 bits of the fixed-point approximation of the fractional part of the scaling factor.
+	// scFracHi is the high bits of the floating-point approximation of the fractional part of the scaling factor.
 	scFracHi []float64
-	// scFracLo is the low 64 bits of the fixed-point approximation of the fractional part of the scaling factor.
+	// scFracLo is the low bits of the floating-point approximation of the fractional part of the scaling factor.
 	scFracLo []float64
 
 	// ovfInt is the integer part for the constant to compute the overflow multiplied by the scaling factor.
@@ -763,10 +763,10 @@ type ScaleEmbedder struct {
 	// ovfIntS is the Shoup form of ovfInt.
 	ovfIntS []uint64
 
-	// ovfFracHi is the high 64 bits of the fixed-point approximation of the fractional part
+	// ovfFracHi is the high bits of the floating-point approximation of the fractional part
 	// for the constant to compute the overflow multiplied by the scaling factor.
 	ovfFracHi float64
-	// ovfFracLo is the low 64 bits of the fixed-point approximation of the fractional part
+	// ovfFracLo is the low bits of the floating-point approximation of the fractional part
 	// for the constant to compute the overflow multiplied by the scaling factor.
 	ovfFracLo float64
 
@@ -944,48 +944,48 @@ func (s *ScaleEmbedder) ScaleEmbedVecTo(vOut, v [][]uint64) {
 			bufIn[6] = num.SMul(wIn[6], compInv, compInvS, modIn)
 			bufIn[7] = num.SMul(wIn[7], compInv, compInvS, modIn)
 
-			bufHi, bufLo = qFloatFromInt[uint64](bufIn[0])
+			bufHi, bufLo = qFloatFromUint64(bufIn[0])
 			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
 			fHi[0], fLo[0] = qFloatAdd(fHi[0], fLo[0], hi, lo)
 
-			bufHi, bufLo = qFloatFromInt[uint64](bufIn[1])
+			bufHi, bufLo = qFloatFromUint64(bufIn[1])
 			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
 			fHi[1], fLo[1] = qFloatAdd(fHi[1], fLo[1], hi, lo)
 
-			bufHi, bufLo = qFloatFromInt[uint64](bufIn[2])
+			bufHi, bufLo = qFloatFromUint64(bufIn[2])
 			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
 			fHi[2], fLo[2] = qFloatAdd(fHi[2], fLo[2], hi, lo)
 
-			bufHi, bufLo = qFloatFromInt[uint64](bufIn[3])
+			bufHi, bufLo = qFloatFromUint64(bufIn[3])
 			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
 			fHi[3], fLo[3] = qFloatAdd(fHi[3], fLo[3], hi, lo)
 
-			bufHi, bufLo = qFloatFromInt[uint64](bufIn[4])
+			bufHi, bufLo = qFloatFromUint64(bufIn[4])
 			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
 			fHi[4], fLo[4] = qFloatAdd(fHi[4], fLo[4], hi, lo)
 
-			bufHi, bufLo = qFloatFromInt[uint64](bufIn[5])
+			bufHi, bufLo = qFloatFromUint64(bufIn[5])
 			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
 			fHi[5], fLo[5] = qFloatAdd(fHi[5], fLo[5], hi, lo)
 
-			bufHi, bufLo = qFloatFromInt[uint64](bufIn[6])
+			bufHi, bufLo = qFloatFromUint64(bufIn[6])
 			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
 			fHi[6], fLo[6] = qFloatAdd(fHi[6], fLo[6], hi, lo)
 
-			bufHi, bufLo = qFloatFromInt[uint64](bufIn[7])
+			bufHi, bufLo = qFloatFromUint64(bufIn[7])
 			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
 			fHi[7], fLo[7] = qFloatAdd(fHi[7], fLo[7], hi, lo)
 		}
 
-		iLo[0] = qFloatRoundAsInt[uint64](fHi[0], fLo[0])
-		iLo[1] = qFloatRoundAsInt[uint64](fHi[1], fLo[1])
-		iLo[2] = qFloatRoundAsInt[uint64](fHi[2], fLo[2])
-		iLo[3] = qFloatRoundAsInt[uint64](fHi[3], fLo[3])
+		iLo[0] = qFloatRoundAsUint64(fHi[0], fLo[0])
+		iLo[1] = qFloatRoundAsUint64(fHi[1], fLo[1])
+		iLo[2] = qFloatRoundAsUint64(fHi[2], fLo[2])
+		iLo[3] = qFloatRoundAsUint64(fHi[3], fLo[3])
 
-		iLo[4] = qFloatRoundAsInt[uint64](fHi[4], fLo[4])
-		iLo[5] = qFloatRoundAsInt[uint64](fHi[5], fLo[5])
-		iLo[6] = qFloatRoundAsInt[uint64](fHi[6], fLo[6])
-		iLo[7] = qFloatRoundAsInt[uint64](fHi[7], fLo[7])
+		iLo[4] = qFloatRoundAsUint64(fHi[4], fLo[4])
+		iLo[5] = qFloatRoundAsUint64(fHi[5], fLo[5])
+		iLo[6] = qFloatRoundAsUint64(fHi[6], fLo[6])
+		iLo[7] = qFloatRoundAsUint64(fHi[7], fLo[7])
 
 		for i := 0; i < outLen; i++ {
 			wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i][k]))
@@ -1029,68 +1029,68 @@ func (s *ScaleEmbedder) ScaleEmbedVecTo(vOut, v [][]uint64) {
 
 			modscFracHi, modscFracLo := s.scFracHi[i], s.scFracLo[i]
 
-			bufHi, bufLo = qFloatFromInt(bufIn[0])
+			bufHi, bufLo = qFloatFromUint64(bufIn[0])
 			hi, lo = qFloatMul(bufHi, bufLo, modscFracHi, modscFracLo)
 			fHi[0], fLo[0] = qFloatAdd(fHi[0], fLo[0], hi, lo)
 
-			bufHi, bufLo = qFloatFromInt(bufIn[1])
+			bufHi, bufLo = qFloatFromUint64(bufIn[1])
 			hi, lo = qFloatMul(bufHi, bufLo, modscFracHi, modscFracLo)
 			fHi[1], fLo[1] = qFloatAdd(fHi[1], fLo[1], hi, lo)
 
-			bufHi, bufLo = qFloatFromInt(bufIn[2])
+			bufHi, bufLo = qFloatFromUint64(bufIn[2])
 			hi, lo = qFloatMul(bufHi, bufLo, modscFracHi, modscFracLo)
 			fHi[2], fLo[2] = qFloatAdd(fHi[2], fLo[2], hi, lo)
 
-			bufHi, bufLo = qFloatFromInt(bufIn[3])
+			bufHi, bufLo = qFloatFromUint64(bufIn[3])
 			hi, lo = qFloatMul(bufHi, bufLo, modscFracHi, modscFracLo)
 			fHi[3], fLo[3] = qFloatAdd(fHi[3], fLo[3], hi, lo)
 
-			bufHi, bufLo = qFloatFromInt(bufIn[4])
+			bufHi, bufLo = qFloatFromUint64(bufIn[4])
 			hi, lo = qFloatMul(bufHi, bufLo, modscFracHi, modscFracLo)
 			fHi[4], fLo[4] = qFloatAdd(fHi[4], fLo[4], hi, lo)
 
-			bufHi, bufLo = qFloatFromInt(bufIn[5])
+			bufHi, bufLo = qFloatFromUint64(bufIn[5])
 			hi, lo = qFloatMul(bufHi, bufLo, modscFracHi, modscFracLo)
 			fHi[5], fLo[5] = qFloatAdd(fHi[5], fLo[5], hi, lo)
 
-			bufHi, bufLo = qFloatFromInt(bufIn[6])
+			bufHi, bufLo = qFloatFromUint64(bufIn[6])
 			hi, lo = qFloatMul(bufHi, bufLo, modscFracHi, modscFracLo)
 			fHi[6], fLo[6] = qFloatAdd(fHi[6], fLo[6], hi, lo)
 
-			bufHi, bufLo = qFloatFromInt(bufIn[7])
+			bufHi, bufLo = qFloatFromUint64(bufIn[7])
 			hi, lo = qFloatMul(bufHi, bufLo, modscFracHi, modscFracLo)
 			fHi[7], fLo[7] = qFloatAdd(fHi[7], fLo[7], hi, lo)
 		}
 
-		bufHi, bufLo = qFloatFromInt(iLo[0])
+		bufHi, bufLo = qFloatFromUint64(iLo[0])
 		hi, lo = qFloatMul(bufHi, bufLo, s.ovfFracHi, s.ovfFracLo)
 		fHi[0], fLo[0] = qFloatSub(fHi[0], fLo[0], hi, lo)
 
-		bufHi, bufLo = qFloatFromInt(iLo[1])
+		bufHi, bufLo = qFloatFromUint64(iLo[1])
 		hi, lo = qFloatMul(bufHi, bufLo, s.ovfFracHi, s.ovfFracLo)
 		fHi[1], fLo[1] = qFloatSub(fHi[1], fLo[1], hi, lo)
 
-		bufHi, bufLo = qFloatFromInt(iLo[2])
+		bufHi, bufLo = qFloatFromUint64(iLo[2])
 		hi, lo = qFloatMul(bufHi, bufLo, s.ovfFracHi, s.ovfFracLo)
 		fHi[2], fLo[2] = qFloatSub(fHi[2], fLo[2], hi, lo)
 
-		bufHi, bufLo = qFloatFromInt(iLo[3])
+		bufHi, bufLo = qFloatFromUint64(iLo[3])
 		hi, lo = qFloatMul(bufHi, bufLo, s.ovfFracHi, s.ovfFracLo)
 		fHi[3], fLo[3] = qFloatSub(fHi[3], fLo[3], hi, lo)
 
-		bufHi, bufLo = qFloatFromInt(iLo[4])
+		bufHi, bufLo = qFloatFromUint64(iLo[4])
 		hi, lo = qFloatMul(bufHi, bufLo, s.ovfFracHi, s.ovfFracLo)
 		fHi[4], fLo[4] = qFloatSub(fHi[4], fLo[4], hi, lo)
 
-		bufHi, bufLo = qFloatFromInt(iLo[5])
+		bufHi, bufLo = qFloatFromUint64(iLo[5])
 		hi, lo = qFloatMul(bufHi, bufLo, s.ovfFracHi, s.ovfFracLo)
 		fHi[5], fLo[5] = qFloatSub(fHi[5], fLo[5], hi, lo)
 
-		bufHi, bufLo = qFloatFromInt(iLo[6])
+		bufHi, bufLo = qFloatFromUint64(iLo[6])
 		hi, lo = qFloatMul(bufHi, bufLo, s.ovfFracHi, s.ovfFracLo)
 		fHi[6], fLo[6] = qFloatSub(fHi[6], fLo[6], hi, lo)
 
-		bufHi, bufLo = qFloatFromInt(iLo[7])
+		bufHi, bufLo = qFloatFromUint64(iLo[7])
 		hi, lo = qFloatMul(bufHi, bufLo, s.ovfFracHi, s.ovfFracLo)
 		fHi[7], fLo[7] = qFloatSub(fHi[7], fLo[7], hi, lo)
 
@@ -1126,12 +1126,12 @@ func (s *ScaleEmbedder) ScaleEmbedVecTo(vOut, v [][]uint64) {
 		for i := 0; i < inLen; i++ {
 			s.buf.in[i][0] = num.SMul(v[i][k], s.compInv[i], s.compInvS[i], s.modIn[i])
 
-			bufHi, bufLo = qFloatFromInt(s.buf.in[i][0])
+			bufHi, bufLo = qFloatFromUint64(s.buf.in[i][0])
 			hi, lo = qFloatMul(bufHi, bufLo, s.invHi[i], s.invLo[i])
 			fHi[0], fLo[0] = qFloatAdd(fHi[0], fLo[0], hi, lo)
 		}
 
-		iLo[0] = qFloatRoundAsInt[uint64](fHi[0], fLo[0])
+		iLo[0] = qFloatRoundAsUint64(fHi[0], fLo[0])
 
 		for i := 0; i < outLen; i++ {
 			vOut[i][k] = num.SMul(s.modOut[i].Value()-iLo[0], s.ovfInt[i], s.ovfIntS[i], s.modOut[i])
@@ -1142,12 +1142,12 @@ func (s *ScaleEmbedder) ScaleEmbedVecTo(vOut, v [][]uint64) {
 
 		fHi[0], fLo[0] = 0, 0
 		for i := 0; i < inLen; i++ {
-			bufHi, bufLo = qFloatFromInt(s.buf.in[i][0])
+			bufHi, bufLo = qFloatFromUint64(s.buf.in[i][0])
 			hi, lo = qFloatMul(bufHi, bufLo, s.scFracHi[i], s.scFracLo[i])
 			fHi[0], fLo[0] = qFloatAdd(fHi[0], fLo[0], hi, lo)
 		}
 
-		bufHi, bufLo = qFloatFromInt(iLo[0])
+		bufHi, bufLo = qFloatFromUint64(iLo[0])
 		hi, lo = qFloatMul(bufHi, bufLo, s.ovfFracHi, s.ovfFracLo)
 		fHi[0], fLo[0] = qFloatSub(fHi[0], fLo[0], hi, lo)
 
