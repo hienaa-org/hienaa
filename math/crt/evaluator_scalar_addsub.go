@@ -40,12 +40,14 @@ func newDefaultPolyScalarAddSubEvaluator(params dft.RingParameters, mod []*num.M
 	}
 }
 
+// ScalarAdd returns p + c.
 func (e *defaultPolyScalarAddSubEvaluator) ScalarAdd(p *Poly, c Scalar) *Poly {
 	pOut := NewPoly(e.rank, len(e.mod))
 	e.ScalarAddTo(pOut, p, c)
 	return pOut
 }
 
+// ScalarAddTo computes pOut = p + c.
 func (e *defaultPolyScalarAddSubEvaluator) ScalarAddTo(pOut, p *Poly, c Scalar) {
 	if !isBinaryToOperable(e.rank, len(e.mod), pOut, p) || !isScalarToOperable(len(e.mod), c) {
 		panic("ScalarAddTo: inputs not consistent")
@@ -62,12 +64,14 @@ func (e *defaultPolyScalarAddSubEvaluator) ScalarAddTo(pOut, p *Poly, c Scalar) 
 	pOut.isNTT = p.isNTT
 }
 
+// ScalarSub returns p - c.
 func (e *defaultPolyScalarAddSubEvaluator) ScalarSub(p *Poly, c Scalar) *Poly {
 	pOut := NewPoly(e.rank, len(e.mod))
 	e.ScalarSubTo(pOut, p, c)
 	return pOut
 }
 
+// ScalarSubTo computes pOut = p - c.
 func (e *defaultPolyScalarAddSubEvaluator) ScalarSubTo(pOut, p *Poly, c Scalar) {
 	if !isBinaryToOperable(e.rank, len(e.mod), pOut, p) || isScalarToOperable(len(e.mod), c) {
 		panic("ScalarSubTo: inputs not consistent")
@@ -120,12 +124,14 @@ func newPrimeAutFixedPolyScalarAddSubEvaluator(params dft.RingParameters, mod []
 	}
 }
 
+// ScalarAdd returns p + c.
 func (e *primeAutFixedPolyScalarAddSubEvaluator) ScalarAdd(p *Poly, c Scalar) *Poly {
 	pOut := NewPoly(e.rank, len(e.mod))
 	e.ScalarAddTo(pOut, p, c)
 	return pOut
 }
 
+// ScalarAddTo computes pOut = p + c.
 func (e *primeAutFixedPolyScalarAddSubEvaluator) ScalarAddTo(pOut, p *Poly, c Scalar) {
 	if !isBinaryToOperable(e.rank, len(e.mod), pOut, p) || !isScalarToOperable(len(e.mod), c) {
 		panic("ScalarAddTo: inputs not consistent")
@@ -142,12 +148,14 @@ func (e *primeAutFixedPolyScalarAddSubEvaluator) ScalarAddTo(pOut, p *Poly, c Sc
 	pOut.isNTT = p.isNTT
 }
 
+// ScalarSub returns p - c.
 func (e *primeAutFixedPolyScalarAddSubEvaluator) ScalarSub(p *Poly, c Scalar) *Poly {
 	pOut := NewPoly(e.rank, len(e.mod))
 	e.ScalarSubTo(pOut, p, c)
 	return pOut
 }
 
+// ScalarSubTo computes pOut = p - c.
 func (e *primeAutFixedPolyScalarAddSubEvaluator) ScalarSubTo(pOut, p *Poly, c Scalar) {
 	if !isBinaryToOperable(e.rank, len(e.mod), pOut, p) || isScalarToOperable(len(e.mod), c) {
 		panic("ScalarSubTo: inputs not consistent")
