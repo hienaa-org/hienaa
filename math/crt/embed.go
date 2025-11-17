@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"unsafe"
 
+	"github.com/hienaa-org/hienaa/math/internal/float128"
 	"github.com/hienaa-org/hienaa/math/num"
 )
 
@@ -34,10 +35,8 @@ type Embedder struct {
 	// negModS is the Shoup form of negMod.
 	negModS []uint64
 
-	// invHi is the high bits of the floating-point approximation of the inverse of the input modulus limb.
-	invHi []float64
-	// invLo is the low bits of the floating-point approximation of the inverse of the input modulus limb.
-	invLo []float64
+	// inv is the floating-point approximation of the inverse of the input modulus limb.
+	inv []float128.Float128
 
 	// idx holds the index of the input modulus limb if it overlaps with the output modulus limb.
 	// For example, if modOut[i] = modIn[j], then idx[i] = j.
@@ -49,15 +48,12 @@ type Embedder struct {
 
 // embedderBuffer is a buffer for [Embedder].
 type embedderBuffer struct {
-	// fHi is a buffer for the high bits of the floating-point number.
+	// f128 is a buffer for the floating-point number.
 	// Always has length 8.
-	fHi []float64
-	// fLo is a buffer for the low bits of the floating-point number.
+	f128 []float128.Float128
+	// u64 is a buffer for the 64-bit integers.
 	// Always has length 8.
-	fLo []float64
-	// i64 is a buffer for the 64-bit integers.
-	// Always has length 8.
-	i64 []uint64
+	u64 []uint64
 	// in is a buffer for input coefficient.
 	// Always has length [len(modIn)][8].
 	in [][]uint64
@@ -73,10 +69,9 @@ func NewEmbedder(modOut []*num.Modulus, modIn []*num.Modulus) *Embedder {
 	compInv := make([]uint64, len(modIn))
 	compInvS := make([]uint64, len(modIn))
 
-	invHi := make([]float64, len(modIn))
-	invLo := make([]float64, len(modIn))
+	inv := make([]float128.Float128, len(modIn))
 
-	tmpRat := big.NewRat(0, 1)
+	invRat := big.NewRat(0, 1)
 	for i := 0; i < len(modIn); i++ {
 		compInv[i] = 1
 		for j := 0; j < len(modIn); j++ {
@@ -86,9 +81,9 @@ func NewEmbedder(modOut []*num.Modulus, modIn []*num.Modulus) *Embedder {
 			compInvS[i] = num.SForm(compInv[i], modIn[i])
 		}
 
-		tmpRat.Denom().SetUint64(modIn[i].Value())
-		tmpRat.Num().SetInt64(1)
-		invHi[i], invLo[i] = qFloatFromBigRat(tmpRat)
+		invRat.Denom().SetUint64(modIn[i].Value())
+		invRat.Num().SetInt64(1)
+		inv[i] = float128.FromRat(invRat)
 	}
 
 	comp := make([][]uint64, len(modOut))
@@ -138,8 +133,7 @@ func NewEmbedder(modOut []*num.Modulus, modIn []*num.Modulus) *Embedder {
 		negMod:  negMod,
 		negModS: negModS,
 
-		invHi: invHi,
-		invLo: invLo,
+		inv: inv,
 
 		idx: idx,
 
@@ -155,10 +149,9 @@ func newEmbedderBuffer(modIn []*num.Modulus) embedderBuffer {
 	}
 
 	return embedderBuffer{
-		fHi: make([]float64, 8),
-		fLo: make([]float64, 8),
-		i64: make([]uint64, 8),
-		in:  in,
+		f128: make([]float128.Float128, 8),
+		u64:  make([]uint64, 8),
+		in:   in,
 	}
 }
 
@@ -229,20 +222,17 @@ func (e *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 		return
 	}
 
-	fHi := (*[8]float64)(unsafe.Pointer(&e.buf.fHi[0]))
-	fLo := (*[8]float64)(unsafe.Pointer(&e.buf.fLo[0]))
-	i64 := (*[8]uint64)(unsafe.Pointer(&e.buf.i64[0]))
-	var hi, lo, bufHi, bufLo float64
+	f128 := (*[8]float128.Float128)(unsafe.Pointer(&e.buf.f128[0]))
+	i64 := (*[8]uint64)(unsafe.Pointer(&e.buf.u64[0]))
 
 	for k := 0; k < M; k += 8 {
-		clear(fHi[:])
-		clear(fLo[:])
+		clear(f128[:])
 		for i := 0; i < inLen; i++ {
 			wIn := (*[8]uint64)(unsafe.Pointer(&v[i][k]))
 			bufIn := (*[8]uint64)(unsafe.Pointer(&e.buf.in[i][0]))
 
 			compInv, compInvS := e.compInv[i], e.compInvS[i]
-			invHi, invLo := e.invHi[i], e.invLo[i]
+			inv := e.inv[i]
 			modIn := e.modIn[i]
 
 			bufIn[0] = num.SMul(wIn[0], compInv, compInvS, modIn)
@@ -255,48 +245,26 @@ func (e *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 			bufIn[6] = num.SMul(wIn[6], compInv, compInvS, modIn)
 			bufIn[7] = num.SMul(wIn[7], compInv, compInvS, modIn)
 
-			bufHi, bufLo = qFloatFromUint64(bufIn[0])
-			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
-			fHi[0], fLo[0] = qFloatAdd(fHi[0], fLo[0], hi, lo)
+			f128[0] = float128.Add(f128[0], float128.Mul(float128.FromInt64(int64(bufIn[0])), inv))
+			f128[1] = float128.Add(f128[1], float128.Mul(float128.FromInt64(int64(bufIn[1])), inv))
+			f128[2] = float128.Add(f128[2], float128.Mul(float128.FromInt64(int64(bufIn[2])), inv))
+			f128[3] = float128.Add(f128[3], float128.Mul(float128.FromInt64(int64(bufIn[3])), inv))
 
-			bufHi, bufLo = qFloatFromUint64(bufIn[1])
-			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
-			fHi[1], fLo[1] = qFloatAdd(fHi[1], fLo[1], hi, lo)
-
-			bufHi, bufLo = qFloatFromUint64(bufIn[2])
-			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
-			fHi[2], fLo[2] = qFloatAdd(fHi[2], fLo[2], hi, lo)
-
-			bufHi, bufLo = qFloatFromUint64(bufIn[3])
-			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
-			fHi[3], fLo[3] = qFloatAdd(fHi[3], fLo[3], hi, lo)
-
-			bufHi, bufLo = qFloatFromUint64(bufIn[4])
-			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
-			fHi[4], fLo[4] = qFloatAdd(fHi[4], fLo[4], hi, lo)
-
-			bufHi, bufLo = qFloatFromUint64(bufIn[5])
-			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
-			fHi[5], fLo[5] = qFloatAdd(fHi[5], fLo[5], hi, lo)
-
-			bufHi, bufLo = qFloatFromUint64(bufIn[6])
-			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
-			fHi[6], fLo[6] = qFloatAdd(fHi[6], fLo[6], hi, lo)
-
-			bufHi, bufLo = qFloatFromUint64(bufIn[7])
-			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
-			fHi[7], fLo[7] = qFloatAdd(fHi[7], fLo[7], hi, lo)
+			f128[4] = float128.Add(f128[4], float128.Mul(float128.FromInt64(int64(bufIn[4])), inv))
+			f128[5] = float128.Add(f128[5], float128.Mul(float128.FromInt64(int64(bufIn[5])), inv))
+			f128[6] = float128.Add(f128[6], float128.Mul(float128.FromInt64(int64(bufIn[6])), inv))
+			f128[7] = float128.Add(f128[7], float128.Mul(float128.FromInt64(int64(bufIn[7])), inv))
 		}
 
-		i64[0] = qFloatRoundAsUint64(fHi[0], fLo[0])
-		i64[1] = qFloatRoundAsUint64(fHi[1], fLo[1])
-		i64[2] = qFloatRoundAsUint64(fHi[2], fLo[2])
-		i64[3] = qFloatRoundAsUint64(fHi[3], fLo[3])
+		i64[0] = float128.ToUint64(f128[0])
+		i64[1] = float128.ToUint64(f128[1])
+		i64[2] = float128.ToUint64(f128[2])
+		i64[3] = float128.ToUint64(f128[3])
 
-		i64[4] = qFloatRoundAsUint64(fHi[4], fLo[4])
-		i64[5] = qFloatRoundAsUint64(fHi[5], fLo[5])
-		i64[6] = qFloatRoundAsUint64(fHi[6], fLo[6])
-		i64[7] = qFloatRoundAsUint64(fHi[7], fLo[7])
+		i64[4] = float128.ToUint64(f128[4])
+		i64[5] = float128.ToUint64(f128[5])
+		i64[6] = float128.ToUint64(f128[6])
+		i64[7] = float128.ToUint64(f128[7])
 
 		for i := 0; i < outLen; i++ {
 			wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i][k]))
@@ -339,15 +307,12 @@ func (e *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 	}
 
 	for k := M; k < len(v[0]); k++ {
-		fHi[0], fLo[0] = 0, 0
+		f128[0] = float128.Float128{}
 		for i := 0; i < inLen; i++ {
 			e.buf.in[i][0] = num.SMul(v[i][k], e.compInv[i], e.compInvS[i], e.modIn[i])
-
-			bufHi, bufLo = qFloatFromUint64(e.buf.in[i][0])
-			hi, lo = qFloatMul(bufHi, bufLo, e.invHi[i], e.invLo[i])
-			fHi[0], fLo[0] = qFloatAdd(fHi[0], fLo[0], hi, lo)
+			f128[0] = float128.Add(f128[0], float128.Mul(float128.FromInt64(int64(e.buf.in[i][0])), e.inv[i]))
 		}
-		i64[0] = qFloatRoundAsUint64(fHi[0], fLo[0])
+		i64[0] = float128.ToUint64(f128[0])
 
 		for i := 0; i < outLen; i++ {
 			if 0 <= e.idx[i] && e.idx[i] < inLen {
@@ -387,8 +352,7 @@ func (e *Embedder) SafeCopy() *Embedder {
 		negMod:  e.negMod,
 		negModS: e.negModS,
 
-		invHi: e.invHi,
-		invLo: e.invLo,
+		inv: e.inv,
 
 		idx: e.idx,
 
@@ -418,28 +382,24 @@ type Scaler struct {
 	// scIntS is the Shoup form of modScInt.
 	scIntS [][]uint64
 
-	// scFracHi is the high bits of the floating-point approximation of the fractional part of the modulus scaling factor.
-	scFracHi []float64
-	// scFracLo is the low bits of the floating-point approximation of the fractional part of the modulus scaling factor.
-	scFracLo []float64
+	// scFrac is the fractional part of the modulus scaling factor.
+	scFrac []float128.Float128
 
 	buf scalerBuffer
 }
 
 // scalerBuffer is a buffer for [Scaler].
 type scalerBuffer struct {
-	// fHi is a buffer for the high bits of the floating-point number.
+	// f128 is a buffer for the 128-bit floating-point number.
 	// Always has length 8.
-	fHi []float64
-	// fLo is a buffer for the low bits of the floating-point number.
+	f128     []float128.Float128
+	fLo, fHi []float64
+	// uHi is a buffer for the high bits of the 64-bit integers.
 	// Always has length 8.
-	fLo []float64
-	// iHi is a buffer for the high bits of the 64-bit integers.
+	uHi []uint64
+	// uLo is a buffer for the low bits of the 64-bit integers.
 	// Always has length 8.
-	iHi []uint64
-	// iLo is a buffer for the low bits of the 64-bit integers.
-	// Always has length 8.
-	iLo []uint64
+	uLo []uint64
 	// in is a buffer for input coefficient.
 	// Always has length [len(modIn)][8].
 	in [][]uint64
@@ -472,8 +432,7 @@ func NewScaler(modOut []*num.Modulus, modIn []*num.Modulus) *Scaler {
 		scIntS[i] = make([]uint64, len(modIn))
 	}
 
-	scFracHi := make([]float64, len(modIn))
-	scFracLo := make([]float64, len(modIn))
+	scFrac := make([]float128.Float128, len(modIn))
 
 	modOutBig := big.NewInt(1)
 	tmpInt := big.NewInt(0)
@@ -481,9 +440,8 @@ func NewScaler(modOut []*num.Modulus, modIn []*num.Modulus) *Scaler {
 		modOutBig.Mul(modOutBig, tmpInt.SetUint64(modOut[i].Value()))
 	}
 
-	tmpRat := big.NewRat(0, 1)
+	scRat := big.NewRat(0, 1)
 	scIntBig := big.NewInt(0)
-
 	for i := 0; i < len(modIn); i++ {
 		scIntBig.Div(modOutBig, tmpInt.SetUint64(modIn[i].Value()))
 		for j := 0; j < len(modOut); j++ {
@@ -495,9 +453,9 @@ func NewScaler(modOut []*num.Modulus, modIn []*num.Modulus) *Scaler {
 		tmpInt.Mul(scIntBig, tmpInt.SetUint64(modIn[i].Value()))
 		tmpInt.Sub(modOutBig, tmpInt)
 
-		tmpRat.Denom().SetUint64(modIn[i].Value())
-		tmpRat.Num().Set(tmpInt)
-		scFracHi[i], scFracLo[i] = qFloatFromBigRat(tmpRat)
+		scRat.Denom().SetUint64(modIn[i].Value())
+		scRat.Num().Set(tmpInt)
+		scFrac[i] = float128.FromRat(scRat)
 	}
 
 	return &Scaler{
@@ -510,8 +468,7 @@ func NewScaler(modOut []*num.Modulus, modIn []*num.Modulus) *Scaler {
 		scInt:  scInt,
 		scIntS: scIntS,
 
-		scFracHi: scFracHi,
-		scFracLo: scFracLo,
+		scFrac: scFrac,
 
 		buf: newScalerBuffer(modIn),
 	}
@@ -525,11 +482,12 @@ func newScalerBuffer(modIn []*num.Modulus) scalerBuffer {
 	}
 
 	return scalerBuffer{
-		fHi: make([]float64, 8),
-		fLo: make([]float64, 8),
-		iHi: make([]uint64, 8),
-		iLo: make([]uint64, 8),
-		in:  in,
+		f128: make([]float128.Float128, 8),
+		fLo:  make([]float64, 8),
+		fHi:  make([]float64, 8),
+		uHi:  make([]uint64, 8),
+		uLo:  make([]uint64, 8),
+		in:   in,
 	}
 }
 
@@ -570,21 +528,18 @@ func (s *Scaler) ScaleVecTo(vOut, v [][]uint64) {
 	inLen, outLen := len(s.modIn), len(s.modOut)
 	M := (len(v[0]) >> 3) << 3
 
-	var hi, lo, bufHi, bufLo float64
-	fHi := (*[8]float64)(unsafe.Pointer(&s.buf.fHi[0]))
-	fLo := (*[8]float64)(unsafe.Pointer(&s.buf.fLo[0]))
-	iHi := (*[8]uint64)(unsafe.Pointer(&s.buf.iHi[0]))
-	iLo := (*[8]uint64)(unsafe.Pointer(&s.buf.iLo[0]))
+	f128 := (*[8]float128.Float128)(unsafe.Pointer(&s.buf.f128[0]))
+	uHi := (*[8]uint64)(unsafe.Pointer(&s.buf.uHi[0]))
+	uLo := (*[8]uint64)(unsafe.Pointer(&s.buf.uLo[0]))
 
 	for k := 0; k < M; k += 8 {
-		clear(s.buf.fHi[:])
-		clear(s.buf.fLo[:])
+		clear(s.buf.f128)
 		for i := 0; i < inLen; i++ {
 			wIn := (*[8]uint64)(unsafe.Pointer(&v[i][k]))
 			bufIn := (*[8]uint64)(unsafe.Pointer(&s.buf.in[i][0]))
 
 			compInv, compInvS := s.compInv[i], s.compInvS[i]
-			scFracHi, scFracLo := s.scFracHi[i], s.scFracLo[i]
+			scFrac := s.scFrac[i]
 			modIn := s.modIn[i]
 
 			bufIn[0] = num.SMul(wIn[0], compInv, compInvS, modIn)
@@ -597,63 +552,41 @@ func (s *Scaler) ScaleVecTo(vOut, v [][]uint64) {
 			bufIn[6] = num.SMul(wIn[6], compInv, compInvS, modIn)
 			bufIn[7] = num.SMul(wIn[7], compInv, compInvS, modIn)
 
-			bufHi, bufLo = qFloatFromUint64(bufIn[0])
-			hi, lo = qFloatMul(bufHi, bufLo, scFracHi, scFracLo)
-			fHi[0], fLo[0] = qFloatAdd(fHi[0], fLo[0], hi, lo)
+			f128[0] = float128.Add(f128[0], float128.Mul(float128.FromInt64(int64(bufIn[0])), scFrac))
+			f128[1] = float128.Add(f128[1], float128.Mul(float128.FromInt64(int64(bufIn[1])), scFrac))
+			f128[2] = float128.Add(f128[2], float128.Mul(float128.FromInt64(int64(bufIn[2])), scFrac))
+			f128[3] = float128.Add(f128[3], float128.Mul(float128.FromInt64(int64(bufIn[3])), scFrac))
 
-			bufHi, bufLo = qFloatFromUint64(bufIn[1])
-			hi, lo = qFloatMul(bufHi, bufLo, scFracHi, scFracLo)
-			fHi[1], fLo[1] = qFloatAdd(fHi[1], fLo[1], hi, lo)
-
-			bufHi, bufLo = qFloatFromUint64(bufIn[2])
-			hi, lo = qFloatMul(bufHi, bufLo, scFracHi, scFracLo)
-			fHi[2], fLo[2] = qFloatAdd(fHi[2], fLo[2], hi, lo)
-
-			bufHi, bufLo = qFloatFromUint64(bufIn[3])
-			hi, lo = qFloatMul(bufHi, bufLo, scFracHi, scFracLo)
-			fHi[3], fLo[3] = qFloatAdd(fHi[3], fLo[3], hi, lo)
-
-			bufHi, bufLo = qFloatFromUint64(bufIn[4])
-			hi, lo = qFloatMul(bufHi, bufLo, scFracHi, scFracLo)
-			fHi[4], fLo[4] = qFloatAdd(fHi[4], fLo[4], hi, lo)
-
-			bufHi, bufLo = qFloatFromUint64(bufIn[5])
-			hi, lo = qFloatMul(bufHi, bufLo, scFracHi, scFracLo)
-			fHi[5], fLo[5] = qFloatAdd(fHi[5], fLo[5], hi, lo)
-
-			bufHi, bufLo = qFloatFromUint64(bufIn[6])
-			hi, lo = qFloatMul(bufHi, bufLo, scFracHi, scFracLo)
-			fHi[6], fLo[6] = qFloatAdd(fHi[6], fLo[6], hi, lo)
-
-			bufHi, bufLo = qFloatFromUint64(bufIn[7])
-			hi, lo = qFloatMul(bufHi, bufLo, scFracHi, scFracLo)
-			fHi[7], fLo[7] = qFloatAdd(fHi[7], fLo[7], hi, lo)
+			f128[4] = float128.Add(f128[4], float128.Mul(float128.FromInt64(int64(bufIn[4])), scFrac))
+			f128[5] = float128.Add(f128[5], float128.Mul(float128.FromInt64(int64(bufIn[5])), scFrac))
+			f128[6] = float128.Add(f128[6], float128.Mul(float128.FromInt64(int64(bufIn[6])), scFrac))
+			f128[7] = float128.Add(f128[7], float128.Mul(float128.FromInt64(int64(bufIn[7])), scFrac))
 		}
 
-		iHi[0], iLo[0] = qFloatRoundAsUint128(fHi[0], fLo[0])
-		iHi[1], iLo[1] = qFloatRoundAsUint128(fHi[1], fLo[1])
-		iHi[2], iLo[2] = qFloatRoundAsUint128(fHi[2], fLo[2])
-		iHi[3], iLo[3] = qFloatRoundAsUint128(fHi[3], fLo[3])
+		uHi[0], uLo[0] = float128.ToUint128(f128[0])
+		uHi[1], uLo[1] = float128.ToUint128(f128[1])
+		uHi[2], uLo[2] = float128.ToUint128(f128[2])
+		uHi[3], uLo[3] = float128.ToUint128(f128[3])
 
-		iHi[4], iLo[4] = qFloatRoundAsUint128(fHi[4], fLo[4])
-		iHi[5], iLo[5] = qFloatRoundAsUint128(fHi[5], fLo[5])
-		iHi[6], iLo[6] = qFloatRoundAsUint128(fHi[6], fLo[6])
-		iHi[7], iLo[7] = qFloatRoundAsUint128(fHi[7], fLo[7])
+		uHi[4], uLo[4] = float128.ToUint128(f128[4])
+		uHi[5], uLo[5] = float128.ToUint128(f128[5])
+		uHi[6], uLo[6] = float128.ToUint128(f128[6])
+		uHi[7], uLo[7] = float128.ToUint128(f128[7])
 
 		for i := 0; i < outLen; i++ {
 			wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i][k]))
 
 			modOut := s.modOut[i]
 
-			wOut[0] = num.Reduce128(iHi[0], iLo[0], modOut)
-			wOut[1] = num.Reduce128(iHi[1], iLo[1], modOut)
-			wOut[2] = num.Reduce128(iHi[2], iLo[2], modOut)
-			wOut[3] = num.Reduce128(iHi[3], iLo[3], modOut)
+			wOut[0] = num.Reduce128(uHi[0], uLo[0], modOut)
+			wOut[1] = num.Reduce128(uHi[1], uLo[1], modOut)
+			wOut[2] = num.Reduce128(uHi[2], uLo[2], modOut)
+			wOut[3] = num.Reduce128(uHi[3], uLo[3], modOut)
 
-			wOut[4] = num.Reduce128(iHi[4], iLo[4], modOut)
-			wOut[5] = num.Reduce128(iHi[5], iLo[5], modOut)
-			wOut[6] = num.Reduce128(iHi[6], iLo[6], modOut)
-			wOut[7] = num.Reduce128(iHi[7], iLo[7], modOut)
+			wOut[4] = num.Reduce128(uHi[4], uLo[4], modOut)
+			wOut[5] = num.Reduce128(uHi[5], uLo[5], modOut)
+			wOut[6] = num.Reduce128(uHi[6], uLo[6], modOut)
+			wOut[7] = num.Reduce128(uHi[7], uLo[7], modOut)
 
 			modScInt, modScIntS := s.scInt[i], s.scIntS[i]
 
@@ -676,17 +609,15 @@ func (s *Scaler) ScaleVecTo(vOut, v [][]uint64) {
 	}
 
 	for k := M; k < len(v[0]); k++ {
-		fHi[0], fLo[0] = 0, 0
+		f128[0] = float128.Float128{}
 		for i := 0; i < inLen; i++ {
 			s.buf.in[i][0] = num.SMul(v[i][k], s.compInv[i], s.compInvS[i], s.modIn[i])
-			bufHi, bufLo = qFloatFromUint64(s.buf.in[i][0])
-			hi, lo = qFloatMul(bufHi, bufLo, s.scFracHi[i], s.scFracLo[i])
-			fHi[0], fLo[0] = qFloatAdd(fHi[0], fLo[0], hi, lo)
+			f128[0] = float128.Add(f128[0], float128.Mul(float128.FromInt64(int64(s.buf.in[i][0])), s.scFrac[i]))
 		}
-		iHi[0], iLo[0] = qFloatRoundAsUint128(fHi[0], fLo[0])
+		uHi[0], uLo[0] = float128.ToUint128(f128[0])
 
 		for i := 0; i < outLen; i++ {
-			vOut[i][k] = num.Reduce128(iHi[0], iLo[0], s.modOut[i])
+			vOut[i][k] = num.Reduce128(uHi[0], uLo[0], s.modOut[i])
 			for j := 0; j < inLen; j++ {
 				vOut[i][k] = num.Add(vOut[i][k], num.SMul(s.buf.in[j][0], s.scInt[i][j], s.scIntS[i][j], s.modOut[i]), s.modOut[i])
 			}
@@ -716,8 +647,7 @@ func (s *Scaler) SafeCopy() *Scaler {
 		scInt:  s.scInt,
 		scIntS: s.scIntS,
 
-		scFracHi: s.scFracHi,
-		scFracLo: s.scFracLo,
+		scFrac: s.scFrac,
 
 		buf: newScalerBuffer(s.modIn),
 	}
@@ -743,32 +673,25 @@ type ScaleEmbedder struct {
 	// compInvS is the Shoup form of compInv.
 	compInvS []uint64
 
-	// invHi is the high bits of the floating-point approximation of the inverse of the input modulus limb.
-	invHi []float64
-	// invLo is the low bits of the floating-point approximation of the inverse of the input modulus limb.
-	invLo []float64
+	// inv is the floating-point approximation of the inverse of the input modulus limb.
+	inv []float128.Float128
 
 	// scInt is the integer part of the modulus scaling factor.
 	scInt [][]uint64
 	// scIntS is the Shoup form of modScInt.
 	scIntS [][]uint64
 
-	// scFracHi is the high bits of the floating-point approximation of the fractional part of the scaling factor.
-	scFracHi []float64
-	// scFracLo is the low bits of the floating-point approximation of the fractional part of the scaling factor.
-	scFracLo []float64
+	// scFrac is the floating-point approximation of the modulus scaling factor.
+	scFrac []float128.Float128
 
 	// ovfInt is the integer part for the constant to compute the overflow multiplied by the scaling factor.
 	ovfInt []uint64
 	// ovfIntS is the Shoup form of ovfInt.
 	ovfIntS []uint64
 
-	// ovfFracHi is the high bits of the floating-point approximation of the fractional part
+	// ovfFrac is the floating-point approximation of the fractional part
 	// for the constant to compute the overflow multiplied by the scaling factor.
-	ovfFracHi float64
-	// ovfFracLo is the low bits of the floating-point approximation of the fractional part
-	// for the constant to compute the overflow multiplied by the scaling factor.
-	ovfFracLo float64
+	ovfFrac float128.Float128
 
 	buf scalerBuffer
 }
@@ -795,8 +718,7 @@ func NewScaleEmbedder(modOut []*num.Modulus, modIn []*num.Modulus, scale *big.Ra
 		compInvS[i] = num.SForm(compInv[i], modIn[i])
 	}
 
-	invHi := make([]float64, inLen)
-	invLo := make([]float64, inLen)
+	inv := make([]float128.Float128, inLen)
 
 	modInBig := big.NewInt(1)
 	tmpInt := big.NewInt(0)
@@ -808,7 +730,7 @@ func NewScaleEmbedder(modOut []*num.Modulus, modIn []*num.Modulus, scale *big.Ra
 
 		tmpRat.Denom().SetUint64(modIn[i].Value())
 		tmpRat.Num().SetInt64(1)
-		invHi[i], invLo[i] = qFloatFromBigRat(tmpRat)
+		inv[i] = float128.FromRat(tmpRat)
 	}
 
 	scInt := make([][]uint64, outLen)
@@ -818,8 +740,7 @@ func NewScaleEmbedder(modOut []*num.Modulus, modIn []*num.Modulus, scale *big.Ra
 		scIntS[i] = make([]uint64, inLen)
 	}
 
-	scFracHi := make([]float64, inLen)
-	scFracLo := make([]float64, inLen)
+	scFrac := make([]float128.Float128, inLen)
 
 	for i := 0; i < inLen; i++ {
 		tmpRat.Num().Set(modInBig)
@@ -834,7 +755,7 @@ func NewScaleEmbedder(modOut []*num.Modulus, modIn []*num.Modulus, scale *big.Ra
 			scInt[j][i] = tmpInt.Uint64()
 			scIntS[j][i] = num.SForm(scInt[j][i], modOut[j])
 		}
-		scFracHi[i], scFracLo[i] = qFloatFromBigRat(tmpRat)
+		scFrac[i] = float128.FromRat(tmpRat)
 	}
 
 	ovfIntBig := big.NewInt(0)
@@ -852,7 +773,7 @@ func NewScaleEmbedder(modOut []*num.Modulus, modIn []*num.Modulus, scale *big.Ra
 	}
 
 	tmpRat.Num().Sub(tmpRat.Num(), tmpInt.Mul(ovfIntBig, tmpRat.Denom()))
-	ovfFracHi, ovfFracLo := qFloatFromBigRat(tmpRat)
+	ovfFrac := float128.FromRat(tmpRat)
 
 	return &ScaleEmbedder{
 		modIn:  modIn,
@@ -862,20 +783,17 @@ func NewScaleEmbedder(modOut []*num.Modulus, modIn []*num.Modulus, scale *big.Ra
 		compInv:  compInv,
 		compInvS: compInvS,
 
-		invHi: invHi,
-		invLo: invLo,
+		inv: inv,
 
 		scInt:  scInt,
 		scIntS: scIntS,
 
-		scFracHi: scFracHi,
-		scFracLo: scFracLo,
+		scFrac: scFrac,
 
 		ovfInt:  ovfInt,
 		ovfIntS: ovfIntS,
 
-		ovfFracHi: ovfFracHi,
-		ovfFracLo: ovfFracLo,
+		ovfFrac: ovfFrac,
 
 		buf: newScalerBuffer(modIn),
 	}
@@ -918,21 +836,18 @@ func (s *ScaleEmbedder) ScaleEmbedVecTo(vOut, v [][]uint64) {
 	inLen, outLen := len(s.modIn), len(s.modOut)
 	M := (len(v[0]) >> 3) << 3
 
-	var hi, lo, bufHi, bufLo float64
-	fHi := (*[8]float64)(unsafe.Pointer(&s.buf.fHi[0]))
-	fLo := (*[8]float64)(unsafe.Pointer(&s.buf.fLo[0]))
-	iHi := (*[8]uint64)(unsafe.Pointer(&s.buf.iHi[0]))
-	iLo := (*[8]uint64)(unsafe.Pointer(&s.buf.iLo[0]))
+	f128 := (*[8]float128.Float128)(unsafe.Pointer(&s.buf.f128[0]))
+	uHi := (*[8]uint64)(unsafe.Pointer(&s.buf.uHi[0]))
+	uLo := (*[8]uint64)(unsafe.Pointer(&s.buf.uLo[0]))
 
 	for k := 0; k < M; k += 8 {
-		clear(fHi[:])
-		clear(fLo[:])
+		clear(f128[:])
 		for i := 0; i < inLen; i++ {
 			wIn := (*[8]uint64)(unsafe.Pointer(&v[i][k]))
 			bufIn := (*[8]uint64)(unsafe.Pointer(&s.buf.in[i][0]))
 
 			compInv, compInvS, modIn := s.compInv[i], s.compInvS[i], s.modIn[i]
-			invLo, invHi := s.invLo[i], s.invHi[i]
+			inv := s.inv[i]
 
 			bufIn[0] = num.SMul(wIn[0], compInv, compInvS, modIn)
 			bufIn[1] = num.SMul(wIn[1], compInv, compInvS, modIn)
@@ -944,48 +859,26 @@ func (s *ScaleEmbedder) ScaleEmbedVecTo(vOut, v [][]uint64) {
 			bufIn[6] = num.SMul(wIn[6], compInv, compInvS, modIn)
 			bufIn[7] = num.SMul(wIn[7], compInv, compInvS, modIn)
 
-			bufHi, bufLo = qFloatFromUint64(bufIn[0])
-			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
-			fHi[0], fLo[0] = qFloatAdd(fHi[0], fLo[0], hi, lo)
+			f128[0] = float128.Add(f128[0], float128.Mul(float128.FromInt64(int64(bufIn[0])), inv))
+			f128[1] = float128.Add(f128[1], float128.Mul(float128.FromInt64(int64(bufIn[1])), inv))
+			f128[2] = float128.Add(f128[2], float128.Mul(float128.FromInt64(int64(bufIn[2])), inv))
+			f128[3] = float128.Add(f128[3], float128.Mul(float128.FromInt64(int64(bufIn[3])), inv))
 
-			bufHi, bufLo = qFloatFromUint64(bufIn[1])
-			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
-			fHi[1], fLo[1] = qFloatAdd(fHi[1], fLo[1], hi, lo)
-
-			bufHi, bufLo = qFloatFromUint64(bufIn[2])
-			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
-			fHi[2], fLo[2] = qFloatAdd(fHi[2], fLo[2], hi, lo)
-
-			bufHi, bufLo = qFloatFromUint64(bufIn[3])
-			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
-			fHi[3], fLo[3] = qFloatAdd(fHi[3], fLo[3], hi, lo)
-
-			bufHi, bufLo = qFloatFromUint64(bufIn[4])
-			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
-			fHi[4], fLo[4] = qFloatAdd(fHi[4], fLo[4], hi, lo)
-
-			bufHi, bufLo = qFloatFromUint64(bufIn[5])
-			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
-			fHi[5], fLo[5] = qFloatAdd(fHi[5], fLo[5], hi, lo)
-
-			bufHi, bufLo = qFloatFromUint64(bufIn[6])
-			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
-			fHi[6], fLo[6] = qFloatAdd(fHi[6], fLo[6], hi, lo)
-
-			bufHi, bufLo = qFloatFromUint64(bufIn[7])
-			hi, lo = qFloatMul(bufHi, bufLo, invHi, invLo)
-			fHi[7], fLo[7] = qFloatAdd(fHi[7], fLo[7], hi, lo)
+			f128[4] = float128.Add(f128[4], float128.Mul(float128.FromInt64(int64(bufIn[4])), inv))
+			f128[5] = float128.Add(f128[5], float128.Mul(float128.FromInt64(int64(bufIn[5])), inv))
+			f128[6] = float128.Add(f128[6], float128.Mul(float128.FromInt64(int64(bufIn[6])), inv))
+			f128[7] = float128.Add(f128[7], float128.Mul(float128.FromInt64(int64(bufIn[7])), inv))
 		}
 
-		iLo[0] = qFloatRoundAsUint64(fHi[0], fLo[0])
-		iLo[1] = qFloatRoundAsUint64(fHi[1], fLo[1])
-		iLo[2] = qFloatRoundAsUint64(fHi[2], fLo[2])
-		iLo[3] = qFloatRoundAsUint64(fHi[3], fLo[3])
+		uLo[0] = float128.ToUint64(f128[0])
+		uLo[1] = float128.ToUint64(f128[1])
+		uLo[2] = float128.ToUint64(f128[2])
+		uLo[3] = float128.ToUint64(f128[3])
 
-		iLo[4] = qFloatRoundAsUint64(fHi[4], fLo[4])
-		iLo[5] = qFloatRoundAsUint64(fHi[5], fLo[5])
-		iLo[6] = qFloatRoundAsUint64(fHi[6], fLo[6])
-		iLo[7] = qFloatRoundAsUint64(fHi[7], fLo[7])
+		uLo[4] = float128.ToUint64(f128[4])
+		uLo[5] = float128.ToUint64(f128[5])
+		uLo[6] = float128.ToUint64(f128[6])
+		uLo[7] = float128.ToUint64(f128[7])
 
 		for i := 0; i < outLen; i++ {
 			wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i][k]))
@@ -993,15 +886,15 @@ func (s *ScaleEmbedder) ScaleEmbedVecTo(vOut, v [][]uint64) {
 			intOv, intOvS := s.ovfInt[i], s.ovfIntS[i]
 			modOut, modOutv := s.modOut[i], s.modOut[i].Value()
 
-			wOut[0] = num.SMul(modOutv-iLo[0], intOv, intOvS, modOut)
-			wOut[1] = num.SMul(modOutv-iLo[1], intOv, intOvS, modOut)
-			wOut[2] = num.SMul(modOutv-iLo[2], intOv, intOvS, modOut)
-			wOut[3] = num.SMul(modOutv-iLo[3], intOv, intOvS, modOut)
+			wOut[0] = num.SMul(modOutv-uLo[0], intOv, intOvS, modOut)
+			wOut[1] = num.SMul(modOutv-uLo[1], intOv, intOvS, modOut)
+			wOut[2] = num.SMul(modOutv-uLo[2], intOv, intOvS, modOut)
+			wOut[3] = num.SMul(modOutv-uLo[3], intOv, intOvS, modOut)
 
-			wOut[4] = num.SMul(modOutv-iLo[4], intOv, intOvS, modOut)
-			wOut[5] = num.SMul(modOutv-iLo[5], intOv, intOvS, modOut)
-			wOut[6] = num.SMul(modOutv-iLo[6], intOv, intOvS, modOut)
-			wOut[7] = num.SMul(modOutv-iLo[7], intOv, intOvS, modOut)
+			wOut[4] = num.SMul(modOutv-uLo[4], intOv, intOvS, modOut)
+			wOut[5] = num.SMul(modOutv-uLo[5], intOv, intOvS, modOut)
+			wOut[6] = num.SMul(modOutv-uLo[6], intOv, intOvS, modOut)
+			wOut[7] = num.SMul(modOutv-uLo[7], intOv, intOvS, modOut)
 
 			modScInt, modScIntS := s.scInt[i], s.scIntS[i]
 
@@ -1022,139 +915,88 @@ func (s *ScaleEmbedder) ScaleEmbedVecTo(vOut, v [][]uint64) {
 			}
 		}
 
-		clear(s.buf.fHi[:])
-		clear(s.buf.fLo[:])
+		clear(f128[:])
 		for i := 0; i < inLen; i++ {
 			bufIn := (*[8]uint64)(unsafe.Pointer(&s.buf.in[i][0]))
 
-			modscFracHi, modscFracLo := s.scFracHi[i], s.scFracLo[i]
+			modScFrac := s.scFrac[i]
 
-			bufHi, bufLo = qFloatFromUint64(bufIn[0])
-			hi, lo = qFloatMul(bufHi, bufLo, modscFracHi, modscFracLo)
-			fHi[0], fLo[0] = qFloatAdd(fHi[0], fLo[0], hi, lo)
+			f128[0] = float128.Add(f128[0], float128.Mul(float128.FromInt64(int64(bufIn[0])), modScFrac))
+			f128[1] = float128.Add(f128[1], float128.Mul(float128.FromInt64(int64(bufIn[1])), modScFrac))
+			f128[2] = float128.Add(f128[2], float128.Mul(float128.FromInt64(int64(bufIn[2])), modScFrac))
+			f128[3] = float128.Add(f128[3], float128.Mul(float128.FromInt64(int64(bufIn[3])), modScFrac))
 
-			bufHi, bufLo = qFloatFromUint64(bufIn[1])
-			hi, lo = qFloatMul(bufHi, bufLo, modscFracHi, modscFracLo)
-			fHi[1], fLo[1] = qFloatAdd(fHi[1], fLo[1], hi, lo)
-
-			bufHi, bufLo = qFloatFromUint64(bufIn[2])
-			hi, lo = qFloatMul(bufHi, bufLo, modscFracHi, modscFracLo)
-			fHi[2], fLo[2] = qFloatAdd(fHi[2], fLo[2], hi, lo)
-
-			bufHi, bufLo = qFloatFromUint64(bufIn[3])
-			hi, lo = qFloatMul(bufHi, bufLo, modscFracHi, modscFracLo)
-			fHi[3], fLo[3] = qFloatAdd(fHi[3], fLo[3], hi, lo)
-
-			bufHi, bufLo = qFloatFromUint64(bufIn[4])
-			hi, lo = qFloatMul(bufHi, bufLo, modscFracHi, modscFracLo)
-			fHi[4], fLo[4] = qFloatAdd(fHi[4], fLo[4], hi, lo)
-
-			bufHi, bufLo = qFloatFromUint64(bufIn[5])
-			hi, lo = qFloatMul(bufHi, bufLo, modscFracHi, modscFracLo)
-			fHi[5], fLo[5] = qFloatAdd(fHi[5], fLo[5], hi, lo)
-
-			bufHi, bufLo = qFloatFromUint64(bufIn[6])
-			hi, lo = qFloatMul(bufHi, bufLo, modscFracHi, modscFracLo)
-			fHi[6], fLo[6] = qFloatAdd(fHi[6], fLo[6], hi, lo)
-
-			bufHi, bufLo = qFloatFromUint64(bufIn[7])
-			hi, lo = qFloatMul(bufHi, bufLo, modscFracHi, modscFracLo)
-			fHi[7], fLo[7] = qFloatAdd(fHi[7], fLo[7], hi, lo)
+			f128[4] = float128.Add(f128[4], float128.Mul(float128.FromInt64(int64(bufIn[4])), modScFrac))
+			f128[5] = float128.Add(f128[5], float128.Mul(float128.FromInt64(int64(bufIn[5])), modScFrac))
+			f128[6] = float128.Add(f128[6], float128.Mul(float128.FromInt64(int64(bufIn[6])), modScFrac))
+			f128[7] = float128.Add(f128[7], float128.Mul(float128.FromInt64(int64(bufIn[7])), modScFrac))
 		}
 
-		bufHi, bufLo = qFloatFromUint64(iLo[0])
-		hi, lo = qFloatMul(bufHi, bufLo, s.ovfFracHi, s.ovfFracLo)
-		fHi[0], fLo[0] = qFloatSub(fHi[0], fLo[0], hi, lo)
+		f128[0] = float128.Sub(f128[0], float128.Mul(float128.FromInt64(int64(uLo[0])), s.ovfFrac))
+		f128[1] = float128.Sub(f128[1], float128.Mul(float128.FromInt64(int64(uLo[1])), s.ovfFrac))
+		f128[2] = float128.Sub(f128[2], float128.Mul(float128.FromInt64(int64(uLo[2])), s.ovfFrac))
+		f128[3] = float128.Sub(f128[3], float128.Mul(float128.FromInt64(int64(uLo[3])), s.ovfFrac))
 
-		bufHi, bufLo = qFloatFromUint64(iLo[1])
-		hi, lo = qFloatMul(bufHi, bufLo, s.ovfFracHi, s.ovfFracLo)
-		fHi[1], fLo[1] = qFloatSub(fHi[1], fLo[1], hi, lo)
+		f128[4] = float128.Sub(f128[4], float128.Mul(float128.FromInt64(int64(uLo[4])), s.ovfFrac))
+		f128[5] = float128.Sub(f128[5], float128.Mul(float128.FromInt64(int64(uLo[5])), s.ovfFrac))
+		f128[6] = float128.Sub(f128[6], float128.Mul(float128.FromInt64(int64(uLo[6])), s.ovfFrac))
+		f128[7] = float128.Sub(f128[7], float128.Mul(float128.FromInt64(int64(uLo[7])), s.ovfFrac))
 
-		bufHi, bufLo = qFloatFromUint64(iLo[2])
-		hi, lo = qFloatMul(bufHi, bufLo, s.ovfFracHi, s.ovfFracLo)
-		fHi[2], fLo[2] = qFloatSub(fHi[2], fLo[2], hi, lo)
+		uHi[0], uLo[0] = float128.ToUint128(f128[0])
+		uHi[1], uLo[1] = float128.ToUint128(f128[1])
+		uHi[2], uLo[2] = float128.ToUint128(f128[2])
+		uHi[3], uLo[3] = float128.ToUint128(f128[3])
 
-		bufHi, bufLo = qFloatFromUint64(iLo[3])
-		hi, lo = qFloatMul(bufHi, bufLo, s.ovfFracHi, s.ovfFracLo)
-		fHi[3], fLo[3] = qFloatSub(fHi[3], fLo[3], hi, lo)
-
-		bufHi, bufLo = qFloatFromUint64(iLo[4])
-		hi, lo = qFloatMul(bufHi, bufLo, s.ovfFracHi, s.ovfFracLo)
-		fHi[4], fLo[4] = qFloatSub(fHi[4], fLo[4], hi, lo)
-
-		bufHi, bufLo = qFloatFromUint64(iLo[5])
-		hi, lo = qFloatMul(bufHi, bufLo, s.ovfFracHi, s.ovfFracLo)
-		fHi[5], fLo[5] = qFloatSub(fHi[5], fLo[5], hi, lo)
-
-		bufHi, bufLo = qFloatFromUint64(iLo[6])
-		hi, lo = qFloatMul(bufHi, bufLo, s.ovfFracHi, s.ovfFracLo)
-		fHi[6], fLo[6] = qFloatSub(fHi[6], fLo[6], hi, lo)
-
-		bufHi, bufLo = qFloatFromUint64(iLo[7])
-		hi, lo = qFloatMul(bufHi, bufLo, s.ovfFracHi, s.ovfFracLo)
-		fHi[7], fLo[7] = qFloatSub(fHi[7], fLo[7], hi, lo)
-
-		iHi[0], iLo[0] = qFloatRoundAsUint128(fHi[0], fLo[0])
-		iHi[1], iLo[1] = qFloatRoundAsUint128(fHi[1], fLo[1])
-		iHi[2], iLo[2] = qFloatRoundAsUint128(fHi[2], fLo[2])
-		iHi[3], iLo[3] = qFloatRoundAsUint128(fHi[3], fLo[3])
-
-		iHi[4], iLo[4] = qFloatRoundAsUint128(fHi[4], fLo[4])
-		iHi[5], iLo[5] = qFloatRoundAsUint128(fHi[5], fLo[5])
-		iHi[6], iLo[6] = qFloatRoundAsUint128(fHi[6], fLo[6])
-		iHi[7], iLo[7] = qFloatRoundAsUint128(fHi[7], fLo[7])
+		uHi[4], uLo[4] = float128.ToUint128(f128[4])
+		uHi[5], uLo[5] = float128.ToUint128(f128[5])
+		uHi[6], uLo[6] = float128.ToUint128(f128[6])
+		uHi[7], uLo[7] = float128.ToUint128(f128[7])
 
 		for i := 0; i < outLen; i++ {
 			wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i][k]))
 
 			modOut := s.modOut[i]
 
-			wOut[0] = add64To128Signed(wOut[0], iHi[0], iLo[0], modOut)
-			wOut[1] = add64To128Signed(wOut[1], iHi[1], iLo[1], modOut)
-			wOut[2] = add64To128Signed(wOut[2], iHi[2], iLo[2], modOut)
-			wOut[3] = add64To128Signed(wOut[3], iHi[3], iLo[3], modOut)
+			wOut[0] = add64To128Signed(wOut[0], uHi[0], uLo[0], modOut)
+			wOut[1] = add64To128Signed(wOut[1], uHi[1], uLo[1], modOut)
+			wOut[2] = add64To128Signed(wOut[2], uHi[2], uLo[2], modOut)
+			wOut[3] = add64To128Signed(wOut[3], uHi[3], uLo[3], modOut)
 
-			wOut[4] = add64To128Signed(wOut[4], iHi[4], iLo[4], modOut)
-			wOut[5] = add64To128Signed(wOut[5], iHi[5], iLo[5], modOut)
-			wOut[6] = add64To128Signed(wOut[6], iHi[6], iLo[6], modOut)
-			wOut[7] = add64To128Signed(wOut[7], iHi[7], iLo[7], modOut)
+			wOut[4] = add64To128Signed(wOut[4], uHi[4], uLo[4], modOut)
+			wOut[5] = add64To128Signed(wOut[5], uHi[5], uLo[5], modOut)
+			wOut[6] = add64To128Signed(wOut[6], uHi[6], uLo[6], modOut)
+			wOut[7] = add64To128Signed(wOut[7], uHi[7], uLo[7], modOut)
 		}
 	}
 
 	for k := M; k < len(v[0]); k++ {
-		fHi[0], fLo[0] = 0, 0
+		f128[0] = float128.Float128{}
 		for i := 0; i < inLen; i++ {
 			s.buf.in[i][0] = num.SMul(v[i][k], s.compInv[i], s.compInvS[i], s.modIn[i])
 
-			bufHi, bufLo = qFloatFromUint64(s.buf.in[i][0])
-			hi, lo = qFloatMul(bufHi, bufLo, s.invHi[i], s.invLo[i])
-			fHi[0], fLo[0] = qFloatAdd(fHi[0], fLo[0], hi, lo)
+			f128[0] = float128.Add(f128[0], float128.Mul(float128.FromInt64(int64(s.buf.in[i][0])), s.inv[i]))
 		}
 
-		iLo[0] = qFloatRoundAsUint64(fHi[0], fLo[0])
+		uLo[0] = float128.ToUint64(f128[0])
 
 		for i := 0; i < outLen; i++ {
-			vOut[i][k] = num.SMul(s.modOut[i].Value()-iLo[0], s.ovfInt[i], s.ovfIntS[i], s.modOut[i])
+			vOut[i][k] = num.SMul(s.modOut[i].Value()-uLo[0], s.ovfInt[i], s.ovfIntS[i], s.modOut[i])
 			for j := 0; j < inLen; j++ {
 				vOut[i][k] = num.Add(vOut[i][k], num.SMul(s.buf.in[j][0], s.scInt[i][j], s.scIntS[i][j], s.modOut[i]), s.modOut[i])
 			}
 		}
 
-		fHi[0], fLo[0] = 0, 0
+		f128[0] = float128.Float128{}
 		for i := 0; i < inLen; i++ {
-			bufHi, bufLo = qFloatFromUint64(s.buf.in[i][0])
-			hi, lo = qFloatMul(bufHi, bufLo, s.scFracHi[i], s.scFracLo[i])
-			fHi[0], fLo[0] = qFloatAdd(fHi[0], fLo[0], hi, lo)
+			f128[0] = float128.Add(f128[0], float128.Mul(float128.FromInt64(int64(s.buf.in[i][0])), s.scFrac[i]))
 		}
 
-		bufHi, bufLo = qFloatFromUint64(iLo[0])
-		hi, lo = qFloatMul(bufHi, bufLo, s.ovfFracHi, s.ovfFracLo)
-		fHi[0], fLo[0] = qFloatSub(fHi[0], fLo[0], hi, lo)
+		f128[0] = float128.Sub(f128[0], float128.Mul(float128.FromInt64(int64(uLo[0])), s.ovfFrac))
 
-		iHi[0], iLo[0] = qFloatRoundAsUint128(fHi[0], fLo[0])
+		uHi[0], uLo[0] = float128.ToUint128(f128[0])
 
 		for i := 0; i < outLen; i++ {
-			vOut[i][k] = add64To128Signed(vOut[i][k], iHi[0], iLo[0], s.modOut[i])
+			vOut[i][k] = add64To128Signed(vOut[i][k], uHi[0], uLo[0], s.modOut[i])
 		}
 	}
 }
@@ -1183,20 +1025,17 @@ func (s *ScaleEmbedder) SafeCopy() *ScaleEmbedder {
 		compInv:  s.compInv,
 		compInvS: s.compInvS,
 
-		invHi: s.invHi,
-		invLo: s.invLo,
+		inv: s.inv,
 
 		scInt:  s.scInt,
 		scIntS: s.scIntS,
 
-		scFracHi: s.scFracHi,
-		scFracLo: s.scFracLo,
+		scFrac: s.scFrac,
 
 		ovfInt:  s.ovfInt,
 		ovfIntS: s.ovfIntS,
 
-		ovfFracHi: s.ovfFracHi,
-		ovfFracLo: s.ovfFracLo,
+		ovfFrac: s.ovfFrac,
 
 		buf: newScalerBuffer(s.modIn),
 	}
