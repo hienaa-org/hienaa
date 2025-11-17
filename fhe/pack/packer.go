@@ -2,7 +2,7 @@
 package pack
 
 import (
-	"github.com/hienaa-org/hienaa/he/pack/internal/gnum"
+	"github.com/hienaa-org/hienaa/fhe/pack/internal/gnum"
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
