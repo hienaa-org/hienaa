@@ -107,7 +107,7 @@ func (e *pow2CyclotomicPolyAutEvaluator) AutTo(pOut, p *Poly, idx int) {
 	}
 
 	for i := range e.mod {
-		if p.isNTT && e.isNTTFriendly[i] {
+		if p.IsNTT && e.isNTTFriendly[i] {
 			copy(e.buf.p, p.Coeffs[i])
 			revShiftBits := 64 - int(num.Log2(rank))
 			for j := 0; j < rank; j++ {
@@ -131,7 +131,7 @@ func (e *pow2CyclotomicPolyAutEvaluator) AutTo(pOut, p *Poly, idx int) {
 		}
 	}
 
-	pOut.isNTT = p.isNTT
+	pOut.IsNTT = p.IsNTT
 }
 
 func (e *pow2CyclotomicPolyAutEvaluator) subEvaluator(idx ...int) pow2CyclotomicPolyAutEvaluator {
@@ -284,7 +284,7 @@ func (e *anyCyclotomicPolyAutEvaluator) AutTo(pOut, p *Poly, idx int) {
 	}
 
 	for i := range e.mod {
-		if p.isNTT && e.isNTTFriendly[i] {
+		if p.IsNTT && e.isNTTFriendly[i] {
 			idxDigits := make([]int, len(e.primeExpMods))
 			for cnt := 0; cnt < len(idxDigits); {
 				idxRed := num.Reduce(uint64(idx), e.primeExpMods[cnt])
@@ -329,7 +329,7 @@ func (e *anyCyclotomicPolyAutEvaluator) AutTo(pOut, p *Poly, idx int) {
 		}
 	}
 
-	pOut.isNTT = p.isNTT
+	pOut.IsNTT = p.IsNTT
 }
 
 func (e *anyCyclotomicPolyAutEvaluator) subEvaluator(idx ...int) anyCyclotomicPolyAutEvaluator {
@@ -440,7 +440,7 @@ func (e *pow2AutFixedPolyAutEvaluator) AutTo(pOut, p *Poly, idx int) {
 	}
 
 	for i := range e.mod {
-		if p.isNTT && e.isNTTFriendly[i] {
+		if p.IsNTT && e.isNTTFriendly[i] {
 			copy(e.buf.p, p.Coeffs[i])
 			revShiftBits := 64 - int(num.Log2(rank)+1)
 			for j := 0; j < rank; j++ {
@@ -474,7 +474,7 @@ func (e *pow2AutFixedPolyAutEvaluator) AutTo(pOut, p *Poly, idx int) {
 		}
 	}
 
-	pOut.isNTT = p.isNTT
+	pOut.IsNTT = p.IsNTT
 }
 
 func (e *pow2AutFixedPolyAutEvaluator) subEvaluator(idx ...int) pow2AutFixedPolyAutEvaluator {
@@ -604,7 +604,7 @@ func (e *primeAutFixedPolyAutEvaluator) AutTo(pOut, p *Poly, idx int) {
 	}
 
 	for i := range e.mod {
-		if p.isNTT && e.isNTTFriendly[i] {
+		if p.IsNTT && e.isNTTFriendly[i] {
 			copy(e.buf.p[:rank-rotIdx], p.Coeffs[i][rotIdx:])
 			copy(e.buf.p[rank-rotIdx:], p.Coeffs[i][:rotIdx])
 			copy(pOut.Coeffs[i], e.buf.p)
@@ -615,7 +615,7 @@ func (e *primeAutFixedPolyAutEvaluator) AutTo(pOut, p *Poly, idx int) {
 		}
 	}
 
-	pOut.isNTT = p.isNTT
+	pOut.IsNTT = p.IsNTT
 }
 
 func (e *primeAutFixedPolyAutEvaluator) subEvaluator(idx ...int) primeAutFixedPolyAutEvaluator {

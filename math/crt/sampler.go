@@ -226,7 +226,7 @@ func (s *UniformSampler) SampleTo(pOut *Poly) {
 
 	if s.boundMin != nil || s.boundMax != nil {
 		s.sampleToBounded(pOut)
-		pOut.isNTT = false
+		pOut.IsNTT = false
 		return
 	}
 
@@ -236,7 +236,7 @@ func (s *UniformSampler) SampleTo(pOut *Poly) {
 		}
 	}
 
-	pOut.isNTT = false
+	pOut.IsNTT = false
 }
 
 func (s *UniformSampler) sampleToBounded(pOut *Poly) {
@@ -379,7 +379,7 @@ func (s *TernarySampler) SampleTo(pOut *Poly) {
 		}
 	}
 
-	pOut.isNTT = false
+	pOut.IsNTT = false
 }
 
 func (s *TernarySampler) SafeCopy() Sampler {
@@ -455,7 +455,7 @@ func (s *RoundedGaussianSampler[T]) sampleFloat64To(pOut *Poly, center, stdDev f
 		}
 	}
 
-	pOut.isNTT = false
+	pOut.IsNTT = false
 }
 
 func (s *RoundedGaussianSampler[T]) sampleBigFloatTo(pOut *Poly, center, stdDev *big.Float) {
@@ -466,7 +466,7 @@ func (s *RoundedGaussianSampler[T]) sampleBigFloatTo(pOut *Poly, center, stdDev 
 		}
 	}
 
-	pOut.isNTT = false
+	pOut.IsNTT = false
 }
 
 func (s *RoundedGaussianSampler[T]) SafeCopy() Sampler {

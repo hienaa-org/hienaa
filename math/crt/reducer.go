@@ -112,7 +112,7 @@ func (r *LongDivReducer) Reduce(p *Poly) *Poly {
 // Panics when p is in NTT form, or the rank of p is larger than maxRank.
 func (r *LongDivReducer) ReduceTo(pOut, p *Poly) {
 	switch {
-	case p.isNTT:
+	case p.IsNTT:
 		panic("ReduceTo: cannot reduce NTT polynomials")
 	case p.Rank() > r.maxRank:
 		panic("ReduceTo: rank of p is larger than maxRank")
@@ -139,7 +139,7 @@ func (r *LongDivReducer) Quotient(p *Poly) *Poly {
 // Panics when p is in NTT form, or the rank of p is larger than maxRank.
 func (r *LongDivReducer) QuotientTo(pOut, p *Poly) {
 	switch {
-	case p.isNTT:
+	case p.IsNTT:
 		panic("ReduceTo: cannot reduce NTT polynomials")
 	case p.Rank() > r.maxRank:
 		panic("ReduceTo: rank of p is larger than maxRank")
@@ -167,7 +167,7 @@ func (r *LongDivReducer) QuoRem(p *Poly) (pQuo, pRem *Poly) {
 // Panics when p, pQuo or pRem is in NTT form, or the rank of p is larger than maxRank.
 func (r *LongDivReducer) QuoRemTo(pQuo, pRem, p *Poly) {
 	switch {
-	case p.isNTT:
+	case p.IsNTT:
 		panic("ReduceTo: cannot reduce NTT polynomials")
 	case p.Rank() > r.maxRank:
 		panic("ReduceTo: rank of p is larger than maxRank")
@@ -525,7 +525,7 @@ func (r *CyclotomicReducer) Reduce(p *Poly) *Poly {
 // Panics when p is in NTT form, or the rank of p is larger than CycloOrd.
 func (r *CyclotomicReducer) ReduceTo(pOut, p *Poly) {
 	switch {
-	case p.isNTT:
+	case p.IsNTT:
 		panic("ReduceTo: cannot reduce NTT polynomials")
 	case p.Rank() > r.params.CycloOrder():
 		panic("ReduceTo: rank of p is larger than cycloOrd")
@@ -919,7 +919,7 @@ func (r *Reducer) Reduce(p *Poly) *Poly {
 // Panics when p is in NTT form, or the rank of p is larger than MaxRank.
 func (r *Reducer) ReduceTo(pOut, p *Poly) {
 	switch {
-	case p.isNTT:
+	case p.IsNTT:
 		panic("ReduceTo: cannot reduce NTT polynomials")
 	case p.Rank() > r.maxRank:
 		panic("ReduceTo: rank of p is larger than maxRank")

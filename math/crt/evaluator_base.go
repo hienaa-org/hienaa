@@ -81,7 +81,7 @@ func (e *polyBaseEvaluator) NTTTo(pOut, p *Poly) {
 	switch {
 	case !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p):
 		panic("NTTTo: inputs not consistent")
-	case p.isNTT:
+	case p.IsNTT:
 		panic("NTTTo: already in NTT form")
 	}
 
@@ -93,7 +93,7 @@ func (e *polyBaseEvaluator) NTTTo(pOut, p *Poly) {
 		}
 	}
 
-	pOut.isNTT = true
+	pOut.IsNTT = true
 }
 
 // InvNTT returns InvNTT(p).
@@ -108,7 +108,7 @@ func (e *polyBaseEvaluator) InvNTTTo(pOut, p *Poly) {
 	switch {
 	case !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p):
 		panic("InvNTTTo: inputs not consistent")
-	case !p.isNTT:
+	case !p.IsNTT:
 		panic("InvNTTTo: already in Standard form")
 	}
 
@@ -120,7 +120,7 @@ func (e *polyBaseEvaluator) InvNTTTo(pOut, p *Poly) {
 		}
 	}
 
-	pOut.isNTT = false
+	pOut.IsNTT = false
 }
 
 // Add returns p0 + p1.
@@ -140,7 +140,7 @@ func (e *polyBaseEvaluator) AddTo(pOut, p0, p1 *Poly) {
 		vec.AddTo(pOut.Coeffs[i], p0.Coeffs[i], p1.Coeffs[i], e.mod[i])
 	}
 
-	pOut.isNTT = p0.isNTT
+	pOut.IsNTT = p0.IsNTT
 }
 
 // Sub returns p0 - p1.
@@ -160,12 +160,12 @@ func (e *polyBaseEvaluator) SubTo(pOut, p0, p1 *Poly) {
 		vec.SubTo(pOut.Coeffs[i], p0.Coeffs[i], p1.Coeffs[i], e.mod[i])
 	}
 
-	pOut.isNTT = p0.isNTT
+	pOut.IsNTT = p0.IsNTT
 }
 
 // Neg returns -p.
 func (e *polyBaseEvaluator) Neg(p *Poly) *Poly {
-	pOut := NewPolyCustom(e.params.Rank(), len(e.mod), p.isNTT)
+	pOut := NewPolyCustom(e.params.Rank(), len(e.mod), p.IsNTT)
 	e.NegTo(pOut, p)
 	return pOut
 }
@@ -180,7 +180,7 @@ func (e *polyBaseEvaluator) NegTo(pOut, p *Poly) {
 		vec.NegTo(pOut.Coeffs[i], p.Coeffs[i], e.mod[i])
 	}
 
-	pOut.isNTT = p.isNTT
+	pOut.IsNTT = p.IsNTT
 }
 
 // ScalarMul returns p * c.
@@ -200,7 +200,7 @@ func (e *polyBaseEvaluator) ScalarMulTo(pOut, p *Poly, c Scalar) {
 		vec.ScalarMulTo(pOut.Coeffs[i], p.Coeffs[i], c[i], e.mod[i])
 	}
 
-	pOut.isNTT = p.isNTT
+	pOut.IsNTT = p.IsNTT
 }
 
 // ScalarMulAddTo computes pOut += p * c.
@@ -213,7 +213,7 @@ func (e *polyBaseEvaluator) ScalarMulAddTo(pOut, p *Poly, c Scalar) {
 		vec.ScalarMulAddTo(pOut.Coeffs[i], p.Coeffs[i], c[i], e.mod[i])
 	}
 
-	pOut.isNTT = p.isNTT
+	pOut.IsNTT = p.IsNTT
 }
 
 // ScalarMulSubTo computes pOut -= p * c.
@@ -226,7 +226,7 @@ func (e *polyBaseEvaluator) ScalarMulSubTo(pOut, p *Poly, c Scalar) {
 		vec.ScalarMulSubTo(pOut.Coeffs[i], p.Coeffs[i], c[i], e.mod[i])
 	}
 
-	pOut.isNTT = p.isNTT
+	pOut.IsNTT = p.IsNTT
 }
 
 // AsBig returns p as *[big.Int] vector.

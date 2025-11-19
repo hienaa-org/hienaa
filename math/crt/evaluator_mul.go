@@ -117,7 +117,7 @@ func (e *noReducePolyMulEvaluator) MulTo(pOut, p0, p1 *Poly) {
 	switch {
 	case !isTernaryToOperable(e.rank, len(e.mod), pOut, p0, p1):
 		panic("MulTo: inputs not consistent")
-	case !p0.isNTT || !p1.isNTT:
+	case !p0.IsNTT || !p1.IsNTT:
 		panic("MulTo: not in NTT form")
 	}
 
@@ -135,7 +135,7 @@ func (e *noReducePolyMulEvaluator) MulTo(pOut, p0, p1 *Poly) {
 		}
 	}
 
-	pOut.isNTT = true
+	pOut.IsNTT = true
 }
 
 // MulAddTo computes pOut += p0 * p1.
@@ -144,7 +144,7 @@ func (e *noReducePolyMulEvaluator) MulAddTo(pOut, p0, p1 *Poly) {
 	switch {
 	case !isTernaryToOperable(e.rank, len(e.mod), pOut, p0, p1):
 		panic("MulTo: inputs not consistent")
-	case !pOut.isNTT || !p0.isNTT || !p1.isNTT:
+	case !pOut.IsNTT || !p0.IsNTT || !p1.IsNTT:
 		panic("MulTo: not in NTT form")
 	}
 
@@ -163,7 +163,7 @@ func (e *noReducePolyMulEvaluator) MulAddTo(pOut, p0, p1 *Poly) {
 		}
 	}
 
-	pOut.isNTT = true
+	pOut.IsNTT = true
 }
 
 // MulSubTo computes pOut -= p0 * p1.
@@ -172,7 +172,7 @@ func (e *noReducePolyMulEvaluator) MulSubTo(pOut, p0, p1 *Poly) {
 	switch {
 	case !isTernaryToOperable(e.rank, len(e.mod), pOut, p0, p1):
 		panic("MulTo: inputs not consistent")
-	case !pOut.isNTT || !p0.isNTT || !p1.isNTT:
+	case !pOut.IsNTT || !p0.IsNTT || !p1.IsNTT:
 		panic("MulTo: not in NTT form")
 	}
 
@@ -191,7 +191,7 @@ func (e *noReducePolyMulEvaluator) MulSubTo(pOut, p0, p1 *Poly) {
 		}
 	}
 
-	pOut.isNTT = true
+	pOut.IsNTT = true
 }
 
 func (e *noReducePolyMulEvaluator) subEvaluator(idx ...int) noReducePolyMulEvaluator {
@@ -324,7 +324,7 @@ func (e *anyCyclotomicPolyMulEvaluator) MulTo(pOut, p0, p1 *Poly) {
 	switch {
 	case !isTernaryToOperable(e.params.Rank(), len(e.mod), pOut, p0, p1):
 		panic("MulTo: inputs not consistent")
-	case !p0.isNTT || !p1.isNTT:
+	case !p0.IsNTT || !p1.IsNTT:
 		panic("MulTo: not in NTT form")
 	}
 
@@ -350,7 +350,7 @@ func (e *anyCyclotomicPolyMulEvaluator) MulTo(pOut, p0, p1 *Poly) {
 		}
 	}
 
-	pOut.isNTT = true
+	pOut.IsNTT = true
 }
 
 // MulAddTo computes pOut += p0 * p1.
@@ -359,7 +359,7 @@ func (e *anyCyclotomicPolyMulEvaluator) MulAddTo(pOut, p0, p1 *Poly) {
 	switch {
 	case !isTernaryToOperable(e.params.Rank(), len(e.mod), pOut, p0, p1):
 		panic("MulTo: inputs not consistent")
-	case !pOut.isNTT || !p0.isNTT || !p1.isNTT:
+	case !pOut.IsNTT || !p0.IsNTT || !p1.IsNTT:
 		panic("MulTo: not in NTT form")
 	}
 
@@ -386,7 +386,7 @@ func (e *anyCyclotomicPolyMulEvaluator) MulAddTo(pOut, p0, p1 *Poly) {
 		}
 	}
 
-	pOut.isNTT = true
+	pOut.IsNTT = true
 }
 
 // MulSubTo computes pOut -= p0 * p1.
@@ -395,7 +395,7 @@ func (e *anyCyclotomicPolyMulEvaluator) MulSubTo(pOut, p0, p1 *Poly) {
 	switch {
 	case !isTernaryToOperable(e.params.Rank(), len(e.mod), pOut, p0, p1):
 		panic("MulTo: inputs not consistent")
-	case !pOut.isNTT || !p0.isNTT || !p1.isNTT:
+	case !pOut.IsNTT || !p0.IsNTT || !p1.IsNTT:
 		panic("MulTo: not in NTT form")
 	}
 
@@ -422,7 +422,7 @@ func (e *anyCyclotomicPolyMulEvaluator) MulSubTo(pOut, p0, p1 *Poly) {
 		}
 	}
 
-	pOut.isNTT = true
+	pOut.IsNTT = true
 }
 
 func (e *anyCyclotomicPolyMulEvaluator) subEvaluator(idx ...int) anyCyclotomicPolyMulEvaluator {
@@ -566,7 +566,7 @@ func (e *reducePolyMulEvaluator) MulTo(pOut, p0, p1 *Poly) {
 	switch {
 	case !isTernaryToOperable(e.rank, len(e.mod), pOut, p0, p1):
 		panic("MulTo: inputs not consistent")
-	case !p0.isNTT || !p1.isNTT:
+	case !p0.IsNTT || !p1.IsNTT:
 		panic("MulTo: not in NTT form")
 	}
 
@@ -601,7 +601,7 @@ func (e *reducePolyMulEvaluator) MulTo(pOut, p0, p1 *Poly) {
 		}
 	}
 
-	pOut.isNTT = true
+	pOut.IsNTT = true
 }
 
 // MulAddTo computes pOut += p0 * p1.
@@ -610,7 +610,7 @@ func (e *reducePolyMulEvaluator) MulAddTo(pOut, p0, p1 *Poly) {
 	switch {
 	case !isTernaryToOperable(e.rank, len(e.mod), pOut, p0, p1):
 		panic("MulAddTo: inputs not consistent")
-	case !pOut.isNTT || !p0.isNTT || !p1.isNTT:
+	case !pOut.IsNTT || !p0.IsNTT || !p1.IsNTT:
 		panic("MulAddTo: not in NTT form")
 	}
 
@@ -647,7 +647,7 @@ func (e *reducePolyMulEvaluator) MulAddTo(pOut, p0, p1 *Poly) {
 		}
 	}
 
-	pOut.isNTT = true
+	pOut.IsNTT = true
 }
 
 // MulSubTo computes pOut -= p0 * p1.
@@ -656,7 +656,7 @@ func (e *reducePolyMulEvaluator) MulSubTo(pOut, p0, p1 *Poly) {
 	switch {
 	case !isTernaryToOperable(e.rank, len(e.mod), pOut, p0, p1):
 		panic("MulSubTo: inputs not consistent")
-	case !pOut.isNTT || !p0.isNTT || !p1.isNTT:
+	case !pOut.IsNTT || !p0.IsNTT || !p1.IsNTT:
 		panic("MulSubTo: not in NTT form")
 	}
 
@@ -693,7 +693,7 @@ func (e *reducePolyMulEvaluator) MulSubTo(pOut, p0, p1 *Poly) {
 		}
 	}
 
-	pOut.isNTT = true
+	pOut.IsNTT = true
 }
 
 func (e *reducePolyMulEvaluator) subEvaluator(idx ...int) reducePolyMulEvaluator {

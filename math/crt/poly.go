@@ -13,8 +13,8 @@ type Poly struct {
 	// and the length of the first subslice is considered the rank of the polynomial.
 	Coeffs [][]uint64
 
-	// isNTT indicates whether the polynomial is in NTT form.
-	isNTT bool
+	// IsNTT indicates whether the polynomial is in NTT form.
+	IsNTT bool
 }
 
 // NewPoly creates a new [Poly] in Standard form.
@@ -36,7 +36,7 @@ func NewPolyCustom(rank, modLen int, isNTT bool) *Poly {
 
 	return &Poly{
 		Coeffs: coeffs,
-		isNTT:  isNTT,
+		IsNTT:  isNTT,
 	}
 }
 
@@ -51,11 +51,6 @@ func (p *Poly) Rank() int {
 // ModLen returns the number of RNS moduli of p.
 func (p *Poly) ModLen() int {
 	return len(p.Coeffs)
-}
-
-// IsNTT returns if p is in NTT form.
-func (p *Poly) IsNTT() bool {
-	return p.isNTT
 }
 
 // Clear clears p.
@@ -78,7 +73,7 @@ func (p *Poly) SetCoeff(i int, c Scalar) {
 
 // Copy returns a copy of p.
 func (p *Poly) Copy() *Poly {
-	pOut := NewPolyCustom(p.Rank(), p.ModLen(), p.isNTT)
+	pOut := NewPolyCustom(p.Rank(), p.ModLen(), p.IsNTT)
 	for i := range p.Coeffs {
 		copy(pOut.Coeffs[i], p.Coeffs[i])
 	}
@@ -96,7 +91,7 @@ func (p *Poly) CopyFrom(pIn *Poly) {
 	for i := range p.Coeffs {
 		copy(p.Coeffs[i], pIn.Coeffs[i])
 	}
-	p.isNTT = pIn.isNTT
+	p.IsNTT = pIn.IsNTT
 }
 
 // IsEqual checks if p is equal to p0.

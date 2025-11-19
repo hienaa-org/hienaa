@@ -54,14 +54,14 @@ func (e *defaultPolyScalarAddSubEvaluator) ScalarAddTo(pOut, p *Poly, c Scalar) 
 	}
 
 	for i := range e.mod {
-		if p.isNTT && e.isNTTFriendly[i] {
+		if p.IsNTT && e.isNTTFriendly[i] {
 			vec.ScalarAddTo(pOut.Coeffs[i], p.Coeffs[i], num.MForm(c[i], e.mod[i]), e.mod[i])
 		} else {
 			pOut.Coeffs[i][0] = num.Add(p.Coeffs[i][0], c[i], e.mod[i])
 		}
 	}
 
-	pOut.isNTT = p.isNTT
+	pOut.IsNTT = p.IsNTT
 }
 
 // ScalarSub returns p - c.
@@ -78,14 +78,14 @@ func (e *defaultPolyScalarAddSubEvaluator) ScalarSubTo(pOut, p *Poly, c Scalar) 
 	}
 
 	for i := range e.mod {
-		if p.isNTT && e.isNTTFriendly[i] {
+		if p.IsNTT && e.isNTTFriendly[i] {
 			vec.ScalarSubTo(pOut.Coeffs[i], p.Coeffs[i], num.MForm(c[i], e.mod[i]), e.mod[i])
 		} else {
 			pOut.Coeffs[i][0] = num.Sub(p.Coeffs[i][0], c[i], e.mod[i])
 		}
 	}
 
-	pOut.isNTT = p.isNTT
+	pOut.IsNTT = p.IsNTT
 }
 
 func (e *defaultPolyScalarAddSubEvaluator) subEvaluator(idx ...int) defaultPolyScalarAddSubEvaluator {
@@ -138,14 +138,14 @@ func (e *primeAutFixedPolyScalarAddSubEvaluator) ScalarAddTo(pOut, p *Poly, c Sc
 	}
 
 	for i := range e.mod {
-		if p.isNTT && e.isNTTFriendly[i] {
+		if p.IsNTT && e.isNTTFriendly[i] {
 			vec.ScalarAddTo(pOut.Coeffs[i], p.Coeffs[i], num.MForm(c[i], e.mod[i]), e.mod[i])
 		} else {
 			vec.ScalarSubTo(pOut.Coeffs[i], p.Coeffs[i], c[i], e.mod[i])
 		}
 	}
 
-	pOut.isNTT = p.isNTT
+	pOut.IsNTT = p.IsNTT
 }
 
 // ScalarSub returns p - c.
@@ -162,14 +162,14 @@ func (e *primeAutFixedPolyScalarAddSubEvaluator) ScalarSubTo(pOut, p *Poly, c Sc
 	}
 
 	for i := range e.mod {
-		if p.isNTT && e.isNTTFriendly[i] {
+		if p.IsNTT && e.isNTTFriendly[i] {
 			vec.ScalarSubTo(pOut.Coeffs[i], p.Coeffs[i], num.MForm(c[i], e.mod[i]), e.mod[i])
 		} else {
 			vec.ScalarAddTo(pOut.Coeffs[i], p.Coeffs[i], c[i], e.mod[i])
 		}
 	}
 
-	pOut.isNTT = p.isNTT
+	pOut.IsNTT = p.IsNTT
 }
 
 func (e *primeAutFixedPolyScalarAddSubEvaluator) subEvaluator(idx ...int) primeAutFixedPolyScalarAddSubEvaluator {
