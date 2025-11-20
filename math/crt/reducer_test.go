@@ -38,8 +38,8 @@ func randPoly(rank int, q []*num.Modulus) *crt.Poly {
 func TestReducer(t *testing.T) {
 	t.Run("type=Cyclotomic", func(t *testing.T) {
 		sqrtN := int(math.Sqrt(math.Exp2(10)))
-		m0 := num.NextPrime(sqrtN, 1)
-		m1 := num.NextPrime(m0, 2)
+		m0 := num.MustNextPrime(sqrtN, 1)
+		m1 := num.MustNextPrime(m0, 2)
 		M := m0 * m1
 		rP := dft.NewCyclotomicParameters(M)
 		N := rP.Rank()
@@ -48,8 +48,8 @@ func TestReducer(t *testing.T) {
 		diffDegNext := num.NextProdPower(2*(M-N)-1, []int{2})
 		ambParams := dft.NewCyclicParameters(max(degNext, diffDegNext))
 
-		q := dft.FindPrevNTTPrimes(ambParams, 40, 1)
-		q = append(q, num.NewModulus(num.NextPrime(q[0].Value(), 2)))
+		q := dft.MustFindPrevNTTPrimes(ambParams, 40, 1)
+		q = append(q, num.NewModulus(num.MustNextPrime(q[0].Value(), 2)))
 
 		cycloReducer := crt.NewCyclotomicReducer(rP, q)
 		longDivReducer := crt.NewLongDivReducer(M, q, dft.CyclotomicPolynomial(M))
@@ -69,8 +69,8 @@ func TestReducer(t *testing.T) {
 		diffDegNext := num.NextProdPower(2*(maxRank-N)-1, []int{2})
 		ambParams := dft.NewCyclicParameters(max(degNext, diffDegNext))
 
-		q := dft.FindPrevNTTPrimes(ambParams, 40, 1)
-		q = append(q, num.NewModulus(num.NextPrime(q[0].Value(), 2)))
+		q := dft.MustFindPrevNTTPrimes(ambParams, 40, 1)
+		q = append(q, num.NewModulus(num.MustNextPrime(q[0].Value(), 2)))
 
 		modPoly := randTernaryPoly(N + 1)
 		reducer := crt.NewReducer(maxRank, q, modPoly)
@@ -89,8 +89,8 @@ func BenchmarkReducer(b *testing.B) {
 		for _, logN := range reducerBenchLogN {
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 				sqrtN := int(math.Sqrt(math.Exp2(float64(logN))))
-				m0 := num.NextPrime(sqrtN, 1)
-				m1 := num.NextPrime(m0, 2)
+				m0 := num.MustNextPrime(sqrtN, 1)
+				m1 := num.MustNextPrime(m0, 2)
 				M := m0 * m1
 				rP := dft.NewCyclotomicParameters(M)
 				N := rP.Rank()
@@ -100,7 +100,7 @@ func BenchmarkReducer(b *testing.B) {
 				ambParams := dft.NewCyclicParameters(max(degNext, diffDegNext))
 
 				b.Run("Mod=NTT", func(b *testing.B) {
-					q := dft.FindPrevNTTPrimes(ambParams, num.MaxModulusBits, 1)
+					q := dft.MustFindPrevNTTPrimes(ambParams, num.MaxModulusBits, 1)
 
 					reducer := crt.NewCyclotomicReducer(rP, q)
 
@@ -143,7 +143,7 @@ func BenchmarkReducer(b *testing.B) {
 				ambParams := dft.NewCyclicParameters(max(degNext, diffDegNext))
 
 				b.Run("Mod=NTT", func(b *testing.B) {
-					q := dft.FindPrevNTTPrimes(ambParams, num.MaxModulusBits, 1)
+					q := dft.MustFindPrevNTTPrimes(ambParams, num.MaxModulusBits, 1)
 
 					reducer := crt.NewReducer(maxRank, q, modPoly)
 

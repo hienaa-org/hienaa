@@ -309,7 +309,7 @@ func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *Cyclot
 			ambModLen[i] = int(math.Ceil(maxBits / num.MaxModulusBits))
 		}
 
-		ambMod = dft.FindPrevNTTPrimes(params, num.MaxModulusBits, vec.Max(ambModLen))
+		ambMod = dft.MustFindPrevNTTPrimes(params, num.MaxModulusBits, vec.Max(ambModLen))
 		diffDegNextAmbNTT = make([]dft.Transformer, len(ambMod))
 		degNextAmbNTT = make([]dft.Transformer, len(ambMod))
 		for i := range ambMod {
@@ -738,7 +738,7 @@ func NewReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *Reducer {
 		ambModLen[i] = int(math.Ceil(maxBits / num.MaxModulusBits))
 	}
 
-	ambMod := dft.FindPrevNTTPrimes(ambParams, num.MaxModulusBits, vec.Max(ambModLen))
+	ambMod := dft.MustFindPrevNTTPrimes(ambParams, num.MaxModulusBits, vec.Max(ambModLen))
 	diffDegNextAmbNTT := make([]dft.Transformer, len(ambMod))
 	degNextAmbNTT := make([]dft.Transformer, len(ambMod))
 	for i := range ambMod {

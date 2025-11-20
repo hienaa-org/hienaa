@@ -74,7 +74,7 @@ func TestCyclotomicNTT(t *testing.T) {
 		N := 1 << 10
 		rP := dft.NewCyclotomicParameters(2 * N)
 
-		qs := dft.FindNearestNTTPrimes(rP, 30, 2)
+		qs := dft.MustFindNearestNTTPrimes(rP, 30, 2)
 		q := num.NewModulus(qs[0].Value() * qs[1].Value())
 
 		ntt := dft.NewTransformer(rP, q)
@@ -97,13 +97,13 @@ func TestCyclotomicNTT(t *testing.T) {
 
 	t.Run("type=Any", func(t *testing.T) {
 		sqrtN := int(math.Sqrt(math.Exp2(10)))
-		m0 := num.NextPrime(sqrtN, 1)
-		m1 := num.NextPrime(m0, 2)
+		m0 := num.MustNextPrime(sqrtN, 1)
+		m1 := num.MustNextPrime(m0, 2)
 		M := m0 * m1
 		rP := dft.NewCyclotomicParameters(M)
 		N := rP.Rank()
 
-		qs := dft.FindNearestNTTPrimes(rP, 30, 2)
+		qs := dft.MustFindNearestNTTPrimes(rP, 30, 2)
 		q := num.NewModulus(qs[0].Value() * qs[1].Value())
 
 		ntt := dft.NewTransformer(rP, q)
@@ -136,7 +136,7 @@ func TestCyclicNTT(t *testing.T) {
 		N := num.NextProdPower(int(rSrc.SampleN(1<<10)), []int{2, 3, 5})
 		rP := dft.NewCyclicParameters(N)
 
-		qs := dft.FindNearestNTTPrimes(rP, 30, 2)
+		qs := dft.MustFindNearestNTTPrimes(rP, 30, 2)
 		q := num.NewModulus(qs[0].Value() * qs[1].Value())
 
 		ntt := dft.NewTransformer(rP, q)
@@ -167,7 +167,7 @@ func TestCyclicNTT(t *testing.T) {
 		}
 		rP := dft.NewCyclicParameters(N)
 
-		qs := dft.FindNearestNTTPrimes(rP, 30, 2)
+		qs := dft.MustFindNearestNTTPrimes(rP, 30, 2)
 		q := num.NewModulus(qs[0].Value() * qs[1].Value())
 
 		ntt := dft.NewTransformer(rP, q)
@@ -194,7 +194,7 @@ func TestAutFixedNTT(t *testing.T) {
 		N := 1 << 10
 		rP := dft.NewAutFixedParameters(4*N, N)
 
-		qs := dft.FindNearestNTTPrimes(rP, 30, 2)
+		qs := dft.MustFindNearestNTTPrimes(rP, 30, 2)
 		q := num.NewModulus(qs[0].Value() * qs[1].Value())
 
 		ntt := dft.NewTransformer(rP, q)
@@ -228,7 +228,7 @@ func TestAutFixedNTT(t *testing.T) {
 	})
 
 	t.Run("type=Prime", func(t *testing.T) {
-		M := num.NextPrime(int(rSrc.SampleN(1<<10)), 1)
+		M := num.MustNextPrime(int(rSrc.SampleN(1<<10)), 1)
 		primes, exps := num.Factor(M - 1)
 		fold := 1
 		for i := range primes {
@@ -240,7 +240,7 @@ func TestAutFixedNTT(t *testing.T) {
 		N := (M - 1) / fold
 		rP := dft.NewAutFixedParameters(M, N)
 
-		qs := dft.FindNearestNTTPrimes(rP, 30, 2)
+		qs := dft.MustFindNearestNTTPrimes(rP, 30, 2)
 		q := num.NewModulus(qs[0].Value() * qs[1].Value())
 
 		ntt := dft.NewTransformer(rP, q)
@@ -294,7 +294,7 @@ func BenchmarkCyclotomicNTT(b *testing.B) {
 			N := 1 << logN
 			rP := dft.NewCyclotomicParameters(2 * N)
 
-			q := dft.FindPrevNTTPrimes(rP, num.MaxModulusBits, 1)[0]
+			q := dft.MustFindPrevNTTPrimes(rP, num.MaxModulusBits, 1)[0]
 
 			ntt := dft.NewTransformer(rP, q)
 
@@ -319,12 +319,12 @@ func BenchmarkCyclotomicNTT(b *testing.B) {
 	b.Run("type=Any", func(b *testing.B) {
 		for _, logN := range benchLogN {
 			sqrtN := int(math.Sqrt(math.Exp2(float64(logN))))
-			m0 := num.NextPrime(sqrtN, 1)
-			m1 := num.NextPrime(m0, 2)
+			m0 := num.MustNextPrime(sqrtN, 1)
+			m1 := num.MustNextPrime(m0, 2)
 			M := m0 * m1
 			rP := dft.NewCyclotomicParameters(M)
 
-			q := dft.FindPrevNTTPrimes(rP, num.MaxModulusBits, 1)[0]
+			q := dft.MustFindPrevNTTPrimes(rP, num.MaxModulusBits, 1)[0]
 
 			ntt := dft.NewTransformer(rP, q)
 
@@ -353,7 +353,7 @@ func BenchmarkCyclicNTT(b *testing.B) {
 			N := num.NextProdPower((1<<logN)+1, []int{2, 3, 5})
 			rP := dft.NewCyclicParameters(N)
 
-			q := dft.FindPrevNTTPrimes(rP, num.MaxModulusBits, 1)[0]
+			q := dft.MustFindPrevNTTPrimes(rP, num.MaxModulusBits, 1)[0]
 
 			ntt := dft.NewTransformer(rP, q)
 
@@ -380,7 +380,7 @@ func BenchmarkCyclicNTT(b *testing.B) {
 			N := (1 << logN) + 1
 			rP := dft.NewCyclicParameters(N)
 
-			q := dft.FindPrevNTTPrimes(rP, num.MaxModulusBits, 1)[0]
+			q := dft.MustFindPrevNTTPrimes(rP, num.MaxModulusBits, 1)[0]
 
 			ntt := dft.NewTransformer(rP, q)
 
@@ -409,7 +409,7 @@ func BenchmarkAutFixedNTT(b *testing.B) {
 			N := 1 << logN
 			rP := dft.NewAutFixedParameters(4*N, N)
 
-			q := dft.FindPrevNTTPrimes(rP, num.MaxModulusBits, 1)[0]
+			q := dft.MustFindPrevNTTPrimes(rP, num.MaxModulusBits, 1)[0]
 
 			ntt := dft.NewTransformer(rP, q)
 
@@ -434,10 +434,10 @@ func BenchmarkAutFixedNTT(b *testing.B) {
 	b.Run("type=Prime", func(b *testing.B) {
 		for _, logN := range benchLogN {
 			N := 1 << logN
-			M := num.NextPrime(1, N)
+			M := num.MustNextPrime(1, N)
 			rP := dft.NewAutFixedParameters(M, N)
 
-			q := dft.FindPrevNTTPrimes(rP, num.MaxModulusBits, 1)[0]
+			q := dft.MustFindPrevNTTPrimes(rP, num.MaxModulusBits, 1)[0]
 
 			ntt := dft.NewTransformer(rP, q)
 

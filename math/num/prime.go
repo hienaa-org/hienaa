@@ -1,6 +1,7 @@
 package num
 
 import (
+	"errors"
 	"math/bits"
 	"math/rand"
 	"slices"
@@ -53,38 +54,54 @@ func isPrimeUint64(x uint64) bool {
 	return true
 }
 
+func MustPrevPrime[T Integer](x T, skip T) T {
+	prime, err := PrevPrime(x, skip)
+	if err != nil {
+		panic(err)
+	}
+	return prime
+}
+
 // PrevPrime returns the previous prime number of x with skip.
 // If skip <= 0, or there is no prime number meets the condition, it panics.
-func PrevPrime[T Integer](x T, skip T) T {
+func PrevPrime[T Integer](x T, skip T) (T, error) {
 	if skip <= 0 {
-		panic("PrevPrime: skip must be positive")
+		return 0, errors.New("PrevPrime: skip must be positive")
 	}
 
 	for t := x - skip; ; t -= skip {
 		if uint64(t) > MaxModulus {
-			panic("PrevPrime: underflow")
+			return 0, errors.New("PrevPrime: underflow")
 		}
 
 		if IsPrime(t) {
-			return t
+			return t, nil
 		}
 	}
 }
 
+func MustNextPrime[T Integer](x T, skip T) T {
+	prime, err := NextPrime(x, skip)
+	if err != nil {
+		panic(err)
+	}
+	return prime
+}
+
 // NextPrime returns the next prime number of x with skip.
 // If skip <= 0, or there is no prime number meets the condition, it panics.
-func NextPrime[T Integer](x T, skip T) T {
+func NextPrime[T Integer](x T, skip T) (T, error) {
 	if skip <= 0 {
 		panic("NextPrime: skip must be positive")
 	}
 
 	for t := x + skip; ; t += skip {
 		if uint64(t) > MaxModulus {
-			panic("NextPrime: overflow")
+			return 0, errors.New("NextPrime: overflow")
 		}
 
 		if IsPrime(t) {
-			return t
+			return t, nil
 		}
 	}
 }

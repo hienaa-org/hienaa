@@ -5,7 +5,7 @@ import (
 	"math/bits"
 	"slices"
 
-	"github.com/hienaa-org/hienaa/fhe/pack/internal/gnum"
+	"github.com/hienaa-org/hienaa/fhe/internal/gnum"
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/gr"
@@ -79,24 +79,15 @@ func (p *autFixedPow2Mod1Packer) SafeCopy() PackerInt {
 }
 
 // Pack packs the input vector into a polynomial.
-func (p *autFixedPow2Mod1Packer) Pack(vIn []uint64) *crt.Poly {
-	pOut := crt.NewPoly(p.params.Rank(), 1)
-	p.PackTo(pOut, vIn)
-	return pOut
+func (p *autFixedPow2Mod1Packer) Pack(vIn []uint64) []uint64 {
+	vOut := make([]uint64, p.params.Rank())
+	p.PackTo(vOut, vIn)
+	return vOut
 }
 
 // PackTo packs the input vector into a polynomial.
-func (p *autFixedPow2Mod1Packer) PackTo(pOut *crt.Poly, vIn []uint64) {
+func (p *autFixedPow2Mod1Packer) PackTo(vOut []uint64, vIn []uint64) {
 	vLen := len(vIn)
-	if p.packLen%vLen != 0 {
-		panic("packTo: message length should divide the maximum packing length")
-	}
-	if pOut.Rank() != p.params.Rank() {
-		panic("packTo: output rank should match the parameters of the packer")
-	}
-	if pOut.ModLen() != 1 {
-		panic("packTo: output modulus length should be 1")
-	}
 
 	for i := 0; i < p.packLen/vLen; i++ {
 		copy(p.buf.coeffs[0][vLen*i:vLen*(i+1)], vIn)
@@ -123,37 +114,27 @@ func (p *autFixedPow2Mod1Packer) PackTo(pOut *crt.Poly, vIn []uint64) {
 	vec.MFormTo(p.buf.coeffs[0], p.buf.coeffs[1], p.mod)
 	p.ntt.InverseTo(p.buf.coeffs[0], p.buf.coeffs[0])
 
-	clear(pOut.Coeffs[0])
+	clear(vOut)
 	skip := p.params.Rank() / p.packLen
 	for i := 0; i < p.params.Rank()/skip; i++ {
-		pOut.Coeffs[0][i*skip] = p.buf.coeffs[0][i]
+		vOut[i*skip] = p.buf.coeffs[0][i]
 	}
 }
 
 // UnPack unpacks the polynomial into a vector.
-func (p *autFixedPow2Mod1Packer) UnPack(pIn *crt.Poly) []uint64 {
+func (p *autFixedPow2Mod1Packer) UnPack(vIn []uint64) []uint64 {
 	vOut := make([]uint64, p.packLen)
-	p.UnPackTo(vOut, pIn)
+	p.UnPackTo(vOut, vIn)
 	return vOut
 }
 
 // UnPackTo unpacks the polynomial into a vector.
-func (p *autFixedPow2Mod1Packer) UnPackTo(vOut []uint64, pIn *crt.Poly) {
+func (p *autFixedPow2Mod1Packer) UnPackTo(vOut []uint64, vIn []uint64) {
 	vLen := len(vOut)
-
-	if p.packLen%vLen != 0 {
-		panic("packTo: message length should divide the maximum packing length")
-	}
-	if pIn.Rank() != p.params.Rank() {
-		panic("packTo: input rank should match the parameters of the packer")
-	}
-	if pIn.ModLen() != 1 {
-		panic("packTo: input modulus length should be 1")
-	}
 
 	skip := p.params.Rank() / p.packLen
 	for i := 0; i < p.params.Rank()/skip; i++ {
-		p.buf.coeffs[0][i] = pIn.Coeffs[0][i*skip]
+		p.buf.coeffs[0][i] = vIn[i*skip]
 	}
 	p.ntt.ForwardTo(p.buf.coeffs[0], p.buf.coeffs[0])
 	vec.InvMFormTo(p.buf.coeffs[0], p.buf.coeffs[0], p.mod)
@@ -348,24 +329,15 @@ func (p *autFixedPow2Mod3Packer) SafeCopy() PackerInt {
 }
 
 // Pack packs the input vector into a polynomial.
-func (p *autFixedPow2Mod3Packer) Pack(vIn []uint64) *crt.Poly {
-	pOut := crt.NewPoly(p.params.Rank(), 1)
-	p.PackTo(pOut, vIn)
-	return pOut
+func (p *autFixedPow2Mod3Packer) Pack(vIn []uint64) []uint64 {
+	vOut := make([]uint64, p.params.Rank())
+	p.PackTo(vOut, vIn)
+	return vOut
 }
 
 // PackTo packs the input vector into a polynomial.
-func (p *autFixedPow2Mod3Packer) PackTo(pOut *crt.Poly, vIn []uint64) {
+func (p *autFixedPow2Mod3Packer) PackTo(vOut []uint64, vIn []uint64) {
 	vLen := len(vIn)
-	if p.packLen%vLen != 0 {
-		panic("packTo: message length should divide the maximum packing length")
-	}
-	if pOut.Rank() != p.params.Rank() {
-		panic("packTo: output rank should match the parameters of the packer")
-	}
-	if pOut.ModLen() != 1 {
-		panic("packTo: output modulus length should be 1")
-	}
 
 	for i := 0; i < p.packLen; i++ {
 		idx := p.packIdx[i]
@@ -383,42 +355,31 @@ func (p *autFixedPow2Mod3Packer) PackTo(pOut *crt.Poly, vIn []uint64) {
 
 	var u gnum.GaussianInt
 	skip := p.params.Rank() / p.nttRank
-	pOut.Coeffs[0][0] = num.Add(p.buf.coeffs[0].Real, p.buf.coeffs[0].Real, p.mod)
+	vOut[0] = num.Add(p.buf.coeffs[0].Real, p.buf.coeffs[0].Real, p.mod)
 	for i := 1; i < p.nttRank; i++ {
 		u = gnum.Mul(p.buf.coeffs[p.nttRank-i], p.tw[0], p.mod)
-		pOut.Coeffs[0][i*skip] = num.Add(p.buf.coeffs[i].Real, u.Real, p.mod)
+		vOut[i*skip] = num.Add(p.buf.coeffs[i].Real, u.Real, p.mod)
 	}
 
-	vec.ScalarMulTo(pOut.Coeffs[0], pOut.Coeffs[0], p.rankInv, p.mod)
+	vec.ScalarMulTo(vOut, vOut, p.rankInv, p.mod)
 }
 
-func (p *autFixedPow2Mod3Packer) UnPack(pIn *crt.Poly) []uint64 {
+func (p *autFixedPow2Mod3Packer) UnPack(vIn []uint64) []uint64 {
 	vOut := make([]uint64, p.packLen)
-	p.UnPackTo(vOut, pIn)
+	p.UnPackTo(vOut, vIn)
 	return vOut
 }
 
-func (p *autFixedPow2Mod3Packer) UnPackTo(vOut []uint64, pIn *crt.Poly) {
+func (p *autFixedPow2Mod3Packer) UnPackTo(vOut []uint64, vIn []uint64) {
 	vLen := len(vOut)
 
-	if p.packLen%vLen != 0 {
-		panic("packTo: message length should divide the maximum packing length")
-	}
-
-	if pIn.Rank() != p.params.Rank() {
-		panic("packTo: input rank should match the parameters of the packer")
-	}
-	if pIn.ModLen() != 1 {
-		panic("packTo: input modulus length should be 1")
-	}
-
 	skip := p.params.Rank() / p.nttRank
-	p.buf.coeffs[0].Real = pIn.Coeffs[0][0]
+	p.buf.coeffs[0].Real = vIn[0]
 	p.buf.coeffs[0].Imag = 0
 	for i := 1; i < p.nttRank; i++ {
-		real := num.Mul(p.tw[0].Real, pIn.Coeffs[0][(p.nttRank-i)*skip], p.mod)
-		imag := num.Mul(p.tw[0].Imag, pIn.Coeffs[0][(p.nttRank-i)*skip], p.mod)
-		p.buf.coeffs[i].Real = num.Sub(pIn.Coeffs[0][i*skip], real, p.mod)
+		real := num.Mul(p.tw[0].Real, vIn[(p.nttRank-i)*skip], p.mod)
+		imag := num.Mul(p.tw[0].Imag, vIn[(p.nttRank-i)*skip], p.mod)
+		p.buf.coeffs[i].Real = num.Sub(vIn[i*skip], real, p.mod)
 		p.buf.coeffs[i].Imag = num.Neg(imag, p.mod)
 	}
 
@@ -500,7 +461,7 @@ func newAutFixedPrimePacker(params dft.RingParameters, mod *num.Modulus) *autFix
 	ambParams := dft.NewCyclicParameters(ambRank)
 	maxBits := 2*num.Log2(mod.Value()) + num.Log2(ambRank) + 1
 	ambModLen := int(math.Ceil(maxBits / num.MaxModulusBits))
-	ambMod := dft.FindPrevNTTPrimes(ambParams, num.MaxModulusBits, ambModLen)
+	ambMod := dft.MustFindPrevNTTPrimes(ambParams, num.MaxModulusBits, ambModLen)
 	ambNTT := make([]dft.Transformer, len(ambMod))
 	for i := range ambMod {
 		ambNTT[i] = dft.NewTransformer(ambParams, ambMod[i])
@@ -680,25 +641,15 @@ func (p *autFixedPrimePacker) SafeCopy() PackerInt {
 }
 
 // Pack packs the input vector into a polynomial.
-func (p *autFixedPrimePacker) Pack(vIn []uint64) *crt.Poly {
-	pOut := crt.NewPoly(p.params.Rank(), 1)
-	p.PackTo(pOut, vIn)
-	return pOut
+func (p *autFixedPrimePacker) Pack(vIn []uint64) []uint64 {
+	vOut := make([]uint64, p.params.Rank())
+	p.PackTo(vOut, vIn)
+	return vOut
 }
 
 // PackTo packs the input vector into a polynomial.
-func (p *autFixedPrimePacker) PackTo(pOut *crt.Poly, vIn []uint64) {
+func (p *autFixedPrimePacker) PackTo(vOut []uint64, vIn []uint64) {
 	vLen := len(vIn)
-
-	if p.packLen%vLen != 0 {
-		panic("packTo: message length should divide the maximum packing length")
-	}
-	if pOut.Rank() != p.params.Rank() {
-		panic("packTo: output rank should match the parameters of the packer")
-	}
-	if pOut.ModLen() != 1 {
-		panic("packTo: output modulus length should be 1")
-	}
 
 	for i := 0; i < p.ambModLen; i++ {
 		for j := 0; j < p.packLen/vLen; j++ {
@@ -719,34 +670,24 @@ func (p *autFixedPrimePacker) PackTo(pOut *crt.Poly, vIn []uint64) {
 	}
 
 	for i := 0; i < p.params.Rank()/p.packLen; i++ {
-		copy(pOut.Coeffs[0][i*p.packLen:(i+1)*p.packLen], p.buf.coeffs[0][:p.packLen])
+		copy(vOut[i*p.packLen:(i+1)*p.packLen], p.buf.coeffs[0][:p.packLen])
 	}
 }
 
 // UnPack unpacks the polynomial into a vector.
-func (p *autFixedPrimePacker) UnPack(pIn *crt.Poly) []uint64 {
+func (p *autFixedPrimePacker) UnPack(vIn []uint64) []uint64 {
 	vOut := make([]uint64, p.packLen)
-	p.UnPackTo(vOut, pIn)
+	p.UnPackTo(vOut, vIn)
 	return vOut
 }
 
 // UnPackTo unpacks the polynomial into a vector.
-func (p *autFixedPrimePacker) UnPackTo(vOut []uint64, pIn *crt.Poly) {
+func (p *autFixedPrimePacker) UnPackTo(vOut []uint64, vIn []uint64) {
 	vLen := len(vOut)
 
-	if p.packLen%vLen != 0 {
-		panic("packTo: message length should divide the maximum packing length")
-	}
-	if pIn.Rank() != p.params.Rank() {
-		panic("packTo: input rank should match the parameters of the packer")
-	}
-	if pIn.ModLen() != 1 {
-		panic("packTo: input modulus length should be 1")
-	}
-
 	for i := 0; i < p.ambModLen; i++ {
-		p.buf.coeffs[i][0] = pIn.Coeffs[0][0]
-		copy(p.buf.coeffs[i][1:p.packLen], pIn.Coeffs[0][1:p.packLen])
+		p.buf.coeffs[i][0] = vIn[0]
+		copy(p.buf.coeffs[i][1:p.packLen], vIn[1:p.packLen])
 		slices.Reverse(p.buf.coeffs[i][1:p.packLen])
 		clear(p.buf.coeffs[i][p.packLen:])
 

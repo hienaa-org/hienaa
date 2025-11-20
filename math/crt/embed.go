@@ -170,7 +170,7 @@ func (e *Embedder) EmbedTo(pOut, p *Poly) {
 	if p.IsNTT || pOut.IsNTT {
 		panic("EmbedTo: cannot embed NTT polynomials")
 	}
-	e.EmbedVecTo(p.Coeffs, pOut.Coeffs)
+	e.EmbedVecTo(pOut.Coeffs, p.Coeffs)
 }
 
 // EmbedVec returns the embedding of v to the output modulus.

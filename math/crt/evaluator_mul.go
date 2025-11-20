@@ -76,7 +76,7 @@ func newNoReducePolyMulEvaluator(params dft.RingParameters, mod []*num.Modulus) 
 		ambModLen[i] = int(math.Ceil(maxBits / num.MaxModulusBits))
 	}
 
-	ambMod := dft.FindPrevNTTPrimes(params, num.MaxModulusBits, vec.Max(ambModLen))
+	ambMod := dft.MustFindPrevNTTPrimes(params, num.MaxModulusBits, vec.Max(ambModLen))
 	ambNTT := make([]dft.Transformer, len(ambMod))
 	for i := range ambNTT {
 		ambNTT[i] = dft.NewTransformer(params, ambMod[i])
@@ -281,7 +281,7 @@ func newAnyCyclotomicPolyMulEvaluator(params dft.RingParameters, mod []*num.Modu
 	}
 
 	ambParams := dft.NewCyclicParameters(params.CycloOrder())
-	ambMod := dft.FindPrevNTTPrimes(ambParams, num.MaxModulusBits, vec.Max(ambModLen))
+	ambMod := dft.MustFindPrevNTTPrimes(ambParams, num.MaxModulusBits, vec.Max(ambModLen))
 	ambNTT := make([]dft.Transformer, len(ambMod))
 	for i := range ambMod {
 		ambNTT[i] = dft.NewTransformer(ambParams, ambMod[i])
@@ -520,7 +520,7 @@ func newReducePolyMulEvaluator(mod []*num.Modulus, modPoly []int64, reducer *Red
 		ambModLen[i] = int(math.Ceil(maxBits / num.MaxModulusBits))
 	}
 
-	ambMod := dft.FindPrevNTTPrimes(ambParams, num.MaxModulusBits, vec.Max(ambModLen))
+	ambMod := dft.MustFindPrevNTTPrimes(ambParams, num.MaxModulusBits, vec.Max(ambModLen))
 	ambNTT := make([]dft.Transformer, len(ambMod))
 	for i := range ambMod {
 		ambNTT[i] = dft.NewTransformer(ambParams, ambMod[i])

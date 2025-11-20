@@ -3,8 +3,7 @@ package pack
 import (
 	"math/bits"
 
-	"github.com/hienaa-org/hienaa/fhe/pack/internal/gnum"
-	"github.com/hienaa-org/hienaa/math/crt"
+	"github.com/hienaa-org/hienaa/fhe/internal/gnum"
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
@@ -77,27 +76,15 @@ func (p *cyclotomicPow2Mod1Packer) SafeCopy() PackerInt {
 }
 
 // Pack packs the input vector into a polynomial.
-func (p *cyclotomicPow2Mod1Packer) Pack(vIn []uint64) *crt.Poly {
-	pOut := crt.NewPoly(p.params.Rank(), 1)
-	p.PackTo(pOut, vIn)
-	return pOut
+func (p *cyclotomicPow2Mod1Packer) Pack(vIn []uint64) []uint64 {
+	vOut := make([]uint64, p.params.Rank())
+	p.PackTo(vOut, vIn)
+	return vOut
 }
 
 // PackTo packs the input vector into a polynomial.
-func (p *cyclotomicPow2Mod1Packer) PackTo(pOut *crt.Poly, vIn []uint64) {
-	// The hypercube structure is a two-dimensional matrix. Should we take a matrix as input?
-	// There can be two sparse packing strategy: fixing the conjugate automorphism, or not. Can the users choose whatever they want?
-
+func (p *cyclotomicPow2Mod1Packer) PackTo(vOut []uint64, vIn []uint64) {
 	vLen := len(vIn)
-	if p.packLen%vLen != 0 {
-		panic("packTo: message length should divide the maximum packing length")
-	}
-	if pOut.Rank() != p.params.Rank() {
-		panic("packTo: output rank should match the parameters of the packer")
-	}
-	if pOut.ModLen() != 1 {
-		panic("packTo: output modulus length should be 1")
-	}
 
 	for i := 0; i < p.packLen/vLen; i++ {
 		copy(p.buf.coeffs[0][vLen*i:vLen*(i+1)], vIn)
@@ -116,37 +103,27 @@ func (p *cyclotomicPow2Mod1Packer) PackTo(pOut *crt.Poly, vIn []uint64) {
 	vec.MFormTo(p.buf.coeffs[0], p.buf.coeffs[0], p.mod)
 	p.ntt.InverseTo(p.buf.coeffs[0], p.buf.coeffs[0])
 
-	clear(pOut.Coeffs[0])
+	clear(vOut)
 	skip := p.params.Rank() / p.packLen
 	for i := 0; i < p.params.Rank()/skip; i++ {
-		pOut.Coeffs[0][i*skip] = p.buf.coeffs[0][i]
+		vOut[i*skip] = p.buf.coeffs[0][i]
 	}
 }
 
 // UnPack unpacks the polynomial into a vector.
-func (p *cyclotomicPow2Mod1Packer) UnPack(pIn *crt.Poly) []uint64 {
+func (p *cyclotomicPow2Mod1Packer) UnPack(vIn []uint64) []uint64 {
 	vOut := make([]uint64, p.packLen)
-	p.UnPackTo(vOut, pIn)
+	p.UnPackTo(vOut, vIn)
 	return vOut
 }
 
 // UnPackTo unpacks the polynomial into a vector.
-func (p *cyclotomicPow2Mod1Packer) UnPackTo(vOut []uint64, pIn *crt.Poly) {
+func (p *cyclotomicPow2Mod1Packer) UnPackTo(vOut []uint64, vIn []uint64) {
 	vLen := len(vOut)
-
-	if p.packLen%vLen != 0 {
-		panic("packTo: message length should divide the maximum packing length")
-	}
-	if pIn.Rank() != p.params.Rank() {
-		panic("packTo: input rank should match the parameters of the packer")
-	}
-	if pIn.ModLen() != 1 {
-		panic("packTo: input modulus length should be 1")
-	}
 
 	skip := p.params.Rank() / p.packLen
 	for i := 0; i < p.params.Rank()/skip; i++ {
-		p.buf.coeffs[0][i] = pIn.Coeffs[0][i*skip]
+		p.buf.coeffs[0][i] = vIn[i*skip]
 	}
 	p.ntt.ForwardTo(p.buf.coeffs[0], p.buf.coeffs[0])
 	vec.InvMFormTo(p.buf.coeffs[0], p.buf.coeffs[0], p.mod)
@@ -267,25 +244,15 @@ func (p *cyclotomicPow2Mod3Packer) SafeCopy() PackerInt {
 }
 
 // Pack packs the input vector into a polynomial.
-func (p *cyclotomicPow2Mod3Packer) Pack(vIn []uint64) *crt.Poly {
-	pOut := crt.NewPoly(p.params.Rank(), 1)
-	p.PackTo(pOut, vIn)
-	return pOut
+func (p *cyclotomicPow2Mod3Packer) Pack(vIn []uint64) []uint64 {
+	vOut := make([]uint64, p.params.Rank())
+	p.PackTo(vOut, vIn)
+	return vOut
 }
 
 // PackTo packs the input vector into a polynomial.
-func (p *cyclotomicPow2Mod3Packer) PackTo(pOut *crt.Poly, vIn []uint64) {
+func (p *cyclotomicPow2Mod3Packer) PackTo(vOut []uint64, vIn []uint64) {
 	vLen := len(vIn)
-
-	if p.packLen%vLen != 0 {
-		panic("packTo: message length should divide the maximum packing length")
-	}
-	if pOut.Rank() != p.params.Rank() {
-		panic("packTo: output rank should match the parameters of the packer")
-	}
-	if pOut.ModLen() != 1 {
-		panic("packTo: output modulus length should be 1")
-	}
 
 	for i := 0; i < p.packLen; i++ {
 		idx1 := p.packIdx[i]
@@ -301,31 +268,25 @@ func (p *cyclotomicPow2Mod3Packer) PackTo(pOut *crt.Poly, vIn []uint64) {
 	bitReverseInPlace(p.buf.coeffs)
 	invNTTGaloisRingInPlacePow2(p.buf.coeffs, p.twInv, p.mod)
 
-	clear(pOut.Coeffs[0])
+	clear(vOut)
 	skip := p.params.Rank() / (p.packLen << 1)
 	for i := range p.buf.coeffs {
-		pOut.Coeffs[0][i*skip] = num.Mul(p.buf.coeffs[i].Real, p.rankInv, p.mod)
+		vOut[i*skip] = num.Mul(p.buf.coeffs[i].Real, p.rankInv, p.mod)
 	}
 }
 
 // UnPack unpacks the polynomial into a vector.
-func (p *cyclotomicPow2Mod3Packer) UnPack(pIn *crt.Poly) []uint64 {
+func (p *cyclotomicPow2Mod3Packer) UnPack(vIn []uint64) []uint64 {
 	vOut := make([]uint64, p.packLen)
-	p.UnPackTo(vOut, pIn)
+	p.UnPackTo(vOut, vIn)
 	return vOut
 }
 
 // UnPackTo unpacks the polynomial into a vector.
-func (p *cyclotomicPow2Mod3Packer) UnPackTo(vOut []uint64, pIn *crt.Poly) {
-	vLen := len(vOut)
-
-	if p.packLen%vLen != 0 {
-		panic("packTo: message length should divide the maximum packing length")
-	}
-
+func (p *cyclotomicPow2Mod3Packer) UnPackTo(vOut []uint64, vIn []uint64) {
 	skip := p.params.Rank() / (p.packLen << 1)
 	for i := range p.buf.coeffs {
-		p.buf.coeffs[i].Real = pIn.Coeffs[0][i*skip]
+		p.buf.coeffs[i].Real = vIn[i*skip]
 		p.buf.coeffs[i].Imag = 0
 	}
 
@@ -391,51 +352,27 @@ func (p *cyclotomicAnyNTTPacker) SafeCopy() PackerInt {
 }
 
 // Pack packs the input vector into a polynomial.
-func (p *cyclotomicAnyNTTPacker) Pack(vIn []uint64) *crt.Poly {
-	pOut := crt.NewPoly(p.params.Rank(), 1)
-	p.PackTo(pOut, vIn)
-	return pOut
+func (p *cyclotomicAnyNTTPacker) Pack(vIn []uint64) []uint64 {
+	vOut := make([]uint64, p.params.Rank())
+	p.PackTo(vOut, vIn)
+	return vOut
 }
 
 // PackTo packs the input vector into a polynomial.
-func (p *cyclotomicAnyNTTPacker) PackTo(pOut *crt.Poly, vIn []uint64) {
-	vLen := len(vIn)
-
-	if p.packLen != vLen {
-		panic("packTo: message length should match the packing length")
-	}
-	if pOut.Rank() != p.params.Rank() {
-		panic("packTo: output rank should match the parameters of the packer")
-	}
-	if pOut.ModLen() != 1 {
-		panic("packTo: output modulus length should be 1")
-	}
-
-	vec.MFormTo(pOut.Coeffs[0], vIn, p.mod)
-	p.ntt.InverseTo(pOut.Coeffs[0], pOut.Coeffs[0])
+func (p *cyclotomicAnyNTTPacker) PackTo(vOut []uint64, vIn []uint64) {
+	vec.MFormTo(vOut, vIn, p.mod)
+	p.ntt.InverseTo(vOut, vOut)
 }
 
 // UnPack unpacks the polynomial into a vector.
-func (p *cyclotomicAnyNTTPacker) UnPack(pIn *crt.Poly) []uint64 {
+func (p *cyclotomicAnyNTTPacker) UnPack(vIn []uint64) []uint64 {
 	vOut := make([]uint64, p.packLen)
-	p.UnPackTo(vOut, pIn)
+	p.UnPackTo(vOut, vIn)
 	return vOut
 }
 
 // UnPackTo unpacks the polynomial into a vector.
-func (p *cyclotomicAnyNTTPacker) UnPackTo(vOut []uint64, pIn *crt.Poly) {
-	vLen := len(vOut)
-
-	if p.packLen != vLen {
-		panic("packTo: message length should match the packing length")
-	}
-	if pIn.Rank() != p.params.Rank() {
-		panic("packTo: input rank should match the parameters of the packer")
-	}
-	if pIn.ModLen() != 1 {
-		panic("packTo: input modulus length should be 1")
-	}
-
-	p.ntt.ForwardTo(vOut, pIn.Coeffs[0])
+func (p *cyclotomicAnyNTTPacker) UnPackTo(vOut []uint64, vIn []uint64) {
+	p.ntt.ForwardTo(vOut, vIn)
 	vec.InvMFormTo(vOut, vOut, p.mod)
 }

@@ -129,13 +129,13 @@ func genModInOut(modInLen, modOutLen int) (modIn, modOut []*num.Modulus) {
 
 	modIn = make([]*num.Modulus, modInLen)
 	for i := range modIn {
-		p = num.NextPrime(p, 2)
+		p = num.MustNextPrime(p, 2)
 		modIn[i] = num.NewModulus(p)
 	}
 
 	modOut = make([]*num.Modulus, modOutLen)
 	for i := range modOut {
-		p = num.NextPrime(p, 2)
+		p = num.MustNextPrime(p, 2)
 		modOut[i] = num.NewModulus(p)
 	}
 

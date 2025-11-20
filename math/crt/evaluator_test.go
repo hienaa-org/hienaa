@@ -56,8 +56,8 @@ func TestCyclotomicEvaluator(t *testing.T) {
 		N := 1 << 10
 		rP := dft.NewCyclotomicParameters(N << 1)
 
-		q := dft.FindPrevNTTPrimes(rP, 40, 1)
-		q = append(q, num.NewModulus(num.NextPrime(q[0].Value(), 2)))
+		q := dft.MustFindPrevNTTPrimes(rP, 40, 1)
+		q = append(q, num.NewModulus(num.MustNextPrime(q[0].Value(), 2)))
 
 		pev := crt.NewPolyEvaluator(rP, q)
 
@@ -129,8 +129,8 @@ func TestCyclotomicEvaluator(t *testing.T) {
 		rP := dft.NewCyclotomicParameters(M)
 		N := rP.Rank()
 
-		q := dft.FindPrevNTTPrimes(rP, 40, 1)
-		q = append(q, num.NewModulus(num.NextPrime(q[0].Value(), 2)))
+		q := dft.MustFindPrevNTTPrimes(rP, 40, 1)
+		q = append(q, num.NewModulus(num.MustNextPrime(q[0].Value(), 2)))
 
 		cycloSigned := dft.CyclotomicPolynomial(rP.CycloOrder())
 
@@ -215,8 +215,8 @@ func TestCyclicEvaluator(t *testing.T) {
 		N := num.NextProdPower(int(rSrc.SampleN(1<<10)), []int{2, 3, 5})
 		rP := dft.NewCyclicParameters(N)
 
-		q := dft.FindPrevNTTPrimes(rP, 40, 1)
-		q = append(q, num.NewModulus(num.NextPrime(q[0].Value(), 2)))
+		q := dft.MustFindPrevNTTPrimes(rP, 40, 1)
+		q = append(q, num.NewModulus(num.MustNextPrime(q[0].Value(), 2)))
 
 		pev := crt.NewPolyEvaluator(rP, q)
 
@@ -281,8 +281,8 @@ func TestCyclicEvaluator(t *testing.T) {
 		}
 		rP := dft.NewCyclicParameters(N)
 
-		q := dft.FindPrevNTTPrimes(rP, 40, 1)
-		q = append(q, num.NewModulus(num.NextPrime(q[0].Value(), 2)))
+		q := dft.MustFindPrevNTTPrimes(rP, 40, 1)
+		q = append(q, num.NewModulus(num.MustNextPrime(q[0].Value(), 2)))
 
 		pev := crt.NewPolyEvaluator(rP, q)
 
@@ -343,8 +343,8 @@ func TestAutFixedEvaluator(t *testing.T) {
 		N := 1 << 10
 		rP := dft.NewAutFixedParameters(4*N, N)
 
-		q := dft.FindPrevNTTPrimes(rP, 40, 1)
-		q = append(q, num.NewModulus(num.NextPrime(q[0].Value(), 2)))
+		q := dft.MustFindPrevNTTPrimes(rP, 40, 1)
+		q = append(q, num.NewModulus(num.MustNextPrime(q[0].Value(), 2)))
 
 		pev := crt.NewPolyEvaluator(rP, q)
 
@@ -425,7 +425,7 @@ func TestAutFixedEvaluator(t *testing.T) {
 	})
 
 	t.Run("type=Prime", func(t *testing.T) {
-		M := num.NextPrime(int(rSrc.SampleN(1<<10)), 1)
+		M := num.MustNextPrime(int(rSrc.SampleN(1<<10)), 1)
 		primes, exps := num.Factor(M - 1)
 		fold := 1
 		for i := range primes {
@@ -438,8 +438,8 @@ func TestAutFixedEvaluator(t *testing.T) {
 
 		rP := dft.NewAutFixedParameters(M, N)
 
-		q := dft.FindPrevNTTPrimes(rP, 40, 1)
-		q = append(q, num.NewModulus(num.NextPrime(q[0].Value(), 2)))
+		q := dft.MustFindPrevNTTPrimes(rP, 40, 1)
+		q = append(q, num.NewModulus(num.MustNextPrime(q[0].Value(), 2)))
 
 		pev := crt.NewPolyEvaluator(rP, q)
 
@@ -557,7 +557,7 @@ func TestAnyEvaluator(t *testing.T) {
 	t.Run("type=Any", func(t *testing.T) {
 		N := 1 << 10
 
-		q := []*num.Modulus{num.NewModulus(num.NextPrime(1<<60+1, 2))}
+		q := []*num.Modulus{num.NewModulus(num.MustNextPrime(1<<60+1, 2))}
 
 		modPolySigned := randTernaryPoly(N + 1)
 
@@ -632,7 +632,7 @@ func BenchmarkCyclotomicEvaluator(b *testing.B) {
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 				b.Run("Mod=NTT", func(b *testing.B) {
-					q := dft.FindPrevNTTPrimes(rP, num.MaxModulusBits, 1)
+					q := dft.MustFindPrevNTTPrimes(rP, num.MaxModulusBits, 1)
 
 					pev := crt.NewPolyEvaluator(rP, q)
 
@@ -711,7 +711,7 @@ func BenchmarkCyclotomicEvaluator(b *testing.B) {
 						if !dft.IsNTTFriendly(rP, num.NewModulus(qv)) {
 							break
 						}
-						qv = num.NextPrime(qv, 2)
+						qv = num.MustNextPrime(qv, 2)
 					}
 					q := []*num.Modulus{num.NewModulus(qv)}
 
@@ -792,14 +792,14 @@ func BenchmarkCyclotomicEvaluator(b *testing.B) {
 	b.Run("type=Any", func(b *testing.B) {
 		for _, logN := range benchLogN {
 			sqrtN := int(math.Sqrt(math.Exp2(float64(logN))))
-			m0 := num.NextPrime(sqrtN, 1)
-			m1 := num.NextPrime(m0, 2)
+			m0 := num.MustNextPrime(sqrtN, 1)
+			m1 := num.MustNextPrime(m0, 2)
 			M := m0 * m1
 			rP := dft.NewCyclotomicParameters(M)
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 				b.Run("Mod=NTT", func(b *testing.B) {
-					q := dft.FindPrevNTTPrimes(rP, num.MaxModulusBits, 1)
+					q := dft.MustFindPrevNTTPrimes(rP, num.MaxModulusBits, 1)
 
 					pev := crt.NewPolyEvaluator(rP, q)
 
@@ -878,7 +878,7 @@ func BenchmarkCyclotomicEvaluator(b *testing.B) {
 						if !dft.IsNTTFriendly(rP, num.NewModulus(qv)) {
 							break
 						}
-						qv = num.NextPrime(qv, 2)
+						qv = num.MustNextPrime(qv, 2)
 					}
 					q := []*num.Modulus{num.NewModulus(qv)}
 
@@ -965,7 +965,7 @@ func BenchmarkCyclicEvaluator(b *testing.B) {
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 				b.Run("Mod=NTT", func(b *testing.B) {
-					q := dft.FindPrevNTTPrimes(rP, num.MaxModulusBits, 1)
+					q := dft.MustFindPrevNTTPrimes(rP, num.MaxModulusBits, 1)
 
 					pev := crt.NewPolyEvaluator(rP, q)
 
@@ -1032,7 +1032,7 @@ func BenchmarkCyclicEvaluator(b *testing.B) {
 						if !dft.IsNTTFriendly(rP, num.NewModulus(qv)) {
 							break
 						}
-						qv = num.NextPrime(qv, 2)
+						qv = num.MustNextPrime(qv, 2)
 					}
 					q := []*num.Modulus{num.NewModulus(qv)}
 
@@ -1101,14 +1101,14 @@ func BenchmarkCyclicEvaluator(b *testing.B) {
 	b.Run("type=Any", func(b *testing.B) {
 		for _, logN := range benchLogN {
 			sqrtN := int(math.Sqrt(math.Exp2(float64(logN))))
-			m0 := num.NextPrime(sqrtN, 1)
-			m1 := num.NextPrime(m0, 2)
+			m0 := num.MustNextPrime(sqrtN, 1)
+			m1 := num.MustNextPrime(m0, 2)
 			M := m0 * m1
 			rP := dft.NewCyclotomicParameters(M)
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 				b.Run("Mod=NTT", func(b *testing.B) {
-					q := dft.FindPrevNTTPrimes(rP, num.MaxModulusBits, 1)
+					q := dft.MustFindPrevNTTPrimes(rP, num.MaxModulusBits, 1)
 
 					pev := crt.NewPolyEvaluator(rP, q)
 
@@ -1175,7 +1175,7 @@ func BenchmarkCyclicEvaluator(b *testing.B) {
 						if !dft.IsNTTFriendly(rP, num.NewModulus(qv)) {
 							break
 						}
-						qv = num.NextPrime(qv, 2)
+						qv = num.MustNextPrime(qv, 2)
 					}
 					q := []*num.Modulus{num.NewModulus(qv)}
 
@@ -1250,7 +1250,7 @@ func BenchmarkAutFixedEvaluator(b *testing.B) {
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 				b.Run("Mod=NTT", func(b *testing.B) {
-					q := dft.FindPrevNTTPrimes(rP, num.MaxModulusBits, 1)
+					q := dft.MustFindPrevNTTPrimes(rP, num.MaxModulusBits, 1)
 
 					pev := crt.NewPolyEvaluator(rP, q)
 
@@ -1329,7 +1329,7 @@ func BenchmarkAutFixedEvaluator(b *testing.B) {
 						if !dft.IsNTTFriendly(rP, num.NewModulus(qv)) {
 							break
 						}
-						qv = num.NextPrime(qv, 2)
+						qv = num.MustNextPrime(qv, 2)
 					}
 					q := []*num.Modulus{num.NewModulus(qv)}
 
@@ -1410,12 +1410,12 @@ func BenchmarkAutFixedEvaluator(b *testing.B) {
 	b.Run("type=Prime", func(b *testing.B) {
 		for _, logN := range benchLogN {
 			N := 1 << logN
-			M := num.NextPrime(1, N)
+			M := num.MustNextPrime(1, N)
 			rP := dft.NewAutFixedParameters(M, N)
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 				b.Run("Mod=NTT", func(b *testing.B) {
-					q := dft.FindPrevNTTPrimes(rP, num.MaxModulusBits, 1)
+					q := dft.MustFindPrevNTTPrimes(rP, num.MaxModulusBits, 1)
 
 					pev := crt.NewPolyEvaluator(rP, q)
 
@@ -1494,7 +1494,7 @@ func BenchmarkAutFixedEvaluator(b *testing.B) {
 						if !dft.IsNTTFriendly(rP, num.NewModulus(qv)) {
 							break
 						}
-						qv = num.NextPrime(qv, 2)
+						qv = num.MustNextPrime(qv, 2)
 					}
 					q := []*num.Modulus{num.NewModulus(qv)}
 

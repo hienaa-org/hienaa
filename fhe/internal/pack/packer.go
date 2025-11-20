@@ -2,8 +2,7 @@
 package pack
 
 import (
-	"github.com/hienaa-org/hienaa/fhe/pack/internal/gnum"
-	"github.com/hienaa-org/hienaa/math/crt"
+	"github.com/hienaa-org/hienaa/fhe/internal/gnum"
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
 )
@@ -19,13 +18,13 @@ type PackerInt interface {
 	// SafeCopy returns a thread-safe copy.
 	SafeCopy() PackerInt
 	// Pack packs the input integer vector.
-	Pack(vIn []uint64) *crt.Poly
+	Pack(vIn []uint64) []uint64
 	// PackTo packs the input integer vector to the polynomial p.
-	PackTo(pOut *crt.Poly, vIn []uint64)
+	PackTo(vOut []uint64, vIn []uint64)
 	// UnPack unpacks the polynomial p.
-	UnPack(pIn *crt.Poly) []uint64
+	UnPack(vIn []uint64) []uint64
 	// UnPackTo unpacks the polynomial p to the output integer vector.
-	UnPackTo(vOut []uint64, pIn *crt.Poly)
+	UnPackTo(vOut []uint64, vIn []uint64)
 }
 
 func NewPackerInt(params dft.RingParameters, mod *num.Modulus) PackerInt {
