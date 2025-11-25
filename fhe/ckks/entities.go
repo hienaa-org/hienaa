@@ -3,6 +3,7 @@ package ckks
 import (
 	"math/big"
 
+	"github.com/hienaa-org/hienaa/fhe/rlwe"
 	"github.com/hienaa-org/hienaa/math/crt"
 )
 
@@ -18,7 +19,6 @@ type Plaintext struct {
 
 // Ciphertext is a CKKS ciphertext.
 type Ciphertext struct {
-	Body  *crt.Poly
-	Mask  *crt.Poly
+	Value *rlwe.Ciphertext
 	noise *big.Int
 }

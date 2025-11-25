@@ -70,7 +70,7 @@ func PrevPrime[T Integer](x T, skip T) (T, error) {
 	}
 
 	for t := x - skip; ; t -= skip {
-		if uint64(t) > MaxModulus {
+		if uint64(t) > MaxModulus || t <= 1 {
 			return 0, errors.New("PrevPrime: underflow")
 		}
 
