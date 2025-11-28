@@ -162,11 +162,11 @@ func MForm(x, q, divHi, divLo uint64) uint64 {
 	xM, _ := bits.Mul64(x, divLo)
 	xM += x * divHi
 
-	xMOut := -xM * q
-	if xMOut >= q {
-		xMOut -= q
+	xOutM := -xM * q
+	if xOutM >= q {
+		xOutM -= q
 	}
-	return xMOut
+	return xOutM
 }
 
 // InvMForm transforms xM to Normal form.

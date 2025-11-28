@@ -29,6 +29,8 @@ func main() {
 	Constraint(buildtags.Not("purego"))
 
 	if *vec {
+		VecConstants()
+
 		AddVecToAVX2(false)
 		AddVecToAVX2(true)
 
@@ -52,6 +54,18 @@ func main() {
 
 		ScalarSubVecToAVX512(false)
 		ScalarSubVecToAVX512(true)
+
+		MulWordVecToAVX512(OpMul)
+		MulWordVecToAVX512(OpMulAdd)
+		MulWordVecToAVX512(OpMulSub)
+
+		MMulVecToAVX512(OpMul, false)
+		MMulVecToAVX512(OpMulAdd, false)
+		MMulVecToAVX512(OpMulSub, false)
+
+		MMulVecToAVX512(OpMul, true)
+		MMulVecToAVX512(OpMulAdd, true)
+		MMulVecToAVX512(OpMulSub, true)
 	}
 
 	if *ntt {
