@@ -9,11 +9,9 @@ func InvNTTInPlacePow2UnrollAVX2() {
 	TEXT("inttInPlacePow2UnrollAVX2", NOSPLIT, "func(coeffs, twInv, twInvS []uint64, q uint64)")
 	Pragma("noescape")
 
-	allOne := YMM()
-	VPCMPEQQ(allOne, allOne, allOne)
-
 	maskSign := YMM()
-	VPSLLQ(Imm(63), allOne, maskSign)
+	VPCMPEQQ(maskSign, maskSign, maskSign)
+	VPSLLQ(Imm(63), maskSign, maskSign)
 
 	maskLo, maskHi := YMM(), YMM()
 	VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_LO"), 0), maskLo)
@@ -26,8 +24,9 @@ func InvNTTInPlacePow2UnrollAVX2() {
 
 	wIdx := GP64()
 
-	q := YMM()
+	q, twoQ := YMM(), YMM()
 	VPBROADCASTQ(NewParamAddr("q", 72), q)
+	VPADDQ(q, q, twoQ)
 
 	q64 := Load(Param("q"), GP64())
 	twoQ64 := GP64()
@@ -177,7 +176,7 @@ func InvNTTInPlacePow2UnrollAVX2() {
 	VMOVDQU(Mem{Base: coeffs, Index: j, Scale: 8}, u)
 	VMOVDQU(Mem{Base: coeffs, Index: jt, Scale: 8}, v)
 
-	InvButterflyAVX2(u, v, w, wSwap, wS, wSHi, q, qSwap, maskLo, maskHi, maskSign, allOne)
+	InvButterflyAVX2(u, v, w, wSwap, wS, wSHi, q, qSwap, twoQ, maskLo, maskHi, maskSign)
 
 	VMOVDQU(u, Mem{Base: coeffs, Index: j, Scale: 8})
 	VMOVDQU(v, Mem{Base: coeffs, Index: jt, Scale: 8})
@@ -222,7 +221,7 @@ func InvNTTInPlacePow2UnrollAVX2() {
 	VMOVDQU(Mem{Base: coeffs, Index: j, Scale: 8}, u)
 	VMOVDQU(Mem{Base: coeffs, Index: jt, Scale: 8}, v)
 
-	InvButterflyAVX2(u, v, w, wSwap, wS, wSHi, q, qSwap, maskLo, maskHi, maskSign, allOne)
+	InvButterflyAVX2(u, v, w, wSwap, wS, wSHi, q, qSwap, twoQ, maskLo, maskHi, maskSign)
 
 	VMOVDQU(u, Mem{Base: coeffs, Index: j, Scale: 8})
 	VMOVDQU(v, Mem{Base: coeffs, Index: jt, Scale: 8})

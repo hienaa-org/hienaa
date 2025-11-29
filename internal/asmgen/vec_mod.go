@@ -18,10 +18,10 @@ func AddVecToAVX2(isWordOp bool) {
 	}
 	Pragma("noescape")
 
-	allOne, maskSign := YMM(), YMM()
+	maskSign := YMM()
 	if !isWordOp {
-		VPCMPEQQ(allOne, allOne, allOne)
-		VPSLLQ(Imm(63), allOne, maskSign)
+		VPCMPEQQ(maskSign, maskSign, maskSign)
+		VPSLLQ(Imm(63), maskSign, maskSign)
 	}
 
 	q64, q := GP64(), YMM()
@@ -54,7 +54,7 @@ func AddVecToAVX2(isWordOp bool) {
 
 	if !isWordOp {
 		subQ := YMM()
-		GreaterOrEqualThanAVX2(xOut, q, maskSign, allOne, subQ)
+		GreaterOrEqualThanAVX2(xOut, q, maskSign, subQ)
 		VPAND(q, subQ, subQ)
 		VPSUBQ(subQ, xOut, xOut)
 	}
@@ -103,10 +103,10 @@ func ScalarAddVecToAVX2(isWordOp bool) {
 	}
 	Pragma("noescape")
 
-	allOne, maskSign := YMM(), YMM()
+	maskSign := YMM()
 	if !isWordOp {
-		VPCMPEQQ(allOne, allOne, allOne)
-		VPSLLQ(Imm(63), allOne, maskSign)
+		VPCMPEQQ(maskSign, maskSign, maskSign)
+		VPSLLQ(Imm(63), maskSign, maskSign)
 	}
 
 	q64, q := GP64(), YMM()
@@ -141,7 +141,7 @@ func ScalarAddVecToAVX2(isWordOp bool) {
 
 	if !isWordOp {
 		subQ := YMM()
-		GreaterOrEqualThanAVX2(xOut, q, maskSign, allOne, subQ)
+		GreaterOrEqualThanAVX2(xOut, q, maskSign, subQ)
 		VPAND(q, subQ, subQ)
 		VPSUBQ(subQ, xOut, xOut)
 	}
@@ -348,10 +348,10 @@ func SubVecToAVX2(isWordOp bool) {
 	}
 	Pragma("noescape")
 
-	allOne, maskSign := YMM(), YMM()
+	maskSign := YMM()
 	if !isWordOp {
-		VPCMPEQQ(allOne, allOne, allOne)
-		VPSLLQ(Imm(63), allOne, maskSign)
+		VPCMPEQQ(maskSign, maskSign, maskSign)
+		VPSLLQ(Imm(63), maskSign, maskSign)
 	}
 
 	q64, q := GP64(), YMM()
@@ -384,7 +384,7 @@ func SubVecToAVX2(isWordOp bool) {
 
 	if !isWordOp {
 		subQ := YMM()
-		GreaterOrEqualThanAVX2(xOut, q, maskSign, allOne, subQ)
+		GreaterOrEqualThanAVX2(xOut, q, maskSign, subQ)
 		VPAND(q, subQ, subQ)
 		VPADDQ(subQ, xOut, xOut)
 	}
@@ -433,10 +433,10 @@ func ScalarSubVecToAVX2(isWordOp bool) {
 	}
 	Pragma("noescape")
 
-	allOne, maskSign := YMM(), YMM()
+	maskSign := YMM()
 	if !isWordOp {
-		VPCMPEQQ(allOne, allOne, allOne)
-		VPSLLQ(Imm(63), allOne, maskSign)
+		VPCMPEQQ(maskSign, maskSign, maskSign)
+		VPSLLQ(Imm(63), maskSign, maskSign)
 	}
 
 	q64, q := GP64(), YMM()
@@ -471,7 +471,7 @@ func ScalarSubVecToAVX2(isWordOp bool) {
 
 	if !isWordOp {
 		subQ := YMM()
-		GreaterOrEqualThanAVX2(xOut, q, maskSign, allOne, subQ)
+		GreaterOrEqualThanAVX2(xOut, q, maskSign, subQ)
 		VPAND(q, subQ, subQ)
 		VPADDQ(subQ, xOut, xOut)
 	}
