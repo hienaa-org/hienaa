@@ -394,7 +394,7 @@ func TestOps(t *testing.T) {
 		}
 		assert.Equal(t, vOutCheck, vOut)
 
-		assert.Less(t, vec.Max(vOut), q.Value())
+		assert.Less(t, vec.Max(vOut), 2*q.Value())
 
 		for i := 0; i < N; i++ {
 			vOut[i] %= q.Value()

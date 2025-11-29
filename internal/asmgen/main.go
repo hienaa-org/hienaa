@@ -55,12 +55,46 @@ func main() {
 		ScalarSubVecToAVX512(false)
 		ScalarSubVecToAVX512(true)
 
-		MulWordVecToAVX512(OpMul)
-		MulWordVecToAVX512(OpMulAdd)
-		MulWordVecToAVX512(OpMulSub)
+		NegVecToAVX2(false)
+		NegVecToAVX2(true)
+
+		NegVecToAVX512(false)
+		NegVecToAVX512(true)
 
 		MFormVecToAVX512()
 		InvMFormVecToAVX512()
+
+		ScalarMulWordVecToAVX2(OpMul)
+		ScalarMulWordVecToAVX2(OpMulAdd)
+		ScalarMulWordVecToAVX2(OpMulSub)
+
+		ScalarMulWordVecToAVX512(OpMul)
+		ScalarMulWordVecToAVX512(OpMulAdd)
+		ScalarMulWordVecToAVX512(OpMulSub)
+
+		ScalarMulVecToAVX512(OpMul, false)
+		ScalarMulVecToAVX512(OpMulAdd, false)
+		ScalarMulVecToAVX512(OpMulSub, false)
+
+		ScalarMulVecToAVX512(OpMul, true)
+		ScalarMulVecToAVX512(OpMulAdd, true)
+		ScalarMulVecToAVX512(OpMulSub, true)
+
+		ScalarMMulVecToAVX512(OpMul, false)
+		ScalarMMulVecToAVX512(OpMulAdd, false)
+		ScalarMMulVecToAVX512(OpMulSub, false)
+
+		ScalarMMulVecToAVX512(OpMul, true)
+		ScalarMMulVecToAVX512(OpMulAdd, true)
+		ScalarMMulVecToAVX512(OpMulSub, true)
+
+		MulWordVecToAVX2(OpMul)
+		MulWordVecToAVX2(OpMulAdd)
+		MulWordVecToAVX2(OpMulSub)
+
+		MulWordVecToAVX512(OpMul)
+		MulWordVecToAVX512(OpMulAdd)
+		MulWordVecToAVX512(OpMulSub)
 
 		MMulVecToAVX512(OpMul, false)
 		MMulVecToAVX512(OpMulAdd, false)
