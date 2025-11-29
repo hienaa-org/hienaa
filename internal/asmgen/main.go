@@ -59,6 +59,9 @@ func main() {
 		MulWordVecToAVX512(OpMulAdd)
 		MulWordVecToAVX512(OpMulSub)
 
+		MFormVecToAVX512()
+		InvMFormVecToAVX512()
+
 		MMulVecToAVX512(OpMul, false)
 		MMulVecToAVX512(OpMulAdd, false)
 		MMulVecToAVX512(OpMulSub, false)
@@ -66,6 +69,14 @@ func main() {
 		MMulVecToAVX512(OpMul, true)
 		MMulVecToAVX512(OpMulAdd, true)
 		MMulVecToAVX512(OpMulSub, true)
+
+		SMulVecToAVX512(OpMul, false)
+		SMulVecToAVX512(OpMulAdd, false)
+		SMulVecToAVX512(OpMulSub, false)
+
+		SMulVecToAVX512(OpMul, true)
+		SMulVecToAVX512(OpMulAdd, true)
+		SMulVecToAVX512(OpMulSub, true)
 	}
 
 	if *ntt {

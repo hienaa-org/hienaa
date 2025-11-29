@@ -686,6 +686,190 @@ func ScalarSubVecToAVX512(isWordOp bool) {
 	RET()
 }
 
+func MFormVecToAVX512() {
+	TEXT("mFormToAVX512", NOSPLIT, "func(vOut, v []uint64, q, divHi, divLo uint64)")
+	Pragma("noescape")
+
+	allZero := ZMM()
+	VPXORQ(allZero, allZero, allZero)
+
+	maskLo := ZMM()
+	VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_LO"), 0), maskLo)
+
+	q64 := Load(Param("q"), GP64())
+	divHi64 := Load(Param("divHi"), GP64())
+	divLo64 := Load(Param("divLo"), GP64())
+
+	q, divHi, divLo := ZMM(), ZMM(), ZMM()
+	VPBROADCASTQ(NewParamAddr("q", 48), q)
+	VPBROADCASTQ(NewParamAddr("divHi", 56), divHi)
+	VPBROADCASTQ(NewParamAddr("divLo", 64), divLo)
+
+	divLoHi := ZMM()
+	VPSRLQ(Imm(32), divLo, divLoHi)
+
+	N := Load(Param("vOut").Len(), GP64())
+	vOut := Load(Param("vOut").Base(), GP64())
+	v := Load(Param("v").Base(), GP64())
+
+	M := GP64()
+	MOVQ(N, M)
+	SHRQ(Imm(3), M)
+	SHLQ(Imm(3), M)
+
+	i := GP64()
+	XORQ(i, i)
+	JMP(LabelRef("loop_end"))
+	Label("loop_body")
+
+	x := ZMM()
+	VMOVDQU64(Mem{Base: v, Index: i, Scale: 8}, x)
+
+	xHi := ZMM()
+	VPSRLQ(Imm(32), x, xHi)
+
+	xM := ZMM()
+	Mul64HiAVX512(x, xHi, divLo, divLoHi, maskLo, xM)
+	VPMULLQ(x, divHi, x)
+	VPADDQ(x, xM, xM)
+
+	xOutM := ZMM()
+	VPMULLQ(xM, q, xOutM)
+	VPSUBQ(xOutM, allZero, xOutM)
+
+	subQ, subQMask := ZMM(), K()
+	VPCMPUQ(Imm(0o5), q, xOutM, subQMask)
+	VMOVAPD_Z(q, subQMask, subQ)
+	VPSUBQ(subQ, xOutM, xOutM)
+
+	VMOVDQU64(xOutM, Mem{Base: vOut, Index: i, Scale: 8})
+
+	ADDQ(Imm(8), i)
+
+	Label("loop_end")
+	CMPQ(i, M)
+	JL(LabelRef("loop_body"))
+
+	JMP(LabelRef("leftover_loop_end"))
+	Label("leftover_loop_body")
+
+	y := GP64()
+	MOVQ(Mem{Base: v, Index: i, Scale: 8}, y)
+
+	yM, yDivHi := GP64(), GP64()
+	MOVQ(divLo64, reg.RDX)
+	MULXQ(y, yDivHi, yM)
+
+	MOVQ(y, yDivHi)
+	IMULQ(divHi64, yDivHi)
+	ADDQ(yDivHi, yM)
+
+	NEGQ(yM)
+	IMULQ(q64, yM)
+
+	subQ64 := GP64()
+	MOVQ(yM, subQ64)
+	SUBQ(q64, subQ64)
+	CMPQ(q64, yM)
+	CMOVQLS(subQ64, yM)
+
+	MOVQ(yM, Mem{Base: vOut, Index: i, Scale: 8})
+
+	ADDQ(Imm(1), i)
+
+	Label("leftover_loop_end")
+	CMPQ(i, N)
+	JL(LabelRef("leftover_loop_body"))
+
+	RET()
+}
+
+func InvMFormVecToAVX512() {
+	TEXT("invMFormToAVX512", NOSPLIT, "func(vOut, v []uint64, q, inv uint64)")
+	Pragma("noescape")
+
+	maskLo := ZMM()
+	VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_LO"), 0), maskLo)
+
+	q64 := Load(Param("q"), GP64())
+	inv64 := Load(Param("inv"), GP64())
+
+	q, inv := ZMM(), ZMM()
+	VPBROADCASTQ(NewParamAddr("q", 48), q)
+	VPBROADCASTQ(NewParamAddr("inv", 56), inv)
+
+	qHi := ZMM()
+	VPSRLQ(Imm(32), q, qHi)
+
+	N := Load(Param("vOut").Len(), GP64())
+	vOut := Load(Param("vOut").Base(), GP64())
+	v := Load(Param("v").Base(), GP64())
+
+	M := GP64()
+	MOVQ(N, M)
+	SHRQ(Imm(3), M)
+	SHLQ(Imm(3), M)
+
+	i := GP64()
+	XORQ(i, i)
+	JMP(LabelRef("loop_end"))
+	Label("loop_body")
+
+	xM := ZMM()
+	VMOVDQU64(Mem{Base: v, Index: i, Scale: 8}, xM)
+
+	xMInv, xMInvHi := ZMM(), ZMM()
+	VPMULLQ(xM, inv, xMInv)
+	VPSRLQ(Imm(32), xMInv, xMInvHi)
+
+	xOut := ZMM()
+	Mul64HiAVX512(xMInv, xMInvHi, q, qHi, maskLo, xOut)
+	VPSUBQ(xOut, q, xOut)
+
+	subQ, subQMask := ZMM(), K()
+	VPCMPUQ(Imm(0o5), q, xOut, subQMask)
+	VMOVAPD_Z(q, subQMask, subQ)
+	VPSUBQ(subQ, xOut, xOut)
+
+	VMOVDQU64(xOut, Mem{Base: vOut, Index: i, Scale: 8})
+
+	ADDQ(Imm(8), i)
+
+	Label("loop_end")
+	CMPQ(i, M)
+	JL(LabelRef("loop_body"))
+
+	JMP(LabelRef("leftover_loop_end"))
+	Label("leftover_loop_body")
+
+	yM := GP64()
+	MOVQ(Mem{Base: v, Index: i, Scale: 8}, yM)
+
+	y, yLo := GP64(), GP64()
+	IMULQ(inv64, yM)
+	MOVQ(q64, reg.RDX)
+	MULXQ(yM, yLo, y)
+
+	NEGQ(y)
+	ADDQ(q64, y)
+
+	subQ64 := GP64()
+	MOVQ(y, subQ64)
+	SUBQ(q64, subQ64)
+	CMPQ(q64, y)
+	CMOVQLS(subQ64, y)
+
+	MOVQ(y, Mem{Base: vOut, Index: i, Scale: 8})
+
+	ADDQ(Imm(1), i)
+
+	Label("leftover_loop_end")
+	CMPQ(i, N)
+	JL(LabelRef("leftover_loop_body"))
+
+	RET()
+}
+
 const (
 	OpMul = iota
 	OpMulAdd
@@ -918,6 +1102,183 @@ func MMulVecToAVX512(mulType int, isLazy bool) {
 	MOVQ(q64, y0)
 	ADDQ(yMulMHi, y0)
 	SUBQ(zHi, y0)
+
+	if !isLazy {
+		subQ := GP64()
+		MOVQ(y0, subQ)
+		SUBQ(q64, subQ)
+		CMPQ(q64, y0)
+		CMOVQLS(subQ, y0)
+	}
+
+	switch mulType {
+	case OpMul:
+		yOut = y0
+	case OpMulAdd:
+		MOVQ(Mem{Base: vOut, Index: i, Scale: 8}, yOut)
+		ADDQ(y0, yOut)
+		if !isLazy {
+			subQ := GP64()
+			MOVQ(yOut, subQ)
+			SUBQ(q64, subQ)
+			CMPQ(q64, yOut)
+			CMOVQLS(subQ, yOut)
+		}
+	case OpMulSub:
+		MOVQ(Mem{Base: vOut, Index: i, Scale: 8}, yOut)
+		if !isLazy {
+			SUBQ(y0, yOut)
+			subQ := GP64()
+			MOVQ(yOut, subQ)
+			ADDQ(q64, subQ)
+			CMPQ(q64, yOut)
+			CMOVQLS(subQ, yOut)
+		} else {
+			ADDQ(y0, yOut)
+		}
+	}
+
+	MOVQ(yOut, Mem{Base: vOut, Index: i, Scale: 8})
+
+	ADDQ(Imm(1), i)
+
+	Label("leftover_loop_end")
+	CMPQ(i, N)
+	JL(LabelRef("leftover_loop_body"))
+
+	RET()
+}
+
+func SMulVecToAVX512(mulType int, isLazy bool) {
+	if !isLazy {
+		switch mulType {
+		case OpMul:
+			TEXT("sMulToAVX512", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
+		case OpMulAdd:
+			TEXT("sMulAddToAVX512", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
+		case OpMulSub:
+			TEXT("sMulSubToAVX512", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
+		}
+	} else {
+		switch mulType {
+		case OpMul:
+			TEXT("sMulLazyToAVX512", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
+		case OpMulAdd:
+			TEXT("sMulAddLazyToAVX512", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
+		case OpMulSub:
+			TEXT("sMulSubLazyToAVX512", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
+		}
+	}
+	Pragma("noescape")
+
+	maskLo := ZMM()
+	VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_LO"), 0), maskLo)
+
+	q64 := Load(Param("q"), GP64())
+	q, qHi := ZMM(), ZMM()
+	VPBROADCASTQ(NewParamAddr("q", 96), q)
+	VPSRLQ(Imm(32), q, qHi)
+
+	N := Load(Param("vOut").Len(), GP64())
+	vOut := Load(Param("vOut").Base(), GP64())
+	v0 := Load(Param("v0").Base(), GP64())
+	v1 := Load(Param("v1").Base(), GP64())
+	v1S := Load(Param("v1S").Base(), GP64())
+
+	M := GP64()
+	MOVQ(N, M)
+	SHRQ(Imm(3), M)
+	SHLQ(Imm(3), M)
+
+	i := GP64()
+	XORQ(i, i)
+	JMP(LabelRef("loop_end"))
+	Label("loop_body")
+
+	x0, x1, x1S := ZMM(), ZMM(), ZMM()
+	VMOVDQU64(Mem{Base: v0, Index: i, Scale: 8}, x0)
+	VMOVDQU64(Mem{Base: v1, Index: i, Scale: 8}, x1)
+	VMOVDQU64(Mem{Base: v1S, Index: i, Scale: 8}, x1S)
+
+	if mulType == OpMulSub && isLazy {
+		VPSUBQ(x0, q, x0)
+	}
+
+	xOut, xMul := ZMM(), ZMM()
+
+	x0Hi, x1SHi := ZMM(), ZMM()
+	VPSRLQ(Imm(32), x0, x0Hi)
+	VPSRLQ(Imm(32), x1S, x1SHi)
+
+	quo := ZMM()
+	Mul64HiAVX512(x0, x0Hi, x1S, x1SHi, maskLo, quo)
+	VPMULLQ(quo, q, quo)
+
+	VPMULLQ(x0, x1, xMul)
+	VPSUBQ(quo, xMul, xMul)
+
+	if !isLazy {
+		subQ, subQMask := ZMM(), K()
+		VPCMPUQ(Imm(0o5), q, xMul, subQMask)
+		VMOVAPD_Z(q, subQMask, subQ)
+		VPSUBQ(subQ, xMul, xMul)
+	}
+
+	switch mulType {
+	case OpMul:
+		xOut = xMul
+	case OpMulAdd:
+		VMOVDQU64(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
+		VPADDQ(xMul, xOut, xOut)
+		if !isLazy {
+			subQ, subQMask := ZMM(), K()
+			VPCMPUQ(Imm(0o5), q, xOut, subQMask)
+			VMOVAPD_Z(q, subQMask, subQ)
+			VPSUBQ(subQ, xOut, xOut)
+		}
+	case OpMulSub:
+		VMOVDQU64(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
+		if !isLazy {
+			VPSUBQ(xMul, xOut, xOut)
+			subQ, subQMask := ZMM(), K()
+			VPCMPUQ(Imm(0o5), q, xOut, subQMask)
+			VMOVAPD_Z(q, subQMask, subQ)
+			VPADDQ(subQ, xOut, xOut)
+		} else {
+			VPADDQ(xMul, xOut, xOut)
+		}
+	}
+
+	VMOVDQU64(xOut, Mem{Base: vOut, Index: i, Scale: 8})
+
+	ADDQ(Imm(8), i)
+
+	Label("loop_end")
+	CMPQ(i, M)
+	JL(LabelRef("loop_body"))
+
+	JMP(LabelRef("leftover_loop_end"))
+	Label("leftover_loop_body")
+
+	y0, y1, y1S := GP64(), GP64(), GP64()
+	MOVQ(Mem{Base: v0, Index: i, Scale: 8}, y0)
+	MOVQ(Mem{Base: v1, Index: i, Scale: 8}, y1)
+	MOVQ(Mem{Base: v1S, Index: i, Scale: 8}, y1S)
+
+	if mulType == OpMulSub && isLazy {
+		SUBQ(q64, y0)
+		NEGQ(y0)
+	}
+
+	yOut := GP64()
+
+	quo64 := GP64()
+	MOVQ(y1S, reg.RDX)
+	MULXQ(y0, y1S, quo64)
+	IMULQ(q64, quo64)
+
+	IMULQ(y1, y0)
+	SUBQ(quo64, y0)
 
 	if !isLazy {
 		subQ := GP64()

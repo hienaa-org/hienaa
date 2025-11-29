@@ -802,6 +802,143 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
+// func mFormToAVX512(vOut []uint64, v []uint64, q uint64, divHi uint64, divLo uint64)
+// Requires: AVX512DQ, AVX512F, BMI2, CMOV
+TEXT ·mFormToAVX512(SB), NOSPLIT, $0-72
+	VPXORQ       Z0, Z0, Z0
+	VPBROADCASTQ MASK_LO<>+0(SB), Z1
+	MOVQ         q+48(FP), AX
+	MOVQ         divHi+56(FP), CX
+	MOVQ         divLo+64(FP), BX
+	VPBROADCASTQ q+48(FP), Z2
+	VPBROADCASTQ divHi+56(FP), Z3
+	VPBROADCASTQ divLo+64(FP), Z4
+	VPSRLQ       $0x20, Z4, Z5
+	MOVQ         vOut_len+8(FP), SI
+	MOVQ         vOut_base+0(FP), DI
+	MOVQ         v_base+24(FP), R8
+	MOVQ         SI, DX
+	SHRQ         $0x03, DX
+	SHLQ         $0x03, DX
+	XORQ         R9, R9
+	JMP          loop_end
+
+loop_body:
+	VMOVDQU64 (R8)(R9*8), Z6
+	VPSRLQ    $0x20, Z6, Z7
+	VPMULUDQ  Z4, Z6, Z8
+	VPMULUDQ  Z5, Z6, Z9
+	VPMULUDQ  Z4, Z7, Z10
+	VPMULUDQ  Z5, Z7, Z7
+	VPSRLQ    $0x20, Z8, Z8
+	VPADDQ    Z8, Z9, Z8
+	VPANDQ    Z1, Z8, Z9
+	VPSRLQ    $0x20, Z8, Z8
+	VPADDQ    Z7, Z8, Z7
+	VPADDQ    Z9, Z10, Z8
+	VPSRLQ    $0x20, Z8, Z8
+	VPADDQ    Z7, Z8, Z7
+	VPMULLQ   Z6, Z3, Z6
+	VPADDQ    Z6, Z7, Z7
+	VPMULLQ   Z7, Z2, Z6
+	VPSUBQ    Z6, Z0, Z6
+	VPCMPUQ   $0x05, Z2, Z6, K1
+	VMOVAPD.Z Z2, K1, Z7
+	VPSUBQ    Z7, Z6, Z6
+	VMOVDQU64 Z6, (DI)(R9*8)
+	ADDQ      $0x08, R9
+
+loop_end:
+	CMPQ R9, DX
+	JL   loop_body
+	JMP  leftover_loop_end
+
+leftover_loop_body:
+	MOVQ    (R8)(R9*8), R10
+	MOVQ    BX, DX
+	MULXQ   R10, R11, DX
+	MOVQ    R10, R11
+	IMULQ   CX, R11
+	ADDQ    R11, DX
+	NEGQ    DX
+	IMULQ   AX, DX
+	MOVQ    DX, R10
+	SUBQ    AX, R10
+	CMPQ    AX, DX
+	CMOVQLS R10, DX
+	MOVQ    DX, (DI)(R9*8)
+	ADDQ    $0x01, R9
+
+leftover_loop_end:
+	CMPQ R9, SI
+	JL   leftover_loop_body
+	RET
+
+// func invMFormToAVX512(vOut []uint64, v []uint64, q uint64, inv uint64)
+// Requires: AVX512DQ, AVX512F, BMI2, CMOV
+TEXT ·invMFormToAVX512(SB), NOSPLIT, $0-64
+	VPBROADCASTQ MASK_LO<>+0(SB), Z0
+	MOVQ         q+48(FP), AX
+	MOVQ         inv+56(FP), CX
+	VPBROADCASTQ q+48(FP), Z1
+	VPBROADCASTQ inv+56(FP), Z2
+	VPSRLQ       $0x20, Z1, Z3
+	MOVQ         vOut_len+8(FP), BX
+	MOVQ         vOut_base+0(FP), SI
+	MOVQ         v_base+24(FP), DI
+	MOVQ         BX, DX
+	SHRQ         $0x03, DX
+	SHLQ         $0x03, DX
+	XORQ         R8, R8
+	JMP          loop_end
+
+loop_body:
+	VMOVDQU64 (DI)(R8*8), Z4
+	VPMULLQ   Z4, Z2, Z4
+	VPSRLQ    $0x20, Z4, Z5
+	VPMULUDQ  Z1, Z4, Z6
+	VPMULUDQ  Z3, Z4, Z4
+	VPMULUDQ  Z1, Z5, Z7
+	VPMULUDQ  Z3, Z5, Z5
+	VPSRLQ    $0x20, Z6, Z6
+	VPADDQ    Z6, Z4, Z4
+	VPANDQ    Z0, Z4, Z6
+	VPSRLQ    $0x20, Z4, Z4
+	VPADDQ    Z5, Z4, Z5
+	VPADDQ    Z6, Z7, Z4
+	VPSRLQ    $0x20, Z4, Z4
+	VPADDQ    Z5, Z4, Z5
+	VPSUBQ    Z5, Z1, Z5
+	VPCMPUQ   $0x05, Z1, Z5, K1
+	VMOVAPD.Z Z1, K1, Z4
+	VPSUBQ    Z4, Z5, Z5
+	VMOVDQU64 Z5, (SI)(R8*8)
+	ADDQ      $0x08, R8
+
+loop_end:
+	CMPQ R8, DX
+	JL   loop_body
+	JMP  leftover_loop_end
+
+leftover_loop_body:
+	MOVQ    (DI)(R8*8), R9
+	IMULQ   CX, R9
+	MOVQ    AX, DX
+	MULXQ   R9, R9, DX
+	NEGQ    DX
+	ADDQ    AX, DX
+	MOVQ    DX, R9
+	SUBQ    AX, R9
+	CMPQ    AX, DX
+	CMOVQLS R9, DX
+	MOVQ    DX, (SI)(R8*8)
+	ADDQ    $0x01, R8
+
+leftover_loop_end:
+	CMPQ R8, BX
+	JL   leftover_loop_body
+	RET
+
 // func mMulToAVX512(vOut []uint64, v0 []uint64, v1 []uint64, q uint64, inv uint64)
 // Requires: AVX512DQ, AVX512F, BMI2, CMOV
 TEXT ·mMulToAVX512(SB), NOSPLIT, $0-88
@@ -1321,5 +1458,437 @@ leftover_loop_body:
 
 leftover_loop_end:
 	CMPQ R9, BX
+	JL   leftover_loop_body
+	RET
+
+// func sMulToAVX512(vOut []uint64, v0 []uint64, v1 []uint64, v1S []uint64, q uint64)
+// Requires: AVX512DQ, AVX512F, BMI2, CMOV
+TEXT ·sMulToAVX512(SB), NOSPLIT, $0-104
+	VPBROADCASTQ MASK_LO<>+0(SB), Z0
+	MOVQ         q+96(FP), AX
+	VPBROADCASTQ q+96(FP), Z1
+	VPSRLQ       $0x20, Z1, Z2
+	MOVQ         vOut_len+8(FP), CX
+	MOVQ         vOut_base+0(FP), BX
+	MOVQ         v0_base+24(FP), SI
+	MOVQ         v1_base+48(FP), DI
+	MOVQ         v1S_base+72(FP), R8
+	MOVQ         CX, DX
+	SHRQ         $0x03, DX
+	SHLQ         $0x03, DX
+	XORQ         R9, R9
+	JMP          loop_end
+
+loop_body:
+	VMOVDQU64 (SI)(R9*8), Z2
+	VMOVDQU64 (DI)(R9*8), Z3
+	VMOVDQU64 (R8)(R9*8), Z4
+	VPSRLQ    $0x20, Z2, Z5
+	VPSRLQ    $0x20, Z4, Z6
+	VPMULUDQ  Z4, Z2, Z7
+	VPMULUDQ  Z6, Z2, Z8
+	VPMULUDQ  Z4, Z5, Z4
+	VPMULUDQ  Z6, Z5, Z5
+	VPSRLQ    $0x20, Z7, Z7
+	VPADDQ    Z7, Z8, Z6
+	VPANDQ    Z0, Z6, Z7
+	VPSRLQ    $0x20, Z6, Z6
+	VPADDQ    Z5, Z6, Z5
+	VPADDQ    Z7, Z4, Z6
+	VPSRLQ    $0x20, Z6, Z6
+	VPADDQ    Z5, Z6, Z5
+	VPMULLQ   Z5, Z1, Z5
+	VPMULLQ   Z2, Z3, Z2
+	VPSUBQ    Z5, Z2, Z2
+	VPCMPUQ   $0x05, Z1, Z2, K1
+	VMOVAPD.Z Z1, K1, Z3
+	VPSUBQ    Z3, Z2, Z2
+	VMOVDQU64 Z2, (BX)(R9*8)
+	ADDQ      $0x08, R9
+
+loop_end:
+	CMPQ R9, DX
+	JL   loop_body
+	JMP  leftover_loop_end
+
+leftover_loop_body:
+	MOVQ    (SI)(R9*8), R10
+	MOVQ    (DI)(R9*8), R11
+	MOVQ    (R8)(R9*8), DX
+	MULXQ   R10, DX, R12
+	IMULQ   AX, R12
+	IMULQ   R11, R10
+	SUBQ    R12, R10
+	MOVQ    R10, DX
+	SUBQ    AX, DX
+	CMPQ    AX, R10
+	CMOVQLS DX, R10
+	MOVQ    R10, (BX)(R9*8)
+	ADDQ    $0x01, R9
+
+leftover_loop_end:
+	CMPQ R9, CX
+	JL   leftover_loop_body
+	RET
+
+// func sMulAddToAVX512(vOut []uint64, v0 []uint64, v1 []uint64, v1S []uint64, q uint64)
+// Requires: AVX512DQ, AVX512F, BMI2, CMOV
+TEXT ·sMulAddToAVX512(SB), NOSPLIT, $0-104
+	VPBROADCASTQ MASK_LO<>+0(SB), Z0
+	MOVQ         q+96(FP), AX
+	VPBROADCASTQ q+96(FP), Z1
+	VPSRLQ       $0x20, Z1, Z2
+	MOVQ         vOut_len+8(FP), CX
+	MOVQ         vOut_base+0(FP), BX
+	MOVQ         v0_base+24(FP), SI
+	MOVQ         v1_base+48(FP), DI
+	MOVQ         v1S_base+72(FP), R8
+	MOVQ         CX, DX
+	SHRQ         $0x03, DX
+	SHLQ         $0x03, DX
+	XORQ         R9, R9
+	JMP          loop_end
+
+loop_body:
+	VMOVDQU64 (SI)(R9*8), Z2
+	VMOVDQU64 (DI)(R9*8), Z3
+	VMOVDQU64 (R8)(R9*8), Z4
+	VPSRLQ    $0x20, Z2, Z5
+	VPSRLQ    $0x20, Z4, Z6
+	VPMULUDQ  Z4, Z2, Z7
+	VPMULUDQ  Z6, Z2, Z8
+	VPMULUDQ  Z4, Z5, Z4
+	VPMULUDQ  Z6, Z5, Z5
+	VPSRLQ    $0x20, Z7, Z7
+	VPADDQ    Z7, Z8, Z6
+	VPANDQ    Z0, Z6, Z7
+	VPSRLQ    $0x20, Z6, Z6
+	VPADDQ    Z5, Z6, Z5
+	VPADDQ    Z7, Z4, Z6
+	VPSRLQ    $0x20, Z6, Z6
+	VPADDQ    Z5, Z6, Z5
+	VPMULLQ   Z5, Z1, Z5
+	VPMULLQ   Z2, Z3, Z2
+	VPSUBQ    Z5, Z2, Z2
+	VPCMPUQ   $0x05, Z1, Z2, K1
+	VMOVAPD.Z Z1, K1, Z3
+	VPSUBQ    Z3, Z2, Z2
+	VMOVDQU64 (BX)(R9*8), Z3
+	VPADDQ    Z2, Z3, Z3
+	VPCMPUQ   $0x05, Z1, Z3, K1
+	VMOVAPD.Z Z1, K1, Z2
+	VPSUBQ    Z2, Z3, Z3
+	VMOVDQU64 Z3, (BX)(R9*8)
+	ADDQ      $0x08, R9
+
+loop_end:
+	CMPQ R9, DX
+	JL   loop_body
+	JMP  leftover_loop_end
+
+leftover_loop_body:
+	MOVQ    (SI)(R9*8), R10
+	MOVQ    (DI)(R9*8), R11
+	MOVQ    (R8)(R9*8), DX
+	MULXQ   R10, DX, R12
+	IMULQ   AX, R12
+	IMULQ   R11, R10
+	SUBQ    R12, R10
+	MOVQ    R10, DX
+	SUBQ    AX, DX
+	CMPQ    AX, R10
+	CMOVQLS DX, R10
+	MOVQ    (BX)(R9*8), DX
+	ADDQ    R10, DX
+	MOVQ    DX, R10
+	SUBQ    AX, R10
+	CMPQ    AX, DX
+	CMOVQLS R10, DX
+	MOVQ    DX, (BX)(R9*8)
+	ADDQ    $0x01, R9
+
+leftover_loop_end:
+	CMPQ R9, CX
+	JL   leftover_loop_body
+	RET
+
+// func sMulSubToAVX512(vOut []uint64, v0 []uint64, v1 []uint64, v1S []uint64, q uint64)
+// Requires: AVX512DQ, AVX512F, BMI2, CMOV
+TEXT ·sMulSubToAVX512(SB), NOSPLIT, $0-104
+	VPBROADCASTQ MASK_LO<>+0(SB), Z0
+	MOVQ         q+96(FP), AX
+	VPBROADCASTQ q+96(FP), Z1
+	VPSRLQ       $0x20, Z1, Z2
+	MOVQ         vOut_len+8(FP), CX
+	MOVQ         vOut_base+0(FP), BX
+	MOVQ         v0_base+24(FP), SI
+	MOVQ         v1_base+48(FP), DI
+	MOVQ         v1S_base+72(FP), R8
+	MOVQ         CX, DX
+	SHRQ         $0x03, DX
+	SHLQ         $0x03, DX
+	XORQ         R9, R9
+	JMP          loop_end
+
+loop_body:
+	VMOVDQU64 (SI)(R9*8), Z2
+	VMOVDQU64 (DI)(R9*8), Z3
+	VMOVDQU64 (R8)(R9*8), Z4
+	VPSRLQ    $0x20, Z2, Z5
+	VPSRLQ    $0x20, Z4, Z6
+	VPMULUDQ  Z4, Z2, Z7
+	VPMULUDQ  Z6, Z2, Z8
+	VPMULUDQ  Z4, Z5, Z4
+	VPMULUDQ  Z6, Z5, Z5
+	VPSRLQ    $0x20, Z7, Z7
+	VPADDQ    Z7, Z8, Z6
+	VPANDQ    Z0, Z6, Z7
+	VPSRLQ    $0x20, Z6, Z6
+	VPADDQ    Z5, Z6, Z5
+	VPADDQ    Z7, Z4, Z6
+	VPSRLQ    $0x20, Z6, Z6
+	VPADDQ    Z5, Z6, Z5
+	VPMULLQ   Z5, Z1, Z5
+	VPMULLQ   Z2, Z3, Z2
+	VPSUBQ    Z5, Z2, Z2
+	VPCMPUQ   $0x05, Z1, Z2, K1
+	VMOVAPD.Z Z1, K1, Z3
+	VPSUBQ    Z3, Z2, Z2
+	VMOVDQU64 (BX)(R9*8), Z3
+	VPSUBQ    Z2, Z3, Z3
+	VPCMPUQ   $0x05, Z1, Z3, K1
+	VMOVAPD.Z Z1, K1, Z2
+	VPADDQ    Z2, Z3, Z3
+	VMOVDQU64 Z3, (BX)(R9*8)
+	ADDQ      $0x08, R9
+
+loop_end:
+	CMPQ R9, DX
+	JL   loop_body
+	JMP  leftover_loop_end
+
+leftover_loop_body:
+	MOVQ    (SI)(R9*8), R10
+	MOVQ    (DI)(R9*8), R11
+	MOVQ    (R8)(R9*8), DX
+	MULXQ   R10, DX, R12
+	IMULQ   AX, R12
+	IMULQ   R11, R10
+	SUBQ    R12, R10
+	MOVQ    R10, DX
+	SUBQ    AX, DX
+	CMPQ    AX, R10
+	CMOVQLS DX, R10
+	MOVQ    (BX)(R9*8), DX
+	SUBQ    R10, DX
+	MOVQ    DX, R10
+	ADDQ    AX, R10
+	CMPQ    AX, DX
+	CMOVQLS R10, DX
+	MOVQ    DX, (BX)(R9*8)
+	ADDQ    $0x01, R9
+
+leftover_loop_end:
+	CMPQ R9, CX
+	JL   leftover_loop_body
+	RET
+
+// func sMulLazyToAVX512(vOut []uint64, v0 []uint64, v1 []uint64, v1S []uint64, q uint64)
+// Requires: AVX512DQ, AVX512F, BMI2
+TEXT ·sMulLazyToAVX512(SB), NOSPLIT, $0-104
+	VPBROADCASTQ MASK_LO<>+0(SB), Z0
+	MOVQ         q+96(FP), AX
+	VPBROADCASTQ q+96(FP), Z1
+	VPSRLQ       $0x20, Z1, Z2
+	MOVQ         vOut_len+8(FP), CX
+	MOVQ         vOut_base+0(FP), BX
+	MOVQ         v0_base+24(FP), SI
+	MOVQ         v1_base+48(FP), DI
+	MOVQ         v1S_base+72(FP), R8
+	MOVQ         CX, DX
+	SHRQ         $0x03, DX
+	SHLQ         $0x03, DX
+	XORQ         R9, R9
+	JMP          loop_end
+
+loop_body:
+	VMOVDQU64 (SI)(R9*8), Z2
+	VMOVDQU64 (DI)(R9*8), Z3
+	VMOVDQU64 (R8)(R9*8), Z4
+	VPSRLQ    $0x20, Z2, Z5
+	VPSRLQ    $0x20, Z4, Z6
+	VPMULUDQ  Z4, Z2, Z7
+	VPMULUDQ  Z6, Z2, Z8
+	VPMULUDQ  Z4, Z5, Z4
+	VPMULUDQ  Z6, Z5, Z5
+	VPSRLQ    $0x20, Z7, Z7
+	VPADDQ    Z7, Z8, Z6
+	VPANDQ    Z0, Z6, Z7
+	VPSRLQ    $0x20, Z6, Z6
+	VPADDQ    Z5, Z6, Z5
+	VPADDQ    Z7, Z4, Z6
+	VPSRLQ    $0x20, Z6, Z6
+	VPADDQ    Z5, Z6, Z5
+	VPMULLQ   Z5, Z1, Z5
+	VPMULLQ   Z2, Z3, Z2
+	VPSUBQ    Z5, Z2, Z2
+	VMOVDQU64 Z2, (BX)(R9*8)
+	ADDQ      $0x08, R9
+
+loop_end:
+	CMPQ R9, DX
+	JL   loop_body
+	JMP  leftover_loop_end
+
+leftover_loop_body:
+	MOVQ  (SI)(R9*8), R10
+	MOVQ  (DI)(R9*8), R11
+	MOVQ  (R8)(R9*8), DX
+	MULXQ R10, DX, R12
+	IMULQ AX, R12
+	IMULQ R11, R10
+	SUBQ  R12, R10
+	MOVQ  R10, (BX)(R9*8)
+	ADDQ  $0x01, R9
+
+leftover_loop_end:
+	CMPQ R9, CX
+	JL   leftover_loop_body
+	RET
+
+// func sMulAddLazyToAVX512(vOut []uint64, v0 []uint64, v1 []uint64, v1S []uint64, q uint64)
+// Requires: AVX512DQ, AVX512F, BMI2
+TEXT ·sMulAddLazyToAVX512(SB), NOSPLIT, $0-104
+	VPBROADCASTQ MASK_LO<>+0(SB), Z0
+	MOVQ         q+96(FP), AX
+	VPBROADCASTQ q+96(FP), Z1
+	VPSRLQ       $0x20, Z1, Z2
+	MOVQ         vOut_len+8(FP), CX
+	MOVQ         vOut_base+0(FP), BX
+	MOVQ         v0_base+24(FP), SI
+	MOVQ         v1_base+48(FP), DI
+	MOVQ         v1S_base+72(FP), R8
+	MOVQ         CX, DX
+	SHRQ         $0x03, DX
+	SHLQ         $0x03, DX
+	XORQ         R9, R9
+	JMP          loop_end
+
+loop_body:
+	VMOVDQU64 (SI)(R9*8), Z2
+	VMOVDQU64 (DI)(R9*8), Z3
+	VMOVDQU64 (R8)(R9*8), Z4
+	VPSRLQ    $0x20, Z2, Z5
+	VPSRLQ    $0x20, Z4, Z6
+	VPMULUDQ  Z4, Z2, Z7
+	VPMULUDQ  Z6, Z2, Z8
+	VPMULUDQ  Z4, Z5, Z4
+	VPMULUDQ  Z6, Z5, Z5
+	VPSRLQ    $0x20, Z7, Z7
+	VPADDQ    Z7, Z8, Z6
+	VPANDQ    Z0, Z6, Z7
+	VPSRLQ    $0x20, Z6, Z6
+	VPADDQ    Z5, Z6, Z5
+	VPADDQ    Z7, Z4, Z6
+	VPSRLQ    $0x20, Z6, Z6
+	VPADDQ    Z5, Z6, Z5
+	VPMULLQ   Z5, Z1, Z5
+	VPMULLQ   Z2, Z3, Z2
+	VPSUBQ    Z5, Z2, Z2
+	VMOVDQU64 (BX)(R9*8), Z3
+	VPADDQ    Z2, Z3, Z3
+	VMOVDQU64 Z3, (BX)(R9*8)
+	ADDQ      $0x08, R9
+
+loop_end:
+	CMPQ R9, DX
+	JL   loop_body
+	JMP  leftover_loop_end
+
+leftover_loop_body:
+	MOVQ  (SI)(R9*8), R10
+	MOVQ  (DI)(R9*8), R11
+	MOVQ  (R8)(R9*8), DX
+	MULXQ R10, DX, R12
+	IMULQ AX, R12
+	IMULQ R11, R10
+	SUBQ  R12, R10
+	MOVQ  (BX)(R9*8), DX
+	ADDQ  R10, DX
+	MOVQ  DX, (BX)(R9*8)
+	ADDQ  $0x01, R9
+
+leftover_loop_end:
+	CMPQ R9, CX
+	JL   leftover_loop_body
+	RET
+
+// func sMulSubLazyToAVX512(vOut []uint64, v0 []uint64, v1 []uint64, v1S []uint64, q uint64)
+// Requires: AVX512DQ, AVX512F, BMI2
+TEXT ·sMulSubLazyToAVX512(SB), NOSPLIT, $0-104
+	VPBROADCASTQ MASK_LO<>+0(SB), Z0
+	MOVQ         q+96(FP), AX
+	VPBROADCASTQ q+96(FP), Z1
+	VPSRLQ       $0x20, Z1, Z2
+	MOVQ         vOut_len+8(FP), CX
+	MOVQ         vOut_base+0(FP), BX
+	MOVQ         v0_base+24(FP), SI
+	MOVQ         v1_base+48(FP), DI
+	MOVQ         v1S_base+72(FP), R8
+	MOVQ         CX, DX
+	SHRQ         $0x03, DX
+	SHLQ         $0x03, DX
+	XORQ         R9, R9
+	JMP          loop_end
+
+loop_body:
+	VMOVDQU64 (SI)(R9*8), Z2
+	VMOVDQU64 (DI)(R9*8), Z3
+	VMOVDQU64 (R8)(R9*8), Z4
+	VPSUBQ    Z2, Z1, Z2
+	VPSRLQ    $0x20, Z2, Z5
+	VPSRLQ    $0x20, Z4, Z6
+	VPMULUDQ  Z4, Z2, Z7
+	VPMULUDQ  Z6, Z2, Z8
+	VPMULUDQ  Z4, Z5, Z4
+	VPMULUDQ  Z6, Z5, Z5
+	VPSRLQ    $0x20, Z7, Z7
+	VPADDQ    Z7, Z8, Z6
+	VPANDQ    Z0, Z6, Z7
+	VPSRLQ    $0x20, Z6, Z6
+	VPADDQ    Z5, Z6, Z5
+	VPADDQ    Z7, Z4, Z6
+	VPSRLQ    $0x20, Z6, Z6
+	VPADDQ    Z5, Z6, Z5
+	VPMULLQ   Z5, Z1, Z5
+	VPMULLQ   Z2, Z3, Z2
+	VPSUBQ    Z5, Z2, Z2
+	VMOVDQU64 (BX)(R9*8), Z3
+	VPADDQ    Z2, Z3, Z3
+	VMOVDQU64 Z3, (BX)(R9*8)
+	ADDQ      $0x08, R9
+
+loop_end:
+	CMPQ R9, DX
+	JL   loop_body
+	JMP  leftover_loop_end
+
+leftover_loop_body:
+	MOVQ  (SI)(R9*8), R10
+	MOVQ  (DI)(R9*8), R11
+	MOVQ  (R8)(R9*8), DX
+	SUBQ  AX, R10
+	NEGQ  R10
+	MULXQ R10, DX, R12
+	IMULQ AX, R12
+	IMULQ R11, R10
+	SUBQ  R12, R10
+	MOVQ  (BX)(R9*8), DX
+	ADDQ  R10, DX
+	MOVQ  DX, (BX)(R9*8)
+	ADDQ  $0x01, R9
+
+leftover_loop_end:
+	CMPQ R9, CX
 	JL   leftover_loop_body
 	RET
