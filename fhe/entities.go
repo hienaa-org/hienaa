@@ -13,5 +13,5 @@ type Plaintext interface {
 
 // Ciphertext is a generic type for ciphertext.
 type Ciphertext interface {
-	*bfv.Ciphertext | *bgv.Ciphertext | *ckks.Plaintext
+	*bfv.Ciphertext | *bgv.Ciphertext | *ckks.Ciphertext
 }

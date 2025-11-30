@@ -131,7 +131,7 @@ func ScalarMulLazy(v []uint64, c uint64, q *num.Modulus) []uint64 {
 }
 
 // ScalarMMul returns c * v mod q using Montgomery multiplication.
-// When c is in Motgomery form, the output is the same form as v.
+// When c is in Montgomery form, the output is the same form as v.
 //
 // Panics if q is nil.
 func ScalarMMul(vM []uint64, cM uint64, q *num.Modulus) []uint64 {

@@ -18,7 +18,7 @@ type ParametersLiteral struct {
 	RingParams dft.RingParameters
 	// Modulus is the modulus for encryption.
 	Modulus []*num.Modulus
-	// AuxModulus is the auxillary or "special" modulus.
+	// AuxModulus is the auxiliary or "special" modulus.
 	AuxModulus []*num.Modulus
 
 	// SecretKeyParams is the parameters for secret key sampler.
@@ -49,7 +49,7 @@ type Parameters struct {
 	ringParams dft.RingParameters
 	// Modulus is the modulus for encryption.
 	modulus []*num.Modulus
-	// AuxModulus is the auxillary or "special" modulus.
+	// AuxModulus is the auxiliary or "special" modulus.
 	auxModulus []*num.Modulus
 
 	// SecretKeyParams is the parameters for secret key sampler.

@@ -1397,7 +1397,7 @@ func ScalarMMulVecToAVX512(mulType int, isLazy bool) {
 	VPBROADCASTQ(NewParamAddr("q", 56), q)
 	VPSRLQ(Imm(32), q, qHi)
 	inv := ZMM()
-	VPBROADCASTQ(NewParamAddr("invZ", 64), inv)
+	VPBROADCASTQ(NewParamAddr("inv", 64), inv)
 
 	c64 := Load(Param("c"), GP64())
 	c, cHi := ZMM(), ZMM()
@@ -1753,7 +1753,7 @@ func MMulVecToAVX512(mulType int, isLazy bool) {
 	VPBROADCASTQ(NewParamAddr("q", 72), q)
 	VPSRLQ(Imm(32), q, qHi)
 	inv := ZMM()
-	VPBROADCASTQ(NewParamAddr("invZ", 80), inv)
+	VPBROADCASTQ(NewParamAddr("inv", 80), inv)
 
 	N := Load(Param("vOut").Len(), GP64())
 	vOut := Load(Param("vOut").Base(), GP64())

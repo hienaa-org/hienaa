@@ -624,7 +624,7 @@ func ScalarMulSubLazyTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 }
 
 // ScalarMMulTo computes vOut = c * v mod q using Montgomery multiplication.
-// When c is in Motgomery form, vOut is the same form as v.
+// When c is in Montgomery form, vOut is the same form as v.
 //
 // Panics if q is nil.
 func ScalarMMulTo(vOutM, vM []uint64, cM uint64, q *num.Modulus) {
@@ -654,7 +654,7 @@ func ScalarMMulTo(vOutM, vM []uint64, cM uint64, q *num.Modulus) {
 }
 
 // ScalarMMulAddTo computes vOut += c * v mod q using Montgomery multiplication.
-// When c is in Motgomery form, vOut is the same form as v.
+// When c is in Montgomery form, vOut is the same form as v.
 //
 // Panics if q is nil.
 func ScalarMMulAddTo(vOutM, vM []uint64, cM uint64, q *num.Modulus) {
@@ -684,7 +684,7 @@ func ScalarMMulAddTo(vOutM, vM []uint64, cM uint64, q *num.Modulus) {
 }
 
 // ScalarMMulSubTo computes vOut -= c * v mod q using Montgomery multiplication.
-// When c is in Motgomery form, vOut is the same form as v.
+// When c is in Montgomery form, vOut is the same form as v.
 //
 // Panics if q is nil.
 func ScalarMMulSubTo(vOutM, vM []uint64, cM uint64, q *num.Modulus) {
@@ -715,7 +715,7 @@ func ScalarMMulSubTo(vOutM, vM []uint64, cM uint64, q *num.Modulus) {
 
 // ScalarMMulLazy returns c * v mod q using Montgomery multiplication,
 // but the result is in [0, 2q).
-// When c is in Motgomery form, the output is the same form as v.
+// When c is in Montgomery form, the output is the same form as v.
 //
 // Panics if q is nil.
 func ScalarMMulLazy(vM []uint64, cM uint64, q *num.Modulus) []uint64 {
@@ -726,7 +726,7 @@ func ScalarMMulLazy(vM []uint64, cM uint64, q *num.Modulus) []uint64 {
 
 // ScalarMMulLazyTo computes vOut = c * v mod q using Montgomery multiplication,
 // but the result is in [0, 2q).
-// When c is in Motgomery form, vOut is the same form as v.
+// When c is in Montgomery form, vOut is the same form as v.
 //
 // Panics if q is nil.
 func ScalarMMulLazyTo(vOutM, vM []uint64, cM uint64, q *num.Modulus) {
@@ -757,7 +757,7 @@ func ScalarMMulLazyTo(vOutM, vM []uint64, cM uint64, q *num.Modulus) {
 
 // ScalarMMulAddLazyTo computes vOut += c * v mod q using Montgomery multiplication,
 // but the result is in [0, 3q).
-// When c is in Motgomery form, vOut is the same form as v.
+// When c is in Montgomery form, vOut is the same form as v.
 //
 // Panics if q is nil.
 func ScalarMMulAddLazyTo(vOutM, vM []uint64, cM uint64, q *num.Modulus) {
@@ -788,7 +788,7 @@ func ScalarMMulAddLazyTo(vOutM, vM []uint64, cM uint64, q *num.Modulus) {
 
 // ScalarMMulSubLazyTo computes vOut -= c * v mod q using Montgomery multiplication,
 // but the result is in [0, 3q).
-// When c is in Motgomery form, vOut is the same form as v.
+// When c is in Montgomery form, vOut is the same form as v.
 //
 // Panics if q is nil.
 func ScalarMMulSubLazyTo(vOutM, vM []uint64, cM uint64, q *num.Modulus) {

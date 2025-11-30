@@ -1657,7 +1657,7 @@ TEXT ·scalarMMulToAVX512(SB), NOSPLIT, $0-72
 	MOVQ         inv+64(FP), CX
 	VPBROADCASTQ q+56(FP), Z1
 	VPSRLQ       $0x20, Z1, Z2
-	VPBROADCASTQ invZ+64(FP), Z3
+	VPBROADCASTQ inv+64(FP), Z3
 	MOVQ         c+48(FP), BX
 	VPBROADCASTQ c+48(FP), Z4
 	VPSRLQ       $0x20, Z4, Z5
@@ -1741,7 +1741,7 @@ TEXT ·scalarMMulAddToAVX512(SB), NOSPLIT, $0-72
 	MOVQ         inv+64(FP), CX
 	VPBROADCASTQ q+56(FP), Z1
 	VPSRLQ       $0x20, Z1, Z2
-	VPBROADCASTQ invZ+64(FP), Z3
+	VPBROADCASTQ inv+64(FP), Z3
 	MOVQ         c+48(FP), BX
 	VPBROADCASTQ c+48(FP), Z4
 	VPSRLQ       $0x20, Z4, Z5
@@ -1836,7 +1836,7 @@ TEXT ·scalarMMulSubToAVX512(SB), NOSPLIT, $0-72
 	MOVQ         inv+64(FP), CX
 	VPBROADCASTQ q+56(FP), Z1
 	VPSRLQ       $0x20, Z1, Z2
-	VPBROADCASTQ invZ+64(FP), Z3
+	VPBROADCASTQ inv+64(FP), Z3
 	MOVQ         c+48(FP), BX
 	VPBROADCASTQ c+48(FP), Z4
 	VPSRLQ       $0x20, Z4, Z5
@@ -1931,7 +1931,7 @@ TEXT ·scalarMMulLazyToAVX512(SB), NOSPLIT, $0-72
 	MOVQ         inv+64(FP), CX
 	VPBROADCASTQ q+56(FP), Z1
 	VPSRLQ       $0x20, Z1, Z2
-	VPBROADCASTQ invZ+64(FP), Z3
+	VPBROADCASTQ inv+64(FP), Z3
 	MOVQ         c+48(FP), BX
 	VPBROADCASTQ c+48(FP), Z4
 	VPSRLQ       $0x20, Z4, Z5
@@ -2008,7 +2008,7 @@ TEXT ·scalarMMulAddLazyToAVX512(SB), NOSPLIT, $0-72
 	MOVQ         inv+64(FP), CX
 	VPBROADCASTQ q+56(FP), Z1
 	VPSRLQ       $0x20, Z1, Z2
-	VPBROADCASTQ invZ+64(FP), Z3
+	VPBROADCASTQ inv+64(FP), Z3
 	MOVQ         c+48(FP), BX
 	VPBROADCASTQ c+48(FP), Z4
 	VPSRLQ       $0x20, Z4, Z5
@@ -2089,7 +2089,7 @@ TEXT ·scalarMMulSubLazyToAVX512(SB), NOSPLIT, $0-72
 	MOVQ         inv+64(FP), CX
 	VPBROADCASTQ q+56(FP), Z1
 	VPSRLQ       $0x20, Z1, Z2
-	VPBROADCASTQ invZ+64(FP), Z3
+	VPBROADCASTQ inv+64(FP), Z3
 	MOVQ         c+48(FP), BX
 	VPBROADCASTQ c+48(FP), Z4
 	VPSRLQ       $0x20, Z4, Z5
@@ -2432,7 +2432,7 @@ TEXT ·mMulToAVX512(SB), NOSPLIT, $0-88
 	MOVQ         inv+80(FP), CX
 	VPBROADCASTQ q+72(FP), Z1
 	VPSRLQ       $0x20, Z1, Z2
-	VPBROADCASTQ invZ+80(FP), Z3
+	VPBROADCASTQ inv+80(FP), Z3
 	MOVQ         vOut_len+8(FP), BX
 	MOVQ         vOut_base+0(FP), SI
 	MOVQ         v0_base+24(FP), DI
@@ -2517,7 +2517,7 @@ TEXT ·mMulAddToAVX512(SB), NOSPLIT, $0-88
 	MOVQ         inv+80(FP), CX
 	VPBROADCASTQ q+72(FP), Z1
 	VPSRLQ       $0x20, Z1, Z2
-	VPBROADCASTQ invZ+80(FP), Z3
+	VPBROADCASTQ inv+80(FP), Z3
 	MOVQ         vOut_len+8(FP), BX
 	MOVQ         vOut_base+0(FP), SI
 	MOVQ         v0_base+24(FP), DI
@@ -2613,7 +2613,7 @@ TEXT ·mMulSubToAVX512(SB), NOSPLIT, $0-88
 	MOVQ         inv+80(FP), CX
 	VPBROADCASTQ q+72(FP), Z1
 	VPSRLQ       $0x20, Z1, Z2
-	VPBROADCASTQ invZ+80(FP), Z3
+	VPBROADCASTQ inv+80(FP), Z3
 	MOVQ         vOut_len+8(FP), BX
 	MOVQ         vOut_base+0(FP), SI
 	MOVQ         v0_base+24(FP), DI
@@ -2709,7 +2709,7 @@ TEXT ·mMulLazyToAVX512(SB), NOSPLIT, $0-88
 	MOVQ         inv+80(FP), CX
 	VPBROADCASTQ q+72(FP), Z1
 	VPSRLQ       $0x20, Z1, Z2
-	VPBROADCASTQ invZ+80(FP), Z3
+	VPBROADCASTQ inv+80(FP), Z3
 	MOVQ         vOut_len+8(FP), BX
 	MOVQ         vOut_base+0(FP), SI
 	MOVQ         v0_base+24(FP), DI
@@ -2787,7 +2787,7 @@ TEXT ·mMulAddLazyToAVX512(SB), NOSPLIT, $0-88
 	MOVQ         inv+80(FP), CX
 	VPBROADCASTQ q+72(FP), Z1
 	VPSRLQ       $0x20, Z1, Z2
-	VPBROADCASTQ invZ+80(FP), Z3
+	VPBROADCASTQ inv+80(FP), Z3
 	MOVQ         vOut_len+8(FP), BX
 	MOVQ         vOut_base+0(FP), SI
 	MOVQ         v0_base+24(FP), DI
@@ -2869,7 +2869,7 @@ TEXT ·mMulSubLazyToAVX512(SB), NOSPLIT, $0-88
 	MOVQ         inv+80(FP), CX
 	VPBROADCASTQ q+72(FP), Z1
 	VPSRLQ       $0x20, Z1, Z2
-	VPBROADCASTQ invZ+80(FP), Z3
+	VPBROADCASTQ inv+80(FP), Z3
 	MOVQ         vOut_len+8(FP), BX
 	MOVQ         vOut_base+0(FP), SI
 	MOVQ         v0_base+24(FP), DI

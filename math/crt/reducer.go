@@ -56,9 +56,9 @@ type LongDivReducer struct {
 func NewLongDivReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *LongDivReducer {
 	switch {
 	case maxRank < len(modPoly)-1:
-		panic("NewReducer: maxRank smaller than modPoly degree")
+		panic("NewLongDivReducer: maxRank smaller than modPoly degree")
 	case modPoly[len(modPoly)-1] != 1:
-		panic("NewReducer: modPoly not monic")
+		panic("NewLongDivReducer: modPoly not monic")
 	}
 
 	modPolyRed := make([][]uint64, len(mod))
