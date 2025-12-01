@@ -10,7 +10,7 @@ func nttInPlacePow2(coeffs, tw, twS []uint64, q uint64) {
 		nttInPlacePow2Ref(coeffs, tw, twS, q)
 		return
 	}
-	nttInPlacePow2Unroll(coeffs, tw, twS, q)
+	fwdNTTInPlacePow2Unroll(coeffs, tw, twS, q)
 }
 
 // butterflyPow2 returns the Harvey butterfly.
@@ -48,7 +48,7 @@ func inttInPlacePow2(coeffs, twInv, twInvS []uint64, q uint64) {
 		inttInPlacePow2Ref(coeffs, twInv, twInvS, q)
 		return
 	}
-	inttInPlacePow2Unroll(coeffs, twInv, twInvS, q)
+	invNTTInPlacePow2Unroll(coeffs, twInv, twInvS, q)
 }
 
 // invButterflyPow2 returns the inverse Harvey butterfly.

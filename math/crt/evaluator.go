@@ -29,10 +29,10 @@ type PolyEvaluator interface {
 	// ModulusPoly returns the quotient polynomial of the ring.
 	ModulusPoly() []int64
 
-	// NTT returns NTT(p).
-	NTT(p *Poly) *Poly
-	// NTTTo computes pOut = NTT(p).
-	NTTTo(pNTT, p *Poly)
+	// FwdNTT returns FwdNTT(p).
+	FwdNTT(p *Poly) *Poly
+	// FwdNTTTo computes pOut = NTT(p).
+	FwdNTTTo(pNTT, p *Poly)
 	// InvNTT returns InvNTT(p).
 	InvNTT(pNTT *Poly) *Poly
 	// InvNTTTo computes pOut = InvNTT(p).

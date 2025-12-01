@@ -302,7 +302,7 @@ func BenchmarkCyclotomicNTT(b *testing.B) {
 			pOut := randPoly(rP, q)
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
-				b.Run("NTT", func(b *testing.B) {
+				b.Run("FwdNTT", func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
 						ntt.ForwardTo(pOut, p)
 					}
@@ -332,7 +332,7 @@ func BenchmarkCyclotomicNTT(b *testing.B) {
 			pOut := randPoly(rP, q)
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
-				b.Run("NTT", func(b *testing.B) {
+				b.Run("FwdNTT", func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
 						ntt.ForwardTo(pOut, p)
 					}
@@ -361,7 +361,7 @@ func BenchmarkCyclicNTT(b *testing.B) {
 			pOut := randPoly(rP, q)
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
-				b.Run("NTT", func(b *testing.B) {
+				b.Run("FwdNTT", func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
 						ntt.ForwardTo(pOut, p)
 					}
@@ -388,7 +388,7 @@ func BenchmarkCyclicNTT(b *testing.B) {
 			pOut := randPoly(rP, q)
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
-				b.Run("NTT", func(b *testing.B) {
+				b.Run("FwdNTT", func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
 						ntt.ForwardTo(pOut, p)
 					}
@@ -417,7 +417,7 @@ func BenchmarkAutFixedNTT(b *testing.B) {
 			pOut := randPoly(rP, q)
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
-				b.Run("NTT", func(b *testing.B) {
+				b.Run("FwdNTT", func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
 						ntt.ForwardTo(pOut, p)
 					}
@@ -445,7 +445,7 @@ func BenchmarkAutFixedNTT(b *testing.B) {
 			pOut := randPoly(rP, q)
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
-				b.Run("NTT", func(b *testing.B) {
+				b.Run("FwdNTT", func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
 						ntt.ForwardTo(pOut, p)
 					}

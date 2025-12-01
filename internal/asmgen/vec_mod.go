@@ -10,11 +10,20 @@ func VecConstants() {
 	ConstData("MASK_LO", U64(1<<32-1))
 }
 
-func AddVecToAVX2(isWordOp bool) {
-	if isWordOp {
-		TEXT("addWordToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64)")
-	} else {
-		TEXT("addToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64)")
+func AddSubVecToAVX2(opType OpType, isWordOp bool) {
+	switch opType {
+	case OpAdd:
+		if isWordOp {
+			TEXT("addWordToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64)")
+		} else {
+			TEXT("addToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64)")
+		}
+	case OpSub:
+		if isWordOp {
+			TEXT("subWordToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64)")
+		} else {
+			TEXT("subToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64)")
+		}
 	}
 	Pragma("noescape")
 
@@ -50,13 +59,23 @@ func AddVecToAVX2(isWordOp bool) {
 	VMOVDQU(Mem{Base: v1, Index: i, Scale: 8}, x1)
 
 	xOut := YMM()
-	VPADDQ(x1, x0, xOut)
-
-	if !isWordOp {
-		subQ := YMM()
-		GreaterOrEqualThanAVX2(xOut, q, maskSign, subQ)
-		VPAND(q, subQ, subQ)
-		VPSUBQ(subQ, xOut, xOut)
+	switch opType {
+	case OpAdd:
+		VPADDQ(x1, x0, xOut)
+		if !isWordOp {
+			subQ := YMM()
+			GreaterOrEqualThanAVX2(xOut, q, maskSign, subQ)
+			VPAND(q, subQ, subQ)
+			VPSUBQ(subQ, xOut, xOut)
+		}
+	case OpSub:
+		VPSUBQ(x1, x0, xOut)
+		if !isWordOp {
+			subQ := YMM()
+			GreaterOrEqualThanAVX2(xOut, q, maskSign, subQ)
+			VPAND(q, subQ, subQ)
+			VPADDQ(subQ, xOut, xOut)
+		}
 	}
 
 	VMOVDQU(xOut, Mem{Base: vOut, Index: i, Scale: 8})
@@ -74,14 +93,25 @@ func AddVecToAVX2(isWordOp bool) {
 	MOVQ(Mem{Base: v0, Index: i, Scale: 8}, y0)
 	MOVQ(Mem{Base: v1, Index: i, Scale: 8}, y1)
 
-	ADDQ(y1, y0)
-
-	if !isWordOp {
-		subQ := GP64()
-		MOVQ(y0, subQ)
-		SUBQ(q64, subQ)
-		CMPQ(q64, y0)
-		CMOVQLS(subQ, y0)
+	switch opType {
+	case OpAdd:
+		ADDQ(y1, y0)
+		if !isWordOp {
+			subQ := GP64()
+			MOVQ(y0, subQ)
+			SUBQ(q64, subQ)
+			CMPQ(q64, y0)
+			CMOVQLS(subQ, y0)
+		}
+	case OpSub:
+		SUBQ(y1, y0)
+		if !isWordOp {
+			subQ := GP64()
+			MOVQ(y0, subQ)
+			ADDQ(q64, subQ)
+			CMPQ(q64, y0)
+			CMOVQLS(subQ, y0)
+		}
 	}
 
 	MOVQ(y0, Mem{Base: vOut, Index: i, Scale: 8})
@@ -95,11 +125,20 @@ func AddVecToAVX2(isWordOp bool) {
 	RET()
 }
 
-func ScalarAddVecToAVX2(isWordOp bool) {
-	if isWordOp {
-		TEXT("scalarAddWordToAVX2", NOSPLIT, "func(vOut, v []uint64, c uint64)")
-	} else {
-		TEXT("scalarAddToAVX2", NOSPLIT, "func(vOut, v []uint64, c, q uint64)")
+func ScalarAddSubVecToAVX2(opType OpType, isWordOp bool) {
+	switch opType {
+	case OpAdd:
+		if isWordOp {
+			TEXT("scalarAddWordToAVX2", NOSPLIT, "func(vOut, v []uint64, c uint64)")
+		} else {
+			TEXT("scalarAddToAVX2", NOSPLIT, "func(vOut, v []uint64, c, q uint64)")
+		}
+	case OpSub:
+		if isWordOp {
+			TEXT("scalarSubWordToAVX2", NOSPLIT, "func(vOut, v []uint64, c uint64)")
+		} else {
+			TEXT("scalarSubToAVX2", NOSPLIT, "func(vOut, v []uint64, c, q uint64)")
+		}
 	}
 	Pragma("noescape")
 
@@ -137,13 +176,23 @@ func ScalarAddVecToAVX2(isWordOp bool) {
 	VMOVDQU(Mem{Base: v, Index: i, Scale: 8}, x)
 
 	xOut := YMM()
-	VPADDQ(c, x, xOut)
-
-	if !isWordOp {
-		subQ := YMM()
-		GreaterOrEqualThanAVX2(xOut, q, maskSign, subQ)
-		VPAND(q, subQ, subQ)
-		VPSUBQ(subQ, xOut, xOut)
+	switch opType {
+	case OpAdd:
+		VPADDQ(c, x, xOut)
+		if !isWordOp {
+			subQ := YMM()
+			GreaterOrEqualThanAVX2(xOut, q, maskSign, subQ)
+			VPAND(q, subQ, subQ)
+			VPSUBQ(subQ, xOut, xOut)
+		}
+	case OpSub:
+		VPSUBQ(c, x, xOut)
+		if !isWordOp {
+			subQ := YMM()
+			GreaterOrEqualThanAVX2(xOut, q, maskSign, subQ)
+			VPAND(q, subQ, subQ)
+			VPADDQ(subQ, xOut, xOut)
+		}
 	}
 
 	VMOVDQU(xOut, Mem{Base: vOut, Index: i, Scale: 8})
@@ -160,14 +209,25 @@ func ScalarAddVecToAVX2(isWordOp bool) {
 	y := GP64()
 	MOVQ(Mem{Base: v, Index: i, Scale: 8}, y)
 
-	ADDQ(c64, y)
-
-	if !isWordOp {
-		subQ := GP64()
-		MOVQ(y, subQ)
-		SUBQ(q64, subQ)
-		CMPQ(q64, y)
-		CMOVQLS(subQ, y)
+	switch opType {
+	case OpAdd:
+		ADDQ(c64, y)
+		if !isWordOp {
+			subQ := GP64()
+			MOVQ(y, subQ)
+			SUBQ(q64, subQ)
+			CMPQ(q64, y)
+			CMOVQLS(subQ, y)
+		}
+	case OpSub:
+		SUBQ(c64, y)
+		if !isWordOp {
+			subQ := GP64()
+			MOVQ(y, subQ)
+			ADDQ(q64, subQ)
+			CMPQ(q64, y)
+			CMOVQLS(subQ, y)
+		}
 	}
 
 	MOVQ(y, Mem{Base: vOut, Index: i, Scale: 8})
@@ -181,11 +241,20 @@ func ScalarAddVecToAVX2(isWordOp bool) {
 	RET()
 }
 
-func AddVecToAVX512(isWordOp bool) {
-	if isWordOp {
-		TEXT("addWordToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64)")
-	} else {
-		TEXT("addToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64)")
+func AddSubVecToAVX512(opType OpType, isWordOp bool) {
+	switch opType {
+	case OpAdd:
+		if isWordOp {
+			TEXT("addWordToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64)")
+		} else {
+			TEXT("addToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64)")
+		}
+	case OpSub:
+		if isWordOp {
+			TEXT("subWordToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64)")
+		} else {
+			TEXT("subToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64)")
+		}
 	}
 	Pragma("noescape")
 
@@ -215,13 +284,23 @@ func AddVecToAVX512(isWordOp bool) {
 	VMOVDQU64(Mem{Base: v1, Index: i, Scale: 8}, x1)
 
 	xOut := ZMM()
-	VPADDQ(x1, x0, xOut)
-
-	if !isWordOp {
-		subQ, subQMask := ZMM(), K()
-		VPCMPUQ(Imm(0o5), q, xOut, subQMask)
-		VMOVAPD_Z(q, subQMask, subQ)
-		VPSUBQ(subQ, xOut, xOut)
+	switch opType {
+	case OpAdd:
+		VPADDQ(x1, x0, xOut)
+		if !isWordOp {
+			subQ, subQMask := ZMM(), K()
+			VPCMPUQ(Imm(0o5), q, xOut, subQMask)
+			VMOVAPD_Z(q, subQMask, subQ)
+			VPSUBQ(subQ, xOut, xOut)
+		}
+	case OpSub:
+		VPSUBQ(x1, x0, xOut)
+		if !isWordOp {
+			subQ, subQMask := ZMM(), K()
+			VPCMPUQ(Imm(0o5), q, xOut, subQMask)
+			VMOVAPD_Z(q, subQMask, subQ)
+			VPADDQ(subQ, xOut, xOut)
+		}
 	}
 
 	VMOVDQU64(xOut, Mem{Base: vOut, Index: i, Scale: 8})
@@ -239,14 +318,25 @@ func AddVecToAVX512(isWordOp bool) {
 	MOVQ(Mem{Base: v0, Index: i, Scale: 8}, y0)
 	MOVQ(Mem{Base: v1, Index: i, Scale: 8}, y1)
 
-	ADDQ(y1, y0)
-
-	if !isWordOp {
-		subQ := GP64()
-		MOVQ(y0, subQ)
-		SUBQ(q64, subQ)
-		CMPQ(q64, y0)
-		CMOVQLS(subQ, y0)
+	switch opType {
+	case OpAdd:
+		ADDQ(y1, y0)
+		if !isWordOp {
+			subQ := GP64()
+			MOVQ(y0, subQ)
+			SUBQ(q64, subQ)
+			CMPQ(q64, y0)
+			CMOVQLS(subQ, y0)
+		}
+	case OpSub:
+		SUBQ(y1, y0)
+		if !isWordOp {
+			subQ := GP64()
+			MOVQ(y0, subQ)
+			ADDQ(q64, subQ)
+			CMPQ(q64, y0)
+			CMOVQLS(subQ, y0)
+		}
 	}
 
 	MOVQ(y0, Mem{Base: vOut, Index: i, Scale: 8})
@@ -260,11 +350,20 @@ func AddVecToAVX512(isWordOp bool) {
 	RET()
 }
 
-func ScalarAddVecToAVX512(isWordOp bool) {
-	if isWordOp {
-		TEXT("scalarAddWordToAVX512", NOSPLIT, "func(vOut, v []uint64, c uint64)")
-	} else {
-		TEXT("scalarAddToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q uint64)")
+func ScalarAddSubVecToAVX512(opType OpType, isWordOp bool) {
+	switch opType {
+	case OpAdd:
+		if isWordOp {
+			TEXT("scalarAddWordToAVX512", NOSPLIT, "func(vOut, v []uint64, c uint64)")
+		} else {
+			TEXT("scalarAddToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q uint64)")
+		}
+	case OpSub:
+		if isWordOp {
+			TEXT("scalarSubWordToAVX512", NOSPLIT, "func(vOut, v []uint64, c uint64)")
+		} else {
+			TEXT("scalarSubToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q uint64)")
+		}
 	}
 	Pragma("noescape")
 
@@ -296,13 +395,23 @@ func ScalarAddVecToAVX512(isWordOp bool) {
 	VMOVDQU64(Mem{Base: v, Index: i, Scale: 8}, x)
 
 	xOut := ZMM()
-	VPADDQ(c, x, xOut)
-
-	if !isWordOp {
-		subQ, subQMask := ZMM(), K()
-		VPCMPUQ(Imm(0o5), q, xOut, subQMask)
-		VMOVAPD_Z(q, subQMask, subQ)
-		VPSUBQ(subQ, xOut, xOut)
+	switch opType {
+	case OpAdd:
+		VPADDQ(c, x, xOut)
+		if !isWordOp {
+			subQ, subQMask := ZMM(), K()
+			VPCMPUQ(Imm(0o5), q, xOut, subQMask)
+			VMOVAPD_Z(q, subQMask, subQ)
+			VPSUBQ(subQ, xOut, xOut)
+		}
+	case OpSub:
+		VPSUBQ(c, x, xOut)
+		if !isWordOp {
+			subQ, subQMask := ZMM(), K()
+			VPCMPUQ(Imm(0o5), q, xOut, subQMask)
+			VMOVAPD_Z(q, subQMask, subQ)
+			VPADDQ(subQ, xOut, xOut)
+		}
 	}
 
 	VMOVDQU64(xOut, Mem{Base: vOut, Index: i, Scale: 8})
@@ -319,185 +428,25 @@ func ScalarAddVecToAVX512(isWordOp bool) {
 	y := GP64()
 	MOVQ(Mem{Base: v, Index: i, Scale: 8}, y)
 
-	ADDQ(c64, y)
-
-	if !isWordOp {
-		subQ := GP64()
-		MOVQ(y, subQ)
-		SUBQ(q64, subQ)
-		CMPQ(q64, y)
-		CMOVQLS(subQ, y)
-	}
-
-	MOVQ(y, Mem{Base: vOut, Index: i, Scale: 8})
-
-	ADDQ(Imm(1), i)
-
-	Label("leftover_loop_end")
-	CMPQ(i, N)
-	JL(LabelRef("leftover_loop_body"))
-
-	RET()
-}
-
-func SubVecToAVX2(isWordOp bool) {
-	if isWordOp {
-		TEXT("subWordToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64)")
-	} else {
-		TEXT("subToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64)")
-	}
-	Pragma("noescape")
-
-	maskSign := YMM()
-	if !isWordOp {
-		VPCMPEQQ(maskSign, maskSign, maskSign)
-		VPSLLQ(Imm(63), maskSign, maskSign)
-	}
-
-	q64, q := GP64(), YMM()
-	if !isWordOp {
-		Load(Param("q"), q64)
-		VPBROADCASTQ(NewParamAddr("q", 72), q)
-	}
-
-	N := Load(Param("vOut").Len(), GP64())
-	vOut := Load(Param("vOut").Base(), GP64())
-	v0 := Load(Param("v0").Base(), GP64())
-	v1 := Load(Param("v1").Base(), GP64())
-
-	M := GP64()
-	MOVQ(N, M)
-	SHRQ(Imm(2), M)
-	SHLQ(Imm(2), M)
-
-	i := GP64()
-	XORQ(i, i)
-	JMP(LabelRef("loop_end"))
-	Label("loop_body")
-
-	x0, x1 := YMM(), YMM()
-	VMOVDQU(Mem{Base: v0, Index: i, Scale: 8}, x0)
-	VMOVDQU(Mem{Base: v1, Index: i, Scale: 8}, x1)
-
-	xOut := YMM()
-	VPSUBQ(x1, x0, xOut)
-
-	if !isWordOp {
-		subQ := YMM()
-		GreaterOrEqualThanAVX2(xOut, q, maskSign, subQ)
-		VPAND(q, subQ, subQ)
-		VPADDQ(subQ, xOut, xOut)
-	}
-
-	VMOVDQU(xOut, Mem{Base: vOut, Index: i, Scale: 8})
-
-	ADDQ(Imm(4), i)
-
-	Label("loop_end")
-	CMPQ(i, M)
-	JL(LabelRef("loop_body"))
-
-	JMP(LabelRef("leftover_loop_end"))
-	Label("leftover_loop_body")
-
-	y0, y1 := GP64(), GP64()
-	MOVQ(Mem{Base: v0, Index: i, Scale: 8}, y0)
-	MOVQ(Mem{Base: v1, Index: i, Scale: 8}, y1)
-
-	SUBQ(y1, y0)
-
-	if !isWordOp {
-		subQ := GP64()
-		MOVQ(y0, subQ)
-		ADDQ(q64, subQ)
-		CMPQ(q64, y0)
-		CMOVQLS(subQ, y0)
-	}
-
-	MOVQ(y0, Mem{Base: vOut, Index: i, Scale: 8})
-
-	ADDQ(Imm(1), i)
-
-	Label("leftover_loop_end")
-	CMPQ(i, N)
-	JL(LabelRef("leftover_loop_body"))
-
-	RET()
-}
-
-func ScalarSubVecToAVX2(isWordOp bool) {
-	if isWordOp {
-		TEXT("scalarSubWordToAVX2", NOSPLIT, "func(vOut, v []uint64, c uint64)")
-	} else {
-		TEXT("scalarSubToAVX2", NOSPLIT, "func(vOut, v []uint64, c, q uint64)")
-	}
-	Pragma("noescape")
-
-	maskSign := YMM()
-	if !isWordOp {
-		VPCMPEQQ(maskSign, maskSign, maskSign)
-		VPSLLQ(Imm(63), maskSign, maskSign)
-	}
-
-	q64, q := GP64(), YMM()
-	if !isWordOp {
-		Load(Param("q"), q64)
-		VPBROADCASTQ(NewParamAddr("q", 56), q)
-	}
-
-	N := Load(Param("vOut").Len(), GP64())
-	vOut := Load(Param("vOut").Base(), GP64())
-	v := Load(Param("v").Base(), GP64())
-
-	c64 := Load(Param("c"), GP64())
-	c := YMM()
-	VPBROADCASTQ(NewParamAddr("c", 48), c)
-
-	M := GP64()
-	MOVQ(N, M)
-	SHRQ(Imm(2), M)
-	SHLQ(Imm(2), M)
-
-	i := GP64()
-	XORQ(i, i)
-	JMP(LabelRef("loop_end"))
-	Label("loop_body")
-
-	x := YMM()
-	VMOVDQU(Mem{Base: v, Index: i, Scale: 8}, x)
-
-	xOut := YMM()
-	VPSUBQ(c, x, xOut)
-
-	if !isWordOp {
-		subQ := YMM()
-		GreaterOrEqualThanAVX2(xOut, q, maskSign, subQ)
-		VPAND(q, subQ, subQ)
-		VPADDQ(subQ, xOut, xOut)
-	}
-
-	VMOVDQU(xOut, Mem{Base: vOut, Index: i, Scale: 8})
-
-	ADDQ(Imm(4), i)
-
-	Label("loop_end")
-	CMPQ(i, M)
-	JL(LabelRef("loop_body"))
-
-	JMP(LabelRef("leftover_loop_end"))
-	Label("leftover_loop_body")
-
-	y := GP64()
-	MOVQ(Mem{Base: v, Index: i, Scale: 8}, y)
-
-	SUBQ(c64, y)
-
-	if !isWordOp {
-		subQ := GP64()
-		MOVQ(y, subQ)
-		ADDQ(q64, subQ)
-		CMPQ(q64, y)
-		CMOVQLS(subQ, y)
+	switch opType {
+	case OpAdd:
+		ADDQ(c64, y)
+		if !isWordOp {
+			subQ := GP64()
+			MOVQ(y, subQ)
+			SUBQ(q64, subQ)
+			CMPQ(q64, y)
+			CMOVQLS(subQ, y)
+		}
+	case OpSub:
+		SUBQ(c64, y)
+		if !isWordOp {
+			subQ := GP64()
+			MOVQ(y, subQ)
+			ADDQ(q64, subQ)
+			CMPQ(q64, y)
+			CMOVQLS(subQ, y)
+		}
 	}
 
 	MOVQ(y, Mem{Base: vOut, Index: i, Scale: 8})
@@ -580,86 +529,6 @@ func SubVecToAVX512(isWordOp bool) {
 	}
 
 	MOVQ(y0, Mem{Base: vOut, Index: i, Scale: 8})
-
-	ADDQ(Imm(1), i)
-
-	Label("leftover_loop_end")
-	CMPQ(i, N)
-	JL(LabelRef("leftover_loop_body"))
-
-	RET()
-}
-
-func ScalarSubVecToAVX512(isWordOp bool) {
-	if isWordOp {
-		TEXT("scalarSubWordToAVX512", NOSPLIT, "func(vOut, v []uint64, c uint64)")
-	} else {
-		TEXT("scalarSubToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q uint64)")
-	}
-	Pragma("noescape")
-
-	q64, q := GP64(), ZMM()
-	if !isWordOp {
-		Load(Param("q"), q64)
-		VPBROADCASTQ(NewParamAddr("q", 56), q)
-	}
-
-	N := Load(Param("vOut").Len(), GP64())
-	vOut := Load(Param("vOut").Base(), GP64())
-	v := Load(Param("v").Base(), GP64())
-
-	c64 := Load(Param("c"), GP64())
-	c := ZMM()
-	VPBROADCASTQ(NewParamAddr("c", 48), c)
-
-	M := GP64()
-	MOVQ(N, M)
-	SHRQ(Imm(3), M)
-	SHLQ(Imm(3), M)
-
-	i := GP64()
-	XORQ(i, i)
-	JMP(LabelRef("loop_end"))
-	Label("loop_body")
-
-	x := ZMM()
-	VMOVDQU64(Mem{Base: v, Index: i, Scale: 8}, x)
-
-	xOut := ZMM()
-	VPSUBQ(c, x, xOut)
-
-	if !isWordOp {
-		subQ, subQMask := ZMM(), K()
-		VPCMPUQ(Imm(0o5), q, xOut, subQMask)
-		VMOVAPD_Z(q, subQMask, subQ)
-		VPADDQ(subQ, xOut, xOut)
-	}
-
-	VMOVDQU64(xOut, Mem{Base: vOut, Index: i, Scale: 8})
-
-	ADDQ(Imm(8), i)
-
-	Label("loop_end")
-	CMPQ(i, M)
-	JL(LabelRef("loop_body"))
-
-	JMP(LabelRef("leftover_loop_end"))
-	Label("leftover_loop_body")
-
-	y := GP64()
-	MOVQ(Mem{Base: v, Index: i, Scale: 8}, y)
-
-	SUBQ(c64, y)
-
-	if !isWordOp {
-		subQ := GP64()
-		MOVQ(y, subQ)
-		ADDQ(q64, subQ)
-		CMPQ(q64, y)
-		CMOVQLS(subQ, y)
-	}
-
-	MOVQ(y, Mem{Base: vOut, Index: i, Scale: 8})
 
 	ADDQ(Imm(1), i)
 
@@ -1017,19 +886,13 @@ func InvMFormVecToAVX512() {
 	RET()
 }
 
-const (
-	OpMul = iota
-	OpMulAdd
-	OpMulSub
-)
-
-func ScalarMulWordVecToAVX2(mulType int) {
-	switch mulType {
-	case OpMul:
+func ScalarMulWordVecToAVX2(opType OpType) {
+	switch opType {
+	case OpPure:
 		TEXT("scalarMulWordToAVX2", NOSPLIT, "func(vOut, v []uint64, c uint64)")
-	case OpMulAdd:
+	case OpAdd:
 		TEXT("scalarMulAddWordToAVX2", NOSPLIT, "func(vOut, v []uint64, c uint64)")
-	case OpMulSub:
+	case OpSub:
 		TEXT("scalarMulSubWordToAVX2", NOSPLIT, "func(vOut, v []uint64, c uint64)")
 	}
 	Pragma("noescape")
@@ -1063,13 +926,13 @@ func ScalarMulWordVecToAVX2(mulType int) {
 	xOut, xMul := YMM(), YMM()
 	Mul64LoAVX2(x, c, cSwap, maskHi, xMul)
 
-	switch mulType {
-	case OpMul:
+	switch opType {
+	case OpPure:
 		xOut = xMul
-	case OpMulAdd:
+	case OpAdd:
 		VMOVDQU(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
 		VPADDQ(xMul, xOut, xOut)
-	case OpMulSub:
+	case OpSub:
 		VMOVDQU(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
 		VPSUBQ(xMul, xOut, xOut)
 	}
@@ -1091,13 +954,13 @@ func ScalarMulWordVecToAVX2(mulType int) {
 	yOut := GP64()
 	IMULQ(c64, y)
 
-	switch mulType {
-	case OpMul:
+	switch opType {
+	case OpPure:
 		yOut = y
-	case OpMulAdd:
+	case OpAdd:
 		MOVQ(Mem{Base: vOut, Index: i, Scale: 8}, yOut)
 		ADDQ(y, yOut)
-	case OpMulSub:
+	case OpSub:
 		MOVQ(Mem{Base: vOut, Index: i, Scale: 8}, yOut)
 		SUBQ(y, yOut)
 	}
@@ -1113,13 +976,13 @@ func ScalarMulWordVecToAVX2(mulType int) {
 	RET()
 }
 
-func ScalarMulWordVecToAVX512(mulType int) {
-	switch mulType {
-	case OpMul:
+func ScalarMulWordVecToAVX512(opType OpType) {
+	switch opType {
+	case OpPure:
 		TEXT("scalarMulWordToAVX512", NOSPLIT, "func(vOut, v []uint64, c uint64)")
-	case OpMulAdd:
+	case OpAdd:
 		TEXT("scalarMulAddWordToAVX512", NOSPLIT, "func(vOut, v []uint64, c uint64)")
-	case OpMulSub:
+	case OpSub:
 		TEXT("scalarMulSubWordToAVX512", NOSPLIT, "func(vOut, v []uint64, c uint64)")
 	}
 	Pragma("noescape")
@@ -1148,13 +1011,13 @@ func ScalarMulWordVecToAVX512(mulType int) {
 	xOut, xMul := ZMM(), ZMM()
 	VPMULLQ(x, c, xMul)
 
-	switch mulType {
-	case OpMul:
+	switch opType {
+	case OpPure:
 		xOut = xMul
-	case OpMulAdd:
+	case OpAdd:
 		VMOVDQU64(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
 		VPADDQ(xMul, xOut, xOut)
-	case OpMulSub:
+	case OpSub:
 		VMOVDQU64(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
 		VPSUBQ(xMul, xOut, xOut)
 	}
@@ -1176,13 +1039,13 @@ func ScalarMulWordVecToAVX512(mulType int) {
 	yOut := GP64()
 	IMULQ(c64, y)
 
-	switch mulType {
-	case OpMul:
+	switch opType {
+	case OpPure:
 		yOut = y
-	case OpMulAdd:
+	case OpAdd:
 		MOVQ(Mem{Base: vOut, Index: i, Scale: 8}, yOut)
 		ADDQ(y, yOut)
-	case OpMulSub:
+	case OpSub:
 		MOVQ(Mem{Base: vOut, Index: i, Scale: 8}, yOut)
 		SUBQ(y, yOut)
 	}
@@ -1198,23 +1061,23 @@ func ScalarMulWordVecToAVX512(mulType int) {
 	RET()
 }
 
-func ScalarMulVecToAVX512(mulType int, isLazy bool) {
+func ScalarMulVecToAVX512(opType OpType, isLazy bool) {
 	if !isLazy {
-		switch mulType {
-		case OpMul:
+		switch opType {
+		case OpPure:
 			TEXT("scalarMulToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
-		case OpMulAdd:
+		case OpAdd:
 			TEXT("scalarMulAddToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
-		case OpMulSub:
+		case OpSub:
 			TEXT("scalarMulSubToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
 		}
 	} else {
-		switch mulType {
-		case OpMul:
+		switch opType {
+		case OpPure:
 			TEXT("scalarMulLazyToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
-		case OpMulAdd:
+		case OpAdd:
 			TEXT("scalarMulAddLazyToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
-		case OpMulSub:
+		case OpSub:
 			TEXT("scalarMulSubLazyToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
 		}
 	}
@@ -1271,10 +1134,10 @@ func ScalarMulVecToAVX512(mulType int, isLazy bool) {
 		VPSUBQ(subQ, xMul, xMul)
 	}
 
-	switch mulType {
-	case OpMul:
+	switch opType {
+	case OpPure:
 		xOut = xMul
-	case OpMulAdd:
+	case OpAdd:
 		VMOVDQU64(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
 		VPADDQ(xMul, xOut, xOut)
 		if !isLazy {
@@ -1283,7 +1146,7 @@ func ScalarMulVecToAVX512(mulType int, isLazy bool) {
 			VMOVAPD_Z(q, subQMask, subQ)
 			VPSUBQ(subQ, xOut, xOut)
 		}
-	case OpMulSub:
+	case OpSub:
 		VMOVDQU64(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
 		if !isLazy {
 			VPSUBQ(xMul, xOut, xOut)
@@ -1328,10 +1191,10 @@ func ScalarMulVecToAVX512(mulType int, isLazy bool) {
 		CMOVQLS(subQ, y)
 	}
 
-	switch mulType {
-	case OpMul:
+	switch opType {
+	case OpPure:
 		yOut = y
-	case OpMulAdd:
+	case OpAdd:
 		MOVQ(Mem{Base: vOut, Index: i, Scale: 8}, yOut)
 		ADDQ(y, yOut)
 		if !isLazy {
@@ -1341,7 +1204,7 @@ func ScalarMulVecToAVX512(mulType int, isLazy bool) {
 			CMPQ(q64, yOut)
 			CMOVQLS(subQ, yOut)
 		}
-	case OpMulSub:
+	case OpSub:
 		MOVQ(Mem{Base: vOut, Index: i, Scale: 8}, yOut)
 		if !isLazy {
 			SUBQ(y, yOut)
@@ -1366,23 +1229,23 @@ func ScalarMulVecToAVX512(mulType int, isLazy bool) {
 	RET()
 }
 
-func ScalarMMulVecToAVX512(mulType int, isLazy bool) {
+func ScalarMMulVecToAVX512(opType OpType, isLazy bool) {
 	if !isLazy {
-		switch mulType {
-		case OpMul:
+		switch opType {
+		case OpPure:
 			TEXT("scalarMMulToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q, inv uint64)")
-		case OpMulAdd:
+		case OpAdd:
 			TEXT("scalarMMulAddToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q, inv uint64)")
-		case OpMulSub:
+		case OpSub:
 			TEXT("scalarMMulSubToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q, inv uint64)")
 		}
 	} else {
-		switch mulType {
-		case OpMul:
+		switch opType {
+		case OpPure:
 			TEXT("scalarMMulLazyToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q, inv uint64)")
-		case OpMulAdd:
+		case OpAdd:
 			TEXT("scalarMMulAddLazyToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q, inv uint64)")
-		case OpMulSub:
+		case OpSub:
 			TEXT("scalarMMulSubLazyToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q, inv uint64)")
 		}
 	}
@@ -1447,10 +1310,10 @@ func ScalarMMulVecToAVX512(mulType int, isLazy bool) {
 		VPSUBQ(subQ, xMul, xMul)
 	}
 
-	switch mulType {
-	case OpMul:
+	switch opType {
+	case OpPure:
 		xOut = xMul
-	case OpMulAdd:
+	case OpAdd:
 		VMOVDQU64(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
 		VPADDQ(xMul, xOut, xOut)
 		if !isLazy {
@@ -1459,7 +1322,7 @@ func ScalarMMulVecToAVX512(mulType int, isLazy bool) {
 			VMOVAPD_Z(q, subQMask, subQ)
 			VPSUBQ(subQ, xOut, xOut)
 		}
-	case OpMulSub:
+	case OpSub:
 		VMOVDQU64(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
 		if !isLazy {
 			VPSUBQ(xMul, xOut, xOut)
@@ -1509,10 +1372,10 @@ func ScalarMMulVecToAVX512(mulType int, isLazy bool) {
 		CMOVQLS(subQ, y)
 	}
 
-	switch mulType {
-	case OpMul:
+	switch opType {
+	case OpPure:
 		yOut = y
-	case OpMulAdd:
+	case OpAdd:
 		MOVQ(Mem{Base: vOut, Index: i, Scale: 8}, yOut)
 		ADDQ(y, yOut)
 		if !isLazy {
@@ -1522,7 +1385,7 @@ func ScalarMMulVecToAVX512(mulType int, isLazy bool) {
 			CMPQ(q64, yOut)
 			CMOVQLS(subQ, yOut)
 		}
-	case OpMulSub:
+	case OpSub:
 		MOVQ(Mem{Base: vOut, Index: i, Scale: 8}, yOut)
 		if !isLazy {
 			SUBQ(y, yOut)
@@ -1547,13 +1410,13 @@ func ScalarMMulVecToAVX512(mulType int, isLazy bool) {
 	RET()
 }
 
-func MulWordVecToAVX2(mulType int) {
-	switch mulType {
-	case OpMul:
+func MulWordVecToAVX2(opType OpType) {
+	switch opType {
+	case OpPure:
 		TEXT("mulWordToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64)")
-	case OpMulAdd:
+	case OpAdd:
 		TEXT("mulAddWordToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64)")
-	case OpMulSub:
+	case OpSub:
 		TEXT("mulSubWordToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64)")
 	}
 	Pragma("noescape")
@@ -1587,13 +1450,13 @@ func MulWordVecToAVX2(mulType int) {
 	xOut, xMul := YMM(), YMM()
 	Mul64LoAVX2(x0, x1, x1Swap, maskHi, xMul)
 
-	switch mulType {
-	case OpMul:
+	switch opType {
+	case OpPure:
 		xOut = xMul
-	case OpMulAdd:
+	case OpAdd:
 		VMOVDQU(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
 		VPADDQ(xMul, xOut, xOut)
-	case OpMulSub:
+	case OpSub:
 		VMOVDQU(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
 		VPSUBQ(xMul, xOut, xOut)
 	}
@@ -1616,13 +1479,13 @@ func MulWordVecToAVX2(mulType int) {
 	yOut := GP64()
 	IMULQ(y1, y0)
 
-	switch mulType {
-	case OpMul:
+	switch opType {
+	case OpPure:
 		yOut = y0
-	case OpMulAdd:
+	case OpAdd:
 		MOVQ(Mem{Base: vOut, Index: i, Scale: 8}, yOut)
 		ADDQ(y0, yOut)
-	case OpMulSub:
+	case OpSub:
 		MOVQ(Mem{Base: vOut, Index: i, Scale: 8}, yOut)
 		SUBQ(y0, yOut)
 	}
@@ -1638,13 +1501,13 @@ func MulWordVecToAVX2(mulType int) {
 	RET()
 }
 
-func MulWordVecToAVX512(mulType int) {
-	switch mulType {
-	case OpMul:
+func MulWordVecToAVX512(opType OpType) {
+	switch opType {
+	case OpPure:
 		TEXT("mulWordToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64)")
-	case OpMulAdd:
+	case OpAdd:
 		TEXT("mulAddWordToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64)")
-	case OpMulSub:
+	case OpSub:
 		TEXT("mulSubWordToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64)")
 	}
 	Pragma("noescape")
@@ -1671,13 +1534,13 @@ func MulWordVecToAVX512(mulType int) {
 	xOut, xMul := ZMM(), ZMM()
 	VPMULLQ(x0, x1, xMul)
 
-	switch mulType {
-	case OpMul:
+	switch opType {
+	case OpPure:
 		xOut = xMul
-	case OpMulAdd:
+	case OpAdd:
 		VMOVDQU64(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
 		VPADDQ(xMul, xOut, xOut)
-	case OpMulSub:
+	case OpSub:
 		VMOVDQU64(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
 		VPSUBQ(xMul, xOut, xOut)
 	}
@@ -1700,13 +1563,13 @@ func MulWordVecToAVX512(mulType int) {
 	yOut := GP64()
 	IMULQ(y1, y0)
 
-	switch mulType {
-	case OpMul:
+	switch opType {
+	case OpPure:
 		yOut = y0
-	case OpMulAdd:
+	case OpAdd:
 		MOVQ(Mem{Base: vOut, Index: i, Scale: 8}, yOut)
 		ADDQ(y0, yOut)
-	case OpMulSub:
+	case OpSub:
 		MOVQ(Mem{Base: vOut, Index: i, Scale: 8}, yOut)
 		SUBQ(y0, yOut)
 	}
@@ -1722,23 +1585,23 @@ func MulWordVecToAVX512(mulType int) {
 	RET()
 }
 
-func MMulVecToAVX512(mulType int, isLazy bool) {
+func MMulVecToAVX512(opType OpType, isLazy bool) {
 	if !isLazy {
-		switch mulType {
-		case OpMul:
+		switch opType {
+		case OpPure:
 			TEXT("mMulToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64, q, inv uint64)")
-		case OpMulAdd:
+		case OpAdd:
 			TEXT("mMulAddToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64, q, inv uint64)")
-		case OpMulSub:
+		case OpSub:
 			TEXT("mMulSubToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64, q, inv uint64)")
 		}
 	} else {
-		switch mulType {
-		case OpMul:
+		switch opType {
+		case OpPure:
 			TEXT("mMulLazyToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64, q, inv uint64)")
-		case OpMulAdd:
+		case OpAdd:
 			TEXT("mMulAddLazyToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64, q, inv uint64)")
-		case OpMulSub:
+		case OpSub:
 			TEXT("mMulSubLazyToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64, q, inv uint64)")
 		}
 	}
@@ -1774,7 +1637,7 @@ func MMulVecToAVX512(mulType int, isLazy bool) {
 	VMOVDQU64(Mem{Base: v0, Index: i, Scale: 8}, x0)
 	VMOVDQU64(Mem{Base: v1, Index: i, Scale: 8}, x1)
 
-	if mulType == OpMulSub && isLazy {
+	if opType == OpSub && isLazy {
 		VPSUBQ(x0, q, x0)
 	}
 
@@ -1805,10 +1668,10 @@ func MMulVecToAVX512(mulType int, isLazy bool) {
 		VPSUBQ(subQ, xMul, xMul)
 	}
 
-	switch mulType {
-	case OpMul:
+	switch opType {
+	case OpPure:
 		xOut = xMul
-	case OpMulAdd:
+	case OpAdd:
 		VMOVDQU64(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
 		VPADDQ(xMul, xOut, xOut)
 		if !isLazy {
@@ -1817,7 +1680,7 @@ func MMulVecToAVX512(mulType int, isLazy bool) {
 			VMOVAPD_Z(q, subQMask, subQ)
 			VPSUBQ(subQ, xOut, xOut)
 		}
-	case OpMulSub:
+	case OpSub:
 		VMOVDQU64(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
 		if !isLazy {
 			VPSUBQ(xMul, xOut, xOut)
@@ -1845,7 +1708,7 @@ func MMulVecToAVX512(mulType int, isLazy bool) {
 	MOVQ(Mem{Base: v0, Index: i, Scale: 8}, y0)
 	MOVQ(Mem{Base: v1, Index: i, Scale: 8}, y1)
 
-	if mulType == OpMulSub && isLazy {
+	if opType == OpSub && isLazy {
 		SUBQ(q64, y0)
 		NEGQ(y0)
 	}
@@ -1873,10 +1736,10 @@ func MMulVecToAVX512(mulType int, isLazy bool) {
 		CMOVQLS(subQ, y0)
 	}
 
-	switch mulType {
-	case OpMul:
+	switch opType {
+	case OpPure:
 		yOut = y0
-	case OpMulAdd:
+	case OpAdd:
 		MOVQ(Mem{Base: vOut, Index: i, Scale: 8}, yOut)
 		ADDQ(y0, yOut)
 		if !isLazy {
@@ -1886,7 +1749,7 @@ func MMulVecToAVX512(mulType int, isLazy bool) {
 			CMPQ(q64, yOut)
 			CMOVQLS(subQ, yOut)
 		}
-	case OpMulSub:
+	case OpSub:
 		MOVQ(Mem{Base: vOut, Index: i, Scale: 8}, yOut)
 		if !isLazy {
 			SUBQ(y0, yOut)
@@ -1911,23 +1774,23 @@ func MMulVecToAVX512(mulType int, isLazy bool) {
 	RET()
 }
 
-func SMulVecToAVX512(mulType int, isLazy bool) {
+func SMulVecToAVX512(opType OpType, isLazy bool) {
 	if !isLazy {
-		switch mulType {
-		case OpMul:
+		switch opType {
+		case OpPure:
 			TEXT("sMulToAVX512", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
-		case OpMulAdd:
+		case OpAdd:
 			TEXT("sMulAddToAVX512", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
-		case OpMulSub:
+		case OpSub:
 			TEXT("sMulSubToAVX512", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
 		}
 	} else {
-		switch mulType {
-		case OpMul:
+		switch opType {
+		case OpPure:
 			TEXT("sMulLazyToAVX512", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
-		case OpMulAdd:
+		case OpAdd:
 			TEXT("sMulAddLazyToAVX512", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
-		case OpMulSub:
+		case OpSub:
 			TEXT("sMulSubLazyToAVX512", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
 		}
 	}
@@ -1962,7 +1825,7 @@ func SMulVecToAVX512(mulType int, isLazy bool) {
 	VMOVDQU64(Mem{Base: v1, Index: i, Scale: 8}, x1)
 	VMOVDQU64(Mem{Base: v1S, Index: i, Scale: 8}, x1S)
 
-	if mulType == OpMulSub && isLazy {
+	if opType == OpSub && isLazy {
 		VPSUBQ(x0, q, x0)
 	}
 
@@ -1986,10 +1849,10 @@ func SMulVecToAVX512(mulType int, isLazy bool) {
 		VPSUBQ(subQ, xMul, xMul)
 	}
 
-	switch mulType {
-	case OpMul:
+	switch opType {
+	case OpPure:
 		xOut = xMul
-	case OpMulAdd:
+	case OpAdd:
 		VMOVDQU64(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
 		VPADDQ(xMul, xOut, xOut)
 		if !isLazy {
@@ -1998,7 +1861,7 @@ func SMulVecToAVX512(mulType int, isLazy bool) {
 			VMOVAPD_Z(q, subQMask, subQ)
 			VPSUBQ(subQ, xOut, xOut)
 		}
-	case OpMulSub:
+	case OpSub:
 		VMOVDQU64(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
 		if !isLazy {
 			VPSUBQ(xMul, xOut, xOut)
@@ -2027,7 +1890,7 @@ func SMulVecToAVX512(mulType int, isLazy bool) {
 	MOVQ(Mem{Base: v1, Index: i, Scale: 8}, y1)
 	MOVQ(Mem{Base: v1S, Index: i, Scale: 8}, y1S)
 
-	if mulType == OpMulSub && isLazy {
+	if opType == OpSub && isLazy {
 		SUBQ(q64, y0)
 		NEGQ(y0)
 	}
@@ -2050,10 +1913,10 @@ func SMulVecToAVX512(mulType int, isLazy bool) {
 		CMOVQLS(subQ, y0)
 	}
 
-	switch mulType {
-	case OpMul:
+	switch opType {
+	case OpPure:
 		yOut = y0
-	case OpMulAdd:
+	case OpAdd:
 		MOVQ(Mem{Base: vOut, Index: i, Scale: 8}, yOut)
 		ADDQ(y0, yOut)
 		if !isLazy {
@@ -2063,7 +1926,7 @@ func SMulVecToAVX512(mulType int, isLazy bool) {
 			CMPQ(q64, yOut)
 			CMOVQLS(subQ, yOut)
 		}
-	case OpMulSub:
+	case OpSub:
 		MOVQ(Mem{Base: vOut, Index: i, Scale: 8}, yOut)
 		if !isLazy {
 			SUBQ(y0, yOut)

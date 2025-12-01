@@ -65,9 +65,9 @@ func TestCyclotomicEvaluator(t *testing.T) {
 		p1 := randPoly(rP.Rank(), q)
 		pOut := randPoly(rP.Rank(), q)
 
-		p0NTT := pev.NTT(p0)
-		p1NTT := pev.NTT(p1)
-		pOutNTT := pev.NTT(pOut)
+		p0NTT := pev.FwdNTT(p0)
+		p1NTT := pev.FwdNTT(p1)
+		pOutNTT := pev.FwdNTT(pOut)
 
 		t.Run("Mul", func(t *testing.T) {
 			pev.MulTo(pOutNTT, p0NTT, p1NTT)
@@ -84,7 +84,7 @@ func TestCyclotomicEvaluator(t *testing.T) {
 		t.Run("MulAdd", func(t *testing.T) {
 			pOutRef := pOut.Copy().Coeffs
 
-			pev.NTTTo(pOutNTT, pOut)
+			pev.FwdNTTTo(pOutNTT, pOut)
 			pev.MulAddTo(pOutNTT, p0NTT, p1NTT)
 			pev.InvNTTTo(pOut, pOutNTT)
 
@@ -99,7 +99,7 @@ func TestCyclotomicEvaluator(t *testing.T) {
 		t.Run("MulSub", func(t *testing.T) {
 			pOutRef := pOut.Copy().Coeffs
 
-			pev.NTTTo(pOutNTT, pOut)
+			pev.FwdNTTTo(pOutNTT, pOut)
 			pev.MulSubTo(pOutNTT, p0NTT, p1NTT)
 			pev.InvNTTTo(pOut, pOutNTT)
 
@@ -116,7 +116,7 @@ func TestCyclotomicEvaluator(t *testing.T) {
 			idxInv := int(num.Inv(uint64(idx), num.NewModulus(rP.CycloOrder())))
 
 			pev.AutTo(pOut, p0, idx)
-			pev.NTTTo(pOutNTT, pOut)
+			pev.FwdNTTTo(pOutNTT, pOut)
 			pev.AutTo(pOutNTT, pOutNTT, idxInv)
 			pev.InvNTTTo(pOut, pOutNTT)
 
@@ -140,9 +140,9 @@ func TestCyclotomicEvaluator(t *testing.T) {
 		p1 := randPoly(N, q)
 		pOut := randPoly(N, q)
 
-		p0NTT := pev.NTT(p0)
-		p1NTT := pev.NTT(p1)
-		pOutNTT := pev.NTT(pOut)
+		p0NTT := pev.FwdNTT(p0)
+		p1NTT := pev.FwdNTT(p1)
+		pOutNTT := pev.FwdNTT(pOut)
 
 		p0Ref := make([][]uint64, len(q))
 		p1Ref := make([][]uint64, len(q))
@@ -169,7 +169,7 @@ func TestCyclotomicEvaluator(t *testing.T) {
 		t.Run("MulAdd", func(t *testing.T) {
 			pOutRef := pOut.Copy().Coeffs
 
-			pev.NTTTo(pOutNTT, pOut)
+			pev.FwdNTTTo(pOutNTT, pOut)
 			pev.MulAddTo(pOutNTT, p0NTT, p1NTT)
 			pev.InvNTTTo(pOut, pOutNTT)
 
@@ -184,7 +184,7 @@ func TestCyclotomicEvaluator(t *testing.T) {
 		t.Run("MulSub", func(t *testing.T) {
 			pOutRef := pOut.Copy().Coeffs
 
-			pev.NTTTo(pOutNTT, pOut)
+			pev.FwdNTTTo(pOutNTT, pOut)
 			pev.MulSubTo(pOutNTT, p0NTT, p1NTT)
 			pev.InvNTTTo(pOut, pOutNTT)
 
@@ -201,7 +201,7 @@ func TestCyclotomicEvaluator(t *testing.T) {
 			idxInv := int(num.Inv(uint64(idx), num.NewModulus(rP.CycloOrder())))
 
 			pev.AutTo(pOut, p0, idx)
-			pev.NTTTo(pOut, pOut)
+			pev.FwdNTTTo(pOut, pOut)
 			pev.AutTo(pOut, pOut, idxInv)
 			pev.InvNTTTo(pOut, pOut)
 
@@ -224,9 +224,9 @@ func TestCyclicEvaluator(t *testing.T) {
 		p1 := randPoly(rP.Rank(), q)
 		pOut := randPoly(rP.Rank(), q)
 
-		p0NTT := pev.NTT(p0)
-		p1NTT := pev.NTT(p1)
-		pOutNTT := pev.NTT(pOut)
+		p0NTT := pev.FwdNTT(p0)
+		p1NTT := pev.FwdNTT(p1)
+		pOutNTT := pev.FwdNTT(pOut)
 
 		t.Run("Mul", func(t *testing.T) {
 			pev.MulTo(pOutNTT, p0NTT, p1NTT)
@@ -243,7 +243,7 @@ func TestCyclicEvaluator(t *testing.T) {
 		t.Run("MulAdd", func(t *testing.T) {
 			pOutRef := pOut.Copy().Coeffs
 
-			pev.NTTTo(pOutNTT, pOut)
+			pev.FwdNTTTo(pOutNTT, pOut)
 			pev.MulAddTo(pOutNTT, p0NTT, p1NTT)
 			pev.InvNTTTo(pOut, pOutNTT)
 
@@ -258,7 +258,7 @@ func TestCyclicEvaluator(t *testing.T) {
 		t.Run("MulSub", func(t *testing.T) {
 			pOutRef := pOut.Copy().Coeffs
 
-			pev.NTTTo(pOutNTT, pOut)
+			pev.FwdNTTTo(pOutNTT, pOut)
 			pev.MulSubTo(pOutNTT, p0NTT, p1NTT)
 			pev.InvNTTTo(pOut, pOutNTT)
 
@@ -290,9 +290,9 @@ func TestCyclicEvaluator(t *testing.T) {
 		p1 := randPoly(N, q)
 		pOut := randPoly(N, q)
 
-		p0NTT := pev.NTT(p0)
-		p1NTT := pev.NTT(p1)
-		pOutNTT := pev.NTT(pOut)
+		p0NTT := pev.FwdNTT(p0)
+		p1NTT := pev.FwdNTT(p1)
+		pOutNTT := pev.FwdNTT(pOut)
 
 		t.Run("Mul", func(t *testing.T) {
 			pev.MulTo(pOutNTT, p0NTT, p1NTT)
@@ -309,7 +309,7 @@ func TestCyclicEvaluator(t *testing.T) {
 		t.Run("MulAdd", func(t *testing.T) {
 			pOutRef := pOut.Copy().Coeffs
 
-			pev.NTTTo(pOutNTT, pOut)
+			pev.FwdNTTTo(pOutNTT, pOut)
 			pev.MulAddTo(pOutNTT, p0NTT, p1NTT)
 			pev.InvNTTTo(pOut, pOutNTT)
 
@@ -324,7 +324,7 @@ func TestCyclicEvaluator(t *testing.T) {
 		t.Run("MulSub", func(t *testing.T) {
 			pOutRef := pOut.Copy().Coeffs
 
-			pev.NTTTo(pOutNTT, pOut)
+			pev.FwdNTTTo(pOutNTT, pOut)
 			pev.MulSubTo(pOutNTT, p0NTT, p1NTT)
 			pev.InvNTTTo(pOut, pOutNTT)
 
@@ -352,9 +352,9 @@ func TestAutFixedEvaluator(t *testing.T) {
 		p1 := randPoly(rP.Rank(), q)
 		pOut := randPoly(rP.Rank(), q)
 
-		p0NTT := pev.NTT(p0)
-		p1NTT := pev.NTT(p1)
-		pOutNTT := pev.NTT(pOut)
+		p0NTT := pev.FwdNTT(p0)
+		p1NTT := pev.FwdNTT(p1)
+		pOutNTT := pev.FwdNTT(pOut)
 
 		p0Ref := make([][]uint64, len(q))
 		p1Ref := make([][]uint64, len(q))
@@ -384,7 +384,7 @@ func TestAutFixedEvaluator(t *testing.T) {
 		t.Run("MulAdd", func(t *testing.T) {
 			pOutRef := pOut.Copy().Coeffs
 
-			pev.NTTTo(pOutNTT, pOut)
+			pev.FwdNTTTo(pOutNTT, pOut)
 			pev.MulAddTo(pOutNTT, p0NTT, p1NTT)
 			pev.InvNTTTo(pOut, pOutNTT)
 
@@ -399,7 +399,7 @@ func TestAutFixedEvaluator(t *testing.T) {
 		t.Run("MulSub", func(t *testing.T) {
 			pOutRef := pOut.Copy().Coeffs
 
-			pev.NTTTo(pOutNTT, pOut)
+			pev.FwdNTTTo(pOutNTT, pOut)
 			pev.MulSubTo(pOutNTT, p0NTT, p1NTT)
 			pev.InvNTTTo(pOut, pOutNTT)
 
@@ -416,7 +416,7 @@ func TestAutFixedEvaluator(t *testing.T) {
 			idxInv := int(num.Inv(uint64(idx), num.NewModulus(rP.CycloOrder())))
 
 			pev.AutTo(pOut, p0, idx)
-			pev.NTTTo(pOutNTT, pOut)
+			pev.FwdNTTTo(pOutNTT, pOut)
 			pev.AutTo(pOutNTT, pOutNTT, idxInv)
 			pev.InvNTTTo(pOut, pOutNTT)
 
@@ -447,9 +447,9 @@ func TestAutFixedEvaluator(t *testing.T) {
 		p1 := randPoly(rP.Rank(), q)
 		pOut := randPoly(rP.Rank(), q)
 
-		p0NTT := pev.NTT(p0)
-		p1NTT := pev.NTT(p1)
-		pOutNTT := pev.NTT(pOut)
+		p0NTT := pev.FwdNTT(p0)
+		p1NTT := pev.FwdNTT(p1)
+		pOutNTT := pev.FwdNTT(pOut)
 
 		MMod := num.NewModulus(M)
 		root := num.Generators(MMod)[0]
@@ -494,7 +494,7 @@ func TestAutFixedEvaluator(t *testing.T) {
 		t.Run("MulAdd", func(t *testing.T) {
 			pOutRef := pOut.Copy().Coeffs
 
-			pev.NTTTo(pOutNTT, pOut)
+			pev.FwdNTTTo(pOutNTT, pOut)
 			pev.MulAddTo(pOutNTT, p0NTT, p1NTT)
 			pev.InvNTTTo(pOut, pOutNTT)
 
@@ -518,7 +518,7 @@ func TestAutFixedEvaluator(t *testing.T) {
 		t.Run("MulSub", func(t *testing.T) {
 			pOutRef := pOut.Copy().Coeffs
 
-			pev.NTTTo(pOutNTT, pOut)
+			pev.FwdNTTTo(pOutNTT, pOut)
 			pev.MulSubTo(pOutNTT, p0NTT, p1NTT)
 			pev.InvNTTTo(pOut, pOutNTT)
 
@@ -544,7 +544,7 @@ func TestAutFixedEvaluator(t *testing.T) {
 			idxInv := int(num.Inv(uint64(idx), num.NewModulus(rP.CycloOrder())))
 
 			pev.AutTo(pOut, p0, idx)
-			pev.NTTTo(pOutNTT, pOut)
+			pev.FwdNTTTo(pOutNTT, pOut)
 			pev.AutTo(pOutNTT, pOutNTT, idxInv)
 			pev.InvNTTTo(pOut, pOutNTT)
 
@@ -567,9 +567,9 @@ func TestAnyEvaluator(t *testing.T) {
 		p1 := randPoly(N, q)
 		pOut := randPoly(N, q)
 
-		p0NTT := pev.NTT(p0)
-		p1NTT := pev.NTT(p1)
-		pOutNTT := pev.NTT(pOut)
+		p0NTT := pev.FwdNTT(p0)
+		p1NTT := pev.FwdNTT(p1)
+		pOutNTT := pev.FwdNTT(pOut)
 
 		p0Ref := make([][]uint64, len(q))
 		p1Ref := make([][]uint64, len(q))
@@ -595,7 +595,7 @@ func TestAnyEvaluator(t *testing.T) {
 		t.Run("MulAdd", func(t *testing.T) {
 			pOutRef := pOut.Copy().Coeffs
 
-			pev.NTTTo(pOutNTT, pOut)
+			pev.FwdNTTTo(pOutNTT, pOut)
 			pev.MulAddTo(pOutNTT, p0NTT, p1NTT)
 			pev.InvNTTTo(pOut, pOutNTT)
 
@@ -610,7 +610,7 @@ func TestAnyEvaluator(t *testing.T) {
 		t.Run("MulSub", func(t *testing.T) {
 			pOutRef := pOut.Copy().Coeffs
 
-			pev.NTTTo(pOutNTT, pOut)
+			pev.FwdNTTTo(pOutNTT, pOut)
 			pev.MulSubTo(pOutNTT, p0NTT, p1NTT)
 			pev.InvNTTTo(pOut, pOutNTT)
 
@@ -640,9 +640,9 @@ func BenchmarkCyclotomicEvaluator(b *testing.B) {
 					p1 := randPoly(rP.Rank(), q)
 					pOut := randPoly(rP.Rank(), q)
 
-					p0NTT := pev.NTT(p0)
-					p1NTT := pev.NTT(p1)
-					pOutNTT := pev.NTT(pOut)
+					p0NTT := pev.FwdNTT(p0)
+					p1NTT := pev.FwdNTT(p1)
+					pOutNTT := pev.FwdNTT(pOut)
 
 					b.Run("Add", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
@@ -662,9 +662,9 @@ func BenchmarkCyclotomicEvaluator(b *testing.B) {
 						}
 					})
 
-					b.Run("NTT", func(b *testing.B) {
+					b.Run("FwdNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.NTTTo(p0NTT, p0)
+							pev.FwdNTTTo(p0NTT, p0)
 						}
 					})
 
@@ -721,9 +721,9 @@ func BenchmarkCyclotomicEvaluator(b *testing.B) {
 					p1 := randPoly(rP.Rank(), q)
 					pOut := randPoly(rP.Rank(), q)
 
-					p0NTT := pev.NTT(p0)
-					p1NTT := pev.NTT(p1)
-					pOutNTT := pev.NTT(pOut)
+					p0NTT := pev.FwdNTT(p0)
+					p1NTT := pev.FwdNTT(p1)
+					pOutNTT := pev.FwdNTT(pOut)
 
 					b.Run("Add", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
@@ -743,9 +743,9 @@ func BenchmarkCyclotomicEvaluator(b *testing.B) {
 						}
 					})
 
-					b.Run("NTT", func(b *testing.B) {
+					b.Run("FwdNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.NTTTo(p0NTT, p0)
+							pev.FwdNTTTo(p0NTT, p0)
 						}
 					})
 
@@ -807,9 +807,9 @@ func BenchmarkCyclotomicEvaluator(b *testing.B) {
 					p1 := randPoly(rP.Rank(), q)
 					pOut := randPoly(rP.Rank(), q)
 
-					p0NTT := pev.NTT(p0)
-					p1NTT := pev.NTT(p1)
-					pOutNTT := pev.NTT(pOut)
+					p0NTT := pev.FwdNTT(p0)
+					p1NTT := pev.FwdNTT(p1)
+					pOutNTT := pev.FwdNTT(pOut)
 
 					b.Run("Add", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
@@ -829,9 +829,9 @@ func BenchmarkCyclotomicEvaluator(b *testing.B) {
 						}
 					})
 
-					b.Run("NTT", func(b *testing.B) {
+					b.Run("FwdNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.NTTTo(p0NTT, p0)
+							pev.FwdNTTTo(p0NTT, p0)
 						}
 					})
 
@@ -888,9 +888,9 @@ func BenchmarkCyclotomicEvaluator(b *testing.B) {
 					p1 := randPoly(rP.Rank(), q)
 					pOut := randPoly(rP.Rank(), q)
 
-					p0NTT := pev.NTT(p0)
-					p1NTT := pev.NTT(p1)
-					pOutNTT := pev.NTT(pOut)
+					p0NTT := pev.FwdNTT(p0)
+					p1NTT := pev.FwdNTT(p1)
+					pOutNTT := pev.FwdNTT(pOut)
 
 					b.Run("Add", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
@@ -910,9 +910,9 @@ func BenchmarkCyclotomicEvaluator(b *testing.B) {
 						}
 					})
 
-					b.Run("NTT", func(b *testing.B) {
+					b.Run("FwdNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.NTTTo(p0NTT, p0)
+							pev.FwdNTTTo(p0NTT, p0)
 						}
 					})
 
@@ -973,9 +973,9 @@ func BenchmarkCyclicEvaluator(b *testing.B) {
 					p1 := randPoly(rP.Rank(), q)
 					pOut := randPoly(rP.Rank(), q)
 
-					p0NTT := pev.NTT(p0)
-					p1NTT := pev.NTT(p1)
-					pOutNTT := pev.NTT(pOut)
+					p0NTT := pev.FwdNTT(p0)
+					p1NTT := pev.FwdNTT(p1)
+					pOutNTT := pev.FwdNTT(pOut)
 
 					b.Run("Add", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
@@ -995,9 +995,9 @@ func BenchmarkCyclicEvaluator(b *testing.B) {
 						}
 					})
 
-					b.Run("NTT", func(b *testing.B) {
+					b.Run("FwdNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.NTTTo(p0NTT, p0)
+							pev.FwdNTTTo(p0NTT, p0)
 						}
 					})
 
@@ -1042,9 +1042,9 @@ func BenchmarkCyclicEvaluator(b *testing.B) {
 					p1 := randPoly(rP.Rank(), q)
 					pOut := randPoly(rP.Rank(), q)
 
-					p0NTT := pev.NTT(p0)
-					p1NTT := pev.NTT(p1)
-					pOutNTT := pev.NTT(pOut)
+					p0NTT := pev.FwdNTT(p0)
+					p1NTT := pev.FwdNTT(p1)
+					pOutNTT := pev.FwdNTT(pOut)
 
 					b.Run("Add", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
@@ -1064,9 +1064,9 @@ func BenchmarkCyclicEvaluator(b *testing.B) {
 						}
 					})
 
-					b.Run("NTT", func(b *testing.B) {
+					b.Run("FwdNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.NTTTo(p0NTT, p0)
+							pev.FwdNTTTo(p0NTT, p0)
 						}
 					})
 
@@ -1116,9 +1116,9 @@ func BenchmarkCyclicEvaluator(b *testing.B) {
 					p1 := randPoly(rP.Rank(), q)
 					pOut := randPoly(rP.Rank(), q)
 
-					p0NTT := pev.NTT(p0)
-					p1NTT := pev.NTT(p1)
-					pOutNTT := pev.NTT(pOut)
+					p0NTT := pev.FwdNTT(p0)
+					p1NTT := pev.FwdNTT(p1)
+					pOutNTT := pev.FwdNTT(pOut)
 
 					b.Run("Add", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
@@ -1138,9 +1138,9 @@ func BenchmarkCyclicEvaluator(b *testing.B) {
 						}
 					})
 
-					b.Run("NTT", func(b *testing.B) {
+					b.Run("FwdNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.NTTTo(p0NTT, p0)
+							pev.FwdNTTTo(p0NTT, p0)
 						}
 					})
 
@@ -1185,9 +1185,9 @@ func BenchmarkCyclicEvaluator(b *testing.B) {
 					p1 := randPoly(rP.Rank(), q)
 					pOut := randPoly(rP.Rank(), q)
 
-					p0NTT := pev.NTT(p0)
-					p1NTT := pev.NTT(p1)
-					pOutNTT := pev.NTT(pOut)
+					p0NTT := pev.FwdNTT(p0)
+					p1NTT := pev.FwdNTT(p1)
+					pOutNTT := pev.FwdNTT(pOut)
 
 					b.Run("Add", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
@@ -1207,9 +1207,9 @@ func BenchmarkCyclicEvaluator(b *testing.B) {
 						}
 					})
 
-					b.Run("NTT", func(b *testing.B) {
+					b.Run("FwdNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.NTTTo(p0NTT, p0)
+							pev.FwdNTTTo(p0NTT, p0)
 						}
 					})
 
@@ -1258,9 +1258,9 @@ func BenchmarkAutFixedEvaluator(b *testing.B) {
 					p1 := randPoly(rP.Rank(), q)
 					pOut := randPoly(rP.Rank(), q)
 
-					p0NTT := pev.NTT(p0)
-					p1NTT := pev.NTT(p1)
-					pOutNTT := pev.NTT(pOut)
+					p0NTT := pev.FwdNTT(p0)
+					p1NTT := pev.FwdNTT(p1)
+					pOutNTT := pev.FwdNTT(pOut)
 
 					b.Run("Add", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
@@ -1280,9 +1280,9 @@ func BenchmarkAutFixedEvaluator(b *testing.B) {
 						}
 					})
 
-					b.Run("NTT", func(b *testing.B) {
+					b.Run("FwdNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.NTTTo(p0NTT, p0)
+							pev.FwdNTTTo(p0NTT, p0)
 						}
 					})
 
@@ -1339,9 +1339,9 @@ func BenchmarkAutFixedEvaluator(b *testing.B) {
 					p1 := randPoly(rP.Rank(), q)
 					pOut := randPoly(rP.Rank(), q)
 
-					p0NTT := pev.NTT(p0)
-					p1NTT := pev.NTT(p1)
-					pOutNTT := pev.NTT(pOut)
+					p0NTT := pev.FwdNTT(p0)
+					p1NTT := pev.FwdNTT(p1)
+					pOutNTT := pev.FwdNTT(pOut)
 
 					b.Run("Add", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
@@ -1361,9 +1361,9 @@ func BenchmarkAutFixedEvaluator(b *testing.B) {
 						}
 					})
 
-					b.Run("NTT", func(b *testing.B) {
+					b.Run("FwdNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.NTTTo(p0NTT, p0)
+							pev.FwdNTTTo(p0NTT, p0)
 						}
 					})
 
@@ -1423,9 +1423,9 @@ func BenchmarkAutFixedEvaluator(b *testing.B) {
 					p1 := randPoly(rP.Rank(), q)
 					pOut := randPoly(rP.Rank(), q)
 
-					p0NTT := pev.NTT(p0)
-					p1NTT := pev.NTT(p1)
-					pOutNTT := pev.NTT(pOut)
+					p0NTT := pev.FwdNTT(p0)
+					p1NTT := pev.FwdNTT(p1)
+					pOutNTT := pev.FwdNTT(pOut)
 
 					b.Run("Add", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
@@ -1445,9 +1445,9 @@ func BenchmarkAutFixedEvaluator(b *testing.B) {
 						}
 					})
 
-					b.Run("NTT", func(b *testing.B) {
+					b.Run("FwdNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.NTTTo(p0NTT, p0)
+							pev.FwdNTTTo(p0NTT, p0)
 						}
 					})
 
@@ -1504,9 +1504,9 @@ func BenchmarkAutFixedEvaluator(b *testing.B) {
 					p1 := randPoly(rP.Rank(), q)
 					pOut := randPoly(rP.Rank(), q)
 
-					p0NTT := pev.NTT(p0)
-					p1NTT := pev.NTT(p1)
-					pOutNTT := pev.NTT(pOut)
+					p0NTT := pev.FwdNTT(p0)
+					p1NTT := pev.FwdNTT(p1)
+					pOutNTT := pev.FwdNTT(pOut)
 
 					b.Run("Add", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
@@ -1526,9 +1526,9 @@ func BenchmarkAutFixedEvaluator(b *testing.B) {
 						}
 					})
 
-					b.Run("NTT", func(b *testing.B) {
+					b.Run("FwdNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.NTTTo(p0NTT, p0)
+							pev.FwdNTTTo(p0NTT, p0)
 						}
 					})
 
@@ -1587,9 +1587,9 @@ func BenchmarkAnyEvaluator(b *testing.B) {
 			p1 := randPoly(N, q)
 			pOut := randPoly(N, q)
 
-			p0NTT := pev.NTT(p0)
-			p1NTT := pev.NTT(p1)
-			pOutNTT := pev.NTT(pOut)
+			p0NTT := pev.FwdNTT(p0)
+			p1NTT := pev.FwdNTT(p1)
+			pOutNTT := pev.FwdNTT(pOut)
 
 			b.Run("Add", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
@@ -1609,9 +1609,9 @@ func BenchmarkAnyEvaluator(b *testing.B) {
 				}
 			})
 
-			b.Run("NTT", func(b *testing.B) {
+			b.Run("FwdNTT", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					pev.NTTTo(p0NTT, p0)
+					pev.FwdNTTTo(p0NTT, p0)
 				}
 			})
 

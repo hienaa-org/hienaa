@@ -586,8 +586,8 @@ func FindResolutionOfUnity(cycloOrd int, prime uint64, exp uint64) []uint64 {
 	copy(resolPoly.Coeffs[0][:len(quoPoly)], quoPoly)
 	copy(remInvPoly.Coeffs[0][:len(remEl.Coeffs())], remEl.Coeffs())
 
-	tf.NTTTo(resolPoly, resolPoly)
-	tf.NTTTo(remInvPoly, remInvPoly)
+	tf.FwdNTTTo(resolPoly, resolPoly)
+	tf.FwdNTTTo(remInvPoly, remInvPoly)
 	tf.MulTo(resolPoly, resolPoly, remInvPoly)
 	tf.InvNTTTo(resolPoly, resolPoly)
 

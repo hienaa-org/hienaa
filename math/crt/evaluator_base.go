@@ -69,15 +69,15 @@ func (e *polyBaseEvaluator) ModulusPoly() []int64 {
 	return e.modPoly
 }
 
-// NTT returns NTT(p).
-func (e *polyBaseEvaluator) NTT(p *Poly) *Poly {
+// FwdNTT returns FwdNTT(p).
+func (e *polyBaseEvaluator) FwdNTT(p *Poly) *Poly {
 	pOut := e.NewPoly()
-	e.NTTTo(pOut, p)
+	e.FwdNTTTo(pOut, p)
 	return pOut
 }
 
-// NTTTo computes pOut = NTT(p).
-func (e *polyBaseEvaluator) NTTTo(pOut, p *Poly) {
+// FwdNTTTo computes pOut = NTT(p).
+func (e *polyBaseEvaluator) FwdNTTTo(pOut, p *Poly) {
 	switch {
 	case !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p):
 		panic("NTTTo: inputs not consistent")
