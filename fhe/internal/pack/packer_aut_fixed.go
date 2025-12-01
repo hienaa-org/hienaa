@@ -6,9 +6,9 @@ import (
 	"slices"
 
 	"github.com/hienaa-org/hienaa/fhe/internal/gnum"
+	"github.com/hienaa-org/hienaa/fhe/internal/gr"
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/dft"
-	"github.com/hienaa-org/hienaa/math/gr"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
 )
