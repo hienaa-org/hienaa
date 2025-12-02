@@ -547,11 +547,11 @@ func NegVecToAVX2(isWordOp bool) {
 	}
 	Pragma("noescape")
 
-	allZero, allOne := YMM(), YMM()
+	zero, one := YMM(), YMM()
 	if isWordOp {
-		VPXOR(allZero, allZero, allZero)
+		VPXOR(zero, zero, zero)
 	} else {
-		VPCMPEQQ(allOne, allOne, allOne)
+		VPCMPEQQ(one, one, one)
 	}
 
 	q64, q := GP64(), YMM()
@@ -579,12 +579,12 @@ func NegVecToAVX2(isWordOp bool) {
 
 	xOut := YMM()
 	if isWordOp {
-		VPSUBQ(x, allZero, xOut)
+		VPSUBQ(x, zero, xOut)
 	} else {
 		eq := YMM()
 		VPSUBQ(x, q, x)
 		EqualAVX2(x, q, eq)
-		VPXOR(eq, allOne, eq)
+		VPXOR(eq, one, eq)
 		VPAND(x, eq, xOut)
 	}
 
@@ -630,9 +630,9 @@ func NegVecToAVX512(isWordOp bool) {
 	}
 	Pragma("noescape")
 
-	allZero := ZMM()
+	zero := ZMM()
 	if isWordOp {
-		VPXORQ(allZero, allZero, allZero)
+		VPXORQ(zero, zero, zero)
 	}
 
 	q64, q := GP64(), ZMM()
@@ -660,7 +660,7 @@ func NegVecToAVX512(isWordOp bool) {
 
 	xOut := ZMM()
 	if isWordOp {
-		VPSUBQ(x, allZero, xOut)
+		VPSUBQ(x, zero, xOut)
 	} else {
 		VPSUBQ(x, q, x)
 		eqMask := K()
@@ -706,8 +706,8 @@ func MFormVecToAVX512() {
 	TEXT("mFormToAVX512", NOSPLIT, "func(vOut, v []uint64, q, divHi, divLo uint64)")
 	Pragma("noescape")
 
-	allZero := ZMM()
-	VPXORQ(allZero, allZero, allZero)
+	zero := ZMM()
+	VPXORQ(zero, zero, zero)
 
 	maskLo := ZMM()
 	VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_LO"), 0), maskLo)
@@ -751,7 +751,7 @@ func MFormVecToAVX512() {
 
 	xOutM := ZMM()
 	VPMULLQ(xM, q, xOutM)
-	VPSUBQ(xOutM, allZero, xOutM)
+	VPSUBQ(xOutM, zero, xOutM)
 
 	subQ, subQMask := ZMM(), K()
 	VPCMPUQ(Imm(0o5), q, xOutM, subQMask)
