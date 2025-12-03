@@ -35,8 +35,9 @@ func newDefaultPolyScalarAddSubEvaluator(params dft.RingParameters, mod []*num.M
 	}
 
 	return defaultPolyScalarAddSubEvaluator{
-		rank: params.Rank(),
-		mod:  mod,
+		rank:          params.Rank(),
+		mod:           mod,
+		isNTTFriendly: isNTTFriendly,
 	}
 }
 
@@ -57,7 +58,8 @@ func (e *defaultPolyScalarAddSubEvaluator) ScalarAddTo(pOut, p *Poly, c Scalar) 
 		if p.IsNTT && e.isNTTFriendly[i] {
 			vec.ScalarAddTo(pOut.Coeffs[i], p.Coeffs[i], num.MForm(c[i], e.mod[i]), e.mod[i])
 		} else {
-			pOut.Coeffs[i][0] = num.Add(p.Coeffs[i][0], c[i], e.mod[i])
+			copy(pOut.Coeffs[i], p.Coeffs[i])
+			pOut.Coeffs[i][0] = num.Add(pOut.Coeffs[i][0], c[i], e.mod[i])
 		}
 	}
 
@@ -73,7 +75,7 @@ func (e *defaultPolyScalarAddSubEvaluator) ScalarSub(p *Poly, c Scalar) *Poly {
 
 // ScalarSubTo computes pOut = p - c.
 func (e *defaultPolyScalarAddSubEvaluator) ScalarSubTo(pOut, p *Poly, c Scalar) {
-	if !isBinaryToOperable(e.rank, len(e.mod), pOut, p) || isScalarToOperable(len(e.mod), c) {
+	if !isBinaryToOperable(e.rank, len(e.mod), pOut, p) || !isScalarToOperable(len(e.mod), c) {
 		panic("ScalarSubTo: inputs not consistent")
 	}
 
@@ -81,7 +83,8 @@ func (e *defaultPolyScalarAddSubEvaluator) ScalarSubTo(pOut, p *Poly, c Scalar) 
 		if p.IsNTT && e.isNTTFriendly[i] {
 			vec.ScalarSubTo(pOut.Coeffs[i], p.Coeffs[i], num.MForm(c[i], e.mod[i]), e.mod[i])
 		} else {
-			pOut.Coeffs[i][0] = num.Sub(p.Coeffs[i][0], c[i], e.mod[i])
+			copy(pOut.Coeffs[i], p.Coeffs[i])
+			pOut.Coeffs[i][0] = num.Sub(pOut.Coeffs[i][0], c[i], e.mod[i])
 		}
 	}
 
@@ -141,7 +144,8 @@ func (e *primeAutFixedPolyScalarAddSubEvaluator) ScalarAddTo(pOut, p *Poly, c Sc
 		if p.IsNTT && e.isNTTFriendly[i] {
 			vec.ScalarAddTo(pOut.Coeffs[i], p.Coeffs[i], num.MForm(c[i], e.mod[i]), e.mod[i])
 		} else {
-			vec.ScalarSubTo(pOut.Coeffs[i], p.Coeffs[i], c[i], e.mod[i])
+			copy(pOut.Coeffs[i], p.Coeffs[i])
+			pOut.Coeffs[i][0] = num.Add(pOut.Coeffs[i][0], c[i], e.mod[i])
 		}
 	}
 
@@ -157,7 +161,7 @@ func (e *primeAutFixedPolyScalarAddSubEvaluator) ScalarSub(p *Poly, c Scalar) *P
 
 // ScalarSubTo computes pOut = p - c.
 func (e *primeAutFixedPolyScalarAddSubEvaluator) ScalarSubTo(pOut, p *Poly, c Scalar) {
-	if !isBinaryToOperable(e.rank, len(e.mod), pOut, p) || isScalarToOperable(len(e.mod), c) {
+	if !isBinaryToOperable(e.rank, len(e.mod), pOut, p) || !isScalarToOperable(len(e.mod), c) {
 		panic("ScalarSubTo: inputs not consistent")
 	}
 
@@ -165,7 +169,8 @@ func (e *primeAutFixedPolyScalarAddSubEvaluator) ScalarSubTo(pOut, p *Poly, c Sc
 		if p.IsNTT && e.isNTTFriendly[i] {
 			vec.ScalarSubTo(pOut.Coeffs[i], p.Coeffs[i], num.MForm(c[i], e.mod[i]), e.mod[i])
 		} else {
-			vec.ScalarAddTo(pOut.Coeffs[i], p.Coeffs[i], c[i], e.mod[i])
+			copy(pOut.Coeffs[i], p.Coeffs[i])
+			pOut.Coeffs[i][0] = num.Sub(pOut.Coeffs[i][0], c[i], e.mod[i])
 		}
 	}
 

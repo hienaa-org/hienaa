@@ -1,6 +1,7 @@
 package rlwe
 
 import (
+	"cmp"
 	"math"
 	"slices"
 
@@ -53,7 +54,7 @@ func FindNTTPrimesFromBits(params dft.RingParameters, modulusBits, auxModulusBit
 	}
 
 	slices.SortFunc(modulus, func(a, b *num.Modulus) int {
-		return int(a.Value() - b.Value())
+		return cmp.Compare(a.Value(), b.Value())
 	})
 
 	// Sample the auxiliary modulus.
@@ -73,11 +74,11 @@ func FindNTTPrimesFromBits(params dft.RingParameters, modulusBits, auxModulusBit
 		for cnt < auxModLen-1 {
 			primemod := num.NewModulus(prime)
 			for {
-				_, found := slices.BinarySearchFunc(modulus, primemod, func(a, b *num.Modulus) int {
-					return int(a.Value() - b.Value())
+				_, ok := slices.BinarySearchFunc(modulus, primemod, func(a, b *num.Modulus) int {
+					return cmp.Compare(a.Value(), b.Value())
 				})
 
-				if !found {
+				if !ok {
 					break
 				} else {
 					prime = num.MustPrevPrime(prime, gap)

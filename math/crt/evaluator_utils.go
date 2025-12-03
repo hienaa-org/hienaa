@@ -25,7 +25,7 @@ func isConsistent(rank, modLen int, p *Poly) bool {
 	return true
 }
 
-// isTernaryToOperable checks if pOut, p0, p1 is operatable.
+// isTernaryToOperable checks if pOut, p0, p1 is operable.
 // It checks:
 //
 //   - pOut, p0, p1 has same shape.
@@ -34,7 +34,7 @@ func isTernaryToOperable(rank, modLen int, pOut, p0, p1 *Poly) bool {
 	return isConsistent(rank, modLen, pOut) && isConsistent(rank, modLen, p0) && isConsistent(rank, modLen, p1) && p0.IsNTT == p1.IsNTT
 }
 
-// isBinaryToOperable checks if pOut, p is operatable.
+// isBinaryToOperable checks if pOut, p is operable.
 // It checks:
 //
 //   - pOut, p has same shape.

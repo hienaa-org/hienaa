@@ -78,8 +78,8 @@ func NewEmbedder(modOut []*num.Modulus, modIn []*num.Modulus) *Embedder {
 			if i != j {
 				compInv[i] = num.Mul(compInv[i], num.Inv(modIn[j].Value(), modIn[i]), modIn[i])
 			}
-			compInvS[i] = num.SForm(compInv[i], modIn[i])
 		}
+		compInvS[i] = num.SForm(compInv[i], modIn[i])
 
 		invRat.Denom().SetUint64(modIn[i].Value())
 		invRat.Num().SetInt64(1)
