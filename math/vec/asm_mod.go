@@ -23,13 +23,16 @@ func AddTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 // addTo computes vOut = v0 + v1 mod q.
 func addTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 	M := (len(vOut) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	ptr0 := unsafe.Pointer(unsafe.SliceData(v0))
+	ptr1 := unsafe.Pointer(unsafe.SliceData(v1))
 
 	qv := q.Value()
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
-		w0 := (*[8]uint64)(unsafe.Pointer(&v0[i]))
-		w1 := (*[8]uint64)(unsafe.Pointer(&v1[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w0 := (*[8]uint64)(unsafe.Add(ptr0, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w1 := (*[8]uint64)(unsafe.Add(ptr1, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = modops.Add(w0[0], w1[0], qv)
 		wOut[1] = modops.Add(w0[1], w1[1], qv)
@@ -50,11 +53,14 @@ func addTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 // addWordTo computes vOut = v0 + v1.
 func addWordTo(vOut, v0, v1 []uint64) {
 	M := (len(vOut) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	ptr0 := unsafe.Pointer(unsafe.SliceData(v0))
+	ptr1 := unsafe.Pointer(unsafe.SliceData(v1))
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
-		w0 := (*[8]uint64)(unsafe.Pointer(&v0[i]))
-		w1 := (*[8]uint64)(unsafe.Pointer(&v1[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w0 := (*[8]uint64)(unsafe.Add(ptr0, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w1 := (*[8]uint64)(unsafe.Add(ptr1, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = w0[0] + w1[0]
 		wOut[1] = w0[1] + w1[1]
@@ -86,12 +92,14 @@ func ScalarAddTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 // scalarAddTo computes vOut = v + c mod q.
 func scalarAddTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	M := (len(vOut) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	ptr := unsafe.Pointer(unsafe.SliceData(v))
 
 	qv := q.Value()
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
-		w := (*[8]uint64)(unsafe.Pointer(&v[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w := (*[8]uint64)(unsafe.Add(ptr, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = modops.Add(w[0], c, qv)
 		wOut[1] = modops.Add(w[1], c, qv)
@@ -112,10 +120,12 @@ func scalarAddTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 // scalarAddWordTo computes vOut = v + c.
 func scalarAddWordTo(vOut, v []uint64, c uint64) {
 	M := (len(vOut) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	ptr := unsafe.Pointer(unsafe.SliceData(v))
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
-		w := (*[8]uint64)(unsafe.Pointer(&v[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w := (*[8]uint64)(unsafe.Add(ptr, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = w[0] + c
 		wOut[1] = w[1] + c
@@ -147,13 +157,16 @@ func SubTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 // subTo computes vOut = v0 - v1 mod q.
 func subTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 	M := (len(vOut) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	ptr0 := unsafe.Pointer(unsafe.SliceData(v0))
+	ptr1 := unsafe.Pointer(unsafe.SliceData(v1))
 
 	qv := q.Value()
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
-		w0 := (*[8]uint64)(unsafe.Pointer(&v0[i]))
-		w1 := (*[8]uint64)(unsafe.Pointer(&v1[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w0 := (*[8]uint64)(unsafe.Add(ptr0, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w1 := (*[8]uint64)(unsafe.Add(ptr1, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = modops.Sub(w0[0], w1[0], qv)
 		wOut[1] = modops.Sub(w0[1], w1[1], qv)
@@ -174,11 +187,14 @@ func subTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 // subWordTo computes vOut = v0 - v1.
 func subWordTo(vOut, v0, v1 []uint64) {
 	M := (len(vOut) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	ptr0 := unsafe.Pointer(unsafe.SliceData(v0))
+	ptr1 := unsafe.Pointer(unsafe.SliceData(v1))
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
-		w0 := (*[8]uint64)(unsafe.Pointer(&v0[i]))
-		w1 := (*[8]uint64)(unsafe.Pointer(&v1[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w0 := (*[8]uint64)(unsafe.Add(ptr0, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w1 := (*[8]uint64)(unsafe.Add(ptr1, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = w0[0] - w1[0]
 		wOut[1] = w0[1] - w1[1]
@@ -210,12 +226,14 @@ func ScalarSubTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 // scalarSubTo computes vOut = v - c mod q.
 func scalarSubTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	M := (len(vOut) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	ptr := unsafe.Pointer(unsafe.SliceData(v))
 
 	qv := q.Value()
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
-		w := (*[8]uint64)(unsafe.Pointer(&v[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w := (*[8]uint64)(unsafe.Add(ptr, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = modops.Sub(w[0], c, qv)
 		wOut[1] = modops.Sub(w[1], c, qv)
@@ -236,10 +254,12 @@ func scalarSubTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 // scalarSubWordTo computes vOut = v - c.
 func scalarSubWordTo(vOut, v []uint64, c uint64) {
 	M := (len(vOut) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	ptr := unsafe.Pointer(unsafe.SliceData(v))
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
-		w := (*[8]uint64)(unsafe.Pointer(&v[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w := (*[8]uint64)(unsafe.Add(ptr, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = w[0] - c
 		wOut[1] = w[1] - c
@@ -260,12 +280,14 @@ func scalarSubWordTo(vOut, v []uint64, c uint64) {
 // negTo computes vOut = -v mod q.
 func negTo(vOut, v []uint64, q *num.Modulus) {
 	M := (len(vOut) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	ptr := unsafe.Pointer(unsafe.SliceData(v))
 
 	qv := q.Value()
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
-		w := (*[8]uint64)(unsafe.Pointer(&v[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w := (*[8]uint64)(unsafe.Add(ptr, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = modops.Neg(w[0], qv)
 		wOut[1] = modops.Neg(w[1], qv)
@@ -286,10 +308,12 @@ func negTo(vOut, v []uint64, q *num.Modulus) {
 // negWordTo computes vOut = -v.
 func negWordTo(vOut, v []uint64) {
 	M := (len(vOut) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	ptr := unsafe.Pointer(unsafe.SliceData(v))
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
-		w := (*[8]uint64)(unsafe.Pointer(&v[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w := (*[8]uint64)(unsafe.Add(ptr, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = -w[0]
 		wOut[1] = -w[1]
@@ -316,13 +340,15 @@ func MFormTo(vOutM, v []uint64, q *num.Modulus) {
 	}
 
 	M := (len(vOutM) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOutM))
+	ptr := unsafe.Pointer(unsafe.SliceData(v))
 
 	qv := q.Value()
 	divHi, divLo := q.Div()
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOutM[i]))
-		w := (*[8]uint64)(unsafe.Pointer(&v[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w := (*[8]uint64)(unsafe.Add(ptr, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = modops.MForm(w[0], qv, divHi, divLo)
 		wOut[1] = modops.MForm(w[1], qv, divHi, divLo)
@@ -349,13 +375,15 @@ func InvMFormTo(vOut, vM []uint64, q *num.Modulus) {
 	}
 
 	M := (len(vOut) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	ptr := unsafe.Pointer(unsafe.SliceData(vM))
 
 	qv := q.Value()
 	inv := q.Inv()
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
-		w := (*[8]uint64)(unsafe.Pointer(&vM[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w := (*[8]uint64)(unsafe.Add(ptr, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = modops.InvMForm(w[0], qv, inv)
 		wOut[1] = modops.InvMForm(w[1], qv, inv)
@@ -376,14 +404,16 @@ func InvMFormTo(vOut, vM []uint64, q *num.Modulus) {
 // scalarMulTo computes vOut = c * v mod q using Shoup multiplication.
 func scalarMulTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	M := (len(vOut) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	ptr := unsafe.Pointer(unsafe.SliceData(v))
 
 	qv := q.Value()
 	divHi, _ := q.Div()
 	cS := modops.SForm(c, qv, divHi)
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
-		w := (*[8]uint64)(unsafe.Pointer(&v[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w := (*[8]uint64)(unsafe.Add(ptr, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = modops.SMul(w[0], c, cS, qv)
 		wOut[1] = modops.SMul(w[1], c, cS, qv)
@@ -404,14 +434,16 @@ func scalarMulTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 // scalarMulAddTo computes vOut += c * v mod q using Shoup multiplication.
 func scalarMulAddTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	M := (len(vOut) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	ptr := unsafe.Pointer(unsafe.SliceData(v))
 
 	qv := q.Value()
 	divHi, _ := q.Div()
 	cS := modops.SForm(c, qv, divHi)
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
-		w := (*[8]uint64)(unsafe.Pointer(&v[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w := (*[8]uint64)(unsafe.Add(ptr, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = modops.Add(wOut[0], modops.SMul(w[0], c, cS, qv), qv)
 		wOut[1] = modops.Add(wOut[1], modops.SMul(w[1], c, cS, qv), qv)
@@ -432,14 +464,16 @@ func scalarMulAddTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 // scalarMulSubTo computes vOut -= c * v mod q using Shoup multiplication.
 func scalarMulSubTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	M := (len(vOut) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	ptr := unsafe.Pointer(unsafe.SliceData(v))
 
 	qv := q.Value()
 	divHi, _ := q.Div()
 	cS := modops.SForm(c, qv, divHi)
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
-		w := (*[8]uint64)(unsafe.Pointer(&v[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w := (*[8]uint64)(unsafe.Add(ptr, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = modops.Sub(wOut[0], modops.SMul(w[0], c, cS, qv), qv)
 		wOut[1] = modops.Sub(wOut[1], modops.SMul(w[1], c, cS, qv), qv)
@@ -460,10 +494,12 @@ func scalarMulSubTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 // scalarMulWordTo computes vOut = c * v.
 func scalarMulWordTo(vOut, v []uint64, c uint64) {
 	M := (len(vOut) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	ptr := unsafe.Pointer(unsafe.SliceData(v))
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
-		w := (*[8]uint64)(unsafe.Pointer(&v[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w := (*[8]uint64)(unsafe.Add(ptr, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = w[0] * c
 		wOut[1] = w[1] * c
@@ -484,10 +520,12 @@ func scalarMulWordTo(vOut, v []uint64, c uint64) {
 // scalarMulAddWordTo computes vOut += c * v.
 func scalarMulAddWordTo(vOut, v []uint64, c uint64) {
 	M := (len(vOut) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	ptr := unsafe.Pointer(unsafe.SliceData(v))
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
-		w := (*[8]uint64)(unsafe.Pointer(&v[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w := (*[8]uint64)(unsafe.Add(ptr, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] += w[0] * c
 		wOut[1] += w[1] * c
@@ -508,10 +546,12 @@ func scalarMulAddWordTo(vOut, v []uint64, c uint64) {
 // scalarMulSubWordTo computes vOut -= c * v.
 func scalarMulSubWordTo(vOut, v []uint64, c uint64) {
 	M := (len(vOut) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	ptr := unsafe.Pointer(unsafe.SliceData(v))
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
-		w := (*[8]uint64)(unsafe.Pointer(&v[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w := (*[8]uint64)(unsafe.Add(ptr, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] -= w[0] * c
 		wOut[1] -= w[1] * c
@@ -535,14 +575,16 @@ func scalarMulSubWordTo(vOut, v []uint64, c uint64) {
 // Panics if q is nil.
 func ScalarMulLazyTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	M := (len(vOut) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	ptr := unsafe.Pointer(unsafe.SliceData(v))
 
 	qv := q.Value()
 	divHi, _ := q.Div()
 	cS := modops.SForm(c, qv, divHi)
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
-		w := (*[8]uint64)(unsafe.Pointer(&v[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w := (*[8]uint64)(unsafe.Add(ptr, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = modops.SMulLazy(w[0], c, cS, qv)
 		wOut[1] = modops.SMulLazy(w[1], c, cS, qv)
@@ -566,14 +608,16 @@ func ScalarMulLazyTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 // Panics if q is nil.
 func ScalarMulAddLazyTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	M := (len(vOut) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	ptr := unsafe.Pointer(unsafe.SliceData(v))
 
 	qv := q.Value()
 	divHi, _ := q.Div()
 	cS := modops.SForm(c, qv, divHi)
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
-		w := (*[8]uint64)(unsafe.Pointer(&v[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w := (*[8]uint64)(unsafe.Add(ptr, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] += modops.SMulLazy(w[0], c, cS, qv)
 		wOut[1] += modops.SMulLazy(w[1], c, cS, qv)
@@ -597,6 +641,8 @@ func ScalarMulAddLazyTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 // Panics if q is nil.
 func ScalarMulSubLazyTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	M := (len(vOut) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	ptr := unsafe.Pointer(unsafe.SliceData(v))
 
 	qv := q.Value()
 	divHi, _ := q.Div()
@@ -604,8 +650,8 @@ func ScalarMulSubLazyTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	cNegS := modops.SForm(cNeg, qv, divHi)
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
-		w := (*[8]uint64)(unsafe.Pointer(&v[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w := (*[8]uint64)(unsafe.Add(ptr, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] += modops.SMulLazy(w[0], cNeg, cNegS, qv)
 		wOut[1] += modops.SMulLazy(w[1], cNeg, cNegS, qv)
@@ -629,13 +675,15 @@ func ScalarMulSubLazyTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 // Panics if q is nil.
 func ScalarMMulTo(vOutM, vM []uint64, cM uint64, q *num.Modulus) {
 	M := (len(vOutM) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOutM))
+	ptr := unsafe.Pointer(unsafe.SliceData(vM))
 
 	qv := q.Value()
 	inv := q.Inv()
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOutM[i]))
-		w := (*[8]uint64)(unsafe.Pointer(&vM[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w := (*[8]uint64)(unsafe.Add(ptr, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = modops.MMul(w[0], cM, qv, inv)
 		wOut[1] = modops.MMul(w[1], cM, qv, inv)
@@ -659,13 +707,15 @@ func ScalarMMulTo(vOutM, vM []uint64, cM uint64, q *num.Modulus) {
 // Panics if q is nil.
 func ScalarMMulAddTo(vOutM, vM []uint64, cM uint64, q *num.Modulus) {
 	M := (len(vOutM) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOutM))
+	ptr := unsafe.Pointer(unsafe.SliceData(vM))
 
 	qv := q.Value()
 	inv := q.Inv()
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOutM[i]))
-		w := (*[8]uint64)(unsafe.Pointer(&vM[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w := (*[8]uint64)(unsafe.Add(ptr, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = modops.Add(wOut[0], modops.MMul(w[0], cM, qv, inv), qv)
 		wOut[1] = modops.Add(wOut[1], modops.MMul(w[1], cM, qv, inv), qv)
@@ -689,13 +739,15 @@ func ScalarMMulAddTo(vOutM, vM []uint64, cM uint64, q *num.Modulus) {
 // Panics if q is nil.
 func ScalarMMulSubTo(vOutM, vM []uint64, cM uint64, q *num.Modulus) {
 	M := (len(vOutM) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOutM))
+	ptr := unsafe.Pointer(unsafe.SliceData(vM))
 
 	qv := q.Value()
 	inv := q.Inv()
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOutM[i]))
-		w := (*[8]uint64)(unsafe.Pointer(&vM[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w := (*[8]uint64)(unsafe.Add(ptr, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = modops.Sub(wOut[0], modops.MMul(w[0], cM, qv, inv), qv)
 		wOut[1] = modops.Sub(wOut[1], modops.MMul(w[1], cM, qv, inv), qv)
@@ -731,13 +783,15 @@ func ScalarMMulLazy(vM []uint64, cM uint64, q *num.Modulus) []uint64 {
 // Panics if q is nil.
 func ScalarMMulLazyTo(vOutM, vM []uint64, cM uint64, q *num.Modulus) {
 	M := (len(vOutM) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOutM))
+	ptr := unsafe.Pointer(unsafe.SliceData(vM))
 
 	qv := q.Value()
 	inv := q.Inv()
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOutM[i]))
-		w := (*[8]uint64)(unsafe.Pointer(&vM[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w := (*[8]uint64)(unsafe.Add(ptr, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = modops.MMulLazy(w[0], cM, qv, inv)
 		wOut[1] = modops.MMulLazy(w[1], cM, qv, inv)
@@ -762,13 +816,15 @@ func ScalarMMulLazyTo(vOutM, vM []uint64, cM uint64, q *num.Modulus) {
 // Panics if q is nil.
 func ScalarMMulAddLazyTo(vOutM, vM []uint64, cM uint64, q *num.Modulus) {
 	M := (len(vOutM) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOutM))
+	ptr := unsafe.Pointer(unsafe.SliceData(vM))
 
 	qv := q.Value()
 	inv := q.Inv()
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOutM[i]))
-		w := (*[8]uint64)(unsafe.Pointer(&vM[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w := (*[8]uint64)(unsafe.Add(ptr, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] += modops.MMulLazy(w[0], cM, qv, inv)
 		wOut[1] += modops.MMulLazy(w[1], cM, qv, inv)
@@ -793,6 +849,8 @@ func ScalarMMulAddLazyTo(vOutM, vM []uint64, cM uint64, q *num.Modulus) {
 // Panics if q is nil.
 func ScalarMMulSubLazyTo(vOutM, vM []uint64, cM uint64, q *num.Modulus) {
 	M := (len(vOutM) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOutM))
+	ptr := unsafe.Pointer(unsafe.SliceData(vM))
 
 	qv := q.Value()
 	inv := q.Inv()
@@ -800,8 +858,8 @@ func ScalarMMulSubLazyTo(vOutM, vM []uint64, cM uint64, q *num.Modulus) {
 	cMNeg := modops.Neg(cM, qv)
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOutM[i]))
-		w := (*[8]uint64)(unsafe.Pointer(&vM[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w := (*[8]uint64)(unsafe.Add(ptr, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] += modops.MMulLazy(w[0], cMNeg, qv, inv)
 		wOut[1] += modops.MMulLazy(w[1], cMNeg, qv, inv)
@@ -822,11 +880,14 @@ func ScalarMMulSubLazyTo(vOutM, vM []uint64, cM uint64, q *num.Modulus) {
 // mulWordTo computes vOut = v0 * v1.
 func mulWordTo(vOut, v0, v1 []uint64) {
 	M := (len(vOut) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	ptr0 := unsafe.Pointer(unsafe.SliceData(v0))
+	ptr1 := unsafe.Pointer(unsafe.SliceData(v1))
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
-		w0 := (*[8]uint64)(unsafe.Pointer(&v0[i]))
-		w1 := (*[8]uint64)(unsafe.Pointer(&v1[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w0 := (*[8]uint64)(unsafe.Add(ptr0, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w1 := (*[8]uint64)(unsafe.Add(ptr1, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = w0[0] * w1[0]
 		wOut[1] = w0[1] * w1[1]
@@ -847,11 +908,14 @@ func mulWordTo(vOut, v0, v1 []uint64) {
 // mulAddWordTo computes vOut += v0 * v1.
 func mulAddWordTo(vOut, v0, v1 []uint64) {
 	M := (len(vOut) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	ptr0 := unsafe.Pointer(unsafe.SliceData(v0))
+	ptr1 := unsafe.Pointer(unsafe.SliceData(v1))
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
-		w0 := (*[8]uint64)(unsafe.Pointer(&v0[i]))
-		w1 := (*[8]uint64)(unsafe.Pointer(&v1[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w0 := (*[8]uint64)(unsafe.Add(ptr0, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w1 := (*[8]uint64)(unsafe.Add(ptr1, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] += w0[0] * w1[0]
 		wOut[1] += w0[1] * w1[1]
@@ -872,11 +936,14 @@ func mulAddWordTo(vOut, v0, v1 []uint64) {
 // mulSubWordTo computes vOut -= v0 * v1.
 func mulSubWordTo(vOut, v0, v1 []uint64) {
 	M := (len(vOut) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	ptr0 := unsafe.Pointer(unsafe.SliceData(v0))
+	ptr1 := unsafe.Pointer(unsafe.SliceData(v1))
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
-		w0 := (*[8]uint64)(unsafe.Pointer(&v0[i]))
-		w1 := (*[8]uint64)(unsafe.Pointer(&v1[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w0 := (*[8]uint64)(unsafe.Add(ptr0, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w1 := (*[8]uint64)(unsafe.Add(ptr1, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] -= w0[0] * w1[0]
 		wOut[1] -= w0[1] * w1[1]
@@ -899,14 +966,17 @@ func mulSubWordTo(vOut, v0, v1 []uint64) {
 // Panics if q is nil.
 func MMulTo(vOutM, v0M, v1M []uint64, q *num.Modulus) {
 	M := (len(vOutM) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOutM))
+	ptr0 := unsafe.Pointer(unsafe.SliceData(v0M))
+	ptr1 := unsafe.Pointer(unsafe.SliceData(v1M))
 
 	qv := q.Value()
 	inv := q.Inv()
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOutM[i]))
-		w0 := (*[8]uint64)(unsafe.Pointer(&v0M[i]))
-		w1 := (*[8]uint64)(unsafe.Pointer(&v1M[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w0 := (*[8]uint64)(unsafe.Add(ptr0, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w1 := (*[8]uint64)(unsafe.Add(ptr1, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = modops.MMul(w0[0], w1[0], qv, inv)
 		wOut[1] = modops.MMul(w0[1], w1[1], qv, inv)
@@ -929,14 +999,17 @@ func MMulTo(vOutM, v0M, v1M []uint64, q *num.Modulus) {
 // Panics if q is nil.
 func MMulAddTo(vOutM, v0M, v1M []uint64, q *num.Modulus) {
 	M := (len(vOutM) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOutM))
+	ptr0 := unsafe.Pointer(unsafe.SliceData(v0M))
+	ptr1 := unsafe.Pointer(unsafe.SliceData(v1M))
 
 	qv := q.Value()
 	inv := q.Inv()
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOutM[i]))
-		w0 := (*[8]uint64)(unsafe.Pointer(&v0M[i]))
-		w1 := (*[8]uint64)(unsafe.Pointer(&v1M[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w0 := (*[8]uint64)(unsafe.Add(ptr0, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w1 := (*[8]uint64)(unsafe.Add(ptr1, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = modops.Add(wOut[0], modops.MMul(w0[0], w1[0], qv, inv), qv)
 		wOut[1] = modops.Add(wOut[1], modops.MMul(w0[1], w1[1], qv, inv), qv)
@@ -959,14 +1032,17 @@ func MMulAddTo(vOutM, v0M, v1M []uint64, q *num.Modulus) {
 // Panics if q is nil.
 func MMulSubTo(vOutM, v0M, v1M []uint64, q *num.Modulus) {
 	M := (len(vOutM) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOutM))
+	ptr0 := unsafe.Pointer(unsafe.SliceData(v0M))
+	ptr1 := unsafe.Pointer(unsafe.SliceData(v1M))
 
 	qv := q.Value()
 	inv := q.Inv()
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOutM[i]))
-		w0 := (*[8]uint64)(unsafe.Pointer(&v0M[i]))
-		w1 := (*[8]uint64)(unsafe.Pointer(&v1M[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w0 := (*[8]uint64)(unsafe.Add(ptr0, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w1 := (*[8]uint64)(unsafe.Add(ptr1, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = modops.Sub(wOut[0], modops.MMul(w0[0], w1[0], qv, inv), qv)
 		wOut[1] = modops.Sub(wOut[1], modops.MMul(w0[1], w1[1], qv, inv), qv)
@@ -990,14 +1066,17 @@ func MMulSubTo(vOutM, v0M, v1M []uint64, q *num.Modulus) {
 // Panics if q is nil.
 func MMulLazyTo(vOutM, v0M, v1M []uint64, q *num.Modulus) {
 	M := (len(vOutM) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOutM))
+	ptr0 := unsafe.Pointer(unsafe.SliceData(v0M))
+	ptr1 := unsafe.Pointer(unsafe.SliceData(v1M))
 
 	qv := q.Value()
 	inv := q.Inv()
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOutM[i]))
-		w0 := (*[8]uint64)(unsafe.Pointer(&v0M[i]))
-		w1 := (*[8]uint64)(unsafe.Pointer(&v1M[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w0 := (*[8]uint64)(unsafe.Add(ptr0, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w1 := (*[8]uint64)(unsafe.Add(ptr1, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = modops.MMulLazy(w0[0], w1[0], qv, inv)
 		wOut[1] = modops.MMulLazy(w0[1], w1[1], qv, inv)
@@ -1021,14 +1100,17 @@ func MMulLazyTo(vOutM, v0M, v1M []uint64, q *num.Modulus) {
 // Panics if q is nil.
 func MMulAddLazyTo(vOutM, v0M, v1M []uint64, q *num.Modulus) {
 	M := (len(vOutM) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOutM))
+	ptr0 := unsafe.Pointer(unsafe.SliceData(v0M))
+	ptr1 := unsafe.Pointer(unsafe.SliceData(v1M))
 
 	qv := q.Value()
 	inv := q.Inv()
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOutM[i]))
-		w0 := (*[8]uint64)(unsafe.Pointer(&v0M[i]))
-		w1 := (*[8]uint64)(unsafe.Pointer(&v1M[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w0 := (*[8]uint64)(unsafe.Add(ptr0, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w1 := (*[8]uint64)(unsafe.Add(ptr1, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] += modops.MMulLazy(w0[0], w1[0], qv, inv)
 		wOut[1] += modops.MMulLazy(w0[1], w1[1], qv, inv)
@@ -1052,14 +1134,17 @@ func MMulAddLazyTo(vOutM, v0M, v1M []uint64, q *num.Modulus) {
 // Panics if q is nil.
 func MMulSubLazyTo(vOutM, v0M, v1M []uint64, q *num.Modulus) {
 	M := (len(vOutM) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOutM))
+	ptr0 := unsafe.Pointer(unsafe.SliceData(v0M))
+	ptr1 := unsafe.Pointer(unsafe.SliceData(v1M))
 
 	qv := q.Value()
 	inv := q.Inv()
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOutM[i]))
-		w0 := (*[8]uint64)(unsafe.Pointer(&v0M[i]))
-		w1 := (*[8]uint64)(unsafe.Pointer(&v1M[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w0 := (*[8]uint64)(unsafe.Add(ptr0, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w1 := (*[8]uint64)(unsafe.Add(ptr1, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] += modops.MMulLazy(qv-w0[0], w1[0], qv, inv)
 		wOut[1] += modops.MMulLazy(qv-w0[1], w1[1], qv, inv)
@@ -1082,14 +1167,18 @@ func MMulSubLazyTo(vOutM, v0M, v1M []uint64, q *num.Modulus) {
 // Panics if q is nil.
 func SMulTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
 	M := (len(vOut) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	ptr0 := unsafe.Pointer(unsafe.SliceData(v0))
+	ptr1 := unsafe.Pointer(unsafe.SliceData(v1))
+	ptr1S := unsafe.Pointer(unsafe.SliceData(v1S))
 
 	qv := q.Value()
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
-		w0 := (*[8]uint64)(unsafe.Pointer(&v0[i]))
-		w1 := (*[8]uint64)(unsafe.Pointer(&v1[i]))
-		w1S := (*[8]uint64)(unsafe.Pointer(&v1S[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w0 := (*[8]uint64)(unsafe.Add(ptr0, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w1 := (*[8]uint64)(unsafe.Add(ptr1, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w1S := (*[8]uint64)(unsafe.Add(ptr1S, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = modops.SMul(w0[0], w1[0], w1S[0], qv)
 		wOut[1] = modops.SMul(w0[1], w1[1], w1S[1], qv)
@@ -1112,14 +1201,18 @@ func SMulTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
 // Panics if q is nil.
 func SMulAddTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
 	M := (len(vOut) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	ptr0 := unsafe.Pointer(unsafe.SliceData(v0))
+	ptr1 := unsafe.Pointer(unsafe.SliceData(v1))
+	ptr1S := unsafe.Pointer(unsafe.SliceData(v1S))
 
 	qv := q.Value()
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
-		w0 := (*[8]uint64)(unsafe.Pointer(&v0[i]))
-		w1 := (*[8]uint64)(unsafe.Pointer(&v1[i]))
-		w1S := (*[8]uint64)(unsafe.Pointer(&v1S[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w0 := (*[8]uint64)(unsafe.Add(ptr0, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w1 := (*[8]uint64)(unsafe.Add(ptr1, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w1S := (*[8]uint64)(unsafe.Add(ptr1S, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = modops.Add(wOut[0], modops.SMul(w0[0], w1[0], w1S[0], qv), qv)
 		wOut[1] = modops.Add(wOut[1], modops.SMul(w0[1], w1[1], w1S[1], qv), qv)
@@ -1142,14 +1235,18 @@ func SMulAddTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
 // Panics if q is nil.
 func SMulSubTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
 	M := (len(vOut) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	ptr0 := unsafe.Pointer(unsafe.SliceData(v0))
+	ptr1 := unsafe.Pointer(unsafe.SliceData(v1))
+	ptr1S := unsafe.Pointer(unsafe.SliceData(v1S))
 
 	qv := q.Value()
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
-		w0 := (*[8]uint64)(unsafe.Pointer(&v0[i]))
-		w1 := (*[8]uint64)(unsafe.Pointer(&v1[i]))
-		w1S := (*[8]uint64)(unsafe.Pointer(&v1S[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w0 := (*[8]uint64)(unsafe.Add(ptr0, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w1 := (*[8]uint64)(unsafe.Add(ptr1, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w1S := (*[8]uint64)(unsafe.Add(ptr1S, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = modops.Sub(wOut[0], modops.SMul(w0[0], w1[0], w1S[0], qv), qv)
 		wOut[1] = modops.Sub(wOut[1], modops.SMul(w0[1], w1[1], w1S[1], qv), qv)
@@ -1173,14 +1270,18 @@ func SMulSubTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
 // Panics if q is nil.
 func SMulLazyTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
 	M := (len(vOut) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	ptr0 := unsafe.Pointer(unsafe.SliceData(v0))
+	ptr1 := unsafe.Pointer(unsafe.SliceData(v1))
+	ptr1S := unsafe.Pointer(unsafe.SliceData(v1S))
 
 	qv := q.Value()
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
-		w0 := (*[8]uint64)(unsafe.Pointer(&v0[i]))
-		w1 := (*[8]uint64)(unsafe.Pointer(&v1[i]))
-		w1S := (*[8]uint64)(unsafe.Pointer(&v1S[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w0 := (*[8]uint64)(unsafe.Add(ptr0, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w1 := (*[8]uint64)(unsafe.Add(ptr1, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w1S := (*[8]uint64)(unsafe.Add(ptr1S, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] = modops.SMulLazy(w0[0], w1[0], w1S[0], qv)
 		wOut[1] = modops.SMulLazy(w0[1], w1[1], w1S[1], qv)
@@ -1204,14 +1305,18 @@ func SMulLazyTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
 // Panics if q is nil.
 func SMulAddLazyTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
 	M := (len(vOut) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	ptr0 := unsafe.Pointer(unsafe.SliceData(v0))
+	ptr1 := unsafe.Pointer(unsafe.SliceData(v1))
+	ptr1S := unsafe.Pointer(unsafe.SliceData(v1S))
 
 	qv := q.Value()
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
-		w0 := (*[8]uint64)(unsafe.Pointer(&v0[i]))
-		w1 := (*[8]uint64)(unsafe.Pointer(&v1[i]))
-		w1S := (*[8]uint64)(unsafe.Pointer(&v1S[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w0 := (*[8]uint64)(unsafe.Add(ptr0, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w1 := (*[8]uint64)(unsafe.Add(ptr1, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w1S := (*[8]uint64)(unsafe.Add(ptr1S, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] += modops.SMulLazy(w0[0], w1[0], w1S[0], qv)
 		wOut[1] += modops.SMulLazy(w0[1], w1[1], w1S[1], qv)
@@ -1235,14 +1340,18 @@ func SMulAddLazyTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
 // Panics if q is nil.
 func SMulSubLazyTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
 	M := (len(vOut) >> 3) << 3
+	ptrOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	ptr0 := unsafe.Pointer(unsafe.SliceData(v0))
+	ptr1 := unsafe.Pointer(unsafe.SliceData(v1))
+	ptr1S := unsafe.Pointer(unsafe.SliceData(v1S))
 
 	qv := q.Value()
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i]))
-		w0 := (*[8]uint64)(unsafe.Pointer(&v0[i]))
-		w1 := (*[8]uint64)(unsafe.Pointer(&v1[i]))
-		w1S := (*[8]uint64)(unsafe.Pointer(&v1S[i]))
+		wOut := (*[8]uint64)(unsafe.Add(ptrOut, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w0 := (*[8]uint64)(unsafe.Add(ptr0, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w1 := (*[8]uint64)(unsafe.Add(ptr1, uintptr(i)*unsafe.Sizeof(uint64(0))))
+		w1S := (*[8]uint64)(unsafe.Add(ptr1S, uintptr(i)*unsafe.Sizeof(uint64(0))))
 
 		wOut[0] += modops.SMulLazy(qv-w0[0], w1[0], w1S[0], qv)
 		wOut[1] += modops.SMulLazy(qv-w0[1], w1[1], w1S[1], qv)
