@@ -233,6 +233,8 @@ func (e *polyBaseEvaluator) ScalarMulSubTo(pOut, p *Poly, c Scalar) {
 func (e *polyBaseEvaluator) AsBig(p *Poly) []*big.Int {
 	if !isConsistent(e.params.Rank(), len(e.mod), p) {
 		panic("AsBig: input not consistent")
+	} else if p.IsNTT {
+		panic("input is in NTT form")
 	}
 
 	modBig := make([]*big.Int, len(e.mod))

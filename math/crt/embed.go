@@ -185,37 +185,53 @@ func (e *Embedder) EmbedVec(v [][]uint64) [][]uint64 {
 }
 
 // EmbedVecTo embeds v to vOut.
-// If len(v) < len(e.modIn) or len(vOut) < len(e.modOut),
-// it only embeds the first len(v) elements to len(vOut) elements.
+// If len(vOut) < len(e.modOut),
+// it only embeds to len(vOut) elements.
 func (e *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 	M := (len(v[0]) >> 3) << 3
 
-	inLen, outLen := min(len(v), len(e.modIn)), min(len(vOut), len(e.modOut))
+	inLen, outLen := len(v), min(len(vOut), len(e.modOut))
+
+	if inLen != len(e.modIn) {
+		panic("EmbedVecTo: length mismatch")
+	}
 
 	if inLen == 1 {
 		qv := e.modIn[0].Value()
 		halfQv := qv >> 1
-		for i := 0; i < outLen; i++ {
-			if e.idx[i] == 0 {
-				copy(vOut[i], v[0])
-			} else {
-				for j := 0; j < M; j += 8 {
-					wIn := (*[8]uint64)(unsafe.Pointer(&v[0][j]))
-					wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i][j]))
 
-					wOut[0] = reduceModInToModOutSigned(wIn[0], e.modOut[i], qv, halfQv)
-					wOut[1] = reduceModInToModOutSigned(wIn[1], e.modOut[i], qv, halfQv)
-					wOut[2] = reduceModInToModOutSigned(wIn[2], e.modOut[i], qv, halfQv)
-					wOut[3] = reduceModInToModOutSigned(wIn[3], e.modOut[i], qv, halfQv)
+		bufIn := (*[8]uint64)(unsafe.Pointer(&e.buf.in[0][0]))
 
-					wOut[4] = reduceModInToModOutSigned(wIn[4], e.modOut[i], qv, halfQv)
-					wOut[5] = reduceModInToModOutSigned(wIn[5], e.modOut[i], qv, halfQv)
-					wOut[6] = reduceModInToModOutSigned(wIn[6], e.modOut[i], qv, halfQv)
-					wOut[7] = reduceModInToModOutSigned(wIn[7], e.modOut[i], qv, halfQv)
+		for i := 0; i < M; i += 8 {
+			wIn := (*[8]uint64)(unsafe.Pointer(&v[0][i]))
+			copy(bufIn[:], wIn[:])
+
+			for j := 0; j < outLen; j++ {
+				wOut := (*[8]uint64)(unsafe.Pointer(&vOut[j][i]))
+
+				if e.idx[j] == 0 {
+					copy(wOut[:], bufIn[:])
+				} else {
+					wOut[0] = reduceModInToModOutSigned(bufIn[0], e.modOut[j], qv, halfQv)
+					wOut[1] = reduceModInToModOutSigned(bufIn[1], e.modOut[j], qv, halfQv)
+					wOut[2] = reduceModInToModOutSigned(bufIn[2], e.modOut[j], qv, halfQv)
+					wOut[3] = reduceModInToModOutSigned(bufIn[3], e.modOut[j], qv, halfQv)
+
+					wOut[4] = reduceModInToModOutSigned(bufIn[4], e.modOut[j], qv, halfQv)
+					wOut[5] = reduceModInToModOutSigned(bufIn[5], e.modOut[j], qv, halfQv)
+					wOut[6] = reduceModInToModOutSigned(bufIn[6], e.modOut[j], qv, halfQv)
+					wOut[7] = reduceModInToModOutSigned(bufIn[7], e.modOut[j], qv, halfQv)
 				}
+			}
+		}
 
-				for j := M; j < len(v[0]); j++ {
-					vOut[i][j] = reduceModInToModOutSigned(v[0][j], e.modOut[i], qv, halfQv)
+		for i := M; i < len(v[0]); i++ {
+			vi := v[0][i]
+			for j := 0; j < outLen; j++ {
+				if e.idx[j] == 0 {
+					vOut[j][i] = vi
+				} else {
+					vOut[j][i] = reduceModInToModOutSigned(vi, e.modOut[j], qv, halfQv)
 				}
 			}
 		}

@@ -182,3 +182,39 @@ func MulSubScalarTo(xOut, x0, x1 Scalar, mod []*num.Modulus) {
 		xOut[i] = num.Sub(xOut[i], num.Mul(x0[i], x1[i], mod[i]), mod[i])
 	}
 }
+
+// AsBigScalar returns s as *[big.Int].
+func AsBigScalar(s Scalar, mod []*num.Modulus) *big.Int {
+	if len(mod) != len(s) {
+		panic("input not consistent")
+	}
+
+	modBig := make([]*big.Int, len(mod))
+	modProd := big.NewInt(1)
+	for i := range mod {
+		modBig[i] = new(big.Int).SetUint64(mod[i].Value())
+		modProd.Mul(modProd, modBig[i])
+	}
+	modProdHalf := new(big.Int).Rsh(modProd, 1)
+
+	gadget := make([]*big.Int, len(mod))
+	for i := range modBig {
+		qStar := new(big.Int).Div(modProd, modBig[i])
+		qStarInv := new(big.Int).ModInverse(qStar, modBig[i])
+		gadget[i] = new(big.Int).Mul(qStar, qStarInv)
+		gadget[i].Mod(gadget[i], modProd)
+	}
+
+	sBig := big.NewInt(0)
+	for i := range mod {
+		c := new(big.Int).SetUint64(s[i])
+		c.Mul(c, gadget[i])
+		sBig.Add(sBig, c)
+	}
+	sBig.Mod(sBig, modProd)
+	if sBig.Cmp(modProdHalf) > 0 {
+		sBig.Sub(sBig, modProd)
+	}
+
+	return sBig
+}

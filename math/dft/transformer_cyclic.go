@@ -412,5 +412,7 @@ func (ntt *anyCyclicTransformer) SafeCopy() Transformer {
 		chirpM:   ntt.chirpM,
 		chirpMS:  ntt.chirpMS,
 		chirpInv: ntt.chirpInv,
+
+		buf: newTransformerBuffer(ntt.ambNTT.params.rank),
 	}
 }

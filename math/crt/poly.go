@@ -71,6 +71,27 @@ func (p *Poly) SetCoeff(i int, c Scalar) {
 	}
 }
 
+// WithModIdx returns a copy of p with the given modulus indices.
+//
+// Panics when idx is out of range.
+func (p *Poly) WithModIdx(idx ...int) *Poly {
+	for _, idxi := range idx {
+		if idxi < 0 || idxi >= p.ModLen() {
+			panic("WithModIdx: index out of range")
+		}
+	}
+
+	coeffs := make([][]uint64, len(idx))
+	for i, idxi := range idx {
+		coeffs[i] = p.Coeffs[idxi]
+	}
+
+	return &Poly{
+		Coeffs: coeffs,
+		IsNTT:  p.IsNTT,
+	}
+}
+
 // Copy returns a copy of p.
 func (p *Poly) Copy() *Poly {
 	pOut := NewPolyCustom(p.Rank(), p.ModLen(), p.IsNTT)
@@ -80,7 +101,7 @@ func (p *Poly) Copy() *Poly {
 	return pOut
 }
 
-// CopyFrom copies the coefficients from p0 to p.
+// CopyFrom copies the coefficients from pIn to p.
 //
 // Panics when p and pIn are not consistent.
 func (p *Poly) CopyFrom(pIn *Poly) {

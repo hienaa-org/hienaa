@@ -63,12 +63,9 @@ func TestSampler(t *testing.T) {
 	pev := crt.NewPolyEvaluator(rP, q)
 
 	t.Run("type=Uniform", func(t *testing.T) {
-		s := crt.UniformSamplerParameters{
-			Params:  rP,
-			Modulus: q,
-		}.Sampler()
+		s := crt.UniformSamplerParameters{}.Sampler()
 
-		pOut := s.Sample()
+		pOut := s.Sample(rP.Rank(), q)
 		vOut := pev.AsBig(pOut)
 
 		assert.InDelta(t, num.Log2(len(vOut)), entropy(vOut), 0.1)
@@ -78,14 +75,11 @@ func TestSampler(t *testing.T) {
 		boundMin := big.NewInt(-10)
 		boundMax := big.NewInt(10)
 		s := crt.UniformSamplerParameters{
-			Params:  rP,
-			Modulus: q,
-
 			BoundMin: boundMin,
 			BoundMax: boundMax,
 		}.Sampler()
 
-		pOut := s.Sample()
+		pOut := s.Sample(rP.Rank(), q)
 		vOut := pev.AsBig(pOut)
 
 		assert.True(t, slices.MinFunc(vOut, (*big.Int).Cmp).Cmp(boundMin) >= 0)
@@ -94,14 +88,11 @@ func TestSampler(t *testing.T) {
 
 	t.Run("type=Ternary", func(t *testing.T) {
 		s := crt.TernarySamplerParameters{
-			Params:  rP,
-			Modulus: q,
-
 			Positive: 1.0 / 3.0,
 			Negative: 1.0 / 3.0,
 		}.Sampler()
 
-		pOut := s.Sample()
+		pOut := s.Sample(rP.Rank(), q)
 		vOut := pev.AsBig(pOut)
 
 		assert.InDelta(t, entropy(vOut), math.Log2(3), 0.1)
@@ -112,15 +103,12 @@ func TestSampler(t *testing.T) {
 	t.Run("type=TernaryFixedHammingWeight", func(t *testing.T) {
 		hwRef := rP.Rank() / 4
 		s := crt.TernarySamplerParameters{
-			Params:  rP,
-			Modulus: q,
-
 			Positive:      1.0 / 3.0,
 			Negative:      1.0 / 3.0,
 			HammingWeight: hwRef,
 		}.Sampler()
 
-		pOut := s.Sample()
+		pOut := s.Sample(rP.Rank(), q)
 		vOut := pev.AsBig(pOut)
 
 		hw := 0

@@ -43,7 +43,26 @@ func FindNTTPrimesFromBits(params dft.RingParameters, modulusBits, auxModulusBit
 		if bitlen >= 62 {
 			modLen++
 		} else {
-			modulus[modLen-1] = num.NewModulus(num.MustPrevPrime((uint64(math.Round(math.Exp2(bitlen)))/gap)*gap+1, gap))
+			slices.SortFunc(modulus[:modLen-1], func(a, b *num.Modulus) int {
+				return cmp.Compare(a.Value(), b.Value())
+			})
+
+			start := (uint64(math.Round(math.Exp2(bitlen)))/gap)*gap + 1
+			prime := num.MustPrevPrime(start, gap)
+			primemod := num.NewModulus(prime)
+			for {
+				_, ok := slices.BinarySearchFunc(modulus[:modLen-1], primemod, func(a, b *num.Modulus) int {
+					return cmp.Compare(a.Value(), b.Value())
+				})
+
+				if !ok {
+					break
+				} else {
+					prime = num.MustPrevPrime(prime, gap)
+					primemod = num.NewModulus(prime)
+				}
+			}
+			modulus[modLen-1] = primemod
 
 			if bitlen-1 > num.Log2(modulus[modLen-1].Value()) {
 				panic("FindNTTPrimesFromBits: failed to sample the modulus")
@@ -58,55 +77,80 @@ func FindNTTPrimesFromBits(params dft.RingParameters, modulusBits, auxModulusBit
 	})
 
 	// Sample the auxiliary modulus.
-	for {
-		auxModulus = make([]*num.Modulus, auxModLen)
+	if auxModLen != 0 {
+		for {
+			auxModulus = make([]*num.Modulus, auxModLen)
 
-		gap, err := dft.RingGap(params)
-		if err != nil {
-			panic(err)
-		}
+			gap, err := dft.RingGap(params)
+			if err != nil {
+				panic(err)
+			}
 
-		bitlen = auxModulusBits
-		start := (uint64(math.Round(math.Exp2(auxModulusBits/float64(auxModLen))))/gap)*gap + 1
-		prime := num.MustPrevPrime(start, gap)
+			bitlen = auxModulusBits
+			start := (uint64(math.Round(math.Exp2(auxModulusBits/float64(auxModLen))))/gap)*gap + 1
+			prime := num.MustPrevPrime(start, gap)
 
-		cnt := 0
-		for cnt < auxModLen-1 {
-			primemod := num.NewModulus(prime)
-			for {
-				_, ok := slices.BinarySearchFunc(modulus, primemod, func(a, b *num.Modulus) int {
+			cnt := 0
+			for cnt < auxModLen-1 {
+				primemod := num.NewModulus(prime)
+				for {
+					_, ok := slices.BinarySearchFunc(modulus, primemod, func(a, b *num.Modulus) int {
+						return cmp.Compare(a.Value(), b.Value())
+					})
+
+					if !ok {
+						break
+					} else {
+						prime = num.MustPrevPrime(prime, gap)
+						primemod = num.NewModulus(prime)
+					}
+				}
+				auxModulus[cnt] = primemod
+				bitlen -= num.Log2(primemod.Value())
+				prime = num.MustPrevPrime(prime, gap)
+				cnt++
+			}
+
+			if bitlen >= 62 {
+				auxModLen++
+			} else {
+				slices.SortFunc(auxModulus[:auxModLen-1], func(a, b *num.Modulus) int {
 					return cmp.Compare(a.Value(), b.Value())
 				})
 
-				if !ok {
-					break
-				} else {
-					prime = num.MustPrevPrime(prime, gap)
-					primemod = num.NewModulus(prime)
+				start := (uint64(math.Round(math.Exp2(bitlen)))/gap)*gap + 1
+				prime := num.MustPrevPrime(start, gap)
+				primemod := num.NewModulus(prime)
+				for {
+					_, okMod := slices.BinarySearchFunc(modulus, primemod, func(a, b *num.Modulus) int {
+						return cmp.Compare(a.Value(), b.Value())
+					})
+
+					_, okAux := slices.BinarySearchFunc(auxModulus[:auxModLen-1], primemod, func(a, b *num.Modulus) int {
+						return cmp.Compare(a.Value(), b.Value())
+					})
+
+					if !(okMod || okAux) {
+						break
+					} else {
+						prime = num.MustPrevPrime(prime, gap)
+						primemod = num.NewModulus(prime)
+					}
 				}
+				auxModulus[auxModLen-1] = primemod
+
+				if bitlen-1 > num.Log2(auxModulus[auxModLen-1].Value()) {
+					panic("FindNTTPrimesFromBits: failed to sample the auxiliary modulus")
+				}
+
+				break
 			}
-			auxModulus[cnt] = primemod
-			bitlen -= num.Log2(primemod.Value())
-			prime = num.MustPrevPrime(prime, gap)
-			cnt++
 		}
 
-		if bitlen >= 62 {
-			auxModLen++
-		} else {
-			auxModulus[auxModLen-1] = num.NewModulus(num.MustPrevPrime((uint64(math.Round(math.Exp2(bitlen)))/gap)*gap+1, gap))
-
-			if bitlen-1 > num.Log2(auxModulus[auxModLen-1].Value()) {
-				panic("FindNTTPrimesFromBits: failed to sample the auxiliary modulus")
-			}
-
-			break
-		}
+		slices.SortFunc(auxModulus, func(a, b *num.Modulus) int {
+			return int(a.Value() - b.Value())
+		})
 	}
-
-	slices.SortFunc(auxModulus, func(a, b *num.Modulus) int {
-		return int(a.Value() - b.Value())
-	})
 
 	return modulus, auxModulus
 }
