@@ -167,10 +167,11 @@ func (e *Embedder) Embed(p *Poly) *Poly {
 // If p.ModLen() < len(e.modIn) or pOut.ModLen() < len(e.modOut),
 // it only embeds the first p.ModLen() elements to pOut.ModLen() elements.
 func (e *Embedder) EmbedTo(pOut, p *Poly) {
-	if p.IsNTT || pOut.IsNTT {
-		panic("EmbedTo: cannot embed NTT polynomials")
+	if p.IsNTT {
+		panic("EmbedTo: cannot embed NTT polynomial")
 	}
 	e.EmbedVecTo(pOut.Coeffs, p.Coeffs)
+	pOut.IsNTT = false
 }
 
 // EmbedVec returns the embedding of v to the output modulus.
@@ -517,11 +518,12 @@ func (s *Scaler) Scale(p *Poly) *Poly {
 // ScaleTo scales p to pOut.
 func (s *Scaler) ScaleTo(pOut, p *Poly) {
 	switch {
-	case p.IsNTT || pOut.IsNTT:
-		panic("ScaleTo: cannot scale NTT polynomials")
+	case p.IsNTT:
+		panic("ScaleTo: cannot scale NTT polynomial")
 	}
 
-	s.ScaleVecTo(p.Coeffs, pOut.Coeffs)
+	s.ScaleVecTo(pOut.Coeffs, p.Coeffs)
+	pOut.IsNTT = false
 }
 
 // ScaleVec returns the scaled vector of v.
@@ -825,11 +827,12 @@ func (s *ScaleEmbedder) ScaleEmbed(p *Poly) *Poly {
 // ScaleEmbedTo scales and embeds p to pOut.
 func (s *ScaleEmbedder) ScaleEmbedTo(pOut, p *Poly) {
 	switch {
-	case p.IsNTT || pOut.IsNTT:
-		panic("ScaleEmbedTo: cannot scale NTT polynomials")
+	case p.IsNTT:
+		panic("ScaleEmbedTo: cannot scale NTT polynomial")
 	}
 
-	s.ScaleEmbedVecTo(p.Coeffs, pOut.Coeffs)
+	s.ScaleEmbedVecTo(pOut.Coeffs, p.Coeffs)
+	pOut.IsNTT = false
 }
 
 // ScaleEmbedVec scales and embeds v to the output modulus.

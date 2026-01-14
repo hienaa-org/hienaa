@@ -455,7 +455,7 @@ func (e *anyCyclotomicPolyMulEvaluator) subEvaluator(idx ...int) anyCyclotomicPo
 		ambNTT:    ambNTTCopy,
 		embedder:  embedderCopy,
 
-		reducer: e.reducer.SafeCopy(),
+		reducer: e.reducer.SubReducer(idx...),
 
 		buf: newPolyMulEvaluatorBuffer(e.params.CycloOrder(), max(1, maxAmbModLen)),
 	}
@@ -727,7 +727,7 @@ func (e *reducePolyMulEvaluator) subEvaluator(idx ...int) reducePolyMulEvaluator
 		ambNTT:    ambNTTCopy,
 		embedder:  embedderCopy,
 
-		reducer: e.reducer.SafeCopy(),
+		reducer: e.reducer.SubReducer(idx...),
 
 		buf: newPolyMulEvaluatorBuffer(e.ambRank, max(1, maxAmbModLen)),
 	}

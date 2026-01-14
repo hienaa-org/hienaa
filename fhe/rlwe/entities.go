@@ -528,3 +528,17 @@ func (r *RGSW) IsEqual(r0 *RGSW) bool {
 func (r *RGSW) IsConsistent(r0 *RGSW) bool {
 	return r.Body.IsConsistent(r0.Body) && r.Mask.IsConsistent(r0.Mask)
 }
+
+// RelinKey is a relinearisation key.
+type RelinKey GadgetEncryption
+
+// KeySwitchKey is a key switch key.
+type KeySwitchKey GadgetEncryption
+
+// AutomorphismKey is an automorphism key.
+type AutomorphismKey struct {
+	// value is the gadget encryption.
+	Value []*Ciphertext
+	// idx is the automorphism index.
+	Idx int
+}

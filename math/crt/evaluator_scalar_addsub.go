@@ -144,8 +144,7 @@ func (e *primeAutFixedPolyScalarAddSubEvaluator) ScalarAddTo(pOut, p *Poly, c Sc
 		if p.IsNTT && e.isNTTFriendly[i] {
 			vec.ScalarAddTo(pOut.Coeffs[i], p.Coeffs[i], num.MForm(c[i], e.mod[i]), e.mod[i])
 		} else {
-			copy(pOut.Coeffs[i], p.Coeffs[i])
-			pOut.Coeffs[i][0] = num.Add(pOut.Coeffs[i][0], c[i], e.mod[i])
+			vec.ScalarSubTo(pOut.Coeffs[i], p.Coeffs[i], c[i], e.mod[i])
 		}
 	}
 
@@ -169,8 +168,7 @@ func (e *primeAutFixedPolyScalarAddSubEvaluator) ScalarSubTo(pOut, p *Poly, c Sc
 		if p.IsNTT && e.isNTTFriendly[i] {
 			vec.ScalarSubTo(pOut.Coeffs[i], p.Coeffs[i], num.MForm(c[i], e.mod[i]), e.mod[i])
 		} else {
-			copy(pOut.Coeffs[i], p.Coeffs[i])
-			pOut.Coeffs[i][0] = num.Sub(pOut.Coeffs[i][0], c[i], e.mod[i])
+			vec.ScalarAddTo(pOut.Coeffs[i], p.Coeffs[i], c[i], e.mod[i])
 		}
 	}
 

@@ -546,37 +546,52 @@ func (r *CyclotomicReducer) Modulus() []*num.Modulus {
 // SubReducer returns a reducer for modulus of given indices.
 func (r *CyclotomicReducer) SubReducer(idx ...int) *CyclotomicReducer {
 	modCopy := make([]*num.Modulus, len(idx))
-	ambModLenCopy := make([]int, len(idx))
-	cycloPolyCopy := make([][][]uint64, len(idx))
-	divPolyCopy := make([][][]uint64, len(idx))
+
 	for i := range idx {
 		modCopy[i] = r.mod[idx[i]]
-		ambModLenCopy[i] = r.ambModLen[idx[i]]
-		cycloPolyCopy[i] = r.cycloPoly[idx[i]]
-		divPolyCopy[i] = r.divPoly[idx[i]]
 	}
 
-	embedderCopy := make([]*Embedder, len(idx))
-	diffDegNextNTTCopy := make([]dft.Transformer, len(idx))
-	degNextNTTCopy := make([]dft.Transformer, len(idx))
-	for i := range idx {
-		if r.embedder[idx[i]] != nil {
-			embedderCopy[i] = r.embedder[idx[i]].SafeCopy()
-		}
-		if r.diffDegNextNTT[idx[i]] != nil {
-			diffDegNextNTTCopy[i] = r.diffDegNextNTT[idx[i]].SafeCopy()
-		}
-		if r.degNextNTT[idx[i]] != nil {
-			degNextNTTCopy[i] = r.degNextNTT[idx[i]].SafeCopy()
-		}
-	}
+	var ambModLenCopy []int
+	var ambModCopy []*num.Modulus
+	var embedderCopy []*Embedder
+	var diffDegNextNTTCopy, degNextNTTCopy []dft.Transformer
+	var diffDegNextAmbNTTCopy, degNextAmbNTTCopy []dft.Transformer
+	var cycloPolyCopy, divPolyCopy [][][]uint64
 
-	maxAmbModLen := vec.Max(ambModLenCopy)
-	diffDegNextAmbNTTCopy := make([]dft.Transformer, maxAmbModLen)
-	degNextAmbNTTCopy := make([]dft.Transformer, maxAmbModLen)
-	for i := 0; i < maxAmbModLen; i++ {
-		diffDegNextAmbNTTCopy[i] = r.diffDegNextAmbNTT[i].SafeCopy()
-		degNextAmbNTTCopy[i] = r.degNextAmbNTT[i].SafeCopy()
+	if !r.isTrivial {
+		ambModLenCopy = make([]int, len(idx))
+		cycloPolyCopy = make([][][]uint64, len(idx))
+		divPolyCopy = make([][][]uint64, len(idx))
+		for i := range idx {
+			ambModLenCopy[i] = r.ambModLen[idx[i]]
+			cycloPolyCopy[i] = r.cycloPoly[idx[i]]
+			divPolyCopy[i] = r.divPoly[idx[i]]
+		}
+
+		embedderCopy = make([]*Embedder, len(idx))
+		diffDegNextNTTCopy = make([]dft.Transformer, len(idx))
+		degNextNTTCopy = make([]dft.Transformer, len(idx))
+		for i := range idx {
+			if r.embedder[idx[i]] != nil {
+				embedderCopy[i] = r.embedder[idx[i]].SafeCopy()
+			}
+			if r.diffDegNextNTT[idx[i]] != nil {
+				diffDegNextNTTCopy[i] = r.diffDegNextNTT[idx[i]].SafeCopy()
+			}
+			if r.degNextNTT[idx[i]] != nil {
+				degNextNTTCopy[i] = r.degNextNTT[idx[i]].SafeCopy()
+			}
+		}
+
+		maxAmbModLen := vec.Max(ambModLenCopy)
+		diffDegNextAmbNTTCopy = make([]dft.Transformer, maxAmbModLen)
+		degNextAmbNTTCopy = make([]dft.Transformer, maxAmbModLen)
+		for i := 0; i < maxAmbModLen; i++ {
+			diffDegNextAmbNTTCopy[i] = r.diffDegNextAmbNTT[i].SafeCopy()
+			degNextAmbNTTCopy[i] = r.degNextAmbNTT[i].SafeCopy()
+		}
+
+		ambModCopy = r.ambMod[:maxAmbModLen]
 	}
 
 	return &CyclotomicReducer{
@@ -595,7 +610,7 @@ func (r *CyclotomicReducer) SubReducer(idx ...int) *CyclotomicReducer {
 		degNextNTT:     degNextNTTCopy,
 
 		ambModLen: ambModLenCopy,
-		ambMod:    r.ambMod[:maxAmbModLen],
+		ambMod:    ambModCopy,
 		embedder:  embedderCopy,
 
 		diffDegNextAmbNTT: diffDegNextAmbNTTCopy,
@@ -604,7 +619,7 @@ func (r *CyclotomicReducer) SubReducer(idx ...int) *CyclotomicReducer {
 		cycloPoly: cycloPolyCopy,
 		divPoly:   divPolyCopy,
 
-		buf: newReducerBuffer(max(1, maxAmbModLen), r.params.CycloOrder(), r.diffDegNext, r.degNext),
+		buf: newReducerBuffer(max(1, vec.Max(ambModLenCopy)), r.params.CycloOrder(), r.diffDegNext, r.degNext),
 	}
 }
 

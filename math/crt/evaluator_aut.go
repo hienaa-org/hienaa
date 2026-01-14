@@ -346,7 +346,7 @@ func (e *anyCyclotomicPolyAutEvaluator) subEvaluator(idx ...int) anyCyclotomicPo
 		mod:           modCopy,
 		isNTTFriendly: isNTTFriendlyCopy,
 
-		reducer: e.reducer.SafeCopy(),
+		reducer: e.reducer.SubReducer(idx...),
 
 		primeExpMods: e.primeExpMods,
 		rootExps:     e.rootExps,

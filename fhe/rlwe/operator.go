@@ -194,7 +194,7 @@ func (o *PlainOperator) FwdNTT(pt *PlainPoly) *PlainPoly {
 // FwdNTTTo performs FwdNTT(pt) and stores the result in pOut.
 func (o *PlainOperator) FwdNTTTo(ptOut *PlainPoly, ptIn *PlainPoly) {
 	if !(ptOut.IsConsistent(ptIn)) {
-		panic("FwdNTTTo: inconsistent plaintexts")
+		panic("inconsistent plaintexts")
 	}
 
 	eval := o.SubEvaluatorAt(ptIn.HasAux, ptIn.ModLen())
@@ -455,6 +455,8 @@ type operatorBuffer struct {
 	pScale *crt.Poly
 	// pKsw is the buffer for key switching.
 	pKsw *crt.Poly
+	// tenAut is the buffer for automorphism.
+	tenAut *Tensor
 
 	// ctGad is the buffer for gadget product.
 	ctGad *Ciphertext
@@ -474,6 +476,7 @@ func newOperatorBuffer(p Parameters) operatorBuffer {
 	}
 	pScale := crt.NewPoly(p.ringParams.Rank(), len(p.modulus))
 	pKsw := crt.NewPoly(p.ringParams.Rank(), len(p.modulus))
+	tenAut := NewTensor(p, true, p.gadgetParams.gadgetLen(p), false)
 
 	ctProd := NewCiphertext(p, true, false)
 	ctExt := NewCiphertext(p, true, false)
@@ -485,6 +488,7 @@ func newOperatorBuffer(p Parameters) operatorBuffer {
 		pDiv:   pDiv,
 		pScale: pScale,
 		pKsw:   pKsw,
+		tenAut: tenAut,
 
 		ctGad: ctProd,
 		ctExt: ctExt,
@@ -619,6 +623,8 @@ func (o *Operator) Add(c0, c1 *Ciphertext) *Ciphertext {
 func (o *Operator) AddTo(cOut *Ciphertext, c0, c1 *Ciphertext) {
 	if !cOut.IsConsistent(c0) || !cOut.IsConsistent(c1) {
 		panic("inconsistent ciphertexts")
+	} else if !(c0.Body.IsNTT == c1.Body.IsNTT) {
+		panic("inconsistent NTT flags")
 	}
 
 	eval := o.SubEvaluatorAt(c0.HasAux, c0.ModLen())
@@ -648,7 +654,7 @@ func (o *Operator) ScalarAddTo(cOut *Ciphertext, s *PlainScalar, c *Ciphertext) 
 
 	eval := o.SubEvaluatorAt(c.HasAux, c.ModLen())
 	eval.ScalarAddTo(cOut.Body, c.Body, s.Value)
-	eval.ScalarAddTo(cOut.Mask, c.Mask, s.Value)
+	cOut.Mask.CopyFrom(c.Mask)
 }
 
 // PolyAdd performs p + c.
@@ -669,11 +675,13 @@ func (o *Operator) PolyAdd(p *PlainPoly, c *Ciphertext) *Ciphertext {
 func (o *Operator) PolyAddTo(cOut *Ciphertext, p *PlainPoly, c *Ciphertext) {
 	if !(cOut.IsConsistent(c) && (cOut.ModLen() == p.ModLen())) {
 		panic("inconsistent ciphertexts or polynomials")
+	} else if !(c.Body.IsNTT == p.Value.IsNTT) {
+		panic("inconsistent NTT flags")
 	}
 
 	eval := o.SubEvaluatorAt(c.HasAux, c.ModLen())
 	eval.AddTo(cOut.Body, c.Body, p.Value)
-	eval.AddTo(cOut.Mask, c.Mask, p.Value)
+	cOut.Mask.CopyFrom(c.Mask)
 }
 
 // Sub performs c0 - c1.
@@ -694,6 +702,8 @@ func (o *Operator) Sub(c0, c1 *Ciphertext) *Ciphertext {
 func (o *Operator) SubTo(cOut *Ciphertext, c0, c1 *Ciphertext) {
 	if !cOut.IsConsistent(c0) || !cOut.IsConsistent(c1) {
 		panic("inconsistent ciphertexts")
+	} else if !(c0.Body.IsNTT == c1.Body.IsNTT) {
+		panic("inconsistent NTT flags")
 	}
 
 	eval := o.SubEvaluatorAt(c0.HasAux, c0.ModLen())
@@ -723,32 +733,36 @@ func (o *Operator) ScalarSubTo(cOut *Ciphertext, s *PlainScalar, c *Ciphertext) 
 
 	eval := o.SubEvaluatorAt(c.HasAux, c.ModLen())
 	eval.ScalarSubTo(cOut.Body, c.Body, s.Value)
-	eval.ScalarSubTo(cOut.Mask, c.Mask, s.Value)
+	cOut.Mask.CopyFrom(c.Mask)
 }
 
-// SubPoly performs c0 - c1.
-func (o *Operator) SubPoly(c0, c1 *Ciphertext) *Ciphertext {
+// TOOD: Rewrite after the unification of Poly and Scalar.
+// PolySub performs p - c.
+func (o *Operator) PolySub(p *PlainPoly, c *Ciphertext) *Ciphertext {
 	rank := o.Params.ringParams.Rank()
-	modLen := c0.ModLen()
+	modLen := p.ModLen()
 	var auxLen int
-	if c0.HasAux {
+	if p.HasAux {
 		auxLen = len(o.Params.auxModulus)
 	}
 
-	cOut := NewCiphertextCustom(rank, modLen, auxLen, c0.HasAux)
-	o.SubPolyTo(cOut, c0, c1)
+	cOut := NewCiphertextCustom(rank, modLen, auxLen, p.HasAux)
+	o.PolySubTo(cOut, p, c)
 	return cOut
 }
 
-// SubPolyTo performs c0 - c1 and stores the result in cOut.
-func (o *Operator) SubPolyTo(cOut *Ciphertext, c0, c1 *Ciphertext) {
-	if !cOut.IsConsistent(c0) || !cOut.IsConsistent(c1) {
-		panic("inconsistent ciphertexts")
+// TOOD: Rewrite after the unification of Poly and Scalar.
+// PolySubTo performs p - c and stores the result in cOut.
+func (o *Operator) PolySubTo(cOut *Ciphertext, p *PlainPoly, c *Ciphertext) {
+	if !(cOut.IsConsistent(c) && (cOut.ModLen() == p.ModLen()) && cOut.HasAux == p.HasAux) {
+		panic("inconsistent ciphertexts or polynomials")
+	} else if !(c.Body.IsNTT == p.Value.IsNTT) {
+		panic("inconsistent NTT flags")
 	}
 
-	eval := o.SubEvaluatorAt(c0.HasAux, c0.ModLen())
-	eval.SubTo(cOut.Body, c0.Body, c1.Body)
-	eval.SubTo(cOut.Mask, c0.Mask, c1.Mask)
+	eval := o.SubEvaluatorAt(c.HasAux, c.ModLen())
+	eval.SubTo(cOut.Body, p.Value, c.Body)
+	cOut.Mask.CopyFrom(c.Mask)
 }
 
 // Neg performs -c.
@@ -819,6 +833,8 @@ func (o *Operator) PolyMul(p *PlainPoly, c *Ciphertext) *Ciphertext {
 func (o *Operator) PolyMulTo(cOut *Ciphertext, p *PlainPoly, c *Ciphertext) {
 	if !(cOut.IsConsistent(c) && (cOut.ModLen() == p.ModLen())) {
 		panic("inconsistent ciphertexts or polynomials")
+	} else if !(c.Body.IsNTT && p.Value.IsNTT) {
+		panic("inconsistent NTT flags")
 	}
 
 	eval := o.SubEvaluatorAt(c.HasAux, c.ModLen())
@@ -830,6 +846,8 @@ func (o *Operator) PolyMulTo(cOut *Ciphertext, p *PlainPoly, c *Ciphertext) {
 func (o *Operator) ScalarMulAddTo(cOut *Ciphertext, s *PlainScalar, c *Ciphertext) {
 	if !(cOut.IsConsistent(c) && (cOut.ModLen() == s.ModLen())) {
 		panic("inconsistent ciphertexts or scalars")
+	} else if !(cOut.Body.IsNTT == c.Body.IsNTT) {
+		panic("inconsistent NTT flags")
 	}
 
 	eval := o.SubEvaluatorAt(c.HasAux, c.ModLen())
@@ -841,6 +859,8 @@ func (o *Operator) ScalarMulAddTo(cOut *Ciphertext, s *PlainScalar, c *Ciphertex
 func (o *Operator) PolyMulAddTo(cOut *Ciphertext, p *PlainPoly, c *Ciphertext) {
 	if !(cOut.IsConsistent(c) && (cOut.ModLen() == p.ModLen())) {
 		panic("inconsistent ciphertexts or polynomials")
+	} else if !(cOut.Body.IsNTT && p.Value.IsNTT && c.Body.IsNTT) {
+		panic("inconsistent NTT flags")
 	}
 
 	eval := o.SubEvaluatorAt(c.HasAux, c.ModLen())
@@ -848,10 +868,13 @@ func (o *Operator) PolyMulAddTo(cOut *Ciphertext, p *PlainPoly, c *Ciphertext) {
 	eval.MulAddTo(cOut.Mask, c.Mask, p.Value)
 }
 
+// TODO: Rewrite after the unification of Poly and Scalar.
 // ScalarMulSubTo performs cOut -= s * c.
 func (o *Operator) ScalarMulSubTo(cOut *Ciphertext, s *PlainScalar, c *Ciphertext) {
 	if !(cOut.IsConsistent(c) && (cOut.ModLen() == s.ModLen())) {
 		panic("inconsistent ciphertexts or scalars")
+	} else if !(cOut.Body.IsNTT == c.Body.IsNTT) {
+		panic("inconsistent NTT flags")
 	}
 
 	eval := o.SubEvaluatorAt(c.HasAux, c.ModLen())
@@ -859,10 +882,13 @@ func (o *Operator) ScalarMulSubTo(cOut *Ciphertext, s *PlainScalar, c *Ciphertex
 	eval.ScalarMulSubTo(cOut.Mask, c.Mask, s.Value)
 }
 
+// TODO: Rewrite after the unification of Poly and Scalar.
 // PolyMulSubTo performs cOut -= p * c.
 func (o *Operator) PolyMulSubTo(cOut *Ciphertext, p *PlainPoly, c *Ciphertext) {
 	if !(cOut.IsConsistent(c) && (cOut.ModLen() == p.ModLen())) {
 		panic("inconsistent ciphertexts or polynomials")
+	} else if !(cOut.Body.IsNTT && p.Value.IsNTT && c.Body.IsNTT) {
+		panic("inconsistent NTT flags")
 	}
 
 	eval := o.SubEvaluatorAt(c.HasAux, c.ModLen())
@@ -1144,9 +1170,14 @@ func (o *Operator) HoistedGadgetProdLazyTo(cOut *Ciphertext, decmp *Tensor, gade
 
 	gadLen := decmp.Degree()
 	modLen := decmp.ModLen()
-	eval := o.SubEvaluatorAt(decmp.HasAux, modLen)
+	var auxLen int
+	if decmp.HasAux {
+		auxLen = len(o.Params.auxModulus)
+		modLen -= auxLen
+	}
+	eval := o.SubEvaluatorAt(decmp.HasAux, modLen+auxLen)
 
-	if cOut.ModLen() != modLen {
+	if cOut.ModLen() != modLen+auxLen {
 		panic("Inconsistent ciphertext output.")
 	} else if gadLen != o.Decmp.DecomposeLen(modLen) {
 		panic("Inconsistent decomposition length.")
@@ -1155,14 +1186,14 @@ func (o *Operator) HoistedGadgetProdLazyTo(cOut *Ciphertext, decmp *Tensor, gade
 	cOut.Clear()
 	cOut.Body.IsNTT = true
 	cOut.Mask.IsNTT = true
-	cOut.HasAux = false
+	cOut.HasAux = decmp.HasAux
 
 	for i := 0; i < gadLen; i++ {
 		if !decmp.Value[i].IsNTT {
 			panic("Decomposition must be in NTT form.")
 		}
 
-		gadenci := gadenc.Value[i].WithModIdx(vec.Range(0, modLen)...)
+		gadenci := gadenc.Value[i].WithModIdx(vec.Range(0, modLen+auxLen)...)
 		eval.MulAddTo(cOut.Body, decmp.Value[i], gadenci.Body)
 		eval.MulAddTo(cOut.Mask, decmp.Value[i], gadenci.Mask)
 	}
@@ -1187,16 +1218,22 @@ func (o *Operator) HoistedGadgetProd(decmp *Tensor, gadenc *GadgetEncryption, is
 // HoistedGadgetProdTo performs a hoisted gadget product and stores the result in cOut.
 func (o *Operator) HoistedGadgetProdTo(cOut *Ciphertext, decmp *Tensor, gadenc *GadgetEncryption, isNTT bool) {
 	modLen := decmp.ModLen()
-	buf := o.buf.ctGad.WithModIdx(vec.Range(0, modLen)...)
+	var auxLen int
+	if decmp.HasAux {
+		auxLen = len(o.Params.auxModulus)
+		modLen -= auxLen
+	}
+
+	buf := o.buf.ctGad.WithModIdx(vec.Range(0, modLen+auxLen)...)
 	o.HoistedGadgetProdLazyTo(buf, decmp, gadenc, true)
 
-	if decmp.HasAux {
+	if !decmp.HasAux {
 		cOut.CopyFrom(buf)
 	} else {
 		o.DivByAuxTo(cOut, buf, isNTT)
 	}
 
-	eval := o.SubEvaluatorAt(false, cOut.ModLen())
+	eval := o.SubEvaluatorAt(false, modLen)
 	if isNTT && !cOut.Body.IsNTT {
 		eval.FwdNTTTo(cOut.Body, cOut.Body)
 		eval.FwdNTTTo(cOut.Mask, cOut.Mask)
@@ -1224,9 +1261,27 @@ func (o *Operator) GadgetProdLazyTo(cOut *Ciphertext, pIn *PlainPoly, gadenc *Ga
 	}
 
 	modLen := pIn.ModLen()
+	var auxLen int
+	if o.Params.auxModulus != nil {
+		auxLen = len(o.Params.auxModulus)
+	}
+
+	eval := o.SubEvaluatorAt(false, modLen)
+	buf := o.buf.pNTT.WithModIdx(vec.Range(0, modLen)...)
+	if pIn.Value.IsNTT {
+		eval.InvNTTTo(buf, pIn.Value)
+	} else {
+		buf.CopyFrom(pIn.Value)
+	}
+
 	decmpLen := o.Decmp.DecomposeLen(modLen)
-	decmp := o.buf.decmp.WithDegreeAndModIdx(decmpLen, vec.Range(0, modLen)...)
-	o.Decmp.DecomposeTo(decmp, pIn.Value)
+	decmp := o.buf.decmp.WithDegreeAndModIdx(decmpLen, vec.Range(0, modLen+auxLen)...)
+	o.Decmp.DecomposeTo(decmp, buf)
+
+	evalAux := o.SubEvaluatorAt(true, modLen+auxLen)
+	for i := 0; i < decmpLen; i++ {
+		evalAux.FwdNTTTo(decmp.Value[i], decmp.Value[i])
+	}
 
 	o.HoistedGadgetProdLazyTo(cOut, decmp, gadenc, isNTT)
 }
@@ -1246,15 +1301,33 @@ func (o *Operator) GadgetProdTo(cOut *Ciphertext, pIn *PlainPoly, gadenc *Gadget
 	}
 
 	modLen := pIn.ModLen()
+	var auxLen int
+	if o.Params.auxModulus != nil {
+		auxLen = len(o.Params.auxModulus)
+	}
+
+	eval := o.SubEvaluatorAt(false, modLen)
+	buf := o.buf.pNTT.WithModIdx(vec.Range(0, modLen)...)
+	if pIn.Value.IsNTT {
+		eval.InvNTTTo(buf, pIn.Value)
+	} else {
+		buf.CopyFrom(pIn.Value)
+	}
+
 	decmpLen := o.Decmp.DecomposeLen(modLen)
-	decmp := o.buf.decmp.WithDegreeAndModIdx(decmpLen, vec.Range(0, modLen)...)
-	o.Decmp.DecomposeTo(decmp, pIn.Value)
+	decmp := o.buf.decmp.WithDegreeAndModIdx(decmpLen, vec.Range(0, modLen+auxLen)...)
+	o.Decmp.DecomposeTo(decmp, buf)
+
+	evalAux := o.SubEvaluatorAt(true, modLen+auxLen)
+	for i := 0; i < decmpLen; i++ {
+		evalAux.FwdNTTTo(decmp.Value[i], decmp.Value[i])
+	}
 
 	o.HoistedGadgetProdTo(cOut, decmp, gadenc, isNTT)
 }
 
 // Relin performs a relinearisation and returns the result.
-func (o *Operator) Relin(cIn *Tensor, rlk *GadgetEncryption, isNTT bool) *Ciphertext {
+func (o *Operator) Relin(cIn *Tensor, rlk *RelinKey, isNTT bool) *Ciphertext {
 	modLen := cIn.ModLen()
 	cOut := NewCiphertextCustom(o.Params.ringParams.Rank(), modLen, 0, false)
 	o.RelinTo(cOut, cIn, rlk, isNTT)
@@ -1262,7 +1335,8 @@ func (o *Operator) Relin(cIn *Tensor, rlk *GadgetEncryption, isNTT bool) *Cipher
 }
 
 // RelinTo performs a relinearisation and stores the result in cOut.
-func (o *Operator) RelinTo(cOut *Ciphertext, cIn *Tensor, rlk *GadgetEncryption, isNTT bool) {
+// Revise to deal with the case where the input and output share the same elements.
+func (o *Operator) RelinTo(cOut *Ciphertext, cIn *Tensor, rlk *RelinKey, isNTT bool) {
 	if cIn.HasAux {
 		panic("Ciphertext must not have auxiliary modulus.")
 	} else if cIn.Degree() != 3 {
@@ -1273,7 +1347,7 @@ func (o *Operator) RelinTo(cOut *Ciphertext, cIn *Tensor, rlk *GadgetEncryption,
 	eval := o.SubEvaluatorAt(false, modLen)
 	buf := o.buf.pNTT.WithModIdx(vec.Range(0, modLen)...)
 
-	o.GadgetProdTo(cOut, &PlainPoly{Value: cIn.Value[2]}, rlk, isNTT)
+	o.GadgetProdTo(cOut, &PlainPoly{Value: cIn.Value[2]}, &GadgetEncryption{Value: rlk.Value}, isNTT)
 
 	if cIn.Value[0].IsNTT && !isNTT {
 		eval.InvNTTTo(buf, cIn.Value[0])
@@ -1297,7 +1371,11 @@ func (o *Operator) RelinTo(cOut *Ciphertext, cIn *Tensor, rlk *GadgetEncryption,
 }
 
 // KeySwitch performs a key switch and returns the result.
-func (o *Operator) KeySwitch(cIn *Ciphertext, ksk *GadgetEncryption, isNTT bool) *Ciphertext {
+func (o *Operator) KeySwitch(cIn *Ciphertext, ksk *KeySwitchKey, isNTT bool) *Ciphertext {
+	if cIn.HasAux {
+		panic("Ciphertext must not have auxiliary modulus.")
+	}
+
 	modLen := cIn.ModLen()
 	cOut := NewCiphertextCustom(o.Params.ringParams.Rank(), modLen, 0, false)
 	o.KeySwitchTo(cOut, cIn, ksk, isNTT)
@@ -1305,21 +1383,38 @@ func (o *Operator) KeySwitch(cIn *Ciphertext, ksk *GadgetEncryption, isNTT bool)
 }
 
 // KeySwitchTo performs a key switch and stores the result in cOut.
-func (o *Operator) KeySwitchTo(cOut *Ciphertext, cIn *Ciphertext, ksk *GadgetEncryption, isNTT bool) {
+func (o *Operator) KeySwitchTo(cOut *Ciphertext, cIn *Ciphertext, ksk *KeySwitchKey, isNTT bool) {
 	if cIn.HasAux {
 		panic("Ciphertext must not have auxiliary modulus.")
 	}
 
 	modLen := cIn.ModLen()
+	eval := o.SubEvaluatorAt(false, modLen)
+	buf := o.buf.pKsw.WithModIdx(vec.Range(0, modLen)...)
+	if cIn.Mask.IsNTT {
+		eval.InvNTTTo(buf, cIn.Mask)
+	} else {
+		buf.CopyFrom(cIn.Mask)
+	}
+
+	var auxLen int
+	if o.Params.auxModulus != nil {
+		auxLen = len(o.Params.auxModulus)
+	}
+	evalAux := o.SubEvaluatorAt(true, modLen+auxLen)
+
 	decmpLen := o.Decmp.DecomposeLen(modLen)
-	decmp := o.buf.decmp.WithDegreeAndModIdx(decmpLen, vec.Range(0, modLen)...)
-	o.Decmp.DecomposeTo(decmp, cIn.Mask)
+	decmp := o.buf.decmp.WithDegreeAndModIdx(decmpLen, vec.Range(0, modLen+auxLen)...)
+	o.Decmp.DecomposeTo(decmp, buf)
+	for i := 0; i < decmpLen; i++ {
+		evalAux.FwdNTTTo(decmp.Value[i], decmp.Value[i])
+	}
 
 	o.HoistedKeySwitchTo(cOut, decmp, cIn, ksk, isNTT)
 }
 
 // HoistedKeySwitch performs a hoisted key switch and returns the result.
-func (o *Operator) HoistedKeySwitch(decmp *Tensor, cIn *Ciphertext, ksk *GadgetEncryption, isNTT bool) *Ciphertext {
+func (o *Operator) HoistedKeySwitch(decmp *Tensor, cIn *Ciphertext, ksk *KeySwitchKey, isNTT bool) *Ciphertext {
 	modLen := cIn.ModLen()
 	cOut := NewCiphertextCustom(o.Params.ringParams.Rank(), modLen, 0, false)
 	o.HoistedKeySwitchTo(cOut, decmp, cIn, ksk, isNTT)
@@ -1327,7 +1422,7 @@ func (o *Operator) HoistedKeySwitch(decmp *Tensor, cIn *Ciphertext, ksk *GadgetE
 }
 
 // HoistedKeySwitchTo performs a hoisted key switch and stores the result in cOut.
-func (o *Operator) HoistedKeySwitchTo(cOut *Ciphertext, decmp *Tensor, cIn *Ciphertext, ksk *GadgetEncryption, isNTT bool) {
+func (o *Operator) HoistedKeySwitchTo(cOut *Ciphertext, decmp *Tensor, cIn *Ciphertext, ksk *KeySwitchKey, isNTT bool) {
 	if cIn.HasAux {
 		panic("Ciphertext must not have auxiliary modulus.")
 	}
@@ -1344,44 +1439,52 @@ func (o *Operator) HoistedKeySwitchTo(cOut *Ciphertext, decmp *Tensor, cIn *Ciph
 		buf.CopyFrom(cIn.Body)
 	}
 
-	o.HoistedGadgetProdTo(cOut, decmp, ksk, isNTT)
+	kskGad := &GadgetEncryption{Value: ksk.Value}
+	o.HoistedGadgetProdTo(cOut, decmp, kskGad, isNTT)
 	eval.AddTo(cOut.Body, cOut.Body, buf)
 }
 
 // Aut performs an automorphism and returns the result.
-func (o *Operator) Aut(idx int, cIn *Ciphertext, atk *GadgetEncryption, isNTT bool) *Ciphertext {
+func (o *Operator) Aut(cIn *Ciphertext, atk *AutomorphismKey, isNTT bool) *Ciphertext {
 	modLen := cIn.ModLen()
 	cOut := NewCiphertextCustom(o.Params.ringParams.Rank(), modLen, 0, false)
-	o.AutTo(cOut, idx, cIn, atk, isNTT)
+	o.AutTo(cOut, cIn, atk, isNTT)
 	return cOut
 }
 
 // AutTo performs an automorphism and stores the result in cOut.
-func (o *Operator) AutTo(cOut *Ciphertext, idx int, cIn *Ciphertext, atk *GadgetEncryption, isNTT bool) {
+func (o *Operator) AutTo(cOut *Ciphertext, cIn *Ciphertext, atk *AutomorphismKey, isNTT bool) {
 	modLen := cIn.ModLen()
+	ksk := &KeySwitchKey{Value: atk.Value}
+	o.KeySwitchTo(cOut, cIn, ksk, isNTT)
+
 	eval := o.SubEvaluatorAt(false, modLen)
 
-	o.KeySwitchTo(cOut, cIn, atk, isNTT)
-	eval.AutTo(cOut.Body, cOut.Body, idx)
-	eval.AutTo(cOut.Mask, cOut.Mask, idx)
+	eval.AutTo(cOut.Body, cOut.Body, atk.Idx)
+	eval.AutTo(cOut.Mask, cOut.Mask, atk.Idx)
 }
 
 // HoistedAut performs a hoisted automorphism and returns the result.
-func (o *Operator) HoistedAut(idx int, decmp *Tensor, cIn *Ciphertext, atk *GadgetEncryption, isNTT bool) *Ciphertext {
+func (o *Operator) HoistedAut(decmp *Tensor, cIn *Ciphertext, atk *AutomorphismKey, isNTT bool) *Ciphertext {
 	modLen := cIn.ModLen()
 	cOut := NewCiphertextCustom(o.Params.ringParams.Rank(), modLen, 0, false)
-	o.HoistedAutTo(cOut, idx, decmp, cIn, atk, isNTT)
+	o.HoistedAutTo(cOut, decmp, cIn, atk, isNTT)
 	return cOut
 }
 
 // HoistedAutTo performs a hoisted automorphism and stores the result in cOut.
-func (o *Operator) HoistedAutTo(cOut *Ciphertext, idx int, decmp *Tensor, cIn *Ciphertext, atk *GadgetEncryption, isNTT bool) {
+func (o *Operator) HoistedAutTo(cOut *Ciphertext, decmp *Tensor, cIn *Ciphertext, atk *AutomorphismKey, isNTT bool) {
+	if cIn.HasAux {
+		panic("Ciphertext must not have auxiliary modulus.")
+	}
+
 	modLen := cIn.ModLen()
 	eval := o.SubEvaluatorAt(false, modLen)
 
-	o.HoistedKeySwitchTo(cOut, decmp, cIn, atk, isNTT)
-	eval.AutTo(cOut.Body, cOut.Body, idx)
-	eval.AutTo(cOut.Mask, cOut.Mask, idx)
+	ksk := &KeySwitchKey{Value: atk.Value}
+	o.HoistedKeySwitchTo(cOut, decmp, cIn, ksk, isNTT)
+	eval.AutTo(cOut.Body, cOut.Body, atk.Idx)
+	eval.AutTo(cOut.Mask, cOut.Mask, atk.Idx)
 }
 
 // ExtProd performs an external product and returns the result.

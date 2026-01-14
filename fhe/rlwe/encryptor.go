@@ -6,26 +6,6 @@ import (
 	"github.com/hienaa-org/hienaa/math/vec"
 )
 
-// type Encryptor interface {
-// 	SampleRlwe(modLen int, hasAux bool, isNTT bool) *Ciphertext
-// 	SampleRlweTo(cOut *Ciphertext)
-// 	Phase(c *Ciphertext) *PlainPoly
-// 	PhaseTo(pOut *PlainPoly, c *Ciphertext)
-
-// 	ScalarEncrypt(p *PlainScalar) *Ciphertext
-// 	ScalarEncryptTo(cOut *Ciphertext, p *PlainScalar)
-// 	Encrypt(p *PlainPoly) *Ciphertext
-// 	EncryptTo(cOut *Ciphertext, p *PlainPoly)
-// 	ScalarGadgetEncrypt(p *PlainScalar) *GadgetEncryption
-// 	ScalarGadgetEncryptTo(gOut *GadgetEncryption, p *PlainScalar)
-// 	GadgetEncrypt(p *PlainPoly) *GadgetEncryption
-// 	GadgetEncryptTo(gOut *GadgetEncryption, p *PlainPoly)
-// 	ScalarRGSWEncrypt(p *PlainScalar) *RGSW
-// 	ScalarRGSWEncryptTo(rOut *RGSW, p *PlainScalar)
-// 	RGSWEncrypt(p *PlainPoly) *RGSW
-// 	RGSWEncryptTo(rOut *RGSW, p *PlainPoly)
-// }
-
 // encryptorBuffer is a buffer for the [Encryptor].
 type encryptorBuffer struct {
 	pSample *crt.Poly
@@ -114,7 +94,7 @@ func NewEncryptorWithSK(params Parameters, sk *SecretKey) *Encryptor {
 		panic("inconsistent secret key")
 	}
 	skCopy := &SecretKey{
-		Value:  crt.NewPoly(sk.Value.Rank(), sk.Value.ModLen()),
+		Value:  sk.Value.Copy(),
 		HasAux: sk.HasAux,
 	}
 
@@ -596,5 +576,85 @@ func (e *Encryptor) RGSWEncryptTo(rOut *RGSW, p *PlainPoly, isNTT bool) {
 
 		e.SampleRlweTo(rOut.Mask.Value[i], isNTT)
 		eval.ScalarMulAddTo(rOut.Mask.Value[i].Mask, buf, gadVec[i])
+	}
+}
+
+// NewRelinKey creates a new relinearisation key.
+func (e *Encryptor) NewRelinKey() *RelinKey {
+	rlk := NewGadgetEncryption(e.params, true)
+
+	gParams := e.params.gadgetParams
+	gLen := gParams.gadgetLen(e.params)
+	modLen := len(e.params.modulus)
+	if e.params.auxModulus != nil {
+		modLen += len(e.params.auxModulus)
+	}
+
+	eval := e.op.PlainOp.SubEvaluatorAt(rlk.Value[0].HasAux, modLen)
+	gadVec := e.op.Decmp.GadgetVector()
+
+	for i := 0; i < gLen; i++ {
+		e.SampleRlweTo(rlk.Value[i], true)
+		eval.ScalarMulAddTo(rlk.Value[i].Mask, e.sk.Value, gadVec[i])
+	}
+
+	return &RelinKey{
+		Value: rlk.Value,
+	}
+}
+
+// NewKeySwitchKey creates a new key switch key.
+func (e *Encryptor) NewKeySwitchKey(skNew *SecretKey) *KeySwitchKey {
+	pt := &PlainPoly{
+		Value:  skNew.Value,
+		HasAux: skNew.HasAux,
+	}
+	ksk := e.GadgetEncrypt(pt, true)
+
+	return &KeySwitchKey{
+		Value: ksk.Value,
+	}
+}
+
+// NewAutomorphismKey creates a new automorphism key.
+func (e *Encryptor) NewAutomorphismKey(idx int) *AutomorphismKey {
+	if e.sk == nil {
+		panic("secret key is not set")
+	}
+
+	gParams := e.params.gadgetParams
+	gLen := gParams.gadgetLen(e.params)
+	modLen := len(e.params.modulus)
+	var auxLen int
+	if e.params.auxModulus != nil {
+		auxLen = len(e.params.auxModulus)
+	}
+
+	atkVal := make([]*Ciphertext, gLen)
+	for i := 0; i < gLen; i++ {
+		atkVal[i] = NewCiphertextCustom(e.params.ringParams.Rank(), modLen, auxLen, true)
+	}
+
+	eval := e.op.PlainOp.SubEvaluatorAt(atkVal[0].HasAux, modLen+auxLen)
+	idxInv := int(num.Inv(uint64(idx), num.NewModulus(e.params.ringParams.CycloOrder())))
+	skAut := e.buf.pEnc
+	eval.AutTo(skAut, e.sk.Value, idxInv)
+
+	gadVec := e.op.Decmp.GadgetVector()
+	for i := 0; i < gLen; i++ {
+		e.uSampler.SampleTo(atkVal[i].Mask, eval.Modulus())
+		atkVal[i].Mask.IsNTT = true
+
+		e.eSampler.SampleTo(atkVal[i].Body, eval.Modulus())
+		atkVal[i].Body.IsNTT = false
+
+		eval.FwdNTTTo(atkVal[i].Body, atkVal[i].Body)
+		eval.MulSubTo(atkVal[i].Body, skAut, atkVal[i].Mask)
+		eval.ScalarMulAddTo(atkVal[i].Body, e.sk.Value, gadVec[i])
+	}
+
+	return &AutomorphismKey{
+		Value: atkVal,
+		Idx:   idx,
 	}
 }
