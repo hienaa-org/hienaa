@@ -22,7 +22,7 @@ func IsPowerOfTwo[T Integer](x T) bool {
 // Log2 returns Log2(x). Panics if x <= 0.
 func Log2[T Real](x T) float64 {
 	if x <= 0 {
-		panic("Log2: x must be positive")
+		panic("x must be positive")
 	}
 
 	return math.Log2(float64(x))

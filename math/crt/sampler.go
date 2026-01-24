@@ -51,15 +51,14 @@ type TernarySamplerParameters struct {
 }
 
 func (p TernarySamplerParameters) Sampler() Sampler {
-	switch {
-	case p.Positive < 0 || p.Positive > 1:
-		panic("TernarySamplerParameters: Positive must be in [0, 1]")
-	case p.Negative < 0 || p.Negative > 1:
-		panic("TernarySamplerParameters: Negative must be in [0, 1]")
-	case p.Positive+p.Negative > 1:
-		panic("TernarySamplerParameters: Positive + Negative must be in [0, 1]")
-	case p.HammingWeight < 0:
-		panic("TernarySamplerParameters: HammingWeight must be in [0, Rank]")
+	if p.Positive < 0 || p.Positive > 1 {
+		panic("positive must be in [0, 1]")
+	} else if p.Negative < 0 || p.Negative > 1 {
+		panic("negative must be in [0, 1]")
+	} else if p.Positive+p.Negative > 1 {
+		panic("positive + negative must be in [0, 1]")
+	} else if p.HammingWeight < 0 {
+		panic("hamming weight must be in [0, rank]")
 	}
 
 	return &TernarySampler{
@@ -90,7 +89,7 @@ func (p RoundedGaussianSamplerParameters[T]) Sampler() Sampler {
 	case float64:
 		stdDev := any(p.StdDev).(float64)
 		if stdDev <= 0 || stdDev >= math.Exp2(64) {
-			panic("RoundedGaussianSamplerParameters: StdDev must be in (0, 2^64)")
+			panic("standard deviation must be in (0, 2^64)")
 		}
 
 		return &RoundedGaussianSampler[float64]{
@@ -103,7 +102,7 @@ func (p RoundedGaussianSamplerParameters[T]) Sampler() Sampler {
 	case *big.Float:
 		stdDev := any(p.StdDev).(*big.Float)
 		if stdDev.Cmp(big.NewFloat(0)) != 1 {
-			panic("RoundedGaussianSamplerParameters: StdDev must be positive")
+			panic("standard deviation must be positive")
 		}
 
 		center := any(p.Center).(*big.Float)
@@ -119,14 +118,14 @@ func (p RoundedGaussianSamplerParameters[T]) Sampler() Sampler {
 		}
 	}
 
-	panic("RoundedGaussianSamplerParameters: unsupported parameters")
+	panic("unsupported parameters")
 }
 
 // Sampler is an interface for sampling polynomials.
 type Sampler interface {
 	// SamplerParams returns the sampler parameters.
 	SamplerParams() SamplerParameters
-	// Sample samples a polynomial.
+	// Sample samples a polynomial with given rank and modulus.
 	// Output is always Standard form.
 	Sample(rank int, mod []*num.Modulus) *Poly
 	// SampleTo samples a polynomial to pOut.
@@ -145,6 +144,7 @@ type UniformSampler struct {
 	boundMax *big.Int
 }
 
+// SamplerParams returns the sampler parameters.
 func (s *UniformSampler) SamplerParams() SamplerParameters {
 	return UniformSamplerParameters{
 		BoundMin: s.boundMin,
@@ -152,16 +152,18 @@ func (s *UniformSampler) SamplerParams() SamplerParameters {
 	}
 }
 
+// Sample samples a polynomial with given rank and modulus.
+// Output is always Standard form.
 func (s *UniformSampler) Sample(rank int, mod []*num.Modulus) *Poly {
 	p := NewPoly(rank, len(mod))
 	s.SampleTo(p, mod)
 	return p
 }
 
+// SampleTo samples a polynomial to pOut.
+// pOut is set to Standard form.
 func (s *UniformSampler) SampleTo(pOut *Poly, mod []*num.Modulus) {
-	if !isConsistent(pOut.Rank(), len(mod), pOut) {
-		panic("SampleTo: inputs not consistent")
-	}
+	mustConsistent(pOut.Rank(), len(mod), pOut)
 
 	if s.boundMin != nil || s.boundMax != nil {
 		s.sampleToBounded(pOut, mod)
@@ -208,12 +210,15 @@ func (s *UniformSampler) sampleToBounded(pOut *Poly, mod []*num.Modulus) {
 	}
 }
 
+// SafeCopy returns a thread-safe copy.
+// This always returns a freshly seeded sampler.
 func (s *UniformSampler) SafeCopy() Sampler {
 	return &UniformSampler{
 		baseSampler: csprng.NewUniformSampler(),
 	}
 }
 
+// TernarySampler is a sampler for ternary distribution.
 type TernarySampler struct {
 	baseSampler *csprng.UniformSampler
 
@@ -225,6 +230,7 @@ type TernarySampler struct {
 	hw  int
 }
 
+// SamplerParams returns the sampler parameters.
 func (s *TernarySampler) SamplerParams() SamplerParameters {
 	return TernarySamplerParameters{
 		Positive:      s.posFloat,
@@ -233,17 +239,20 @@ func (s *TernarySampler) SamplerParams() SamplerParameters {
 	}
 }
 
+// Sample samples a polynomial with given rank and modulus.
+// Output is always Standard form.
 func (s *TernarySampler) Sample(rank int, mod []*num.Modulus) *Poly {
 	p := NewPoly(rank, len(mod))
 	s.SampleTo(p, mod)
 	return p
 }
 
+// SampleTo samples a polynomial to pOut.
+// pOut is set to Standard form.
 func (s *TernarySampler) SampleTo(pOut *Poly, mod []*num.Modulus) {
+	mustConsistent(pOut.Rank(), len(mod), pOut)
 	if s.hw > pOut.Rank() {
-		panic("hamming weight is greater than rank")
-	} else if !isConsistent(pOut.Rank(), len(mod), pOut) {
-		panic("inputs not consistent")
+		panic("hamming weight must be less than or equal to rank")
 	}
 
 	var c int64
@@ -314,6 +323,8 @@ func (s *TernarySampler) SampleTo(pOut *Poly, mod []*num.Modulus) {
 	pOut.IsNTT = false
 }
 
+// SafeCopy returns a thread-safe copy.
+// This always returns a freshly seeded sampler.
 func (s *TernarySampler) SafeCopy() Sampler {
 	return &TernarySampler{
 		baseSampler: csprng.NewUniformSampler(),
@@ -335,6 +346,7 @@ type RoundedGaussianSampler[T float64 | *big.Float] struct {
 	stdDev T
 }
 
+// SamplerParams returns the sampler parameters.
 func (s *RoundedGaussianSampler[T]) SamplerParams() SamplerParameters {
 	return RoundedGaussianSamplerParameters[T]{
 		Center: s.center,
@@ -342,12 +354,16 @@ func (s *RoundedGaussianSampler[T]) SamplerParams() SamplerParameters {
 	}
 }
 
+// Sample samples a polynomial with given rank and modulus.
+// Output is always Standard form.
 func (s *RoundedGaussianSampler[T]) Sample(rank int, mod []*num.Modulus) *Poly {
 	p := NewPoly(rank, len(mod))
 	s.SampleTo(p, mod)
 	return p
 }
 
+// SampleTo samples a polynomial to pOut.
+// pOut is set to Standard form.
 func (s *RoundedGaussianSampler[T]) SampleTo(pOut *Poly, mod []*num.Modulus) {
 	if pOut.ModLen() != len(mod) {
 		panic("modulus length is inconsistent")
@@ -388,6 +404,8 @@ func (s *RoundedGaussianSampler[T]) sampleBigFloatTo(pOut *Poly, mod []*num.Modu
 	pOut.IsNTT = false
 }
 
+// SafeCopy returns a thread-safe copy.
+// This always returns a freshly seeded sampler.
 func (s *RoundedGaussianSampler[T]) SafeCopy() Sampler {
 	return &RoundedGaussianSampler[T]{
 		baseSampler: csprng.NewRoundedGaussianSampler(),

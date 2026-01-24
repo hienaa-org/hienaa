@@ -25,7 +25,7 @@ type Transformer interface {
 // Panics when the ring parameters or modulus are unsupported.
 func NewTransformer(params RingParameters, mod *num.Modulus) Transformer {
 	if !IsNTTFriendly(params, mod) {
-		panic("NewTransformer: unsupported ring parameters or modulus")
+		panic("unsupported ring type or parameters")
 	}
 
 	switch params.ringType {
@@ -52,7 +52,7 @@ func NewTransformer(params RingParameters, mod *num.Modulus) Transformer {
 		}
 	}
 
-	panic("NewTransformer: unsupported ring type or parameters")
+	panic("unsupported ring type or parameters")
 }
 
 // transformerBuffer is a buffer for [Transformer].

@@ -80,9 +80,8 @@ type PolyEvaluator interface {
 
 // NewPolyEvaluator creates a new [PolyEvaluator].
 func NewPolyEvaluator(params dft.RingParameters, mod []*num.Modulus) PolyEvaluator {
-	switch {
-	case !isCoprime(mod):
-		panic("NewPolyEvaluator: modulus not coprime")
+	if !isCoprime(mod) {
+		panic("modulus must be coprime")
 	}
 
 	switch params.RingType() {
@@ -135,7 +134,7 @@ func NewPolyEvaluator(params dft.RingParameters, mod []*num.Modulus) PolyEvaluat
 		}
 	}
 
-	panic("NewPolyEvaluator: unsupported parameters")
+	panic("unsupported parameters")
 }
 
 // NewPolyEvaluatorWithModPoly creates a new [PolyEvaluator] with a given modulus polynomial.

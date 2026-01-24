@@ -119,7 +119,7 @@ func (s *RoundedGaussianSampler) normFloat() float64 {
 // Panics when stdDev <= 0.
 func (s *RoundedGaussianSampler) Sample(center, stdDev float64) int64 {
 	if stdDev <= 0 {
-		panic("standard deviation not positive")
+		panic("standard deviation must be positive")
 	}
 
 	return int64(math.Round(center + s.normFloat()*stdDev))
@@ -131,7 +131,7 @@ func (s *RoundedGaussianSampler) Sample(center, stdDev float64) int64 {
 // Panics when stdDev <= 0.
 func (s *RoundedGaussianSampler) SampleBig(center, stdDev *big.Float) *big.Int {
 	if stdDev.Sign() <= 0 {
-		panic("standard deviation not positive")
+		panic("standard deviation must be positive")
 	}
 
 	resFloat := new(big.Float).SetFloat64(s.normFloat())

@@ -50,9 +50,8 @@ func (e *defaultPolyScalarAddSubEvaluator) ScalarAdd(p *Poly, c Scalar) *Poly {
 
 // ScalarAddTo computes pOut = p + c.
 func (e *defaultPolyScalarAddSubEvaluator) ScalarAddTo(pOut, p *Poly, c Scalar) {
-	if !isBinaryToOperable(e.rank, len(e.mod), pOut, p) || !isScalarToOperable(len(e.mod), c) {
-		panic("ScalarAddTo: inputs not consistent")
-	}
+	mustBinaryToOperable(e.rank, len(e.mod), pOut, p)
+	mustScalarToOperable(len(e.mod), c)
 
 	for i := range e.mod {
 		if p.IsNTT && e.isNTTFriendly[i] {
@@ -75,9 +74,8 @@ func (e *defaultPolyScalarAddSubEvaluator) ScalarSub(p *Poly, c Scalar) *Poly {
 
 // ScalarSubTo computes pOut = p - c.
 func (e *defaultPolyScalarAddSubEvaluator) ScalarSubTo(pOut, p *Poly, c Scalar) {
-	if !isBinaryToOperable(e.rank, len(e.mod), pOut, p) || !isScalarToOperable(len(e.mod), c) {
-		panic("ScalarSubTo: inputs not consistent")
-	}
+	mustBinaryToOperable(e.rank, len(e.mod), pOut, p)
+	mustScalarToOperable(len(e.mod), c)
 
 	for i := range e.mod {
 		if p.IsNTT && e.isNTTFriendly[i] {
@@ -136,9 +134,8 @@ func (e *primeAutFixedPolyScalarAddSubEvaluator) ScalarAdd(p *Poly, c Scalar) *P
 
 // ScalarAddTo computes pOut = p + c.
 func (e *primeAutFixedPolyScalarAddSubEvaluator) ScalarAddTo(pOut, p *Poly, c Scalar) {
-	if !isBinaryToOperable(e.rank, len(e.mod), pOut, p) || !isScalarToOperable(len(e.mod), c) {
-		panic("ScalarAddTo: inputs not consistent")
-	}
+	mustBinaryToOperable(e.rank, len(e.mod), pOut, p)
+	mustScalarToOperable(len(e.mod), c)
 
 	for i := range e.mod {
 		if p.IsNTT && e.isNTTFriendly[i] {
@@ -160,9 +157,8 @@ func (e *primeAutFixedPolyScalarAddSubEvaluator) ScalarSub(p *Poly, c Scalar) *P
 
 // ScalarSubTo computes pOut = p - c.
 func (e *primeAutFixedPolyScalarAddSubEvaluator) ScalarSubTo(pOut, p *Poly, c Scalar) {
-	if !isBinaryToOperable(e.rank, len(e.mod), pOut, p) || !isScalarToOperable(len(e.mod), c) {
-		panic("ScalarSubTo: inputs not consistent")
-	}
+	mustBinaryToOperable(e.rank, len(e.mod), pOut, p)
+	mustScalarToOperable(len(e.mod), c)
 
 	for i := range e.mod {
 		if p.IsNTT && e.isNTTFriendly[i] {

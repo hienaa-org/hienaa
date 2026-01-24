@@ -297,11 +297,10 @@ func CyclotomicPolynomial(cycloOrd int) []int64 {
 
 // quotient computes the quotient of two polynomials modulo a modulus.
 func quotient(p0, p1 []uint64, mod *num.Modulus) []uint64 {
-	switch {
-	case len(p0) < len(p1):
-		panic("quotient: dividend is shorter than divisor")
-	case num.GCD(mod.Value(), p1[len(p1)-1]) != 1:
-		panic("quotient: divisor is not coprime with modulus")
+	if len(p0) < len(p1) {
+		panic("dividend must be longer than divisor")
+	} else if num.GCD(mod.Value(), p1[len(p1)-1]) != 1 {
+		panic("divisor must be coprime with modulus")
 	}
 
 	quo := make([]uint64, len(p0)-len(p1)+1)

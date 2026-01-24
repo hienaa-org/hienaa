@@ -65,6 +65,13 @@ func newPow2CyclotomicPolyAutEvaluator(params dft.RingParameters, mod []*num.Mod
 	}
 }
 
+// mustAut panics when the given automorphism index is not valid.
+func (e *pow2CyclotomicPolyAutEvaluator) mustAut(idx int) {
+	if !e.CanAut(idx) {
+		panic("index not supported")
+	}
+}
+
 // CanAut returns whether the given automorphism index is valid.
 func (e *pow2CyclotomicPolyAutEvaluator) CanAut(idx int) bool {
 	cycloOrd := e.params.CycloOrder()
@@ -91,12 +98,8 @@ func (e *pow2CyclotomicPolyAutEvaluator) Aut(p *Poly, idx int) *Poly {
 //   - In cyclotomic/autfixed rings, it panics when idx is not coprime with the cyclotomic order.
 //   - In any other rings, automorphism is not supported and it always panics.
 func (e *pow2CyclotomicPolyAutEvaluator) AutTo(pOut, p *Poly, idx int) {
-	switch {
-	case !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p):
-		panic("AutTo: inputs not consistent")
-	case !e.CanAut(idx):
-		panic("AutTo: idx not supported")
-	}
+	mustBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p)
+	e.mustAut(idx)
 
 	cycloOrd, rank := e.params.CycloOrder(), e.params.Rank()
 	idx = (idx%cycloOrd + cycloOrd) % cycloOrd
@@ -242,6 +245,13 @@ func newAnyCyclotomicPolyAutEvaluator(params dft.RingParameters, mod []*num.Modu
 	}
 }
 
+// mustAut panics when the given automorphism index is not valid.
+func (e *anyCyclotomicPolyAutEvaluator) mustAut(idx int) {
+	if !e.CanAut(idx) {
+		panic("index not supported")
+	}
+}
+
 // CanAut returns whether the given automorphism index is valid.
 func (e *anyCyclotomicPolyAutEvaluator) CanAut(idx int) bool {
 	cycloOrd := e.params.CycloOrder()
@@ -268,12 +278,8 @@ func (e *anyCyclotomicPolyAutEvaluator) Aut(p *Poly, idx int) *Poly {
 //   - In cyclotomic/autfixed rings, it panics when idx is not coprime with the cyclotomic order.
 //   - In any other rings, automorphism is not supported and it always panics.
 func (e *anyCyclotomicPolyAutEvaluator) AutTo(pOut, p *Poly, idx int) {
-	switch {
-	case !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p):
-		panic("AutTo: inputs not consistent")
-	case !e.CanAut(idx):
-		panic("AutTo: idx not supported")
-	}
+	mustBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p)
+	e.mustAut(idx)
 
 	cycloOrd, rank := e.params.CycloOrder(), e.params.Rank()
 	idx = (idx%cycloOrd + cycloOrd) % cycloOrd
@@ -398,6 +404,13 @@ func newPow2AutFixedPolyAutEvaluator(params dft.RingParameters, mod []*num.Modul
 	}
 }
 
+// mustAut panics when the given automorphism index is not valid.
+func (e *pow2AutFixedPolyAutEvaluator) mustAut(idx int) {
+	if !e.CanAut(idx) {
+		panic("index not supported")
+	}
+}
+
 // CanAut returns whether the given automorphism index is valid.
 func (e *pow2AutFixedPolyAutEvaluator) CanAut(idx int) bool {
 	cycloOrd := e.params.CycloOrder()
@@ -424,12 +437,8 @@ func (e *pow2AutFixedPolyAutEvaluator) Aut(p *Poly, idx int) *Poly {
 //   - In cyclotomic/autfixed rings, it panics when idx is not coprime with the cyclotomic order.
 //   - In any other rings, automorphism is not supported and it always panics.
 func (e *pow2AutFixedPolyAutEvaluator) AutTo(pOut, p *Poly, idx int) {
-	switch {
-	case !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p):
-		panic("AutTo: inputs not consistent")
-	case !e.CanAut(idx):
-		panic("AutTo: idx not supported")
-	}
+	mustBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p)
+	e.mustAut(idx)
 
 	cycloOrd, rank := e.params.CycloOrder(), e.params.Rank()
 	idx = (idx%cycloOrd + cycloOrd) % cycloOrd
@@ -550,6 +559,13 @@ func newPrimeAutFixedPolyAutEvaluator(params dft.RingParameters, mod []*num.Modu
 	}
 }
 
+// mustAut panics when the given automorphism index is not valid.
+func (e *primeAutFixedPolyAutEvaluator) mustAut(idx int) {
+	if !e.CanAut(idx) {
+		panic("index not supported")
+	}
+}
+
 // CanAut returns whether the given automorphism index is valid.
 func (e *primeAutFixedPolyAutEvaluator) CanAut(idx int) bool {
 	cycloOrd := e.params.CycloOrder()
@@ -583,16 +599,8 @@ func (e *primeAutFixedPolyAutEvaluator) Aut(p *Poly, idx int) *Poly {
 //   - In cyclotomic/autfixed rings, it panics when idx is not coprime with the cyclotomic order.
 //   - In any other rings, automorphism is not supported and it always panics.
 func (e *primeAutFixedPolyAutEvaluator) AutTo(pOut, p *Poly, idx int) {
-	switch {
-	case !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p):
-		panic("AutTo: inputs not consistent")
-	case !e.CanAut(idx):
-		panic("AutTo: idx not valid")
-	}
-
-	if !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p) {
-		panic("AutTo: inputs not consistent")
-	}
+	mustBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p)
+	e.mustAut(idx)
 
 	cycloOrd, rank := e.params.CycloOrder(), e.params.Rank()
 	idx = (idx%cycloOrd + cycloOrd) % cycloOrd
@@ -667,7 +675,7 @@ func (e *noAutPolyAutEvaluator) CanAut(idx int) bool {
 //   - In cyclotomic/autfixed rings, it panics when idx is not coprime with the cyclotomic order.
 //   - In any other rings, automorphism is not supported and it always panics.
 func (e *noAutPolyAutEvaluator) Aut(p *Poly, idx int) *Poly {
-	panic("Aut: automorphism not supported in this ring")
+	panic("automorphism not supported")
 }
 
 // AutTo computes pOut = aut_idx(p).
@@ -677,5 +685,5 @@ func (e *noAutPolyAutEvaluator) Aut(p *Poly, idx int) *Poly {
 //   - In cyclotomic/autfixed rings, it panics when idx is not coprime with the cyclotomic order.
 //   - In any other rings, automorphism is not supported and it always panics.
 func (e *noAutPolyAutEvaluator) AutTo(pOut, p *Poly, idx int) {
-	panic("AutTo: automorphism not supported in this ring")
+	panic("automorphism not supported")
 }

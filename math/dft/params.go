@@ -39,7 +39,7 @@ type RingParameters struct {
 // NewCyclotomicParameters creates a new [RingParameters] for a cyclotomic ring.
 func NewCyclotomicParameters(cycloOrd int) RingParameters {
 	if cycloOrd <= 0 {
-		panic("NewCyclotomicParameters: cycloOrder must be positive")
+		panic("cycloOrd must be positive")
 	}
 
 	return RingParameters{
@@ -52,7 +52,7 @@ func NewCyclotomicParameters(cycloOrd int) RingParameters {
 // NewCyclicParameters creates a new [RingParameters] for a cyclic ring.
 func NewCyclicParameters(rank int) RingParameters {
 	if rank <= 0 {
-		panic("NewCyclicParameters: rank must be positive")
+		panic("rank must be positive")
 	}
 
 	return RingParameters{
@@ -65,20 +65,20 @@ func NewCyclicParameters(rank int) RingParameters {
 // NewAutFixedParameters creates a new [RingParameters] for an autfixed ring.
 func NewAutFixedParameters(cycloOrd, rank int) RingParameters {
 	if rank <= 0 {
-		panic("NewAutFixedParameters: rank must be positive")
+		panic("rank must be positive")
 	}
 
 	switch {
 	case num.IsPowerOfTwo(cycloOrd):
 		if cycloOrd != 4*rank {
-			panic("NewAutFixedParameters: cycloOrd must be four times the rank for power-of-two cycloOrd")
+			panic("cycloOrd must be four times the rank for power-of-two cycloOrd")
 		}
 	case num.IsPrime(cycloOrd):
 		if (cycloOrd-1)%rank != 0 {
-			panic("NewAutFixedParameters: rank should divide cycloOrd-1 for prime cycloOrd")
+			panic("rank should divide cycloOrd-1 for prime cycloOrd")
 		}
 	default:
-		panic("NewAutFixedParameters: cycloOrd must be a prime or a power of two")
+		panic("cycloOrd must be a prime or a power of two")
 	}
 
 	return RingParameters{
@@ -91,7 +91,7 @@ func NewAutFixedParameters(cycloOrd, rank int) RingParameters {
 // NewOtherParameters creates a new [RingParameters] for arbitrary quotient ring.
 func NewOtherParameters(modPoly []int64) RingParameters {
 	if len(modPoly) == 0 {
-		panic("NewOtherParameters: modPoly must be non-empty")
+		panic("modPoly must be non-empty")
 	}
 
 	return RingParameters{

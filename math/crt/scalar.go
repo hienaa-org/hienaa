@@ -79,14 +79,13 @@ func NewScalar[T num.Integer | *big.Int](x T, mod []*num.Modulus) Scalar {
 	return r
 }
 
-// isTernaryScalarToOperable checks if inputs are consistent.
-func isScalarToOperable(modLen int, x ...Scalar) bool {
+// isTernaryScalarToOperable panics if inputs are not consistent.
+func mustScalarToOperable(modLen int, x ...Scalar) {
 	for i := range x {
 		if len(x[i]) != modLen {
-			return false
+			panic("input(s) not consistent")
 		}
 	}
-	return true
 }
 
 // AddScalar returns x0 + x1.
@@ -98,9 +97,7 @@ func AddScalar(x0, x1 Scalar, mod []*num.Modulus) Scalar {
 
 // AddScalarTo computes xOut = x0 + x1.
 func AddScalarTo(xOut, x0, x1 Scalar, mod []*num.Modulus) {
-	if !isScalarToOperable(len(mod), xOut, x0, x1) {
-		panic("AddScalarTo: inputs not consistent")
-	}
+	mustScalarToOperable(len(mod), xOut, x0, x1)
 
 	for i := range mod {
 		xOut[i] = num.Add(x0[i], x1[i], mod[i])
@@ -116,9 +113,7 @@ func SubScalar(x0, x1 Scalar, mod []*num.Modulus) Scalar {
 
 // SubScalarTo computes xOut = x0 - x1.
 func SubScalarTo(xOut, x0, x1 Scalar, mod []*num.Modulus) {
-	if !isScalarToOperable(len(mod), xOut, x0, x1) {
-		panic("SubScalarTo: inputs not consistent")
-	}
+	mustScalarToOperable(len(mod), xOut, x0, x1)
 
 	for i := range mod {
 		xOut[i] = num.Sub(x0[i], x1[i], mod[i])
@@ -134,9 +129,7 @@ func NegScalar(x Scalar, mod []*num.Modulus) Scalar {
 
 // NegScalarTo computes xOut = -x.
 func NegScalarTo(xOut, x Scalar, mod []*num.Modulus) {
-	if !isScalarToOperable(len(mod), xOut, x) {
-		panic("NegTo: inputs not consistent")
-	}
+	mustScalarToOperable(len(mod), xOut, x)
 
 	for i := range mod {
 		xOut[i] = num.Neg(x[i], mod[i])
@@ -152,9 +145,7 @@ func MulScalar(x0, x1 Scalar, mod []*num.Modulus) Scalar {
 
 // MulScalarTo computes xOut = x0 * x1.
 func MulScalarTo(xOut, x0, x1 Scalar, mod []*num.Modulus) {
-	if !isScalarToOperable(len(mod), xOut, x0, x1) {
-		panic("MulScalarTo: inputs not consistent")
-	}
+	mustScalarToOperable(len(mod), xOut, x0, x1)
 
 	for i := range mod {
 		xOut[i] = num.Mul(x0[i], x1[i], mod[i])
@@ -163,9 +154,7 @@ func MulScalarTo(xOut, x0, x1 Scalar, mod []*num.Modulus) {
 
 // MulAddScalarTo computes xOut += x0 * x1.
 func MulAddScalarTo(xOut, x0, x1 Scalar, mod []*num.Modulus) {
-	if !isScalarToOperable(len(mod), xOut, x0, x1) {
-		panic("MulAddScalarTo: inputs not consistent")
-	}
+	mustScalarToOperable(len(mod), xOut, x0, x1)
 
 	for i := range mod {
 		xOut[i] = num.Add(xOut[i], num.Mul(x0[i], x1[i], mod[i]), mod[i])
@@ -174,9 +163,7 @@ func MulAddScalarTo(xOut, x0, x1 Scalar, mod []*num.Modulus) {
 
 // MulSubScalarTo computes xOut -= x0 * x1.
 func MulSubScalarTo(xOut, x0, x1 Scalar, mod []*num.Modulus) {
-	if !isScalarToOperable(len(mod), xOut, x0, x1) {
-		panic("MulSubScalarTo: inputs not consistent")
-	}
+	mustScalarToOperable(len(mod), xOut, x0, x1)
 
 	for i := range mod {
 		xOut[i] = num.Sub(xOut[i], num.Mul(x0[i], x1[i], mod[i]), mod[i])
@@ -186,7 +173,7 @@ func MulSubScalarTo(xOut, x0, x1 Scalar, mod []*num.Modulus) {
 // AsBigScalar returns s as *[big.Int].
 func AsBigScalar(s Scalar, mod []*num.Modulus) *big.Int {
 	if len(mod) != len(s) {
-		panic("input not consistent")
+		panic("input(s) not consistent")
 	}
 
 	modBig := make([]*big.Int, len(mod))

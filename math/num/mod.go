@@ -36,11 +36,10 @@ type Modulus struct {
 
 // NewModulus creates a new [Modulus].
 func NewModulus[T Integer](mod T) *Modulus {
-	switch {
-	case mod <= 1:
-		panic("NewModulus: modulus less than one")
-	case uint64(mod) >= MaxModulus:
-		panic("NewModulus: modulus exceeds MaxModulus")
+	if mod <= 1 {
+		panic("modulus must be greater than 1")
+	} else if uint64(mod) >= MaxModulus {
+		panic("modulus must be less than MaxModulus")
 	}
 
 	q := uint64(mod)
@@ -166,7 +165,7 @@ func Reduce128Lazy(xHi, xLo uint64, q *Modulus) uint64 {
 // Panics if q is even or nil.
 func MForm(x uint64, q *Modulus) uint64 {
 	if q.inv == 0 {
-		panic("MForm: modulus is even")
+		panic("modulus must be odd")
 	}
 	return modops.MForm(x, q.modulus, q.divHi, q.divLo)
 }
@@ -176,7 +175,7 @@ func MForm(x uint64, q *Modulus) uint64 {
 // Panics if q is even or nil.
 func InvMForm(xM uint64, q *Modulus) uint64 {
 	if q.inv == 0 {
-		panic("InvMForm: modulus is even")
+		panic("modulus must be odd")
 	}
 	return modops.InvMForm(xM, q.modulus, q.inv)
 }
@@ -277,7 +276,7 @@ func Inv(x uint64, q *Modulus) uint64 {
 	}
 
 	if rr != 1 {
-		panic("Inv: input not invertible")
+		panic("input not invertible")
 	}
 
 	if !ssSign {

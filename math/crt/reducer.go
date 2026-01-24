@@ -54,11 +54,10 @@ type LongDivReducer struct {
 
 // NewLongDivReducer creates a new [LongDivReducer].
 func NewLongDivReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *LongDivReducer {
-	switch {
-	case maxRank < len(modPoly)-1:
-		panic("NewLongDivReducer: maxRank smaller than modPoly degree")
-	case modPoly[len(modPoly)-1] != 1:
-		panic("NewLongDivReducer: modPoly not monic")
+	if maxRank < len(modPoly)-1 {
+		panic("maxRank must be greater than or equal to modPoly degree")
+	} else if modPoly[len(modPoly)-1] != 1 {
+		panic("modPoly must be monic")
 	}
 
 	modPolyRed := make([][]uint64, len(mod))
@@ -111,13 +110,12 @@ func (r *LongDivReducer) Reduce(p *Poly) *Poly {
 //
 // Panics when p is in NTT form, or the rank of p is larger than maxRank.
 func (r *LongDivReducer) ReduceTo(pOut, p *Poly) {
-	switch {
-	case p.IsNTT:
-		panic("ReduceTo: cannot reduce NTT polynomials")
-	case p.Rank() > r.maxRank:
-		panic("ReduceTo: rank of p is larger than maxRank")
-	case pOut.ModLen() != len(r.mod) || p.ModLen() != len(r.mod):
-		panic("ReduceTo: inputs not consistent")
+	if p.IsNTT {
+		panic("input(s) must be in standard form")
+	} else if p.Rank() > r.maxRank {
+		panic("rank must be less than or equal to maxRank")
+	} else if pOut.ModLen() != len(r.mod) || p.ModLen() != len(r.mod) {
+		panic("input(s) not consistent")
 	}
 
 	for i := range r.mod {
@@ -138,13 +136,12 @@ func (r *LongDivReducer) Quotient(p *Poly) *Poly {
 //
 // Panics when p is in NTT form, or the rank of p is larger than maxRank.
 func (r *LongDivReducer) QuotientTo(pOut, p *Poly) {
-	switch {
-	case p.IsNTT:
-		panic("ReduceTo: cannot reduce NTT polynomials")
-	case p.Rank() > r.maxRank:
-		panic("ReduceTo: rank of p is larger than maxRank")
-	case pOut.ModLen() != len(r.mod) || p.ModLen() != len(r.mod):
-		panic("ReduceTo: inputs not consistent")
+	if p.IsNTT {
+		panic("input(s) must be in standard form")
+	} else if p.Rank() > r.maxRank {
+		panic("rank must be less than or equal to maxRank")
+	} else if pOut.ModLen() != len(r.mod) || p.ModLen() != len(r.mod) {
+		panic("input(s) not consistent")
 	}
 
 	for i := range r.mod {
@@ -166,13 +163,12 @@ func (r *LongDivReducer) QuoRem(p *Poly) (pQuo, pRem *Poly) {
 //
 // Panics when p, pQuo or pRem is in NTT form, or the rank of p is larger than maxRank.
 func (r *LongDivReducer) QuoRemTo(pQuo, pRem, p *Poly) {
-	switch {
-	case p.IsNTT:
-		panic("ReduceTo: cannot reduce NTT polynomials")
-	case p.Rank() > r.maxRank:
-		panic("ReduceTo: rank of p is larger than maxRank")
-	case pQuo.ModLen() != len(r.mod) || pRem.ModLen() != len(r.mod) || p.ModLen() != len(r.mod):
-		panic("ReduceTo: inputs not consistent")
+	if p.IsNTT {
+		panic("input(s) must be in standard form")
+	} else if p.Rank() > r.maxRank {
+		panic("rank must be less than or equal to maxRank")
+	} else if pQuo.ModLen() != len(r.mod) || pRem.ModLen() != len(r.mod) || p.ModLen() != len(r.mod) {
+		panic("input(s) not consistent")
 	}
 
 	for i := range r.mod {
@@ -524,13 +520,12 @@ func (r *CyclotomicReducer) Reduce(p *Poly) *Poly {
 //
 // Panics when p is in NTT form, or the rank of p is larger than CycloOrd.
 func (r *CyclotomicReducer) ReduceTo(pOut, p *Poly) {
-	switch {
-	case p.IsNTT:
-		panic("ReduceTo: cannot reduce NTT polynomials")
-	case p.Rank() > r.params.CycloOrder():
-		panic("ReduceTo: rank of p is larger than cycloOrd")
-	case pOut.ModLen() != len(r.mod) || p.ModLen() != len(r.mod):
-		panic("ReduceTo: inputs not consistent")
+	if p.IsNTT {
+		panic("input(s) must be in standard form")
+	} else if p.Rank() > r.params.CycloOrder() {
+		panic("rank must be less than or equal to cycloOrd")
+	} else if pOut.ModLen() != len(r.mod) || p.ModLen() != len(r.mod) {
+		panic("input(s) not consistent")
 	}
 
 	for i := range r.mod {
@@ -727,11 +722,10 @@ type Reducer struct {
 
 // NewReducer creates a new [Reducer].
 func NewReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *Reducer {
-	switch {
-	case maxRank < len(modPoly)-1:
-		panic("NewReducer: maxRank smaller than modPoly degree")
-	case modPoly[len(modPoly)-1] != 1:
-		panic("NewReducer: modPoly not monic")
+	if maxRank < len(modPoly)-1 {
+		panic("maxRank must be greater than or equal to modPoly degree")
+	} else if modPoly[len(modPoly)-1] != 1 {
+		panic("modPoly must be monic")
 	}
 
 	rank := len(modPoly) - 1
@@ -933,13 +927,12 @@ func (r *Reducer) Reduce(p *Poly) *Poly {
 //
 // Panics when p is in NTT form, or the rank of p is larger than MaxRank.
 func (r *Reducer) ReduceTo(pOut, p *Poly) {
-	switch {
-	case p.IsNTT:
-		panic("ReduceTo: cannot reduce NTT polynomials")
-	case p.Rank() > r.maxRank:
-		panic("ReduceTo: rank of p is larger than maxRank")
-	case pOut.ModLen() != len(r.mod) || p.ModLen() != len(r.mod):
-		panic("ReduceTo: inputs not consistent")
+	if p.IsNTT {
+		panic("input(s) must be in standard form")
+	} else if p.Rank() > r.maxRank {
+		panic("rank must be less than or equal to maxRank")
+	} else if pOut.ModLen() != len(r.mod) || p.ModLen() != len(r.mod) {
+		panic("input(s) not consistent")
 	}
 
 	for i := range r.mod {

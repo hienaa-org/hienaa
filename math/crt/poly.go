@@ -63,7 +63,7 @@ func (p *Poly) Clear() {
 // SetCoeff sets the i-th coefficient to c.
 func (p *Poly) SetCoeff(i int, c Scalar) {
 	if len(c) != p.ModLen() {
-		panic("SetCoeff: inconsistent modulus length")
+		panic("input(s) not consistent")
 	}
 
 	for j := range p.Coeffs {
@@ -75,15 +75,15 @@ func (p *Poly) SetCoeff(i int, c Scalar) {
 //
 // Panics when idx is out of range.
 func (p *Poly) WithModIdx(idx ...int) *Poly {
-	for _, idxi := range idx {
-		if idxi < 0 || idxi >= p.ModLen() {
-			panic("WithModIdx: index out of range")
+	for i := range idx {
+		if idx[i] < 0 || idx[i] >= p.ModLen() {
+			panic("index out of range")
 		}
 	}
 
 	coeffs := make([][]uint64, len(idx))
-	for i, idxi := range idx {
-		coeffs[i] = p.Coeffs[idxi]
+	for i := range idx {
+		coeffs[i] = p.Coeffs[idx[i]]
 	}
 
 	return &Poly{
@@ -105,8 +105,9 @@ func (p *Poly) Copy() *Poly {
 //
 // Panics when p and pIn are not consistent.
 func (p *Poly) CopyFrom(pIn *Poly) {
-	if !p.IsConsistent(pIn) {
-		panic("CopyFrom: inconsistent polynomials")
+	switch {
+	case !p.IsConsistent(pIn):
+		panic("input(s) not consistent")
 	}
 
 	for i := range p.Coeffs {

@@ -11,33 +11,38 @@ func isCoprime(mod []*num.Modulus) bool {
 	return gcd == 1
 }
 
-// isConsistent checks if p is consistent with given ring parameters and modulus.
-func isConsistent(rank, modLen int, p *Poly) bool {
+// mustConsistent panics if p is not consistent with given ring parameters and modulus.
+func mustConsistent(rank, modLen int, p *Poly) {
 	if len(p.Coeffs) != modLen {
-		return false
+		panic("input(s) not consistent")
 	}
 
 	for i := 0; i < modLen; i++ {
 		if len(p.Coeffs[i]) != rank {
-			return false
+			panic("input(s) not consistent")
 		}
 	}
-	return true
 }
 
-// isTernaryToOperable checks if pOut, p0, p1 is operable.
+// mustTernaryToOperable panics if pOut, p0, p1 is not operable.
 // It checks:
 //
 //   - pOut, p0, p1 has same shape.
 //   - p0, p1 has same form.
-func isTernaryToOperable(rank, modLen int, pOut, p0, p1 *Poly) bool {
-	return isConsistent(rank, modLen, pOut) && isConsistent(rank, modLen, p0) && isConsistent(rank, modLen, p1) && p0.IsNTT == p1.IsNTT
+func mustTernaryToOperable(rank, modLen int, pOut, p0, p1 *Poly) {
+	mustConsistent(rank, modLen, pOut)
+	mustConsistent(rank, modLen, p0)
+	mustConsistent(rank, modLen, p1)
+	if p0.IsNTT != p1.IsNTT {
+		panic("input(s) not consistent")
+	}
 }
 
-// isBinaryToOperable checks if pOut, p is operable.
+// mustBinaryToOperable panics if pOut, p is not operable.
 // It checks:
 //
 //   - pOut, p has same shape.
-func isBinaryToOperable(rank, modLen int, pOut, p *Poly) bool {
-	return isConsistent(rank, modLen, pOut) && isConsistent(rank, modLen, p)
+func mustBinaryToOperable(rank, modLen int, pOut, p *Poly) {
+	mustConsistent(rank, modLen, pOut)
+	mustConsistent(rank, modLen, p)
 }

@@ -92,7 +92,7 @@ func MustNextPrime[T Integer](x T, skip T) T {
 // If skip <= 0, or there is no prime number meets the condition, it panics.
 func NextPrime[T Integer](x T, skip T) (T, error) {
 	if skip <= 0 {
-		panic("NextPrime: skip must be positive")
+		panic("skip must be positive")
 	}
 
 	for t := x + skip; ; t += skip {
@@ -134,7 +134,7 @@ func NextProdPower[T Integer](x T, factors []T) T {
 // Panics when x < 0.
 func Factor[T Integer](x T) (primes []T, exps []T) {
 	if x < 0 {
-		panic("Factor: x must be non-negative")
+		panic("x must be non-negative")
 	}
 
 	factors := make(map[uint64]uint64)
@@ -255,10 +255,9 @@ func Totient[T Integer](x T) T {
 //
 // Panics when x < 0.
 func TotientWithFactors[T Integer](x T, primes, exps []T) T {
-	switch {
-	case x < 0:
-		panic("Totient: x must be non-negative")
-	case x == 0 || x == 1:
+	if x < 0 {
+		panic("x must be non-negative")
+	} else if x == 0 || x == 1 {
 		return x
 	}
 
@@ -358,7 +357,7 @@ func NthRootWithFactors(n int, g []uint64, q *Modulus, primes, exps []uint64) ui
 	for i := range primePows {
 		primePows[i] = Exp(primes[i], exps[i], nil)
 		if (primePows[i]-primePows[i]/primes[i])%uint64(n) != 0 {
-			panic("NthRootWithFactors: there is no N-th root of unity")
+			panic("there is no N-th root of unity")
 		}
 	}
 

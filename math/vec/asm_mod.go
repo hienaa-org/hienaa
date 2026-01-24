@@ -336,7 +336,7 @@ func negWordTo(vOut, v []uint64) {
 // Panics if q is even or nil.
 func MFormTo(vOutM, v []uint64, q *num.Modulus) {
 	if q.Inv() == 0 {
-		panic("MFormTo: modulus is even")
+		panic("modulus must be odd")
 	}
 
 	M := (len(vOutM) >> 3) << 3
@@ -371,7 +371,7 @@ func MFormTo(vOutM, v []uint64, q *num.Modulus) {
 // Panics if q is even or nil.
 func InvMFormTo(vOut, vM []uint64, q *num.Modulus) {
 	if q.Inv() == 0 {
-		panic("InvMFormTo: modulus is even")
+		panic("modulus must be odd")
 	}
 
 	M := (len(vOut) >> 3) << 3

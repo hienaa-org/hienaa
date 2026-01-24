@@ -78,11 +78,9 @@ func (e *polyBaseEvaluator) FwdNTT(p *Poly) *Poly {
 
 // FwdNTTTo computes pOut = NTT(p).
 func (e *polyBaseEvaluator) FwdNTTTo(pOut, p *Poly) {
-	switch {
-	case !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p):
-		panic("NTTTo: inputs not consistent")
-	case p.IsNTT:
-		panic("NTTTo: already in NTT form")
+	mustBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p)
+	if p.IsNTT {
+		panic("input(s) must be in standard form")
 	}
 
 	for i := range e.ntt {
@@ -105,11 +103,9 @@ func (e *polyBaseEvaluator) InvNTT(p *Poly) *Poly {
 
 // InvNTTTo computes pOut = InvNTT(p).
 func (e *polyBaseEvaluator) InvNTTTo(pOut, p *Poly) {
-	switch {
-	case !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p):
-		panic("InvNTTTo: inputs not consistent")
-	case !p.IsNTT:
-		panic("InvNTTTo: already in Standard form")
+	mustBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p)
+	if !p.IsNTT {
+		panic("input(s) must be in NTT form")
 	}
 
 	for i := range e.ntt {
@@ -132,9 +128,7 @@ func (e *polyBaseEvaluator) Add(p0, p1 *Poly) *Poly {
 
 // AddTo computes pOut = p0 + p1.
 func (e *polyBaseEvaluator) AddTo(pOut, p0, p1 *Poly) {
-	if !isTernaryToOperable(e.params.Rank(), len(e.mod), pOut, p0, p1) {
-		panic("AddTo: inputs not consistent")
-	}
+	mustTernaryToOperable(e.params.Rank(), len(e.mod), pOut, p0, p1)
 
 	for i := range e.mod {
 		vec.AddTo(pOut.Coeffs[i], p0.Coeffs[i], p1.Coeffs[i], e.mod[i])
@@ -152,9 +146,7 @@ func (e *polyBaseEvaluator) Sub(p0, p1 *Poly) *Poly {
 
 // SubTo computes pOut = p0 - p1.
 func (e *polyBaseEvaluator) SubTo(pOut, p0, p1 *Poly) {
-	if !isTernaryToOperable(e.params.Rank(), len(e.mod), pOut, p0, p1) {
-		panic("SubTo: inputs not consistent")
-	}
+	mustTernaryToOperable(e.params.Rank(), len(e.mod), pOut, p0, p1)
 
 	for i := range e.mod {
 		vec.SubTo(pOut.Coeffs[i], p0.Coeffs[i], p1.Coeffs[i], e.mod[i])
@@ -172,9 +164,7 @@ func (e *polyBaseEvaluator) Neg(p *Poly) *Poly {
 
 // NegTo computes pOut = -p.
 func (e *polyBaseEvaluator) NegTo(pOut, p *Poly) {
-	if !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p) {
-		panic("NegTo: inputs not consistent")
-	}
+	mustBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p)
 
 	for i := range e.mod {
 		vec.NegTo(pOut.Coeffs[i], p.Coeffs[i], e.mod[i])
@@ -192,9 +182,8 @@ func (e *polyBaseEvaluator) ScalarMul(p *Poly, c Scalar) *Poly {
 
 // ScalarMulTo computes pOut = p * c.
 func (e *polyBaseEvaluator) ScalarMulTo(pOut, p *Poly, c Scalar) {
-	if !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p) || !isScalarToOperable(len(e.mod), c) {
-		panic("ScalarMulTo: inputs not consistent")
-	}
+	mustBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p)
+	mustScalarToOperable(len(e.mod), c)
 
 	for i := range e.mod {
 		vec.ScalarMulTo(pOut.Coeffs[i], p.Coeffs[i], c[i], e.mod[i])
@@ -205,9 +194,8 @@ func (e *polyBaseEvaluator) ScalarMulTo(pOut, p *Poly, c Scalar) {
 
 // ScalarMulAddTo computes pOut += p * c.
 func (e *polyBaseEvaluator) ScalarMulAddTo(pOut, p *Poly, c Scalar) {
-	if !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p) || !isScalarToOperable(len(e.mod), c) {
-		panic("ScalarMulAddTo: inputs not consistent")
-	}
+	mustBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p)
+	mustScalarToOperable(len(e.mod), c)
 
 	for i := range e.mod {
 		vec.ScalarMulAddTo(pOut.Coeffs[i], p.Coeffs[i], c[i], e.mod[i])
@@ -218,9 +206,8 @@ func (e *polyBaseEvaluator) ScalarMulAddTo(pOut, p *Poly, c Scalar) {
 
 // ScalarMulSubTo computes pOut -= p * c.
 func (e *polyBaseEvaluator) ScalarMulSubTo(pOut, p *Poly, c Scalar) {
-	if !isBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p) || !isScalarToOperable(len(e.mod), c) {
-		panic("ScalarMulAddTo: inputs not consistent")
-	}
+	mustBinaryToOperable(e.params.Rank(), len(e.mod), pOut, p)
+	mustScalarToOperable(len(e.mod), c)
 
 	for i := range e.mod {
 		vec.ScalarMulSubTo(pOut.Coeffs[i], p.Coeffs[i], c[i], e.mod[i])
@@ -231,10 +218,9 @@ func (e *polyBaseEvaluator) ScalarMulSubTo(pOut, p *Poly, c Scalar) {
 
 // AsBig returns p as *[big.Int] vector.
 func (e *polyBaseEvaluator) AsBig(p *Poly) []*big.Int {
-	if !isConsistent(e.params.Rank(), len(e.mod), p) {
-		panic("AsBig: input not consistent")
-	} else if p.IsNTT {
-		panic("input is in NTT form")
+	mustConsistent(e.params.Rank(), len(e.mod), p)
+	if p.IsNTT {
+		panic("input(s) must be in standard form")
 	}
 
 	modBig := make([]*big.Int, len(e.mod))
