@@ -10,7 +10,7 @@ func VecConstants() {
 	ConstData("MASK_LO", U64(1<<32-1))
 }
 
-func AddSubVecToAVX2(opType OpType, isWordOp bool) {
+func VecAddSubToAVX2(opType OpType, isWordOp bool) {
 	switch opType {
 	case OpAdd:
 		if isWordOp {
@@ -125,19 +125,19 @@ func AddSubVecToAVX2(opType OpType, isWordOp bool) {
 	RET()
 }
 
-func ScalarAddSubVecToAVX2(opType OpType, isWordOp bool) {
+func VecAddSubScalarToAVX2(opType OpType, isWordOp bool) {
 	switch opType {
 	case OpAdd:
 		if isWordOp {
-			TEXT("scalarAddWordToAVX2", NOSPLIT, "func(vOut, v []uint64, c uint64)")
+			TEXT("addScalarWordToAVX2", NOSPLIT, "func(vOut, v []uint64, c uint64)")
 		} else {
-			TEXT("scalarAddToAVX2", NOSPLIT, "func(vOut, v []uint64, c, q uint64)")
+			TEXT("addScalarToAVX2", NOSPLIT, "func(vOut, v []uint64, c, q uint64)")
 		}
 	case OpSub:
 		if isWordOp {
-			TEXT("scalarSubWordToAVX2", NOSPLIT, "func(vOut, v []uint64, c uint64)")
+			TEXT("subScalarWordToAVX2", NOSPLIT, "func(vOut, v []uint64, c uint64)")
 		} else {
-			TEXT("scalarSubToAVX2", NOSPLIT, "func(vOut, v []uint64, c, q uint64)")
+			TEXT("subScalarToAVX2", NOSPLIT, "func(vOut, v []uint64, c, q uint64)")
 		}
 	}
 	Pragma("noescape")
@@ -241,7 +241,7 @@ func ScalarAddSubVecToAVX2(opType OpType, isWordOp bool) {
 	RET()
 }
 
-func AddSubVecToAVX512(opType OpType, isWordOp bool) {
+func VecAddSubToAVX512(opType OpType, isWordOp bool) {
 	switch opType {
 	case OpAdd:
 		if isWordOp {
@@ -350,19 +350,19 @@ func AddSubVecToAVX512(opType OpType, isWordOp bool) {
 	RET()
 }
 
-func ScalarAddSubVecToAVX512(opType OpType, isWordOp bool) {
+func VecAddSubScalarToAVX512(opType OpType, isWordOp bool) {
 	switch opType {
 	case OpAdd:
 		if isWordOp {
-			TEXT("scalarAddWordToAVX512", NOSPLIT, "func(vOut, v []uint64, c uint64)")
+			TEXT("addScalarWordToAVX512", NOSPLIT, "func(vOut, v []uint64, c uint64)")
 		} else {
-			TEXT("scalarAddToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q uint64)")
+			TEXT("addScalarToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q uint64)")
 		}
 	case OpSub:
 		if isWordOp {
-			TEXT("scalarSubWordToAVX512", NOSPLIT, "func(vOut, v []uint64, c uint64)")
+			TEXT("subScalarWordToAVX512", NOSPLIT, "func(vOut, v []uint64, c uint64)")
 		} else {
-			TEXT("scalarSubToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q uint64)")
+			TEXT("subScalarToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q uint64)")
 		}
 	}
 	Pragma("noescape")
@@ -460,86 +460,7 @@ func ScalarAddSubVecToAVX512(opType OpType, isWordOp bool) {
 	RET()
 }
 
-func SubVecToAVX512(isWordOp bool) {
-	if isWordOp {
-		TEXT("subWordToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64)")
-	} else {
-		TEXT("subToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64)")
-	}
-	Pragma("noescape")
-
-	q64, q := GP64(), ZMM()
-	if !isWordOp {
-		Load(Param("q"), q64)
-		VPBROADCASTQ(NewParamAddr("q", 72), q)
-	}
-
-	N := Load(Param("vOut").Len(), GP64())
-	vOut := Load(Param("vOut").Base(), GP64())
-	v0 := Load(Param("v0").Base(), GP64())
-	v1 := Load(Param("v1").Base(), GP64())
-
-	M := GP64()
-	MOVQ(N, M)
-	SHRQ(Imm(3), M)
-	SHLQ(Imm(3), M)
-
-	i := GP64()
-	XORQ(i, i)
-	JMP(LabelRef("loop_end"))
-	Label("loop_body")
-
-	x0, x1 := ZMM(), ZMM()
-	VMOVDQU64(Mem{Base: v0, Index: i, Scale: 8}, x0)
-	VMOVDQU64(Mem{Base: v1, Index: i, Scale: 8}, x1)
-
-	xOut := ZMM()
-	VPSUBQ(x1, x0, xOut)
-
-	if !isWordOp {
-		subQ, subQMask := ZMM(), K()
-		VPCMPUQ(Imm(0o5), q, xOut, subQMask)
-		VMOVAPD_Z(q, subQMask, subQ)
-		VPADDQ(subQ, xOut, xOut)
-	}
-
-	VMOVDQU64(xOut, Mem{Base: vOut, Index: i, Scale: 8})
-
-	ADDQ(Imm(8), i)
-
-	Label("loop_end")
-	CMPQ(i, M)
-	JL(LabelRef("loop_body"))
-
-	JMP(LabelRef("leftover_loop_end"))
-	Label("leftover_loop_body")
-
-	y0, y1 := GP64(), GP64()
-	MOVQ(Mem{Base: v0, Index: i, Scale: 8}, y0)
-	MOVQ(Mem{Base: v1, Index: i, Scale: 8}, y1)
-
-	SUBQ(y1, y0)
-
-	if !isWordOp {
-		subQ := GP64()
-		MOVQ(y0, subQ)
-		ADDQ(q64, subQ)
-		CMPQ(q64, y0)
-		CMOVQLS(subQ, y0)
-	}
-
-	MOVQ(y0, Mem{Base: vOut, Index: i, Scale: 8})
-
-	ADDQ(Imm(1), i)
-
-	Label("leftover_loop_end")
-	CMPQ(i, N)
-	JL(LabelRef("leftover_loop_body"))
-
-	RET()
-}
-
-func NegVecToAVX2(isWordOp bool) {
+func VecNegToAVX2(isWordOp bool) {
 	if isWordOp {
 		TEXT("negWordToAVX2", NOSPLIT, "func(vOut, v []uint64)")
 	} else {
@@ -622,7 +543,7 @@ func NegVecToAVX2(isWordOp bool) {
 	RET()
 }
 
-func NegVecToAVX512(isWordOp bool) {
+func VecNegToAVX512(isWordOp bool) {
 	if isWordOp {
 		TEXT("negWordToAVX512", NOSPLIT, "func(vOut, v []uint64)")
 	} else {
@@ -702,7 +623,7 @@ func NegVecToAVX512(isWordOp bool) {
 	RET()
 }
 
-func MFormVecToAVX512() {
+func VecMFormToAVX512() {
 	TEXT("mFormToAVX512", NOSPLIT, "func(vOut, v []uint64, q, divHi, divLo uint64)")
 	Pragma("noescape")
 
@@ -800,7 +721,7 @@ func MFormVecToAVX512() {
 	RET()
 }
 
-func InvMFormVecToAVX512() {
+func VecInvMFormToAVX512() {
 	TEXT("invMFormToAVX512", NOSPLIT, "func(vOut, v []uint64, q, inv uint64)")
 	Pragma("noescape")
 
@@ -886,14 +807,14 @@ func InvMFormVecToAVX512() {
 	RET()
 }
 
-func ScalarMulWordVecToAVX2(opType OpType) {
+func VecMulScalarWordToAVX2(opType OpType) {
 	switch opType {
 	case OpPure:
-		TEXT("scalarMulWordToAVX2", NOSPLIT, "func(vOut, v []uint64, c uint64)")
+		TEXT("mulScalarWordToAVX2", NOSPLIT, "func(vOut, v []uint64, c uint64)")
 	case OpAdd:
-		TEXT("scalarMulAddWordToAVX2", NOSPLIT, "func(vOut, v []uint64, c uint64)")
+		TEXT("mulAddScalarWordToAVX2", NOSPLIT, "func(vOut, v []uint64, c uint64)")
 	case OpSub:
-		TEXT("scalarMulSubWordToAVX2", NOSPLIT, "func(vOut, v []uint64, c uint64)")
+		TEXT("mulSubScalarWordToAVX2", NOSPLIT, "func(vOut, v []uint64, c uint64)")
 	}
 	Pragma("noescape")
 
@@ -976,14 +897,14 @@ func ScalarMulWordVecToAVX2(opType OpType) {
 	RET()
 }
 
-func ScalarMulWordVecToAVX512(opType OpType) {
+func VecMulScalarWordToAVX512(opType OpType) {
 	switch opType {
 	case OpPure:
-		TEXT("scalarMulWordToAVX512", NOSPLIT, "func(vOut, v []uint64, c uint64)")
+		TEXT("mulScalarWordToAVX512", NOSPLIT, "func(vOut, v []uint64, c uint64)")
 	case OpAdd:
-		TEXT("scalarMulAddWordToAVX512", NOSPLIT, "func(vOut, v []uint64, c uint64)")
+		TEXT("mulAddScalarWordToAVX512", NOSPLIT, "func(vOut, v []uint64, c uint64)")
 	case OpSub:
-		TEXT("scalarMulSubWordToAVX512", NOSPLIT, "func(vOut, v []uint64, c uint64)")
+		TEXT("mulSubScalarWordToAVX512", NOSPLIT, "func(vOut, v []uint64, c uint64)")
 	}
 	Pragma("noescape")
 
@@ -1061,24 +982,24 @@ func ScalarMulWordVecToAVX512(opType OpType) {
 	RET()
 }
 
-func ScalarMulVecToAVX512(opType OpType, isLazy bool) {
+func VecMulScalarToAVX512(opType OpType, isLazy bool) {
 	if !isLazy {
 		switch opType {
 		case OpPure:
-			TEXT("scalarMulToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
+			TEXT("mulScalarToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
 		case OpAdd:
-			TEXT("scalarMulAddToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
+			TEXT("mulAddScalarToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
 		case OpSub:
-			TEXT("scalarMulSubToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
+			TEXT("mulSubScalarToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
 		}
 	} else {
 		switch opType {
 		case OpPure:
-			TEXT("scalarMulLazyToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
+			TEXT("mulScalarLazyToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
 		case OpAdd:
-			TEXT("scalarMulAddLazyToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
+			TEXT("mulAddScalarLazyToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
 		case OpSub:
-			TEXT("scalarMulSubLazyToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
+			TEXT("mulSubScalarLazyToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
 		}
 	}
 	Pragma("noescape")
@@ -1229,24 +1150,24 @@ func ScalarMulVecToAVX512(opType OpType, isLazy bool) {
 	RET()
 }
 
-func ScalarMMulVecToAVX512(opType OpType, isLazy bool) {
+func VecMMulScalarToAVX512(opType OpType, isLazy bool) {
 	if !isLazy {
 		switch opType {
 		case OpPure:
-			TEXT("scalarMMulToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q, inv uint64)")
+			TEXT("mMulScalarToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q, inv uint64)")
 		case OpAdd:
-			TEXT("scalarMMulAddToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q, inv uint64)")
+			TEXT("mMulAddScalarToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q, inv uint64)")
 		case OpSub:
-			TEXT("scalarMMulSubToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q, inv uint64)")
+			TEXT("mMulSubScalarToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q, inv uint64)")
 		}
 	} else {
 		switch opType {
 		case OpPure:
-			TEXT("scalarMMulLazyToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q, inv uint64)")
+			TEXT("mMulScalarLazyToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q, inv uint64)")
 		case OpAdd:
-			TEXT("scalarMMulAddLazyToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q, inv uint64)")
+			TEXT("mMulAddScalarLazyToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q, inv uint64)")
 		case OpSub:
-			TEXT("scalarMMulSubLazyToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q, inv uint64)")
+			TEXT("mMulSubScalarLazyToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q, inv uint64)")
 		}
 	}
 	Pragma("noescape")
@@ -1410,7 +1331,7 @@ func ScalarMMulVecToAVX512(opType OpType, isLazy bool) {
 	RET()
 }
 
-func MulWordVecToAVX2(opType OpType) {
+func VecMulWordToAVX2(opType OpType) {
 	switch opType {
 	case OpPure:
 		TEXT("mulWordToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64)")
@@ -1501,7 +1422,7 @@ func MulWordVecToAVX2(opType OpType) {
 	RET()
 }
 
-func MulWordVecToAVX512(opType OpType) {
+func VecMulWordToAVX512(opType OpType) {
 	switch opType {
 	case OpPure:
 		TEXT("mulWordToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64)")
@@ -1585,7 +1506,7 @@ func MulWordVecToAVX512(opType OpType) {
 	RET()
 }
 
-func MMulVecToAVX512(opType OpType, isLazy bool) {
+func VecMMulToAVX512(opType OpType, isLazy bool) {
 	if !isLazy {
 		switch opType {
 		case OpPure:
@@ -1774,7 +1695,7 @@ func MMulVecToAVX512(opType OpType, isLazy bool) {
 	RET()
 }
 
-func SMulVecToAVX512(opType OpType, isLazy bool) {
+func VecSMulToAVX512(opType OpType, isLazy bool) {
 	if !isLazy {
 		switch opType {
 		case OpPure:

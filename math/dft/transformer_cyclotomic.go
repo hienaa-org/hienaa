@@ -64,7 +64,7 @@ func (ntt *pow2CyclotomicTransformer) ForwardTo(vNTT, v []uint64) {
 func (ntt *pow2CyclotomicTransformer) InverseTo(v, vNTT []uint64) {
 	copy(v, vNTT)
 	inttInPlacePow2(v, ntt.twInv, ntt.twInvS, ntt.mod.Value())
-	vec.ScalarMulTo(v, v, ntt.rankInv, ntt.mod)
+	vec.MulScalarTo(v, v, ntt.rankInv, ntt.mod)
 }
 
 // Params returns the ring parameters.

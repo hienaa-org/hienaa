@@ -17,6 +17,20 @@ import (
 	"github.com/hienaa-org/hienaa/math/num"
 )
 
+// checkLength checks if all vectors have the same length,
+// and panics if not.
+func checkLength(xs ...int) {
+	if len(xs) == 0 {
+		return
+	}
+
+	for i := 1; i < len(xs); i++ {
+		if xs[i] != xs[0] {
+			panic("inconsistent input(s)")
+		}
+	}
+}
+
 // Cast casts vector v of type []T to []TOut.
 func Cast[TOut, T num.Real](v []T) []TOut {
 	vOut := make([]TOut, len(v))

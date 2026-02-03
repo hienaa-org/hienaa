@@ -62,7 +62,7 @@ func reduce(p0, p1 []uint64, q *num.Modulus) []uint64 {
 	for i := 0; i <= len(p0)-len(p1); i++ {
 		if rem[len(rem)-i-1] != 0 {
 			quo[len(quo)-i-1] = num.Mul(rem[len(rem)-i-1], lcInv, q)
-			vec.ScalarMulSubTo(rem[len(rem)-i-len(p1):len(rem)-i], p1, quo[len(quo)-i-1], q)
+			vec.MulSubScalarTo(rem[len(rem)-i-len(p1):len(rem)-i], p1, quo[len(quo)-i-1], q)
 		}
 	}
 

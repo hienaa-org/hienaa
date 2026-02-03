@@ -347,9 +347,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarAddToAVX2(vOut []uint64, v []uint64, c uint64, q uint64)
+// func addScalarToAVX2(vOut []uint64, v []uint64, c uint64, q uint64)
 // Requires: AVX, AVX2, CMOV
-TEXT ·scalarAddToAVX2(SB), NOSPLIT, $0-64
+TEXT ·addScalarToAVX2(SB), NOSPLIT, $0-64
 	VPCMPEQQ     Y0, Y0, Y0
 	VPSLLQ       $0x3f, Y0, Y0
 	MOVQ         q+56(FP), AX
@@ -396,9 +396,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarAddWordToAVX2(vOut []uint64, v []uint64, c uint64)
+// func addScalarWordToAVX2(vOut []uint64, v []uint64, c uint64)
 // Requires: AVX, AVX2
-TEXT ·scalarAddWordToAVX2(SB), NOSPLIT, $0-56
+TEXT ·addScalarWordToAVX2(SB), NOSPLIT, $0-56
 	MOVQ         vOut_len+8(FP), AX
 	MOVQ         vOut_base+0(FP), CX
 	MOVQ         v_base+24(FP), DX
@@ -432,9 +432,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarSubToAVX2(vOut []uint64, v []uint64, c uint64, q uint64)
+// func subScalarToAVX2(vOut []uint64, v []uint64, c uint64, q uint64)
 // Requires: AVX, AVX2, CMOV
-TEXT ·scalarSubToAVX2(SB), NOSPLIT, $0-64
+TEXT ·subScalarToAVX2(SB), NOSPLIT, $0-64
 	VPCMPEQQ     Y0, Y0, Y0
 	VPSLLQ       $0x3f, Y0, Y0
 	MOVQ         q+56(FP), AX
@@ -481,9 +481,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarSubWordToAVX2(vOut []uint64, v []uint64, c uint64)
+// func subScalarWordToAVX2(vOut []uint64, v []uint64, c uint64)
 // Requires: AVX, AVX2
-TEXT ·scalarSubWordToAVX2(SB), NOSPLIT, $0-56
+TEXT ·subScalarWordToAVX2(SB), NOSPLIT, $0-56
 	MOVQ         vOut_len+8(FP), AX
 	MOVQ         vOut_base+0(FP), CX
 	MOVQ         v_base+24(FP), DX
@@ -517,9 +517,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarAddToAVX512(vOut []uint64, v []uint64, c uint64, q uint64)
+// func addScalarToAVX512(vOut []uint64, v []uint64, c uint64, q uint64)
 // Requires: AVX512F, CMOV
-TEXT ·scalarAddToAVX512(SB), NOSPLIT, $0-64
+TEXT ·addScalarToAVX512(SB), NOSPLIT, $0-64
 	MOVQ         q+56(FP), AX
 	VPBROADCASTQ q+56(FP), Z0
 	MOVQ         vOut_len+8(FP), CX
@@ -562,9 +562,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarAddWordToAVX512(vOut []uint64, v []uint64, c uint64)
+// func addScalarWordToAVX512(vOut []uint64, v []uint64, c uint64)
 // Requires: AVX512F
-TEXT ·scalarAddWordToAVX512(SB), NOSPLIT, $0-56
+TEXT ·addScalarWordToAVX512(SB), NOSPLIT, $0-56
 	MOVQ         vOut_len+8(FP), AX
 	MOVQ         vOut_base+0(FP), CX
 	MOVQ         v_base+24(FP), DX
@@ -598,9 +598,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarSubToAVX512(vOut []uint64, v []uint64, c uint64, q uint64)
+// func subScalarToAVX512(vOut []uint64, v []uint64, c uint64, q uint64)
 // Requires: AVX512F, CMOV
-TEXT ·scalarSubToAVX512(SB), NOSPLIT, $0-64
+TEXT ·subScalarToAVX512(SB), NOSPLIT, $0-64
 	MOVQ         q+56(FP), AX
 	VPBROADCASTQ q+56(FP), Z0
 	MOVQ         vOut_len+8(FP), CX
@@ -643,9 +643,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarSubWordToAVX512(vOut []uint64, v []uint64, c uint64)
+// func subScalarWordToAVX512(vOut []uint64, v []uint64, c uint64)
 // Requires: AVX512F
-TEXT ·scalarSubWordToAVX512(SB), NOSPLIT, $0-56
+TEXT ·subScalarWordToAVX512(SB), NOSPLIT, $0-56
 	MOVQ         vOut_len+8(FP), AX
 	MOVQ         vOut_base+0(FP), CX
 	MOVQ         v_base+24(FP), DX
@@ -970,9 +970,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarMulWordToAVX2(vOut []uint64, v []uint64, c uint64)
+// func mulScalarWordToAVX2(vOut []uint64, v []uint64, c uint64)
 // Requires: AVX, AVX2
-TEXT ·scalarMulWordToAVX2(SB), NOSPLIT, $0-56
+TEXT ·mulScalarWordToAVX2(SB), NOSPLIT, $0-56
 	VPBROADCASTQ MASK_LO<>+0(SB), Y0
 	VPSLLQ       $0x20, Y0, Y0
 	MOVQ         c+48(FP), AX
@@ -1014,9 +1014,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarMulAddWordToAVX2(vOut []uint64, v []uint64, c uint64)
+// func mulAddScalarWordToAVX2(vOut []uint64, v []uint64, c uint64)
 // Requires: AVX, AVX2
-TEXT ·scalarMulAddWordToAVX2(SB), NOSPLIT, $0-56
+TEXT ·mulAddScalarWordToAVX2(SB), NOSPLIT, $0-56
 	VPBROADCASTQ MASK_LO<>+0(SB), Y0
 	VPSLLQ       $0x20, Y0, Y0
 	MOVQ         c+48(FP), AX
@@ -1062,9 +1062,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarMulSubWordToAVX2(vOut []uint64, v []uint64, c uint64)
+// func mulSubScalarWordToAVX2(vOut []uint64, v []uint64, c uint64)
 // Requires: AVX, AVX2
-TEXT ·scalarMulSubWordToAVX2(SB), NOSPLIT, $0-56
+TEXT ·mulSubScalarWordToAVX2(SB), NOSPLIT, $0-56
 	VPBROADCASTQ MASK_LO<>+0(SB), Y0
 	VPSLLQ       $0x20, Y0, Y0
 	MOVQ         c+48(FP), AX
@@ -1110,9 +1110,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarMulWordToAVX512(vOut []uint64, v []uint64, c uint64)
+// func mulScalarWordToAVX512(vOut []uint64, v []uint64, c uint64)
 // Requires: AVX512DQ, AVX512F
-TEXT ·scalarMulWordToAVX512(SB), NOSPLIT, $0-56
+TEXT ·mulScalarWordToAVX512(SB), NOSPLIT, $0-56
 	MOVQ         c+48(FP), AX
 	VPBROADCASTQ c+48(FP), Z0
 	MOVQ         vOut_len+8(FP), CX
@@ -1146,9 +1146,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarMulAddWordToAVX512(vOut []uint64, v []uint64, c uint64)
+// func mulAddScalarWordToAVX512(vOut []uint64, v []uint64, c uint64)
 // Requires: AVX512DQ, AVX512F
-TEXT ·scalarMulAddWordToAVX512(SB), NOSPLIT, $0-56
+TEXT ·mulAddScalarWordToAVX512(SB), NOSPLIT, $0-56
 	MOVQ         c+48(FP), AX
 	VPBROADCASTQ c+48(FP), Z0
 	MOVQ         vOut_len+8(FP), CX
@@ -1186,9 +1186,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarMulSubWordToAVX512(vOut []uint64, v []uint64, c uint64)
+// func mulSubScalarWordToAVX512(vOut []uint64, v []uint64, c uint64)
 // Requires: AVX512DQ, AVX512F
-TEXT ·scalarMulSubWordToAVX512(SB), NOSPLIT, $0-56
+TEXT ·mulSubScalarWordToAVX512(SB), NOSPLIT, $0-56
 	MOVQ         c+48(FP), AX
 	VPBROADCASTQ c+48(FP), Z0
 	MOVQ         vOut_len+8(FP), CX
@@ -1226,9 +1226,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarMulToAVX512(vOut []uint64, v []uint64, c uint64, cS uint64, q uint64)
+// func mulScalarToAVX512(vOut []uint64, v []uint64, c uint64, cS uint64, q uint64)
 // Requires: AVX512DQ, AVX512F, BMI2, CMOV
-TEXT ·scalarMulToAVX512(SB), NOSPLIT, $0-72
+TEXT ·mulScalarToAVX512(SB), NOSPLIT, $0-72
 	VPBROADCASTQ MASK_LO<>+0(SB), Z0
 	MOVQ         q+64(FP), AX
 	VPBROADCASTQ q+64(FP), Z1
@@ -1295,9 +1295,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarMulAddToAVX512(vOut []uint64, v []uint64, c uint64, cS uint64, q uint64)
+// func mulAddScalarToAVX512(vOut []uint64, v []uint64, c uint64, cS uint64, q uint64)
 // Requires: AVX512DQ, AVX512F, BMI2, CMOV
-TEXT ·scalarMulAddToAVX512(SB), NOSPLIT, $0-72
+TEXT ·mulAddScalarToAVX512(SB), NOSPLIT, $0-72
 	VPBROADCASTQ MASK_LO<>+0(SB), Z0
 	MOVQ         q+64(FP), AX
 	VPBROADCASTQ q+64(FP), Z1
@@ -1375,9 +1375,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarMulSubToAVX512(vOut []uint64, v []uint64, c uint64, cS uint64, q uint64)
+// func mulSubScalarToAVX512(vOut []uint64, v []uint64, c uint64, cS uint64, q uint64)
 // Requires: AVX512DQ, AVX512F, BMI2, CMOV
-TEXT ·scalarMulSubToAVX512(SB), NOSPLIT, $0-72
+TEXT ·mulSubScalarToAVX512(SB), NOSPLIT, $0-72
 	VPBROADCASTQ MASK_LO<>+0(SB), Z0
 	MOVQ         q+64(FP), AX
 	VPBROADCASTQ q+64(FP), Z1
@@ -1455,9 +1455,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarMulLazyToAVX512(vOut []uint64, v []uint64, c uint64, cS uint64, q uint64)
+// func mulScalarLazyToAVX512(vOut []uint64, v []uint64, c uint64, cS uint64, q uint64)
 // Requires: AVX512DQ, AVX512F, BMI2
-TEXT ·scalarMulLazyToAVX512(SB), NOSPLIT, $0-72
+TEXT ·mulScalarLazyToAVX512(SB), NOSPLIT, $0-72
 	VPBROADCASTQ MASK_LO<>+0(SB), Z0
 	MOVQ         q+64(FP), AX
 	VPBROADCASTQ q+64(FP), Z1
@@ -1517,9 +1517,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarMulAddLazyToAVX512(vOut []uint64, v []uint64, c uint64, cS uint64, q uint64)
+// func mulAddScalarLazyToAVX512(vOut []uint64, v []uint64, c uint64, cS uint64, q uint64)
 // Requires: AVX512DQ, AVX512F, BMI2
-TEXT ·scalarMulAddLazyToAVX512(SB), NOSPLIT, $0-72
+TEXT ·mulAddScalarLazyToAVX512(SB), NOSPLIT, $0-72
 	VPBROADCASTQ MASK_LO<>+0(SB), Z0
 	MOVQ         q+64(FP), AX
 	VPBROADCASTQ q+64(FP), Z1
@@ -1583,9 +1583,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarMulSubLazyToAVX512(vOut []uint64, v []uint64, c uint64, cS uint64, q uint64)
+// func mulSubScalarLazyToAVX512(vOut []uint64, v []uint64, c uint64, cS uint64, q uint64)
 // Requires: AVX512DQ, AVX512F, BMI2
-TEXT ·scalarMulSubLazyToAVX512(SB), NOSPLIT, $0-72
+TEXT ·mulSubScalarLazyToAVX512(SB), NOSPLIT, $0-72
 	VPBROADCASTQ MASK_LO<>+0(SB), Z0
 	MOVQ         q+64(FP), AX
 	VPBROADCASTQ q+64(FP), Z1
@@ -1649,9 +1649,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarMMulToAVX512(vOut []uint64, v []uint64, c uint64, q uint64, inv uint64)
+// func mMulScalarToAVX512(vOut []uint64, v []uint64, c uint64, q uint64, inv uint64)
 // Requires: AVX512DQ, AVX512F, BMI2, CMOV
-TEXT ·scalarMMulToAVX512(SB), NOSPLIT, $0-72
+TEXT ·mMulScalarToAVX512(SB), NOSPLIT, $0-72
 	VPBROADCASTQ MASK_LO<>+0(SB), Z0
 	MOVQ         q+56(FP), AX
 	MOVQ         inv+64(FP), CX
@@ -1733,9 +1733,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarMMulAddToAVX512(vOut []uint64, v []uint64, c uint64, q uint64, inv uint64)
+// func mMulAddScalarToAVX512(vOut []uint64, v []uint64, c uint64, q uint64, inv uint64)
 // Requires: AVX512DQ, AVX512F, BMI2, CMOV
-TEXT ·scalarMMulAddToAVX512(SB), NOSPLIT, $0-72
+TEXT ·mMulAddScalarToAVX512(SB), NOSPLIT, $0-72
 	VPBROADCASTQ MASK_LO<>+0(SB), Z0
 	MOVQ         q+56(FP), AX
 	MOVQ         inv+64(FP), CX
@@ -1828,9 +1828,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarMMulSubToAVX512(vOut []uint64, v []uint64, c uint64, q uint64, inv uint64)
+// func mMulSubScalarToAVX512(vOut []uint64, v []uint64, c uint64, q uint64, inv uint64)
 // Requires: AVX512DQ, AVX512F, BMI2, CMOV
-TEXT ·scalarMMulSubToAVX512(SB), NOSPLIT, $0-72
+TEXT ·mMulSubScalarToAVX512(SB), NOSPLIT, $0-72
 	VPBROADCASTQ MASK_LO<>+0(SB), Z0
 	MOVQ         q+56(FP), AX
 	MOVQ         inv+64(FP), CX
@@ -1923,9 +1923,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarMMulLazyToAVX512(vOut []uint64, v []uint64, c uint64, q uint64, inv uint64)
+// func mMulScalarLazyToAVX512(vOut []uint64, v []uint64, c uint64, q uint64, inv uint64)
 // Requires: AVX512DQ, AVX512F, BMI2
-TEXT ·scalarMMulLazyToAVX512(SB), NOSPLIT, $0-72
+TEXT ·mMulScalarLazyToAVX512(SB), NOSPLIT, $0-72
 	VPBROADCASTQ MASK_LO<>+0(SB), Z0
 	MOVQ         q+56(FP), AX
 	MOVQ         inv+64(FP), CX
@@ -2000,9 +2000,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarMMulAddLazyToAVX512(vOut []uint64, v []uint64, c uint64, q uint64, inv uint64)
+// func mMulAddScalarLazyToAVX512(vOut []uint64, v []uint64, c uint64, q uint64, inv uint64)
 // Requires: AVX512DQ, AVX512F, BMI2
-TEXT ·scalarMMulAddLazyToAVX512(SB), NOSPLIT, $0-72
+TEXT ·mMulAddScalarLazyToAVX512(SB), NOSPLIT, $0-72
 	VPBROADCASTQ MASK_LO<>+0(SB), Z0
 	MOVQ         q+56(FP), AX
 	MOVQ         inv+64(FP), CX
@@ -2081,9 +2081,9 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func scalarMMulSubLazyToAVX512(vOut []uint64, v []uint64, c uint64, q uint64, inv uint64)
+// func mMulSubScalarLazyToAVX512(vOut []uint64, v []uint64, c uint64, q uint64, inv uint64)
 // Requires: AVX512DQ, AVX512F, BMI2
-TEXT ·scalarMMulSubLazyToAVX512(SB), NOSPLIT, $0-72
+TEXT ·mMulSubScalarLazyToAVX512(SB), NOSPLIT, $0-72
 	VPBROADCASTQ MASK_LO<>+0(SB), Z0
 	MOVQ         q+56(FP), AX
 	MOVQ         inv+64(FP), CX

@@ -29,28 +29,28 @@ func subToAVX512(vOut []uint64, v0 []uint64, v1 []uint64, q uint64)
 func subWordToAVX512(vOut []uint64, v0 []uint64, v1 []uint64)
 
 //go:noescape
-func scalarAddToAVX2(vOut []uint64, v []uint64, c uint64, q uint64)
+func addScalarToAVX2(vOut []uint64, v []uint64, c uint64, q uint64)
 
 //go:noescape
-func scalarAddWordToAVX2(vOut []uint64, v []uint64, c uint64)
+func addScalarWordToAVX2(vOut []uint64, v []uint64, c uint64)
 
 //go:noescape
-func scalarSubToAVX2(vOut []uint64, v []uint64, c uint64, q uint64)
+func subScalarToAVX2(vOut []uint64, v []uint64, c uint64, q uint64)
 
 //go:noescape
-func scalarSubWordToAVX2(vOut []uint64, v []uint64, c uint64)
+func subScalarWordToAVX2(vOut []uint64, v []uint64, c uint64)
 
 //go:noescape
-func scalarAddToAVX512(vOut []uint64, v []uint64, c uint64, q uint64)
+func addScalarToAVX512(vOut []uint64, v []uint64, c uint64, q uint64)
 
 //go:noescape
-func scalarAddWordToAVX512(vOut []uint64, v []uint64, c uint64)
+func addScalarWordToAVX512(vOut []uint64, v []uint64, c uint64)
 
 //go:noescape
-func scalarSubToAVX512(vOut []uint64, v []uint64, c uint64, q uint64)
+func subScalarToAVX512(vOut []uint64, v []uint64, c uint64, q uint64)
 
 //go:noescape
-func scalarSubWordToAVX512(vOut []uint64, v []uint64, c uint64)
+func subScalarWordToAVX512(vOut []uint64, v []uint64, c uint64)
 
 //go:noescape
 func negToAVX2(vOut []uint64, v []uint64, q uint64)
@@ -71,58 +71,58 @@ func mFormToAVX512(vOut []uint64, v []uint64, q uint64, divHi uint64, divLo uint
 func invMFormToAVX512(vOut []uint64, v []uint64, q uint64, inv uint64)
 
 //go:noescape
-func scalarMulWordToAVX2(vOut []uint64, v []uint64, c uint64)
+func mulScalarWordToAVX2(vOut []uint64, v []uint64, c uint64)
 
 //go:noescape
-func scalarMulAddWordToAVX2(vOut []uint64, v []uint64, c uint64)
+func mulAddScalarWordToAVX2(vOut []uint64, v []uint64, c uint64)
 
 //go:noescape
-func scalarMulSubWordToAVX2(vOut []uint64, v []uint64, c uint64)
+func mulSubScalarWordToAVX2(vOut []uint64, v []uint64, c uint64)
 
 //go:noescape
-func scalarMulWordToAVX512(vOut []uint64, v []uint64, c uint64)
+func mulScalarWordToAVX512(vOut []uint64, v []uint64, c uint64)
 
 //go:noescape
-func scalarMulAddWordToAVX512(vOut []uint64, v []uint64, c uint64)
+func mulAddScalarWordToAVX512(vOut []uint64, v []uint64, c uint64)
 
 //go:noescape
-func scalarMulSubWordToAVX512(vOut []uint64, v []uint64, c uint64)
+func mulSubScalarWordToAVX512(vOut []uint64, v []uint64, c uint64)
 
 //go:noescape
-func scalarMulToAVX512(vOut []uint64, v []uint64, c uint64, cS uint64, q uint64)
+func mulScalarToAVX512(vOut []uint64, v []uint64, c uint64, cS uint64, q uint64)
 
 //go:noescape
-func scalarMulAddToAVX512(vOut []uint64, v []uint64, c uint64, cS uint64, q uint64)
+func mulAddScalarToAVX512(vOut []uint64, v []uint64, c uint64, cS uint64, q uint64)
 
 //go:noescape
-func scalarMulSubToAVX512(vOut []uint64, v []uint64, c uint64, cS uint64, q uint64)
+func mulSubScalarToAVX512(vOut []uint64, v []uint64, c uint64, cS uint64, q uint64)
 
 //go:noescape
-func scalarMulLazyToAVX512(vOut []uint64, v []uint64, c uint64, cS uint64, q uint64)
+func mulScalarLazyToAVX512(vOut []uint64, v []uint64, c uint64, cS uint64, q uint64)
 
 //go:noescape
-func scalarMulAddLazyToAVX512(vOut []uint64, v []uint64, c uint64, cS uint64, q uint64)
+func mulAddScalarLazyToAVX512(vOut []uint64, v []uint64, c uint64, cS uint64, q uint64)
 
 //go:noescape
-func scalarMulSubLazyToAVX512(vOut []uint64, v []uint64, c uint64, cS uint64, q uint64)
+func mulSubScalarLazyToAVX512(vOut []uint64, v []uint64, c uint64, cS uint64, q uint64)
 
 //go:noescape
-func scalarMMulToAVX512(vOut []uint64, v []uint64, c uint64, q uint64, inv uint64)
+func mMulScalarToAVX512(vOut []uint64, v []uint64, c uint64, q uint64, inv uint64)
 
 //go:noescape
-func scalarMMulAddToAVX512(vOut []uint64, v []uint64, c uint64, q uint64, inv uint64)
+func mMulAddScalarToAVX512(vOut []uint64, v []uint64, c uint64, q uint64, inv uint64)
 
 //go:noescape
-func scalarMMulSubToAVX512(vOut []uint64, v []uint64, c uint64, q uint64, inv uint64)
+func mMulSubScalarToAVX512(vOut []uint64, v []uint64, c uint64, q uint64, inv uint64)
 
 //go:noescape
-func scalarMMulLazyToAVX512(vOut []uint64, v []uint64, c uint64, q uint64, inv uint64)
+func mMulScalarLazyToAVX512(vOut []uint64, v []uint64, c uint64, q uint64, inv uint64)
 
 //go:noescape
-func scalarMMulAddLazyToAVX512(vOut []uint64, v []uint64, c uint64, q uint64, inv uint64)
+func mMulAddScalarLazyToAVX512(vOut []uint64, v []uint64, c uint64, q uint64, inv uint64)
 
 //go:noescape
-func scalarMMulSubLazyToAVX512(vOut []uint64, v []uint64, c uint64, q uint64, inv uint64)
+func mMulSubScalarLazyToAVX512(vOut []uint64, v []uint64, c uint64, q uint64, inv uint64)
 
 //go:noescape
 func mulWordToAVX2(vOut []uint64, v0 []uint64, v1 []uint64)

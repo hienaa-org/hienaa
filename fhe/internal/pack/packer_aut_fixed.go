@@ -361,7 +361,7 @@ func (p *autFixedPow2Mod3Packer) PackTo(vOut []uint64, vIn []uint64) {
 		vOut[i*skip] = num.Add(p.buf.coeffs[i].Real, u.Real, p.mod)
 	}
 
-	vec.ScalarMulTo(vOut, vOut, p.rankInv, p.mod)
+	vec.MulScalarTo(vOut, vOut, p.rankInv, p.mod)
 }
 
 func (p *autFixedPow2Mod3Packer) UnPack(vIn []uint64) []uint64 {
@@ -439,8 +439,8 @@ func newAutFixedPrimePacker(params dft.RingParameters, mod *num.Modulus) *autFix
 		copy(invResolution, resolution)
 	}
 
-	vec.ScalarMulTo(invResolution, invResolution, num.Reduce(uint64(cycloOrd), mod), mod)
-	vec.ScalarAddTo(invResolution, invResolution, num.Reduce(ord, mod), mod)
+	vec.MulScalarTo(invResolution, invResolution, num.Reduce(uint64(cycloOrd), mod), mod)
+	vec.AddScalarTo(invResolution, invResolution, num.Reduce(ord, mod), mod)
 
 	// Reduce the resolution of unity to the packing length.
 	packLen := num.GCD(params.Rank(), len(resolution))

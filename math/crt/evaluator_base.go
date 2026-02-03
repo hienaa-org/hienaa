@@ -186,7 +186,7 @@ func (e *polyBaseEvaluator) ScalarMulTo(pOut, p *Poly, c Scalar) {
 	mustScalarToOperable(len(e.mod), c)
 
 	for i := range e.mod {
-		vec.ScalarMulTo(pOut.Coeffs[i], p.Coeffs[i], c[i], e.mod[i])
+		vec.MulScalarTo(pOut.Coeffs[i], p.Coeffs[i], c[i], e.mod[i])
 	}
 
 	pOut.IsNTT = p.IsNTT
@@ -198,7 +198,7 @@ func (e *polyBaseEvaluator) ScalarMulAddTo(pOut, p *Poly, c Scalar) {
 	mustScalarToOperable(len(e.mod), c)
 
 	for i := range e.mod {
-		vec.ScalarMulAddTo(pOut.Coeffs[i], p.Coeffs[i], c[i], e.mod[i])
+		vec.MulAddScalarTo(pOut.Coeffs[i], p.Coeffs[i], c[i], e.mod[i])
 	}
 
 	pOut.IsNTT = p.IsNTT
@@ -210,7 +210,7 @@ func (e *polyBaseEvaluator) ScalarMulSubTo(pOut, p *Poly, c Scalar) {
 	mustScalarToOperable(len(e.mod), c)
 
 	for i := range e.mod {
-		vec.ScalarMulSubTo(pOut.Coeffs[i], p.Coeffs[i], c[i], e.mod[i])
+		vec.MulSubScalarTo(pOut.Coeffs[i], p.Coeffs[i], c[i], e.mod[i])
 	}
 
 	pOut.IsNTT = p.IsNTT

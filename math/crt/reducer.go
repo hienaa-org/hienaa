@@ -85,7 +85,7 @@ func (r *LongDivReducer) quoRemTo(pQuo, pRem, p []uint64, idx int) {
 	for i := 0; i <= len(p)-len(r.modPoly[idx]); i++ {
 		if r.buf.pIn[0][len(r.buf.pIn[0])-i-1] != 0 {
 			pQuo[len(pQuo)-i-1] = r.buf.pIn[0][len(r.buf.pIn[0])-i-1]
-			vec.ScalarMulSubTo(
+			vec.MulSubScalarTo(
 				r.buf.pIn[0][len(r.buf.pIn[0])-i-len(r.modPoly[idx]):len(r.buf.pIn[0])-i],
 				r.modPoly[idx],
 				pQuo[len(pQuo)-i-1],

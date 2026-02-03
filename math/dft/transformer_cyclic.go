@@ -236,7 +236,7 @@ func (ntt *pow235CyclicTransformer) InverseTo(v, vNTT []uint64) {
 		copy(v, ntt.buf.coeffs)
 	}
 
-	vec.ScalarMulTo(v, v, ntt.rankInv, ntt.mod)
+	vec.MulScalarTo(v, v, ntt.rankInv, ntt.mod)
 }
 
 // Params returns the ring parameters.
@@ -326,7 +326,7 @@ func newAnyCyclicTransformer(params RingParameters, mod *num.Modulus) *anyCyclic
 	copy(chirpM[ambRank-params.rank+1:], zInv[1:])
 	slices.Reverse(chirpM[ambRank-params.rank+1:])
 
-	vec.ScalarMulTo(chirpM, chirpM, num.Inv(uint64(ambRank), mod), mod)
+	vec.MulScalarTo(chirpM, chirpM, num.Inv(uint64(ambRank), mod), mod)
 	nttInPlacePow2(chirpM, ambNTT.tw[0], ambNTT.twS[0], mod.Value())
 	vec.MFormTo(chirpM, chirpM, mod)
 
@@ -335,7 +335,7 @@ func newAnyCyclicTransformer(params RingParameters, mod *num.Modulus) *anyCyclic
 	copy(chirpInv[ambRank-params.rank+1:], z[1:])
 	slices.Reverse(chirpInv[ambRank-params.rank+1:])
 
-	vec.ScalarMulTo(chirpInv, chirpInv, num.Inv(uint64(ambRank*params.rank), mod), mod)
+	vec.MulScalarTo(chirpInv, chirpInv, num.Inv(uint64(ambRank*params.rank), mod), mod)
 	nttInPlacePow2(chirpInv, ambNTT.tw[0], ambNTT.twS[0], mod.Value())
 	vec.ReduceTo(chirpInv, chirpInv, mod)
 

@@ -134,7 +134,7 @@ func (ntt *pow2AutFixedTransformer) InverseTo(v, vNTT []uint64) {
 		ntt.buf.coeffs[i] = v[i] + num.SMul(v[ntt.params.rank-i], ntt.tw[0], ntt.twS[0], ntt.mod)
 	}
 
-	vec.ScalarMulTo(v, ntt.buf.coeffs, ntt.rankInv, ntt.mod)
+	vec.MulScalarTo(v, ntt.buf.coeffs, ntt.rankInv, ntt.mod)
 }
 
 // Params returns the ring parameters.
@@ -288,7 +288,7 @@ func (ntt *primeAutFixedTransformer) ForwardTo(vNTT, v []uint64) {
 	vec.MMulLazyTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.root, ntt.mod)
 
 	inttInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvS[0], ntt.mod.Value())
-	vec.ScalarMMulTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.ambRankInvM, ntt.mod)
+	vec.MMulScalarTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.ambRankInvM, ntt.mod)
 
 	if ntt.isPow2 {
 		copy(vNTT, ntt.buf.coeffs)
@@ -340,15 +340,15 @@ func (ntt *primeAutFixedTransformer) InverseTo(v, vNTT []uint64) {
 	vec.MMulLazyTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.rootInv, ntt.mod)
 
 	inttInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvS[0], ntt.mod.Value())
-	vec.ScalarMulLazyTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.ambNTT.rankInv, ntt.mod)
+	vec.MulScalarLazyTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.ambNTT.rankInv, ntt.mod)
 
 	if !ntt.isPow2 {
 		vec.AddTo(ntt.buf.coeffs[:ntt.params.rank-1], ntt.buf.coeffs[:ntt.params.rank-1], ntt.buf.coeffs[ntt.params.rank:2*ntt.params.rank-1], ntt.mod)
 	}
 
 	sumFold = num.MMul(sumFold, ntt.fold, ntt.mod)
-	vec.ScalarSubTo(v, ntt.buf.coeffs[:ntt.params.rank], sumFold, ntt.mod)
-	vec.ScalarMulTo(v, v, ntt.cycloOrdInv, ntt.mod)
+	vec.SubScalarTo(v, ntt.buf.coeffs[:ntt.params.rank], sumFold, ntt.mod)
+	vec.MulScalarTo(v, v, ntt.cycloOrdInv, ntt.mod)
 }
 
 // Params returns the ring parameters.

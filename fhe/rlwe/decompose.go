@@ -292,7 +292,7 @@ func (d *digitDecomposer) DecomposeTo(pOut *Tensor, p *crt.Poly) {
 
 		for j := 0; j < modLen; j++ {
 			vec.SubTo(pBuf.Coeffs[j], pBuf.Coeffs[j], pOut.Value[i].Coeffs[auxLen+j], d.params.modulus[j])
-			vec.ScalarMulTo(pBuf.Coeffs[j], pBuf.Coeffs[j], num.Inv(base, d.params.modulus[j]), d.params.modulus[j])
+			vec.MulScalarTo(pBuf.Coeffs[j], pBuf.Coeffs[j], num.Inv(base, d.params.modulus[j]), d.params.modulus[j])
 		}
 	}
 }
