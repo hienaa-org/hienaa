@@ -105,8 +105,7 @@ func (p *Poly) Copy() *Poly {
 //
 // Panics when p and pIn are not consistent.
 func (p *Poly) CopyFrom(pIn *Poly) {
-	switch {
-	case !p.IsConsistent(pIn):
+	if !p.IsConsistent(pIn) {
 		panic("input(s) not consistent")
 	}
 

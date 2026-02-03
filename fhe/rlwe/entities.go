@@ -394,20 +394,20 @@ type GadgetEncryption struct {
 	Value []*Ciphertext
 }
 
-// NewGadgetEncryption creates a new [GadgetEncryption] with the given parameters, degree, and NTT flag.
+// NewGadgetEncryption creates a new [GadgetEncryption].
 func NewGadgetEncryption(params Parameters, isNTT bool) *GadgetEncryption {
-	gadLen := maxGadgetLen(params)
-	value := make([]*Ciphertext, gadLen)
+	gadLen := params.GadgetLen()
+	ct := make([]*Ciphertext, gadLen)
 	for i := 0; i < gadLen; i++ {
-		value[i] = NewCiphertext(params, true, isNTT)
+		ct[i] = NewCiphertext(params, true, isNTT)
 	}
-	return &GadgetEncryption{Value: value}
+	return &GadgetEncryption{Value: ct}
 }
 
 // Clear clears g.
 func (g *GadgetEncryption) Clear() {
-	for _, c := range g.Value {
-		c.Clear()
+	for i := range g.Value {
+		g.Value[i].Clear()
 	}
 }
 

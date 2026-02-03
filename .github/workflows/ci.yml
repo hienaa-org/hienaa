@@ -47,3 +47,9 @@ jobs:
                   go test ./math/crt -timeout=0 -count=1
                   go test ./math/crt -timeout=0 -count=1 -tags=purego
                   GODEBUG=cpu.all=off go test ./math/crt -count=1
+
+            - name: Test fhe/rlwe
+              run: |
+                  go test ./fhe/rlwe -timeout=0 -count=1
+                  go test ./fhe/rlwe -timeout=0 -count=1 -tags=purego
+                  GODEBUG=cpu.all=off go test ./fhe/rlwe -count=1
