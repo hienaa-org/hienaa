@@ -127,10 +127,10 @@ type Sampler interface {
 	SamplerParams() SamplerParameters
 	// Sample samples a polynomial with given rank and modulus.
 	// Output is always Standard form.
-	Sample(rank int, mod []*num.Modulus) *Poly
+	Sample(rank int, mod []*num.Modulus) *Element
 	// SampleTo samples a polynomial to pOut.
 	// pOut is set to Standard form.
-	SampleTo(pOut *Poly, mod []*num.Modulus)
+	SampleTo(pOut *Element, mod []*num.Modulus)
 	// SafeCopy returns a thread-safe copy.
 	// This always returns a freshly seeded sampler.
 	SafeCopy() Sampler
@@ -154,7 +154,7 @@ func (s *UniformSampler) SamplerParams() SamplerParameters {
 
 // Sample samples a polynomial with given rank and modulus.
 // Output is always Standard form.
-func (s *UniformSampler) Sample(rank int, mod []*num.Modulus) *Poly {
+func (s *UniformSampler) Sample(rank int, mod []*num.Modulus) *Element {
 	p := NewPoly(rank, len(mod))
 	s.SampleTo(p, mod)
 	return p
@@ -162,8 +162,8 @@ func (s *UniformSampler) Sample(rank int, mod []*num.Modulus) *Poly {
 
 // SampleTo samples a polynomial to pOut.
 // pOut is set to Standard form.
-func (s *UniformSampler) SampleTo(pOut *Poly, mod []*num.Modulus) {
-	mustConsistent(pOut.Rank(), len(mod), pOut)
+func (s *UniformSampler) SampleTo(pOut *Element, mod []*num.Modulus) {
+	checkShape(pOut.Rank(), len(mod), pOut)
 
 	if s.boundMin != nil || s.boundMax != nil {
 		s.sampleToBounded(pOut, mod)
@@ -180,7 +180,7 @@ func (s *UniformSampler) SampleTo(pOut *Poly, mod []*num.Modulus) {
 	pOut.IsNTT = false
 }
 
-func (s *UniformSampler) sampleToBounded(pOut *Poly, mod []*num.Modulus) {
+func (s *UniformSampler) sampleToBounded(pOut *Element, mod []*num.Modulus) {
 	modBig := make([]*big.Int, len(mod))
 	modProd := big.NewInt(1)
 	for i := range mod {
@@ -241,7 +241,7 @@ func (s *TernarySampler) SamplerParams() SamplerParameters {
 
 // Sample samples a polynomial with given rank and modulus.
 // Output is always Standard form.
-func (s *TernarySampler) Sample(rank int, mod []*num.Modulus) *Poly {
+func (s *TernarySampler) Sample(rank int, mod []*num.Modulus) *Element {
 	p := NewPoly(rank, len(mod))
 	s.SampleTo(p, mod)
 	return p
@@ -249,8 +249,8 @@ func (s *TernarySampler) Sample(rank int, mod []*num.Modulus) *Poly {
 
 // SampleTo samples a polynomial to pOut.
 // pOut is set to Standard form.
-func (s *TernarySampler) SampleTo(pOut *Poly, mod []*num.Modulus) {
-	mustConsistent(pOut.Rank(), len(mod), pOut)
+func (s *TernarySampler) SampleTo(pOut *Element, mod []*num.Modulus) {
+	checkShape(pOut.Rank(), len(mod), pOut)
 	if s.hw > pOut.Rank() {
 		panic("hamming weight must be less than or equal to rank")
 	}
@@ -356,7 +356,7 @@ func (s *RoundedGaussianSampler[T]) SamplerParams() SamplerParameters {
 
 // Sample samples a polynomial with given rank and modulus.
 // Output is always Standard form.
-func (s *RoundedGaussianSampler[T]) Sample(rank int, mod []*num.Modulus) *Poly {
+func (s *RoundedGaussianSampler[T]) Sample(rank int, mod []*num.Modulus) *Element {
 	p := NewPoly(rank, len(mod))
 	s.SampleTo(p, mod)
 	return p
@@ -364,7 +364,7 @@ func (s *RoundedGaussianSampler[T]) Sample(rank int, mod []*num.Modulus) *Poly {
 
 // SampleTo samples a polynomial to pOut.
 // pOut is set to Standard form.
-func (s *RoundedGaussianSampler[T]) SampleTo(pOut *Poly, mod []*num.Modulus) {
+func (s *RoundedGaussianSampler[T]) SampleTo(pOut *Element, mod []*num.Modulus) {
 	if pOut.ModLen() != len(mod) {
 		panic("modulus length is inconsistent")
 	}
@@ -377,7 +377,7 @@ func (s *RoundedGaussianSampler[T]) SampleTo(pOut *Poly, mod []*num.Modulus) {
 	}
 }
 
-func (s *RoundedGaussianSampler[T]) sampleFloat64To(pOut *Poly, mod []*num.Modulus, center, stdDev float64) {
+func (s *RoundedGaussianSampler[T]) sampleFloat64To(pOut *Element, mod []*num.Modulus, center, stdDev float64) {
 	for j := 0; j < pOut.Rank(); j++ {
 		c := s.baseSampler.Sample(center, stdDev)
 		for i := range mod {
@@ -388,7 +388,7 @@ func (s *RoundedGaussianSampler[T]) sampleFloat64To(pOut *Poly, mod []*num.Modul
 	pOut.IsNTT = false
 }
 
-func (s *RoundedGaussianSampler[T]) sampleBigFloatTo(pOut *Poly, mod []*num.Modulus, center, stdDev *big.Float) {
+func (s *RoundedGaussianSampler[T]) sampleBigFloatTo(pOut *Element, mod []*num.Modulus, center, stdDev *big.Float) {
 	modBig := make([]*big.Int, len(mod))
 	for i := range mod {
 		modBig[i] = new(big.Int).SetUint64(mod[i].Value())

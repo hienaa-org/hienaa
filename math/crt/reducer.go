@@ -100,7 +100,7 @@ func (r *LongDivReducer) quoRemTo(pQuo, pRem, p []uint64, idx int) {
 // Reduce reduces p.
 //
 // Panics when p is in NTT form, or the rank of p is larger than maxRank.
-func (r *LongDivReducer) Reduce(p *Poly) *Poly {
+func (r *LongDivReducer) Reduce(p *Element) *Element {
 	pOut := NewPoly(r.params.Rank(), p.ModLen())
 	r.ReduceTo(pOut, p)
 	return pOut
@@ -109,7 +109,7 @@ func (r *LongDivReducer) Reduce(p *Poly) *Poly {
 // ReduceTo reduces p to pOut.
 //
 // Panics when p is in NTT form, or the rank of p is larger than maxRank.
-func (r *LongDivReducer) ReduceTo(pOut, p *Poly) {
+func (r *LongDivReducer) ReduceTo(pOut, p *Element) {
 	if p.IsNTT {
 		panic("input(s) must be in standard form")
 	} else if p.Rank() > r.maxRank {
@@ -126,7 +126,7 @@ func (r *LongDivReducer) ReduceTo(pOut, p *Poly) {
 // Quotient returns p / modPoly.
 //
 // Panics when p is in NTT form, or the rank of p is larger than maxRank.
-func (r *LongDivReducer) Quotient(p *Poly) *Poly {
+func (r *LongDivReducer) Quotient(p *Element) *Element {
 	pOut := NewPoly(p.Rank()-r.params.Rank(), p.ModLen())
 	r.QuotientTo(pOut, p)
 	return pOut
@@ -135,7 +135,7 @@ func (r *LongDivReducer) Quotient(p *Poly) *Poly {
 // QuotientTo computes pOut = p / modPoly.
 //
 // Panics when p is in NTT form, or the rank of p is larger than maxRank.
-func (r *LongDivReducer) QuotientTo(pOut, p *Poly) {
+func (r *LongDivReducer) QuotientTo(pOut, p *Element) {
 	if p.IsNTT {
 		panic("input(s) must be in standard form")
 	} else if p.Rank() > r.maxRank {
@@ -152,7 +152,7 @@ func (r *LongDivReducer) QuotientTo(pOut, p *Poly) {
 // QuoRem returns p / modPoly and p % modPoly.
 //
 // Panics when p is in NTT form, or the rank of p is larger than maxRank.
-func (r *LongDivReducer) QuoRem(p *Poly) (pQuo, pRem *Poly) {
+func (r *LongDivReducer) QuoRem(p *Element) (pQuo, pRem *Element) {
 	pQuo = NewPoly(p.Rank()-r.params.Rank(), p.ModLen())
 	pRem = NewPoly(r.params.Rank(), p.ModLen())
 	r.QuoRemTo(pQuo, pRem, p)
@@ -162,7 +162,7 @@ func (r *LongDivReducer) QuoRem(p *Poly) (pQuo, pRem *Poly) {
 // QuoRemTo computes pQuo = p / modPoly and pRem = p % modPoly.
 //
 // Panics when p, pQuo or pRem is in NTT form, or the rank of p is larger than maxRank.
-func (r *LongDivReducer) QuoRemTo(pQuo, pRem, p *Poly) {
+func (r *LongDivReducer) QuoRemTo(pQuo, pRem, p *Element) {
 	if p.IsNTT {
 		panic("input(s) must be in standard form")
 	} else if p.Rank() > r.maxRank {
@@ -510,7 +510,7 @@ func (r *CyclotomicReducer) reduceTo(pOut, p []uint64, idx int) {
 // Reduce reduces p.
 //
 // Panics when p is in NTT form, or the rank of p is larger than CycloOrd.
-func (r *CyclotomicReducer) Reduce(p *Poly) *Poly {
+func (r *CyclotomicReducer) Reduce(p *Element) *Element {
 	pOut := NewPoly(r.params.Rank(), p.ModLen())
 	r.ReduceTo(pOut, p)
 	return pOut
@@ -519,7 +519,7 @@ func (r *CyclotomicReducer) Reduce(p *Poly) *Poly {
 // ReduceTo reduces p to pOut.
 //
 // Panics when p is in NTT form, or the rank of p is larger than CycloOrd.
-func (r *CyclotomicReducer) ReduceTo(pOut, p *Poly) {
+func (r *CyclotomicReducer) ReduceTo(pOut, p *Element) {
 	if p.IsNTT {
 		panic("input(s) must be in standard form")
 	} else if p.Rank() > r.params.CycloOrder() {
@@ -917,7 +917,7 @@ func (r *Reducer) reduceTo(pOut, p []uint64, idx int) {
 // Reduce reduces p.
 //
 // Panics when p is in NTT form, or the rank of p is larger than MaxRank.
-func (r *Reducer) Reduce(p *Poly) *Poly {
+func (r *Reducer) Reduce(p *Element) *Element {
 	pOut := NewPoly(r.params.Rank(), p.ModLen())
 	r.ReduceTo(pOut, p)
 	return pOut
@@ -926,7 +926,7 @@ func (r *Reducer) Reduce(p *Poly) *Poly {
 // ReduceTo reduces p to pOut.
 //
 // Panics when p is in NTT form, or the rank of p is larger than MaxRank.
-func (r *Reducer) ReduceTo(pOut, p *Poly) {
+func (r *Reducer) ReduceTo(pOut, p *Element) {
 	if p.IsNTT {
 		panic("input(s) must be in standard form")
 	} else if p.Rank() > r.maxRank {

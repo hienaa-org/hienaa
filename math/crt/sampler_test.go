@@ -60,7 +60,7 @@ func entropy(v []*big.Int) float64 {
 func TestSampler(t *testing.T) {
 	rP := dft.NewCyclicParameters(1 << 10)
 	q := dft.MustFindPrevNTTPrimes(rP, num.MaxModulusBits, 2)
-	pev := crt.NewPolyEvaluator(rP, q)
+	pev := crt.NewOperator(rP, q)
 
 	t.Run("type=Uniform", func(t *testing.T) {
 		s := crt.UniformSamplerParameters{}.Sampler()

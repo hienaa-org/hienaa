@@ -48,10 +48,10 @@ func cyclicMul(p0, p1 []uint64, q *num.Modulus) []uint64 {
 
 func reduce(p []uint64, q *num.Modulus, modPoly []int64) []uint64 {
 	reducer := crt.NewLongDivReducer(len(p), []*num.Modulus{q}, modPoly)
-	return reducer.Reduce(&crt.Poly{Coeffs: [][]uint64{p}}).Coeffs[0]
+	return reducer.Reduce(&crt.Element{Coeffs: [][]uint64{p}}).Coeffs[0]
 }
 
-func TestCyclotomicEvaluator(t *testing.T) {
+func TestCyclotomicOperator(t *testing.T) {
 	t.Run("type=Pow2", func(t *testing.T) {
 		N := 1 << 10
 		rP := dft.NewCyclotomicParameters(N << 1)
@@ -59,19 +59,19 @@ func TestCyclotomicEvaluator(t *testing.T) {
 		q := dft.MustFindPrevNTTPrimes(rP, 40, 1)
 		q = append(q, num.NewModulus(num.MustNextPrime(q[0].Value(), 2)))
 
-		pev := crt.NewPolyEvaluator(rP, q)
+		op := crt.NewOperator(rP, q)
 
 		p0 := randPoly(rP.Rank(), q)
 		p1 := randPoly(rP.Rank(), q)
 		pOut := randPoly(rP.Rank(), q)
 
-		p0NTT := pev.FwdNTT(p0)
-		p1NTT := pev.FwdNTT(p1)
-		pOutNTT := pev.FwdNTT(pOut)
+		p0NTT := op.FwdNTT(p0)
+		p1NTT := op.FwdNTT(p1)
+		pOutNTT := op.FwdNTT(pOut)
 
 		t.Run("Mul", func(t *testing.T) {
-			pev.MulTo(pOutNTT, p0NTT, p1NTT)
-			pev.InvNTTTo(pOut, pOutNTT)
+			op.MulTo(pOutNTT, p0NTT, p1NTT)
+			op.InvNTTTo(pOut, pOutNTT)
 
 			pOutRef := make([][]uint64, len(q))
 			for i := range q {
@@ -84,9 +84,9 @@ func TestCyclotomicEvaluator(t *testing.T) {
 		t.Run("MulAdd", func(t *testing.T) {
 			pOutRef := pOut.Copy().Coeffs
 
-			pev.FwdNTTTo(pOutNTT, pOut)
-			pev.MulAddTo(pOutNTT, p0NTT, p1NTT)
-			pev.InvNTTTo(pOut, pOutNTT)
+			op.FwdNTTTo(pOutNTT, pOut)
+			op.MulAddTo(pOutNTT, p0NTT, p1NTT)
+			op.InvNTTTo(pOut, pOutNTT)
 
 			for i := range q {
 				pMulRef := cyclotomicPow2Mul(p0.Coeffs[i], p1.Coeffs[i], q[i])
@@ -99,9 +99,9 @@ func TestCyclotomicEvaluator(t *testing.T) {
 		t.Run("MulSub", func(t *testing.T) {
 			pOutRef := pOut.Copy().Coeffs
 
-			pev.FwdNTTTo(pOutNTT, pOut)
-			pev.MulSubTo(pOutNTT, p0NTT, p1NTT)
-			pev.InvNTTTo(pOut, pOutNTT)
+			op.FwdNTTTo(pOutNTT, pOut)
+			op.MulSubTo(pOutNTT, p0NTT, p1NTT)
+			op.InvNTTTo(pOut, pOutNTT)
 
 			for i := range q {
 				pMulRef := cyclotomicPow2Mul(p0.Coeffs[i], p1.Coeffs[i], q[i])
@@ -115,10 +115,10 @@ func TestCyclotomicEvaluator(t *testing.T) {
 			idx := rP.CycloOrder() - 1
 			idxInv := int(num.Inv(uint64(idx), num.NewModulus(rP.CycloOrder())))
 
-			pev.AutTo(pOut, p0, idx)
-			pev.FwdNTTTo(pOutNTT, pOut)
-			pev.AutTo(pOutNTT, pOutNTT, idxInv)
-			pev.InvNTTTo(pOut, pOutNTT)
+			op.AutTo(pOut, p0, idx)
+			op.FwdNTTTo(pOutNTT, pOut)
+			op.AutTo(pOutNTT, pOutNTT, idxInv)
+			op.InvNTTTo(pOut, pOutNTT)
 
 			assert.Equal(t, p0, pOut)
 		})
@@ -134,15 +134,15 @@ func TestCyclotomicEvaluator(t *testing.T) {
 
 		cycloSigned := dft.CyclotomicPolynomial(rP.CycloOrder())
 
-		pev := crt.NewPolyEvaluator(rP, q)
+		op := crt.NewOperator(rP, q)
 
 		p0 := randPoly(N, q)
 		p1 := randPoly(N, q)
 		pOut := randPoly(N, q)
 
-		p0NTT := pev.FwdNTT(p0)
-		p1NTT := pev.FwdNTT(p1)
-		pOutNTT := pev.FwdNTT(pOut)
+		p0NTT := op.FwdNTT(p0)
+		p1NTT := op.FwdNTT(p1)
+		pOutNTT := op.FwdNTT(pOut)
 
 		p0Ref := make([][]uint64, len(q))
 		p1Ref := make([][]uint64, len(q))
@@ -154,8 +154,8 @@ func TestCyclotomicEvaluator(t *testing.T) {
 		}
 
 		t.Run("Mul", func(t *testing.T) {
-			pev.MulTo(pOutNTT, p0NTT, p1NTT)
-			pev.InvNTTTo(pOut, pOutNTT)
+			op.MulTo(pOutNTT, p0NTT, p1NTT)
+			op.InvNTTTo(pOut, pOutNTT)
 
 			pOutRef := make([][]uint64, len(q))
 			for i := range q {
@@ -169,9 +169,9 @@ func TestCyclotomicEvaluator(t *testing.T) {
 		t.Run("MulAdd", func(t *testing.T) {
 			pOutRef := pOut.Copy().Coeffs
 
-			pev.FwdNTTTo(pOutNTT, pOut)
-			pev.MulAddTo(pOutNTT, p0NTT, p1NTT)
-			pev.InvNTTTo(pOut, pOutNTT)
+			op.FwdNTTTo(pOutNTT, pOut)
+			op.MulAddTo(pOutNTT, p0NTT, p1NTT)
+			op.InvNTTTo(pOut, pOutNTT)
 
 			for i := range q {
 				pMulRef := cyclicMul(p0Ref[i], p1Ref[i], q[i])
@@ -184,9 +184,9 @@ func TestCyclotomicEvaluator(t *testing.T) {
 		t.Run("MulSub", func(t *testing.T) {
 			pOutRef := pOut.Copy().Coeffs
 
-			pev.FwdNTTTo(pOutNTT, pOut)
-			pev.MulSubTo(pOutNTT, p0NTT, p1NTT)
-			pev.InvNTTTo(pOut, pOutNTT)
+			op.FwdNTTTo(pOutNTT, pOut)
+			op.MulSubTo(pOutNTT, p0NTT, p1NTT)
+			op.InvNTTTo(pOut, pOutNTT)
 
 			for i := range q {
 				pMulRef := cyclicMul(p0Ref[i], p1Ref[i], q[i])
@@ -200,17 +200,17 @@ func TestCyclotomicEvaluator(t *testing.T) {
 			idx := rP.CycloOrder() - 1
 			idxInv := int(num.Inv(uint64(idx), num.NewModulus(rP.CycloOrder())))
 
-			pev.AutTo(pOut, p0, idx)
-			pev.FwdNTTTo(pOut, pOut)
-			pev.AutTo(pOut, pOut, idxInv)
-			pev.InvNTTTo(pOut, pOut)
+			op.AutTo(pOut, p0, idx)
+			op.FwdNTTTo(pOut, pOut)
+			op.AutTo(pOut, pOut, idxInv)
+			op.InvNTTTo(pOut, pOut)
 
 			assert.Equal(t, p0.Coeffs, pOut.Coeffs)
 		})
 	})
 }
 
-func TestCyclicEvaluator(t *testing.T) {
+func TestCyclicOperator(t *testing.T) {
 	t.Run("type=Pow235", func(t *testing.T) {
 		N := num.NextProdPower(int(rSrc.SampleN(1<<10)), []int{2, 3, 5})
 		rP := dft.NewCyclicParameters(N)
@@ -218,19 +218,19 @@ func TestCyclicEvaluator(t *testing.T) {
 		q := dft.MustFindPrevNTTPrimes(rP, 40, 1)
 		q = append(q, num.NewModulus(num.MustNextPrime(q[0].Value(), 2)))
 
-		pev := crt.NewPolyEvaluator(rP, q)
+		op := crt.NewOperator(rP, q)
 
 		p0 := randPoly(rP.Rank(), q)
 		p1 := randPoly(rP.Rank(), q)
 		pOut := randPoly(rP.Rank(), q)
 
-		p0NTT := pev.FwdNTT(p0)
-		p1NTT := pev.FwdNTT(p1)
-		pOutNTT := pev.FwdNTT(pOut)
+		p0NTT := op.FwdNTT(p0)
+		p1NTT := op.FwdNTT(p1)
+		pOutNTT := op.FwdNTT(pOut)
 
 		t.Run("Mul", func(t *testing.T) {
-			pev.MulTo(pOutNTT, p0NTT, p1NTT)
-			pev.InvNTTTo(pOut, pOutNTT)
+			op.MulTo(pOutNTT, p0NTT, p1NTT)
+			op.InvNTTTo(pOut, pOutNTT)
 
 			pOutRef := make([][]uint64, len(q))
 			for i := range q {
@@ -243,9 +243,9 @@ func TestCyclicEvaluator(t *testing.T) {
 		t.Run("MulAdd", func(t *testing.T) {
 			pOutRef := pOut.Copy().Coeffs
 
-			pev.FwdNTTTo(pOutNTT, pOut)
-			pev.MulAddTo(pOutNTT, p0NTT, p1NTT)
-			pev.InvNTTTo(pOut, pOutNTT)
+			op.FwdNTTTo(pOutNTT, pOut)
+			op.MulAddTo(pOutNTT, p0NTT, p1NTT)
+			op.InvNTTTo(pOut, pOutNTT)
 
 			for i := range q {
 				pMulRef := cyclicMul(p0.Coeffs[i], p1.Coeffs[i], q[i])
@@ -258,9 +258,9 @@ func TestCyclicEvaluator(t *testing.T) {
 		t.Run("MulSub", func(t *testing.T) {
 			pOutRef := pOut.Copy().Coeffs
 
-			pev.FwdNTTTo(pOutNTT, pOut)
-			pev.MulSubTo(pOutNTT, p0NTT, p1NTT)
-			pev.InvNTTTo(pOut, pOutNTT)
+			op.FwdNTTTo(pOutNTT, pOut)
+			op.MulSubTo(pOutNTT, p0NTT, p1NTT)
+			op.InvNTTTo(pOut, pOutNTT)
 
 			for i := range q {
 				pMulRef := cyclicMul(p0.Coeffs[i], p1.Coeffs[i], q[i])
@@ -284,19 +284,19 @@ func TestCyclicEvaluator(t *testing.T) {
 		q := dft.MustFindPrevNTTPrimes(rP, 40, 1)
 		q = append(q, num.NewModulus(num.MustNextPrime(q[0].Value(), 2)))
 
-		pev := crt.NewPolyEvaluator(rP, q)
+		op := crt.NewOperator(rP, q)
 
 		p0 := randPoly(N, q)
 		p1 := randPoly(N, q)
 		pOut := randPoly(N, q)
 
-		p0NTT := pev.FwdNTT(p0)
-		p1NTT := pev.FwdNTT(p1)
-		pOutNTT := pev.FwdNTT(pOut)
+		p0NTT := op.FwdNTT(p0)
+		p1NTT := op.FwdNTT(p1)
+		pOutNTT := op.FwdNTT(pOut)
 
 		t.Run("Mul", func(t *testing.T) {
-			pev.MulTo(pOutNTT, p0NTT, p1NTT)
-			pev.InvNTTTo(pOut, pOutNTT)
+			op.MulTo(pOutNTT, p0NTT, p1NTT)
+			op.InvNTTTo(pOut, pOutNTT)
 
 			pOutRef := make([][]uint64, len(q))
 			for i := range q {
@@ -309,9 +309,9 @@ func TestCyclicEvaluator(t *testing.T) {
 		t.Run("MulAdd", func(t *testing.T) {
 			pOutRef := pOut.Copy().Coeffs
 
-			pev.FwdNTTTo(pOutNTT, pOut)
-			pev.MulAddTo(pOutNTT, p0NTT, p1NTT)
-			pev.InvNTTTo(pOut, pOutNTT)
+			op.FwdNTTTo(pOutNTT, pOut)
+			op.MulAddTo(pOutNTT, p0NTT, p1NTT)
+			op.InvNTTTo(pOut, pOutNTT)
 
 			for i := range q {
 				pMulRef := cyclicMul(p0.Coeffs[i], p1.Coeffs[i], q[i])
@@ -324,9 +324,9 @@ func TestCyclicEvaluator(t *testing.T) {
 		t.Run("MulSub", func(t *testing.T) {
 			pOutRef := pOut.Copy().Coeffs
 
-			pev.FwdNTTTo(pOutNTT, pOut)
-			pev.MulSubTo(pOutNTT, p0NTT, p1NTT)
-			pev.InvNTTTo(pOut, pOutNTT)
+			op.FwdNTTTo(pOutNTT, pOut)
+			op.MulSubTo(pOutNTT, p0NTT, p1NTT)
+			op.InvNTTTo(pOut, pOutNTT)
 
 			for i := range q {
 				pMulRef := cyclicMul(p0.Coeffs[i], p1.Coeffs[i], q[i])
@@ -338,7 +338,7 @@ func TestCyclicEvaluator(t *testing.T) {
 	})
 }
 
-func TestAutFixedEvaluator(t *testing.T) {
+func TestAutFixedOperator(t *testing.T) {
 	t.Run("type=Pow2", func(t *testing.T) {
 		N := 1 << 10
 		rP := dft.NewAutFixedParameters(4*N, N)
@@ -346,15 +346,15 @@ func TestAutFixedEvaluator(t *testing.T) {
 		q := dft.MustFindPrevNTTPrimes(rP, 40, 1)
 		q = append(q, num.NewModulus(num.MustNextPrime(q[0].Value(), 2)))
 
-		pev := crt.NewPolyEvaluator(rP, q)
+		op := crt.NewOperator(rP, q)
 
 		p0 := randPoly(rP.Rank(), q)
 		p1 := randPoly(rP.Rank(), q)
 		pOut := randPoly(rP.Rank(), q)
 
-		p0NTT := pev.FwdNTT(p0)
-		p1NTT := pev.FwdNTT(p1)
-		pOutNTT := pev.FwdNTT(pOut)
+		p0NTT := op.FwdNTT(p0)
+		p1NTT := op.FwdNTT(p1)
+		pOutNTT := op.FwdNTT(pOut)
 
 		p0Ref := make([][]uint64, len(q))
 		p1Ref := make([][]uint64, len(q))
@@ -370,8 +370,8 @@ func TestAutFixedEvaluator(t *testing.T) {
 		}
 
 		t.Run("Mul", func(t *testing.T) {
-			pev.MulTo(pOutNTT, p0NTT, p1NTT)
-			pev.InvNTTTo(pOut, pOutNTT)
+			op.MulTo(pOutNTT, p0NTT, p1NTT)
+			op.InvNTTTo(pOut, pOutNTT)
 
 			pOutRef := make([][]uint64, len(q))
 			for i := range q {
@@ -384,9 +384,9 @@ func TestAutFixedEvaluator(t *testing.T) {
 		t.Run("MulAdd", func(t *testing.T) {
 			pOutRef := pOut.Copy().Coeffs
 
-			pev.FwdNTTTo(pOutNTT, pOut)
-			pev.MulAddTo(pOutNTT, p0NTT, p1NTT)
-			pev.InvNTTTo(pOut, pOutNTT)
+			op.FwdNTTTo(pOutNTT, pOut)
+			op.MulAddTo(pOutNTT, p0NTT, p1NTT)
+			op.InvNTTTo(pOut, pOutNTT)
 
 			for i := range q {
 				pMulRef := cyclotomicPow2Mul(p0Ref[i], p1Ref[i], q[i])[:N]
@@ -399,9 +399,9 @@ func TestAutFixedEvaluator(t *testing.T) {
 		t.Run("MulSub", func(t *testing.T) {
 			pOutRef := pOut.Copy().Coeffs
 
-			pev.FwdNTTTo(pOutNTT, pOut)
-			pev.MulSubTo(pOutNTT, p0NTT, p1NTT)
-			pev.InvNTTTo(pOut, pOutNTT)
+			op.FwdNTTTo(pOutNTT, pOut)
+			op.MulSubTo(pOutNTT, p0NTT, p1NTT)
+			op.InvNTTTo(pOut, pOutNTT)
 
 			for i := range q {
 				pMulRef := cyclotomicPow2Mul(p0Ref[i], p1Ref[i], q[i])[:N]
@@ -415,10 +415,10 @@ func TestAutFixedEvaluator(t *testing.T) {
 			idx := rP.CycloOrder() - 3
 			idxInv := int(num.Inv(uint64(idx), num.NewModulus(rP.CycloOrder())))
 
-			pev.AutTo(pOut, p0, idx)
-			pev.FwdNTTTo(pOutNTT, pOut)
-			pev.AutTo(pOutNTT, pOutNTT, idxInv)
-			pev.InvNTTTo(pOut, pOutNTT)
+			op.AutTo(pOut, p0, idx)
+			op.FwdNTTTo(pOutNTT, pOut)
+			op.AutTo(pOutNTT, pOutNTT, idxInv)
+			op.InvNTTTo(pOut, pOutNTT)
 
 			assert.Equal(t, p0.Coeffs, pOut.Coeffs)
 		})
@@ -441,15 +441,15 @@ func TestAutFixedEvaluator(t *testing.T) {
 		q := dft.MustFindPrevNTTPrimes(rP, 40, 1)
 		q = append(q, num.NewModulus(num.MustNextPrime(q[0].Value(), 2)))
 
-		pev := crt.NewPolyEvaluator(rP, q)
+		op := crt.NewOperator(rP, q)
 
 		p0 := randPoly(rP.Rank(), q)
 		p1 := randPoly(rP.Rank(), q)
 		pOut := randPoly(rP.Rank(), q)
 
-		p0NTT := pev.FwdNTT(p0)
-		p1NTT := pev.FwdNTT(p1)
-		pOutNTT := pev.FwdNTT(pOut)
+		p0NTT := op.FwdNTT(p0)
+		p1NTT := op.FwdNTT(p1)
+		pOutNTT := op.FwdNTT(pOut)
 
 		MMod := num.NewModulus(M)
 		root := num.Generators(MMod)[0]
@@ -469,8 +469,8 @@ func TestAutFixedEvaluator(t *testing.T) {
 		}
 
 		t.Run("Mul", func(t *testing.T) {
-			pev.MulTo(pOutNTT, p0NTT, p1NTT)
-			pev.InvNTTTo(pOut, pOutNTT)
+			op.MulTo(pOutNTT, p0NTT, p1NTT)
+			op.InvNTTTo(pOut, pOutNTT)
 
 			pOutRef := make([][]uint64, len(q))
 			for i := range q {
@@ -494,9 +494,9 @@ func TestAutFixedEvaluator(t *testing.T) {
 		t.Run("MulAdd", func(t *testing.T) {
 			pOutRef := pOut.Copy().Coeffs
 
-			pev.FwdNTTTo(pOutNTT, pOut)
-			pev.MulAddTo(pOutNTT, p0NTT, p1NTT)
-			pev.InvNTTTo(pOut, pOutNTT)
+			op.FwdNTTTo(pOutNTT, pOut)
+			op.MulAddTo(pOutNTT, p0NTT, p1NTT)
+			op.InvNTTTo(pOut, pOutNTT)
 
 			for i := range q {
 				pMulRef := cyclicMul(p0Ref[i], p1Ref[i], q[i])
@@ -518,9 +518,9 @@ func TestAutFixedEvaluator(t *testing.T) {
 		t.Run("MulSub", func(t *testing.T) {
 			pOutRef := pOut.Copy().Coeffs
 
-			pev.FwdNTTTo(pOutNTT, pOut)
-			pev.MulSubTo(pOutNTT, p0NTT, p1NTT)
-			pev.InvNTTTo(pOut, pOutNTT)
+			op.FwdNTTTo(pOutNTT, pOut)
+			op.MulSubTo(pOutNTT, p0NTT, p1NTT)
+			op.InvNTTTo(pOut, pOutNTT)
 
 			for i := range q {
 				pMulRef := cyclicMul(p0Ref[i], p1Ref[i], q[i])
@@ -543,17 +543,17 @@ func TestAutFixedEvaluator(t *testing.T) {
 			idx := rP.CycloOrder() - 3
 			idxInv := int(num.Inv(uint64(idx), num.NewModulus(rP.CycloOrder())))
 
-			pev.AutTo(pOut, p0, idx)
-			pev.FwdNTTTo(pOutNTT, pOut)
-			pev.AutTo(pOutNTT, pOutNTT, idxInv)
-			pev.InvNTTTo(pOut, pOutNTT)
+			op.AutTo(pOut, p0, idx)
+			op.FwdNTTTo(pOutNTT, pOut)
+			op.AutTo(pOutNTT, pOutNTT, idxInv)
+			op.InvNTTTo(pOut, pOutNTT)
 
 			assert.Equal(t, p0.Coeffs, pOut.Coeffs)
 		})
 	})
 }
 
-func TestAnyEvaluator(t *testing.T) {
+func TestAnyOperator(t *testing.T) {
 	t.Run("type=Any", func(t *testing.T) {
 		N := 1 << 10
 
@@ -561,15 +561,15 @@ func TestAnyEvaluator(t *testing.T) {
 
 		modPolySigned := randTernaryPoly(N + 1)
 
-		pev := crt.NewPolyEvaluatorWithModPoly(q, modPolySigned)
+		op := crt.NewOperatorWithModPoly(q, modPolySigned)
 
 		p0 := randPoly(N, q)
 		p1 := randPoly(N, q)
 		pOut := randPoly(N, q)
 
-		p0NTT := pev.FwdNTT(p0)
-		p1NTT := pev.FwdNTT(p1)
-		pOutNTT := pev.FwdNTT(pOut)
+		p0NTT := op.FwdNTT(p0)
+		p1NTT := op.FwdNTT(p1)
+		pOutNTT := op.FwdNTT(pOut)
 
 		p0Ref := make([][]uint64, len(q))
 		p1Ref := make([][]uint64, len(q))
@@ -581,8 +581,8 @@ func TestAnyEvaluator(t *testing.T) {
 		}
 
 		t.Run("Mul", func(t *testing.T) {
-			pev.MulTo(pOutNTT, p0NTT, p1NTT)
-			pev.InvNTTTo(pOut, pOutNTT)
+			op.MulTo(pOutNTT, p0NTT, p1NTT)
+			op.InvNTTTo(pOut, pOutNTT)
 
 			pOutRef := make([][]uint64, len(q))
 			for i := range q {
@@ -595,9 +595,9 @@ func TestAnyEvaluator(t *testing.T) {
 		t.Run("MulAdd", func(t *testing.T) {
 			pOutRef := pOut.Copy().Coeffs
 
-			pev.FwdNTTTo(pOutNTT, pOut)
-			pev.MulAddTo(pOutNTT, p0NTT, p1NTT)
-			pev.InvNTTTo(pOut, pOutNTT)
+			op.FwdNTTTo(pOutNTT, pOut)
+			op.MulAddTo(pOutNTT, p0NTT, p1NTT)
+			op.InvNTTTo(pOut, pOutNTT)
 
 			for i := range q {
 				pMulRef := reduce(cyclicMul(p0Ref[i], p1Ref[i], q[i]), q[i], modPolySigned)
@@ -610,9 +610,9 @@ func TestAnyEvaluator(t *testing.T) {
 		t.Run("MulSub", func(t *testing.T) {
 			pOutRef := pOut.Copy().Coeffs
 
-			pev.FwdNTTTo(pOutNTT, pOut)
-			pev.MulSubTo(pOutNTT, p0NTT, p1NTT)
-			pev.InvNTTTo(pOut, pOutNTT)
+			op.FwdNTTTo(pOutNTT, pOut)
+			op.MulSubTo(pOutNTT, p0NTT, p1NTT)
+			op.InvNTTTo(pOut, pOutNTT)
 
 			for i := range q {
 				pMulRef := reduce(cyclicMul(p0Ref[i], p1Ref[i], q[i]), q[i], modPolySigned)
@@ -624,7 +624,7 @@ func TestAnyEvaluator(t *testing.T) {
 	})
 }
 
-func BenchmarkCyclotomicEvaluator(b *testing.B) {
+func BenchmarkCyclotomicOperator(b *testing.B) {
 	b.Run("type=Pow2", func(b *testing.B) {
 		for _, logN := range benchLogN {
 			N := 1 << logN
@@ -634,73 +634,73 @@ func BenchmarkCyclotomicEvaluator(b *testing.B) {
 				b.Run("Mod=NTT", func(b *testing.B) {
 					q := dft.MustFindPrevNTTPrimes(rP, num.MaxModulusBits, 1)
 
-					pev := crt.NewPolyEvaluator(rP, q)
+					op := crt.NewOperator(rP, q)
 
 					p0 := randPoly(rP.Rank(), q)
 					p1 := randPoly(rP.Rank(), q)
 					pOut := randPoly(rP.Rank(), q)
 
-					p0NTT := pev.FwdNTT(p0)
-					p1NTT := pev.FwdNTT(p1)
-					pOutNTT := pev.FwdNTT(pOut)
+					p0NTT := op.FwdNTT(p0)
+					p1NTT := op.FwdNTT(p1)
+					pOutNTT := op.FwdNTT(pOut)
 
 					b.Run("Add", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.AddTo(pOut, p0, p1)
+							op.AddTo(pOut, p0, p1)
 						}
 					})
 
 					b.Run("Sub", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.SubTo(pOut, p0, p1)
+							op.SubTo(pOut, p0, p1)
 						}
 					})
 
 					b.Run("Neg", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.NegTo(pOut, p0)
+							op.NegTo(pOut, p0)
 						}
 					})
 
 					b.Run("FwdNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.FwdNTTTo(p0NTT, p0)
+							op.FwdNTTTo(p0NTT, p0)
 						}
 					})
 
 					b.Run("InvNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.InvNTTTo(p0, p0NTT)
+							op.InvNTTTo(p0, p0NTT)
 						}
 					})
 
 					b.Run("Mul", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulTo(pOutNTT, p0NTT, p1NTT)
+							op.MulTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("MulAdd", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulAddTo(pOutNTT, p0NTT, p1NTT)
+							op.MulAddTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("MulSub", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulSubTo(pOutNTT, p0NTT, p1NTT)
+							op.MulSubTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("Aut", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.AutTo(pOut, p0, rP.CycloOrder()-1)
+							op.AutTo(pOut, p0, rP.CycloOrder()-1)
 						}
 					})
 
 					b.Run("AutNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.AutTo(pOutNTT, p0NTT, rP.CycloOrder()-1)
+							op.AutTo(pOutNTT, p0NTT, rP.CycloOrder()-1)
 						}
 					})
 				})
@@ -715,73 +715,73 @@ func BenchmarkCyclotomicEvaluator(b *testing.B) {
 					}
 					q := []*num.Modulus{num.NewModulus(qv)}
 
-					pev := crt.NewPolyEvaluator(rP, q)
+					op := crt.NewOperator(rP, q)
 
 					p0 := randPoly(rP.Rank(), q)
 					p1 := randPoly(rP.Rank(), q)
 					pOut := randPoly(rP.Rank(), q)
 
-					p0NTT := pev.FwdNTT(p0)
-					p1NTT := pev.FwdNTT(p1)
-					pOutNTT := pev.FwdNTT(pOut)
+					p0NTT := op.FwdNTT(p0)
+					p1NTT := op.FwdNTT(p1)
+					pOutNTT := op.FwdNTT(pOut)
 
 					b.Run("Add", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.AddTo(pOut, p0, p1)
+							op.AddTo(pOut, p0, p1)
 						}
 					})
 
 					b.Run("Sub", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.SubTo(pOut, p0, p1)
+							op.SubTo(pOut, p0, p1)
 						}
 					})
 
 					b.Run("Neg", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.NegTo(pOut, p0)
+							op.NegTo(pOut, p0)
 						}
 					})
 
 					b.Run("FwdNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.FwdNTTTo(p0NTT, p0)
+							op.FwdNTTTo(p0NTT, p0)
 						}
 					})
 
 					b.Run("InvNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.InvNTTTo(p0, p0NTT)
+							op.InvNTTTo(p0, p0NTT)
 						}
 					})
 
 					b.Run("Mul", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulTo(pOutNTT, p0NTT, p1NTT)
+							op.MulTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("MulAdd", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulAddTo(pOutNTT, p0NTT, p1NTT)
+							op.MulAddTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("MulSub", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulSubTo(pOutNTT, p0NTT, p1NTT)
+							op.MulSubTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("Aut", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.AutTo(pOut, p0, rP.CycloOrder()-1)
+							op.AutTo(pOut, p0, rP.CycloOrder()-1)
 						}
 					})
 
 					b.Run("AutNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.AutTo(pOutNTT, p0NTT, rP.CycloOrder()-1)
+							op.AutTo(pOutNTT, p0NTT, rP.CycloOrder()-1)
 						}
 					})
 				})
@@ -801,73 +801,73 @@ func BenchmarkCyclotomicEvaluator(b *testing.B) {
 				b.Run("Mod=NTT", func(b *testing.B) {
 					q := dft.MustFindPrevNTTPrimes(rP, num.MaxModulusBits, 1)
 
-					pev := crt.NewPolyEvaluator(rP, q)
+					op := crt.NewOperator(rP, q)
 
 					p0 := randPoly(rP.Rank(), q)
 					p1 := randPoly(rP.Rank(), q)
 					pOut := randPoly(rP.Rank(), q)
 
-					p0NTT := pev.FwdNTT(p0)
-					p1NTT := pev.FwdNTT(p1)
-					pOutNTT := pev.FwdNTT(pOut)
+					p0NTT := op.FwdNTT(p0)
+					p1NTT := op.FwdNTT(p1)
+					pOutNTT := op.FwdNTT(pOut)
 
 					b.Run("Add", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.AddTo(pOut, p0, p1)
+							op.AddTo(pOut, p0, p1)
 						}
 					})
 
 					b.Run("Sub", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.SubTo(pOut, p0, p1)
+							op.SubTo(pOut, p0, p1)
 						}
 					})
 
 					b.Run("Neg", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.NegTo(pOut, p0)
+							op.NegTo(pOut, p0)
 						}
 					})
 
 					b.Run("FwdNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.FwdNTTTo(p0NTT, p0)
+							op.FwdNTTTo(p0NTT, p0)
 						}
 					})
 
 					b.Run("InvNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.InvNTTTo(p0, p0NTT)
+							op.InvNTTTo(p0, p0NTT)
 						}
 					})
 
 					b.Run("Mul", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulTo(pOutNTT, p0NTT, p1NTT)
+							op.MulTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("MulAdd", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulAddTo(pOutNTT, p0NTT, p1NTT)
+							op.MulAddTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("MulSub", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulSubTo(pOutNTT, p0NTT, p1NTT)
+							op.MulSubTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("Aut", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.AutTo(pOut, p0, rP.CycloOrder()-1)
+							op.AutTo(pOut, p0, rP.CycloOrder()-1)
 						}
 					})
 
 					b.Run("AutNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.AutTo(pOutNTT, p0NTT, rP.CycloOrder()-1)
+							op.AutTo(pOutNTT, p0NTT, rP.CycloOrder()-1)
 						}
 					})
 				})
@@ -882,73 +882,73 @@ func BenchmarkCyclotomicEvaluator(b *testing.B) {
 					}
 					q := []*num.Modulus{num.NewModulus(qv)}
 
-					pev := crt.NewPolyEvaluator(rP, q)
+					op := crt.NewOperator(rP, q)
 
 					p0 := randPoly(rP.Rank(), q)
 					p1 := randPoly(rP.Rank(), q)
 					pOut := randPoly(rP.Rank(), q)
 
-					p0NTT := pev.FwdNTT(p0)
-					p1NTT := pev.FwdNTT(p1)
-					pOutNTT := pev.FwdNTT(pOut)
+					p0NTT := op.FwdNTT(p0)
+					p1NTT := op.FwdNTT(p1)
+					pOutNTT := op.FwdNTT(pOut)
 
 					b.Run("Add", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.AddTo(pOut, p0, p1)
+							op.AddTo(pOut, p0, p1)
 						}
 					})
 
 					b.Run("Sub", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.SubTo(pOut, p0, p1)
+							op.SubTo(pOut, p0, p1)
 						}
 					})
 
 					b.Run("Neg", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.NegTo(pOut, p0)
+							op.NegTo(pOut, p0)
 						}
 					})
 
 					b.Run("FwdNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.FwdNTTTo(p0NTT, p0)
+							op.FwdNTTTo(p0NTT, p0)
 						}
 					})
 
 					b.Run("InvNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.InvNTTTo(p0, p0NTT)
+							op.InvNTTTo(p0, p0NTT)
 						}
 					})
 
 					b.Run("Mul", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulTo(pOutNTT, p0NTT, p1NTT)
+							op.MulTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("MulAdd", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulAddTo(pOutNTT, p0NTT, p1NTT)
+							op.MulAddTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("MulSub", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulSubTo(pOutNTT, p0NTT, p1NTT)
+							op.MulSubTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("Aut", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.AutTo(pOut, p0, rP.CycloOrder()-1)
+							op.AutTo(pOut, p0, rP.CycloOrder()-1)
 						}
 					})
 
 					b.Run("AutNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.AutTo(pOutNTT, p0NTT, rP.CycloOrder()-1)
+							op.AutTo(pOutNTT, p0NTT, rP.CycloOrder()-1)
 						}
 					})
 				})
@@ -957,7 +957,7 @@ func BenchmarkCyclotomicEvaluator(b *testing.B) {
 	})
 }
 
-func BenchmarkCyclicEvaluator(b *testing.B) {
+func BenchmarkCyclicOperator(b *testing.B) {
 	b.Run("type=Pow2", func(b *testing.B) {
 		for _, logN := range benchLogN {
 			N := 1 << logN
@@ -967,61 +967,61 @@ func BenchmarkCyclicEvaluator(b *testing.B) {
 				b.Run("Mod=NTT", func(b *testing.B) {
 					q := dft.MustFindPrevNTTPrimes(rP, num.MaxModulusBits, 1)
 
-					pev := crt.NewPolyEvaluator(rP, q)
+					op := crt.NewOperator(rP, q)
 
 					p0 := randPoly(rP.Rank(), q)
 					p1 := randPoly(rP.Rank(), q)
 					pOut := randPoly(rP.Rank(), q)
 
-					p0NTT := pev.FwdNTT(p0)
-					p1NTT := pev.FwdNTT(p1)
-					pOutNTT := pev.FwdNTT(pOut)
+					p0NTT := op.FwdNTT(p0)
+					p1NTT := op.FwdNTT(p1)
+					pOutNTT := op.FwdNTT(pOut)
 
 					b.Run("Add", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.AddTo(pOut, p0, p1)
+							op.AddTo(pOut, p0, p1)
 						}
 					})
 
 					b.Run("Sub", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.SubTo(pOut, p0, p1)
+							op.SubTo(pOut, p0, p1)
 						}
 					})
 
 					b.Run("Neg", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.NegTo(pOut, p0)
+							op.NegTo(pOut, p0)
 						}
 					})
 
 					b.Run("FwdNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.FwdNTTTo(p0NTT, p0)
+							op.FwdNTTTo(p0NTT, p0)
 						}
 					})
 
 					b.Run("InvNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.InvNTTTo(p0, p0NTT)
+							op.InvNTTTo(p0, p0NTT)
 						}
 					})
 
 					b.Run("Mul", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulTo(pOutNTT, p0NTT, p1NTT)
+							op.MulTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("MulAdd", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulAddTo(pOutNTT, p0NTT, p1NTT)
+							op.MulAddTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("MulSub", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulSubTo(pOutNTT, p0NTT, p1NTT)
+							op.MulSubTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 				})
@@ -1036,61 +1036,61 @@ func BenchmarkCyclicEvaluator(b *testing.B) {
 					}
 					q := []*num.Modulus{num.NewModulus(qv)}
 
-					pev := crt.NewPolyEvaluator(rP, q)
+					op := crt.NewOperator(rP, q)
 
 					p0 := randPoly(rP.Rank(), q)
 					p1 := randPoly(rP.Rank(), q)
 					pOut := randPoly(rP.Rank(), q)
 
-					p0NTT := pev.FwdNTT(p0)
-					p1NTT := pev.FwdNTT(p1)
-					pOutNTT := pev.FwdNTT(pOut)
+					p0NTT := op.FwdNTT(p0)
+					p1NTT := op.FwdNTT(p1)
+					pOutNTT := op.FwdNTT(pOut)
 
 					b.Run("Add", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.AddTo(pOut, p0, p1)
+							op.AddTo(pOut, p0, p1)
 						}
 					})
 
 					b.Run("Sub", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.SubTo(pOut, p0, p1)
+							op.SubTo(pOut, p0, p1)
 						}
 					})
 
 					b.Run("Neg", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.NegTo(pOut, p0)
+							op.NegTo(pOut, p0)
 						}
 					})
 
 					b.Run("FwdNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.FwdNTTTo(p0NTT, p0)
+							op.FwdNTTTo(p0NTT, p0)
 						}
 					})
 
 					b.Run("InvNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.InvNTTTo(p0, p0NTT)
+							op.InvNTTTo(p0, p0NTT)
 						}
 					})
 
 					b.Run("Mul", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulTo(pOutNTT, p0NTT, p1NTT)
+							op.MulTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("MulAdd", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulAddTo(pOutNTT, p0NTT, p1NTT)
+							op.MulAddTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("MulSub", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulSubTo(pOutNTT, p0NTT, p1NTT)
+							op.MulSubTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 				})
@@ -1110,61 +1110,61 @@ func BenchmarkCyclicEvaluator(b *testing.B) {
 				b.Run("Mod=NTT", func(b *testing.B) {
 					q := dft.MustFindPrevNTTPrimes(rP, num.MaxModulusBits, 1)
 
-					pev := crt.NewPolyEvaluator(rP, q)
+					op := crt.NewOperator(rP, q)
 
 					p0 := randPoly(rP.Rank(), q)
 					p1 := randPoly(rP.Rank(), q)
 					pOut := randPoly(rP.Rank(), q)
 
-					p0NTT := pev.FwdNTT(p0)
-					p1NTT := pev.FwdNTT(p1)
-					pOutNTT := pev.FwdNTT(pOut)
+					p0NTT := op.FwdNTT(p0)
+					p1NTT := op.FwdNTT(p1)
+					pOutNTT := op.FwdNTT(pOut)
 
 					b.Run("Add", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.AddTo(pOut, p0, p1)
+							op.AddTo(pOut, p0, p1)
 						}
 					})
 
 					b.Run("Sub", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.SubTo(pOut, p0, p1)
+							op.SubTo(pOut, p0, p1)
 						}
 					})
 
 					b.Run("Neg", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.NegTo(pOut, p0)
+							op.NegTo(pOut, p0)
 						}
 					})
 
 					b.Run("FwdNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.FwdNTTTo(p0NTT, p0)
+							op.FwdNTTTo(p0NTT, p0)
 						}
 					})
 
 					b.Run("InvNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.InvNTTTo(p0, p0NTT)
+							op.InvNTTTo(p0, p0NTT)
 						}
 					})
 
 					b.Run("Mul", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulTo(pOutNTT, p0NTT, p1NTT)
+							op.MulTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("MulAdd", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulAddTo(pOutNTT, p0NTT, p1NTT)
+							op.MulAddTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("MulSub", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulSubTo(pOutNTT, p0NTT, p1NTT)
+							op.MulSubTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 				})
@@ -1179,61 +1179,61 @@ func BenchmarkCyclicEvaluator(b *testing.B) {
 					}
 					q := []*num.Modulus{num.NewModulus(qv)}
 
-					pev := crt.NewPolyEvaluator(rP, q)
+					op := crt.NewOperator(rP, q)
 
 					p0 := randPoly(rP.Rank(), q)
 					p1 := randPoly(rP.Rank(), q)
 					pOut := randPoly(rP.Rank(), q)
 
-					p0NTT := pev.FwdNTT(p0)
-					p1NTT := pev.FwdNTT(p1)
-					pOutNTT := pev.FwdNTT(pOut)
+					p0NTT := op.FwdNTT(p0)
+					p1NTT := op.FwdNTT(p1)
+					pOutNTT := op.FwdNTT(pOut)
 
 					b.Run("Add", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.AddTo(pOut, p0, p1)
+							op.AddTo(pOut, p0, p1)
 						}
 					})
 
 					b.Run("Sub", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.SubTo(pOut, p0, p1)
+							op.SubTo(pOut, p0, p1)
 						}
 					})
 
 					b.Run("Neg", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.NegTo(pOut, p0)
+							op.NegTo(pOut, p0)
 						}
 					})
 
 					b.Run("FwdNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.FwdNTTTo(p0NTT, p0)
+							op.FwdNTTTo(p0NTT, p0)
 						}
 					})
 
 					b.Run("InvNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.InvNTTTo(p0, p0NTT)
+							op.InvNTTTo(p0, p0NTT)
 						}
 					})
 
 					b.Run("Mul", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulTo(pOutNTT, p0NTT, p1NTT)
+							op.MulTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("MulAdd", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulAddTo(pOutNTT, p0NTT, p1NTT)
+							op.MulAddTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("MulSub", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulSubTo(pOutNTT, p0NTT, p1NTT)
+							op.MulSubTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 				})
@@ -1242,7 +1242,7 @@ func BenchmarkCyclicEvaluator(b *testing.B) {
 	})
 }
 
-func BenchmarkAutFixedEvaluator(b *testing.B) {
+func BenchmarkAutFixedOperator(b *testing.B) {
 	b.Run("type=Pow2", func(b *testing.B) {
 		for _, logN := range benchLogN {
 			N := 1 << logN
@@ -1252,73 +1252,73 @@ func BenchmarkAutFixedEvaluator(b *testing.B) {
 				b.Run("Mod=NTT", func(b *testing.B) {
 					q := dft.MustFindPrevNTTPrimes(rP, num.MaxModulusBits, 1)
 
-					pev := crt.NewPolyEvaluator(rP, q)
+					op := crt.NewOperator(rP, q)
 
 					p0 := randPoly(rP.Rank(), q)
 					p1 := randPoly(rP.Rank(), q)
 					pOut := randPoly(rP.Rank(), q)
 
-					p0NTT := pev.FwdNTT(p0)
-					p1NTT := pev.FwdNTT(p1)
-					pOutNTT := pev.FwdNTT(pOut)
+					p0NTT := op.FwdNTT(p0)
+					p1NTT := op.FwdNTT(p1)
+					pOutNTT := op.FwdNTT(pOut)
 
 					b.Run("Add", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.AddTo(pOut, p0, p1)
+							op.AddTo(pOut, p0, p1)
 						}
 					})
 
 					b.Run("Sub", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.SubTo(pOut, p0, p1)
+							op.SubTo(pOut, p0, p1)
 						}
 					})
 
 					b.Run("Neg", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.NegTo(pOut, p0)
+							op.NegTo(pOut, p0)
 						}
 					})
 
 					b.Run("FwdNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.FwdNTTTo(p0NTT, p0)
+							op.FwdNTTTo(p0NTT, p0)
 						}
 					})
 
 					b.Run("InvNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.InvNTTTo(p0, p0NTT)
+							op.InvNTTTo(p0, p0NTT)
 						}
 					})
 
 					b.Run("Mul", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulTo(pOutNTT, p0NTT, p1NTT)
+							op.MulTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("MulAdd", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulAddTo(pOutNTT, p0NTT, p1NTT)
+							op.MulAddTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("MulSub", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulSubTo(pOutNTT, p0NTT, p1NTT)
+							op.MulSubTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("Aut", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.AutTo(pOut, p0, rP.CycloOrder()-3)
+							op.AutTo(pOut, p0, rP.CycloOrder()-3)
 						}
 					})
 
 					b.Run("AutNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.AutTo(pOutNTT, p0NTT, rP.CycloOrder()-3)
+							op.AutTo(pOutNTT, p0NTT, rP.CycloOrder()-3)
 						}
 					})
 				})
@@ -1333,73 +1333,73 @@ func BenchmarkAutFixedEvaluator(b *testing.B) {
 					}
 					q := []*num.Modulus{num.NewModulus(qv)}
 
-					pev := crt.NewPolyEvaluator(rP, q)
+					op := crt.NewOperator(rP, q)
 
 					p0 := randPoly(rP.Rank(), q)
 					p1 := randPoly(rP.Rank(), q)
 					pOut := randPoly(rP.Rank(), q)
 
-					p0NTT := pev.FwdNTT(p0)
-					p1NTT := pev.FwdNTT(p1)
-					pOutNTT := pev.FwdNTT(pOut)
+					p0NTT := op.FwdNTT(p0)
+					p1NTT := op.FwdNTT(p1)
+					pOutNTT := op.FwdNTT(pOut)
 
 					b.Run("Add", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.AddTo(pOut, p0, p1)
+							op.AddTo(pOut, p0, p1)
 						}
 					})
 
 					b.Run("Sub", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.SubTo(pOut, p0, p1)
+							op.SubTo(pOut, p0, p1)
 						}
 					})
 
 					b.Run("Neg", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.NegTo(pOut, p0)
+							op.NegTo(pOut, p0)
 						}
 					})
 
 					b.Run("FwdNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.FwdNTTTo(p0NTT, p0)
+							op.FwdNTTTo(p0NTT, p0)
 						}
 					})
 
 					b.Run("InvNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.InvNTTTo(p0, p0NTT)
+							op.InvNTTTo(p0, p0NTT)
 						}
 					})
 
 					b.Run("Mul", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulTo(pOutNTT, p0NTT, p1NTT)
+							op.MulTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("MulAdd", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulAddTo(pOutNTT, p0NTT, p1NTT)
+							op.MulAddTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("MulSub", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulSubTo(pOutNTT, p0NTT, p1NTT)
+							op.MulSubTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("Aut", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.AutTo(pOut, p0, rP.CycloOrder()-3)
+							op.AutTo(pOut, p0, rP.CycloOrder()-3)
 						}
 					})
 
 					b.Run("AutNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.AutTo(pOutNTT, p0NTT, rP.CycloOrder()-3)
+							op.AutTo(pOutNTT, p0NTT, rP.CycloOrder()-3)
 						}
 					})
 				})
@@ -1417,73 +1417,73 @@ func BenchmarkAutFixedEvaluator(b *testing.B) {
 				b.Run("Mod=NTT", func(b *testing.B) {
 					q := dft.MustFindPrevNTTPrimes(rP, num.MaxModulusBits, 1)
 
-					pev := crt.NewPolyEvaluator(rP, q)
+					op := crt.NewOperator(rP, q)
 
 					p0 := randPoly(rP.Rank(), q)
 					p1 := randPoly(rP.Rank(), q)
 					pOut := randPoly(rP.Rank(), q)
 
-					p0NTT := pev.FwdNTT(p0)
-					p1NTT := pev.FwdNTT(p1)
-					pOutNTT := pev.FwdNTT(pOut)
+					p0NTT := op.FwdNTT(p0)
+					p1NTT := op.FwdNTT(p1)
+					pOutNTT := op.FwdNTT(pOut)
 
 					b.Run("Add", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.AddTo(pOut, p0, p1)
+							op.AddTo(pOut, p0, p1)
 						}
 					})
 
 					b.Run("Sub", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.SubTo(pOut, p0, p1)
+							op.SubTo(pOut, p0, p1)
 						}
 					})
 
 					b.Run("Neg", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.NegTo(pOut, p0)
+							op.NegTo(pOut, p0)
 						}
 					})
 
 					b.Run("FwdNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.FwdNTTTo(p0NTT, p0)
+							op.FwdNTTTo(p0NTT, p0)
 						}
 					})
 
 					b.Run("InvNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.InvNTTTo(p0, p0NTT)
+							op.InvNTTTo(p0, p0NTT)
 						}
 					})
 
 					b.Run("Mul", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulTo(pOutNTT, p0NTT, p1NTT)
+							op.MulTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("MulAdd", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulAddTo(pOutNTT, p0NTT, p1NTT)
+							op.MulAddTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("MulSub", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulSubTo(pOutNTT, p0NTT, p1NTT)
+							op.MulSubTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("Aut", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.AutTo(pOut, p0, rP.CycloOrder()-3)
+							op.AutTo(pOut, p0, rP.CycloOrder()-3)
 						}
 					})
 
 					b.Run("AutNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.AutTo(pOutNTT, p0NTT, rP.CycloOrder()-3)
+							op.AutTo(pOutNTT, p0NTT, rP.CycloOrder()-3)
 						}
 					})
 				})
@@ -1498,73 +1498,73 @@ func BenchmarkAutFixedEvaluator(b *testing.B) {
 					}
 					q := []*num.Modulus{num.NewModulus(qv)}
 
-					pev := crt.NewPolyEvaluator(rP, q)
+					op := crt.NewOperator(rP, q)
 
 					p0 := randPoly(rP.Rank(), q)
 					p1 := randPoly(rP.Rank(), q)
 					pOut := randPoly(rP.Rank(), q)
 
-					p0NTT := pev.FwdNTT(p0)
-					p1NTT := pev.FwdNTT(p1)
-					pOutNTT := pev.FwdNTT(pOut)
+					p0NTT := op.FwdNTT(p0)
+					p1NTT := op.FwdNTT(p1)
+					pOutNTT := op.FwdNTT(pOut)
 
 					b.Run("Add", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.AddTo(pOut, p0, p1)
+							op.AddTo(pOut, p0, p1)
 						}
 					})
 
 					b.Run("Sub", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.SubTo(pOut, p0, p1)
+							op.SubTo(pOut, p0, p1)
 						}
 					})
 
 					b.Run("Neg", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.NegTo(pOut, p0)
+							op.NegTo(pOut, p0)
 						}
 					})
 
 					b.Run("FwdNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.FwdNTTTo(p0NTT, p0)
+							op.FwdNTTTo(p0NTT, p0)
 						}
 					})
 
 					b.Run("InvNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.InvNTTTo(p0, p0NTT)
+							op.InvNTTTo(p0, p0NTT)
 						}
 					})
 
 					b.Run("Mul", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulTo(pOutNTT, p0NTT, p1NTT)
+							op.MulTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("MulAdd", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulAddTo(pOutNTT, p0NTT, p1NTT)
+							op.MulAddTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("MulSub", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.MulSubTo(pOutNTT, p0NTT, p1NTT)
+							op.MulSubTo(pOutNTT, p0NTT, p1NTT)
 						}
 					})
 
 					b.Run("Aut", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.AutTo(pOut, p0, rP.CycloOrder()-3)
+							op.AutTo(pOut, p0, rP.CycloOrder()-3)
 						}
 					})
 
 					b.Run("AutNTT", func(b *testing.B) {
 						for i := 0; i < b.N; i++ {
-							pev.AutTo(pOutNTT, p0NTT, rP.CycloOrder()-3)
+							op.AutTo(pOutNTT, p0NTT, rP.CycloOrder()-3)
 						}
 					})
 				})
@@ -1573,7 +1573,7 @@ func BenchmarkAutFixedEvaluator(b *testing.B) {
 	})
 }
 
-func BenchmarkAnyEvaluator(b *testing.B) {
+func BenchmarkAnyOperator(b *testing.B) {
 	for _, logN := range benchLogN {
 		b.Run(fmt.Sprintf("type=Any/LogN=%v/Mod=Any", logN), func(b *testing.B) {
 			N := 1 << logN
@@ -1581,61 +1581,61 @@ func BenchmarkAnyEvaluator(b *testing.B) {
 
 			q := []*num.Modulus{num.NewModulus(1<<60 + 1)}
 
-			pev := crt.NewPolyEvaluatorWithModPoly(q, modPoly)
+			op := crt.NewOperatorWithModPoly(q, modPoly)
 
 			p0 := randPoly(N, q)
 			p1 := randPoly(N, q)
 			pOut := randPoly(N, q)
 
-			p0NTT := pev.FwdNTT(p0)
-			p1NTT := pev.FwdNTT(p1)
-			pOutNTT := pev.FwdNTT(pOut)
+			p0NTT := op.FwdNTT(p0)
+			p1NTT := op.FwdNTT(p1)
+			pOutNTT := op.FwdNTT(pOut)
 
 			b.Run("Add", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					pev.AddTo(pOut, p0, p1)
+					op.AddTo(pOut, p0, p1)
 				}
 			})
 
 			b.Run("Sub", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					pev.SubTo(pOut, p0, p1)
+					op.SubTo(pOut, p0, p1)
 				}
 			})
 
 			b.Run("Neg", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					pev.NegTo(pOut, p0)
+					op.NegTo(pOut, p0)
 				}
 			})
 
 			b.Run("FwdNTT", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					pev.FwdNTTTo(p0NTT, p0)
+					op.FwdNTTTo(p0NTT, p0)
 				}
 			})
 
 			b.Run("InvNTT", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					pev.InvNTTTo(p0, p0NTT)
+					op.InvNTTTo(p0, p0NTT)
 				}
 			})
 
 			b.Run("Mul", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					pev.MulTo(pOutNTT, p0NTT, p1NTT)
+					op.MulTo(pOutNTT, p0NTT, p1NTT)
 				}
 			})
 
 			b.Run("MulAdd", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					pev.MulAddTo(pOutNTT, p0NTT, p1NTT)
+					op.MulAddTo(pOutNTT, p0NTT, p1NTT)
 				}
 			})
 
 			b.Run("MulSub", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					pev.MulSubTo(pOutNTT, p0NTT, p1NTT)
+					op.MulSubTo(pOutNTT, p0NTT, p1NTT)
 				}
 			})
 		})

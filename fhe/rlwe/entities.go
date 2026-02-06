@@ -1,185 +1,183 @@
 package rlwe
 
 import (
-	"slices"
-
 	"github.com/hienaa-org/hienaa/math/crt"
 )
 
-// SecretKey is a RLWE secret key.
-type SecretKey PlainPoly
+// // SecretKey is a RLWE secret key.
+// type SecretKey PlainPoly
 
-// PublicKey is a RLWE public key.
-type PublicKey Ciphertext
+// // PublicKey is a RLWE public key.
+// type PublicKey Ciphertext
 
-// Plaintext is a RLWE plaintext.
-type Plaintext interface {
-	*PlainScalar | *PlainPoly
-}
+// // Plaintext is a RLWE plaintext.
+// type Plaintext interface {
+// 	*PlainScalar | *PlainPoly
+// }
 
-// PlainScalar is a RLWE plaintext scalar.
-type PlainScalar struct {
-	Value  crt.Scalar
-	HasAux bool
-}
+// // PlainScalar is a RLWE plaintext scalar.
+// type PlainScalar struct {
+// 	Value  crt.TypeScalar
+// 	HasAux bool
+// }
 
-// NewPlainScalar creates a new [PlainScalar] with the given parameters, auxiliary flag, and NTT flag.
-func NewPlainScalar(params Parameters, hasAux bool) *PlainScalar {
-	modLen := len(params.modulus)
-	auxLen := len(params.auxModulus)
+// // NewPlainScalar creates a new [PlainScalar] with the given parameters, auxiliary flag, and NTT flag.
+// func NewPlainScalar(params Parameters, hasAux bool) *PlainScalar {
+// 	modLen := len(params.modulus)
+// 	auxLen := len(params.auxModulus)
 
-	return NewPlainScalarCustom(modLen, auxLen)
-}
+// 	return NewPlainScalarCustom(modLen, auxLen)
+// }
 
-// NewPlainScalarCustom creates a new [PlainScalar] with the given modulus length and auxiliary modulus length.
-func NewPlainScalarCustom(modLen int, auxLen int) *PlainScalar {
-	return &PlainScalar{
-		Value:  make([]uint64, modLen+auxLen),
-		HasAux: auxLen > 0,
-	}
-}
+// // NewPlainScalarCustom creates a new [PlainScalar] with the given modulus length and auxiliary modulus length.
+// func NewPlainScalarCustom(modLen int, auxLen int) *PlainScalar {
+// 	return &PlainScalar{
+// 		Value:  make([]uint64, modLen+auxLen),
+// 		HasAux: auxLen > 0,
+// 	}
+// }
 
-// Clear clears s.
-func (s *PlainScalar) Clear() {
-	clear(s.Value)
-}
+// // Clear clears s.
+// func (s *PlainScalar) Clear() {
+// 	clear(s.Value)
+// }
 
-// WithModIdx returns a copy of s with the given modulus indices.
-//
-// Panics when idx is out of range.
-func (s *PlainScalar) WithModIdx(idx ...int) *PlainScalar {
-	for _, idxi := range idx {
-		if idxi < 0 || idxi >= len(s.Value) {
-			panic("WithModIdx: index out of range")
-		}
-	}
+// // WithModIdx returns a copy of s with the given modulus indices.
+// //
+// // Panics when idx is out of range.
+// func (s *PlainScalar) WithModIdx(idx ...int) *PlainScalar {
+// 	for _, idxi := range idx {
+// 		if idxi < 0 || idxi >= len(s.Value) {
+// 			panic("WithModIdx: index out of range")
+// 		}
+// 	}
 
-	value := make([]uint64, len(idx))
-	for i, idxi := range idx {
-		value[i] = s.Value[idxi]
-	}
+// 	value := make([]uint64, len(idx))
+// 	for i, idxi := range idx {
+// 		value[i] = s.Value[idxi]
+// 	}
 
-	return &PlainScalar{
-		Value:  value,
-		HasAux: s.HasAux,
-	}
-}
+// 	return &PlainScalar{
+// 		Value:  value,
+// 		HasAux: s.HasAux,
+// 	}
+// }
 
-// Copy returns a copy of s.
-func (s *PlainScalar) Copy() *PlainScalar {
-	value := make([]uint64, len(s.Value))
-	copy(value, s.Value)
+// // Copy returns a copy of s.
+// func (s *PlainScalar) Copy() *PlainScalar {
+// 	value := make([]uint64, len(s.Value))
+// 	copy(value, s.Value)
 
-	return &PlainScalar{
-		Value:  value,
-		HasAux: s.HasAux,
-	}
-}
+// 	return &PlainScalar{
+// 		Value:  value,
+// 		HasAux: s.HasAux,
+// 	}
+// }
 
-// CopyFrom copies the coefficients from sIn to s.
-func (s *PlainScalar) CopyFrom(sIn *PlainScalar) {
-	if !s.IsConsistent(sIn) {
-		panic("CopyFrom: inconsistent plain scalars")
-	}
+// // CopyFrom copies the coefficients from sIn to s.
+// func (s *PlainScalar) CopyFrom(sIn *PlainScalar) {
+// 	if !s.IsConsistent(sIn) {
+// 		panic("CopyFrom: inconsistent plain scalars")
+// 	}
 
-	copy(s.Value, sIn.Value)
-}
+// 	copy(s.Value, sIn.Value)
+// }
 
-// ModLen returns the modulus length of s.
-func (s *PlainScalar) ModLen() int {
-	return len(s.Value)
-}
+// // ModLen returns the modulus length of s.
+// func (s *PlainScalar) ModLen() int {
+// 	return len(s.Value)
+// }
 
-// IsEqual checks if s is equal to s0.
-func (s *PlainScalar) IsEqual(s0 *PlainScalar) bool {
-	if !s.IsConsistent(s0) {
-		return false
-	}
+// // IsEqual checks if s is equal to s0.
+// func (s *PlainScalar) IsEqual(s0 *PlainScalar) bool {
+// 	if !s.IsConsistent(s0) {
+// 		return false
+// 	}
 
-	return slices.Equal(s.Value, s0.Value)
-}
+// 	return slices.Equal(s.Value, s0.Value)
+// }
 
-// IsConsistent checks if s has the same shape as s0.
-func (s *PlainScalar) IsConsistent(s0 *PlainScalar) bool {
-	return s.HasAux == s0.HasAux && len(s.Value) == len(s0.Value)
-}
+// // IsConsistent checks if s has the same shape as s0.
+// func (s *PlainScalar) IsConsistent(s0 *PlainScalar) bool {
+// 	return s.HasAux == s0.HasAux && len(s.Value) == len(s0.Value)
+// }
 
-// PlainPoly is a RLWE plaintext polynomial.
-type PlainPoly struct {
-	Value  *crt.Poly
-	HasAux bool
-}
+// // PlainPoly is a RLWE plaintext polynomial.
+// type PlainPoly struct {
+// 	Value  *crt.Element
+// 	HasAux bool
+// }
 
-// NewPlainPoly creates a new [PlainPoly] with the given parameters, auxiliary flag, and NTT flag.
-func NewPlainPoly(params Parameters, hasAux bool, isNTT bool) *PlainPoly {
-	rank := params.ringParams.Rank()
-	modLen := len(params.modulus)
-	auxLen := len(params.auxModulus)
+// // NewPlainPoly creates a new [PlainPoly] with the given parameters, auxiliary flag, and NTT flag.
+// func NewPlainPoly(params Parameters, hasAux bool, isNTT bool) *PlainPoly {
+// 	rank := params.ringParams.Rank()
+// 	modLen := len(params.modulus)
+// 	auxLen := len(params.auxModulus)
 
-	return NewPlainPolyCustom(rank, modLen, auxLen, isNTT)
-}
+// 	return NewPlainPolyCustom(rank, modLen, auxLen, isNTT)
+// }
 
-// NewPlainPolyCustom creates a new [PlainPoly] with the given rank, modulus length, auxiliary modulus length, and NTT flag.
-func NewPlainPolyCustom(rank int, modLen int, auxLen int, isNTT bool) *PlainPoly {
-	return &PlainPoly{
-		Value:  crt.NewPolyCustom(rank, modLen+auxLen, isNTT),
-		HasAux: auxLen > 0,
-	}
-}
+// // NewPlainPolyCustom creates a new [PlainPoly] with the given rank, modulus length, auxiliary modulus length, and NTT flag.
+// func NewPlainPolyCustom(rank int, modLen int, auxLen int, isNTT bool) *PlainPoly {
+// 	return &PlainPoly{
+// 		Value:  crt.NewPolyCustom(rank, modLen+auxLen, isNTT),
+// 		HasAux: auxLen > 0,
+// 	}
+// }
 
-// Clear clears pt.
-func (pt *PlainPoly) Clear() {
-	pt.Value.Clear()
-}
+// // Clear clears pt.
+// func (pt *PlainPoly) Clear() {
+// 	pt.Value.Clear()
+// }
 
-// WithModIdx returns a copy of pt with the given modulus indices.
-func (pt *PlainPoly) WithModIdx(idx ...int) *PlainPoly {
-	return &PlainPoly{
-		Value:  pt.Value.WithModIdx(idx...),
-		HasAux: pt.HasAux,
-	}
-}
+// // WithModIdx returns a copy of pt with the given modulus indices.
+// func (pt *PlainPoly) WithModIdx(idx ...int) *PlainPoly {
+// 	return &PlainPoly{
+// 		Value:  pt.Value.WithModIdx(idx...),
+// 		HasAux: pt.HasAux,
+// 	}
+// }
 
-// Copy returns a copy of pt.
-func (pt *PlainPoly) Copy() *PlainPoly {
-	return &PlainPoly{
-		Value:  pt.Value.Copy(),
-		HasAux: pt.HasAux,
-	}
-}
+// // Copy returns a copy of pt.
+// func (pt *PlainPoly) Copy() *PlainPoly {
+// 	return &PlainPoly{
+// 		Value:  pt.Value.Copy(),
+// 		HasAux: pt.HasAux,
+// 	}
+// }
 
-// CopyFrom copies the coefficients from ptIn to pt.
-//
-// Panics when pt and ptIn are not consistent.
-func (pt *PlainPoly) CopyFrom(ptIn *PlainPoly) {
-	if !pt.IsConsistent(ptIn) {
-		panic("CopyFrom: inconsistent plaintexts")
-	}
-	pt.Value.CopyFrom(ptIn.Value)
-}
+// // CopyFrom copies the coefficients from ptIn to pt.
+// //
+// // Panics when pt and ptIn are not consistent.
+// func (pt *PlainPoly) CopyFrom(ptIn *PlainPoly) {
+// 	if !pt.IsConsistent(ptIn) {
+// 		panic("CopyFrom: inconsistent plaintexts")
+// 	}
+// 	pt.Value.CopyFrom(ptIn.Value)
+// }
 
-// ModLen returns the modulus length of pt.
-func (pt *PlainPoly) ModLen() int {
-	return pt.Value.ModLen()
-}
+// // ModLen returns the modulus length of pt.
+// func (pt *PlainPoly) ModLen() int {
+// 	return pt.Value.ModLen()
+// }
 
-// IsEqual checks if pt is equal to pt0.
-func (pt *PlainPoly) IsEqual(pt0 *PlainPoly) bool {
-	if !pt.IsConsistent(pt0) {
-		return false
-	}
-	return pt.Value.IsEqual(pt0.Value)
-}
+// // IsEqual checks if pt is equal to pt0.
+// func (pt *PlainPoly) IsEqual(pt0 *PlainPoly) bool {
+// 	if !pt.IsConsistent(pt0) {
+// 		return false
+// 	}
+// 	return pt.Value.IsEqual(pt0.Value)
+// }
 
-// IsConsistent checks if pt has the same shape as pt0.
-func (pt *PlainPoly) IsConsistent(pt0 *PlainPoly) bool {
-	return pt.Value.IsConsistent(pt0.Value)
-}
+// // IsConsistent checks if pt has the same shape as pt0.
+// func (pt *PlainPoly) IsConsistent(pt0 *PlainPoly) bool {
+// 	return pt.Value.IsConsistent(pt0.Value)
+// }
 
 // Ciphertext is a RLWE ciphertext.
 type Ciphertext struct {
-	Body   *crt.Poly
-	Mask   *crt.Poly
+	Body   *crt.Element
+	Mask   *crt.Element
 	HasAux bool
 }
 
@@ -265,30 +263,30 @@ func (c *Ciphertext) IsConsistent(c0 *Ciphertext) bool {
 	return c.Body.IsConsistent(c0.Body) && c.Mask.IsConsistent(c0.Mask) && c.HasAux == c0.HasAux
 }
 
-// IsCompatible checks if c is compatible with p0.
-func (c *Ciphertext) IsCompatible(p0 *PlainPoly) bool {
-	return c.Body.IsConsistent(p0.Value) && c.Mask.IsConsistent(p0.Value) && c.HasAux == p0.HasAux
-}
+// // IsCompatible checks if c is compatible with p0.
+// func (c *Ciphertext) IsCompatible(p0 *PlainPoly) bool {
+// 	return c.Body.IsConsistent(p0.Value) && c.Mask.IsConsistent(p0.Value) && c.HasAux == p0.HasAux
+// }
 
-func (c *Ciphertext) IsCompatibleScalar(s *PlainScalar) bool {
-	return c.Body.ModLen() == s.ModLen() && c.HasAux == s.HasAux
-}
+// func (c *Ciphertext) IsCompatibleScalar(s *PlainScalar) bool {
+// 	return c.Body.ModLen() == s.ModLen() && c.HasAux == s.HasAux
+// }
 
-// CheckSanity checks if c is sane.
-func (c *Ciphertext) CheckSanity() bool {
-	if c.Body.Rank() != c.Mask.Rank() {
-		return false
-	} else if c.Body.ModLen() != c.Mask.ModLen() {
-		return false
-	} else if c.Body.IsNTT != c.Mask.IsNTT {
-		return false
-	}
-	return true
-}
+// // CheckSanity checks if c is sane.
+// func (c *Ciphertext) CheckSanity() bool {
+// 	if c.Body.Rank() != c.Mask.Rank() {
+// 		return false
+// 	} else if c.Body.ModLen() != c.Mask.ModLen() {
+// 		return false
+// 	} else if c.Body.IsNTT != c.Mask.IsNTT {
+// 		return false
+// 	}
+// 	return true
+// }
 
 // Tensor is a vector of polynomials.
 type Tensor struct {
-	Value  []*crt.Poly
+	Value  []*crt.Element
 	HasAux bool
 }
 
@@ -303,7 +301,7 @@ func NewTensor(params Parameters, hasAux bool, degree int, isNTT bool) *Tensor {
 
 // NewTensorCustom creates a new [Tensor] with the given rank, modulus length, auxiliary modulus length, degree, and NTT flag.
 func NewTensorCustom(rank int, modLen int, auxLen int, degree int, isNTT bool) *Tensor {
-	value := make([]*crt.Poly, degree)
+	value := make([]*crt.Element, degree)
 	for i := 0; i < degree; i++ {
 		value[i] = crt.NewPolyCustom(rank, modLen+auxLen, isNTT)
 	}
@@ -328,7 +326,7 @@ func (t *Tensor) WithDegreeAndModIdx(degree int, idx ...int) *Tensor {
 		panic("Degree out of range")
 	}
 
-	value := make([]*crt.Poly, degree)
+	value := make([]*crt.Element, degree)
 	for i := 0; i < degree; i++ {
 		value[i] = t.Value[i].WithModIdx(idx...)
 	}
@@ -337,7 +335,7 @@ func (t *Tensor) WithDegreeAndModIdx(degree int, idx ...int) *Tensor {
 
 // Copy returns a copy of t.
 func (t *Tensor) Copy() *Tensor {
-	value := make([]*crt.Poly, t.Degree())
+	value := make([]*crt.Element, t.Degree())
 	for i := 0; i < t.Degree(); i++ {
 		value[i] = t.Value[i].Copy()
 	}

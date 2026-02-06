@@ -156,7 +156,7 @@ func newEmbedderBuffer(modIn []*num.Modulus) embedderBuffer {
 
 // Embed returns the embedding of p to the output modulus.
 // If p.ModLen() < len(e.modIn), it only embeds the first p.ModLen() elements.
-func (e *Embedder) Embed(p *Poly) *Poly {
+func (e *Embedder) Embed(p *Element) *Element {
 	pOut := NewPoly(p.Rank(), p.ModLen())
 	e.EmbedTo(pOut, p)
 	return pOut
@@ -165,7 +165,7 @@ func (e *Embedder) Embed(p *Poly) *Poly {
 // EmbedTo embeds the p to pOut.
 // If p.ModLen() < len(e.modIn) or pOut.ModLen() < len(e.modOut),
 // it only embeds the first p.ModLen() elements to pOut.ModLen() elements.
-func (e *Embedder) EmbedTo(pOut, p *Poly) {
+func (e *Embedder) EmbedTo(pOut, p *Element) {
 	if p.IsNTT {
 		panic("input(s) must be in standard form")
 	}
@@ -508,14 +508,14 @@ func newScalerBuffer(modIn []*num.Modulus) scalerBuffer {
 }
 
 // Scale returns the scaled polynomial of p.
-func (s *Scaler) Scale(p *Poly) *Poly {
+func (s *Scaler) Scale(p *Element) *Element {
 	pOut := NewPoly(p.Rank(), p.ModLen())
 	s.ScaleTo(pOut, p)
 	return pOut
 }
 
 // ScaleTo scales p to pOut.
-func (s *Scaler) ScaleTo(pOut, p *Poly) {
+func (s *Scaler) ScaleTo(pOut, p *Element) {
 	if p.IsNTT {
 		panic("input(s) must be in standard form")
 	}
@@ -814,14 +814,14 @@ func NewScaleEmbedder(modOut []*num.Modulus, modIn []*num.Modulus, scale *big.Ra
 }
 
 // ScaleEmbed scales and embeds p to the output modulus.
-func (s *ScaleEmbedder) ScaleEmbed(p *Poly) *Poly {
+func (s *ScaleEmbedder) ScaleEmbed(p *Element) *Element {
 	pOut := NewPoly(p.Rank(), p.ModLen())
 	s.ScaleEmbedTo(pOut, p)
 	return pOut
 }
 
 // ScaleEmbedTo scales and embeds p to pOut.
-func (s *ScaleEmbedder) ScaleEmbedTo(pOut, p *Poly) {
+func (s *ScaleEmbedder) ScaleEmbedTo(pOut, p *Element) {
 	if p.IsNTT {
 		panic("input(s) must be in standard form")
 	}

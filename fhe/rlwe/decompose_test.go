@@ -7,6 +7,7 @@ import (
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/csprng"
 	"github.com/hienaa-org/hienaa/math/dft"
+	"github.com/hienaa-org/hienaa/math/vec"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -14,7 +15,7 @@ var (
 	rSrc = csprng.NewUniformSamplerWithSeed(nil)
 )
 
-func Recompose(d rlwe.Decomposer, dcmp *rlwe.Tensor) *crt.Poly {
+func Recompose(d rlwe.Decomposer, dcmp *rlwe.Tensor) *crt.Element {
 	auxMod := d.Params().AuxModulus()
 	modLen := dcmp.ModLen() - len(auxMod)
 
@@ -23,10 +24,10 @@ func Recompose(d rlwe.Decomposer, dcmp *rlwe.Tensor) *crt.Poly {
 
 	currMod := d.Params().Modulus()[:modLen]
 	fullMod := d.Params().FullModulus()[:len(auxMod)+len(currMod)]
-	eval := crt.NewPolyEvaluator(d.Params().RingParams(), fullMod)
+	eval := crt.NewOperator(d.Params().RingParams(), fullMod)
 	for i := range dcmp.Value {
-		g := d.GadgetVector()[i][:modLen+len(auxMod)]
-		eval.ScalarMulAddTo(pSum, dcmp.Value[i], g)
+		g := d.GadgetVector()[i].WithModIdx(vec.Range(0, modLen+len(auxMod))...)
+		eval.MulAddTo(pSum, dcmp.Value[i], g)
 	}
 
 	scaler := crt.NewScaler(currMod, fullMod)

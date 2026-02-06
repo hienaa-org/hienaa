@@ -24,7 +24,7 @@ func randTernaryPoly(rank int) []int64 {
 	return p
 }
 
-func randPoly(rank int, q []*num.Modulus) *crt.Poly {
+func randPoly(rank int, q []*num.Modulus) *crt.Element {
 	p := crt.NewPoly(rank, len(q))
 	for i := 0; i < rank; i++ {
 		for j := range q {

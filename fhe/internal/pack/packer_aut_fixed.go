@@ -578,7 +578,7 @@ func FindResolutionOfUnity(cycloOrd int, prime uint64, exp uint64) []uint64 {
 
 	// Compute the resolution of unity.
 	params := dft.NewCyclicParameters(num.NextProdPower(cycloOrd, []int{2}))
-	tf := crt.NewPolyEvaluator(params, []*num.Modulus{modulus})
+	tf := crt.NewOperator(params, []*num.Modulus{modulus})
 	resolPoly := tf.NewPoly()
 	remInvPoly := tf.NewPoly()
 

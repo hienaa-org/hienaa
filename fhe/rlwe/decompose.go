@@ -16,13 +16,13 @@ type Decomposer interface {
 	// GadgetParams returns the gadget parameters.
 	GadgetParams() GadgetParameters
 	// GadgetVector returns the gadget vector.
-	GadgetVector() []crt.Scalar
+	GadgetVector() []*crt.Element
 	// DecomposeLen returns the length of the decomposition for a given modulus length.
 	DecomposeLen(modLen int) int
 	// Decompose decomposes p.
-	Decompose(p *crt.Poly) *Tensor
+	Decompose(p *crt.Element) *Tensor
 	// DecomposeTo decomposes p into pOut.
-	DecomposeTo(pOut *Tensor, p *crt.Poly)
+	DecomposeTo(pOut *Tensor, p *crt.Element)
 	// SafeCopy returns a thread-safe copy.
 	SafeCopy() Decomposer
 }
@@ -43,7 +43,7 @@ type rnsDecomposer struct {
 	params    Parameters
 	gadparams RNSGadgetParameters
 
-	gadVec    []crt.Scalar
+	gadVec    []*crt.Element
 	embedders [][]*crt.Embedder
 }
 
@@ -52,7 +52,7 @@ func newRNSDecomposer(p Parameters) Decomposer {
 	chunkSize := p.gadgetParams.(RNSGadgetParameters).chunkSize
 	gadLen := p.GadgetLen()
 
-	gadVec := make([]crt.Scalar, gadLen)
+	gadVec := make([]*crt.Element, gadLen)
 	embedders := make([][]*crt.Embedder, gadLen)
 
 	auxModBig := big.NewInt(1)
@@ -104,7 +104,7 @@ func (d *rnsDecomposer) GadgetParams() GadgetParameters {
 }
 
 // GadgetVector returns the gadget vector.
-func (d *rnsDecomposer) GadgetVector() []crt.Scalar {
+func (d *rnsDecomposer) GadgetVector() []*crt.Element {
 	return d.gadVec
 }
 
@@ -114,7 +114,7 @@ func (d *rnsDecomposer) DecomposeLen(modLen int) int {
 }
 
 // Decompose decomposes a polynomial into a tensor using the RNS gadget.
-func (d *rnsDecomposer) Decompose(p *crt.Poly) *Tensor {
+func (d *rnsDecomposer) Decompose(p *crt.Element) *Tensor {
 	modLen := p.ModLen()
 	auxLen := len(d.params.auxModulus)
 	resLen := d.DecomposeLen(modLen)
@@ -126,7 +126,7 @@ func (d *rnsDecomposer) Decompose(p *crt.Poly) *Tensor {
 }
 
 // DecomposeTo decomposes p into pOut using the RNS gadget.
-func (d *rnsDecomposer) DecomposeTo(pOut *Tensor, p *crt.Poly) {
+func (d *rnsDecomposer) DecomposeTo(pOut *Tensor, p *crt.Element) {
 	if p.IsNTT {
 		panic("input(s) must be in standard form")
 	}
@@ -172,7 +172,7 @@ type digitDecomposer struct {
 	params    Parameters
 	gadParams DigitGadgetParameters
 
-	gadVec []crt.Scalar
+	gadVec []*crt.Element
 
 	digitEmbedder []*crt.Embedder
 	modEmbedder   *crt.Embedder
@@ -182,7 +182,7 @@ type digitDecomposer struct {
 
 // digitDecomposerBuffer is a buffer for [digitDecomposer].
 type digitDecomposerBuffer struct {
-	p *crt.Poly
+	p *crt.Element
 }
 
 // newDigitDecomposerBuffer creates a new [digitDecomposerBuffer].
@@ -198,7 +198,7 @@ func newDigitDecomposer(p Parameters) Decomposer {
 	baseMod := num.NewModulus(1 << logDigitBase)
 
 	gadLen := p.GadgetLen()
-	gadVec := make([]crt.Scalar, gadLen)
+	gadVec := make([]*crt.Element, gadLen)
 
 	g := big.NewInt(1)
 	for _, q := range p.auxModulus {
@@ -240,7 +240,7 @@ func (d *digitDecomposer) GadgetParams() GadgetParameters {
 }
 
 // GadgetVector returns the gadget vector.
-func (d *digitDecomposer) GadgetVector() []crt.Scalar {
+func (d *digitDecomposer) GadgetVector() []*crt.Element {
 	return d.gadVec
 }
 
@@ -254,7 +254,7 @@ func (d *digitDecomposer) DecomposeLen(modLen int) int {
 }
 
 // Decompose outputs the decomposition of p using the digit gadget.
-func (d *digitDecomposer) Decompose(p *crt.Poly) *Tensor {
+func (d *digitDecomposer) Decompose(p *crt.Element) *Tensor {
 	modLen := p.ModLen()
 	auxLen := len(d.params.auxModulus)
 	decmpLen := d.DecomposeLen(modLen)
@@ -266,7 +266,7 @@ func (d *digitDecomposer) Decompose(p *crt.Poly) *Tensor {
 }
 
 // DecomposeTo decomposes p into pOut using the digit gadget.
-func (d *digitDecomposer) DecomposeTo(pOut *Tensor, p *crt.Poly) {
+func (d *digitDecomposer) DecomposeTo(pOut *Tensor, p *crt.Element) {
 	if p.IsNTT {
 		panic("input(s) must be in standard form")
 	}
@@ -279,7 +279,7 @@ func (d *digitDecomposer) DecomposeTo(pOut *Tensor, p *crt.Poly) {
 		panic("inconsistent input(s)")
 	}
 
-	pBuf := &crt.Poly{
+	pBuf := &crt.Element{
 		Coeffs: d.buf.p.Coeffs[:modLen],
 		IsNTT:  false,
 	}

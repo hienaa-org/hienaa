@@ -12,15 +12,15 @@ import (
 type RingType uint64
 
 const (
-	// Cyclotomic is a cyclotomic ring ZZ[X]/Phi_M(X).
-	Cyclotomic RingType = iota
-	// Cyclic is a cyclic ring ZZ[X]/(X^N - 1).
-	Cyclic
-	// AutFixed is a decomposition ring of a cyclotomic ring.
+	// TypeCyclotomic is a cyclotomic ring ZZ[X]/Phi_M(X).
+	TypeCyclotomic RingType = iota
+	// TypeCyclic is a cyclic ring ZZ[X]/(X^N - 1).
+	TypeCyclic
+	// TypeAutFixed is a decomposition ring of a cyclotomic ring.
 	// In other words, it is a subring of a cyclotomic ring invariant under some automorphism.
-	AutFixed
-	// Other covers arbitrary quotient rings.
-	Other
+	TypeAutFixed
+	// TypeOther covers arbitrary quotient rings.
+	TypeOther
 )
 
 // RingParameters contains the parameters for the ring.
@@ -45,7 +45,7 @@ func NewCyclotomicParameters(cycloOrd int) RingParameters {
 	return RingParameters{
 		cycloOrd: cycloOrd,
 		rank:     int(num.Totient(uint64(cycloOrd))),
-		ringType: Cyclotomic,
+		ringType: TypeCyclotomic,
 	}
 }
 
@@ -58,7 +58,7 @@ func NewCyclicParameters(rank int) RingParameters {
 	return RingParameters{
 		cycloOrd: 0,
 		rank:     rank,
-		ringType: Cyclic,
+		ringType: TypeCyclic,
 	}
 }
 
@@ -84,7 +84,7 @@ func NewAutFixedParameters(cycloOrd, rank int) RingParameters {
 	return RingParameters{
 		cycloOrd: cycloOrd,
 		rank:     rank,
-		ringType: AutFixed,
+		ringType: TypeAutFixed,
 	}
 }
 
@@ -97,12 +97,12 @@ func NewOtherParameters(modPoly []int64) RingParameters {
 	return RingParameters{
 		cycloOrd: 0,
 		rank:     len(modPoly) - 1,
-		ringType: Other,
+		ringType: TypeOther,
 	}
 }
 
 // CycloOrder is the order of the underlying cyclotomic polynomial.
-// 0 if the RingType is [Cyclic].
+// 0 if the RingType is [TypeCyclic].
 func (p RingParameters) CycloOrder() int {
 	return p.cycloOrd
 }
@@ -178,11 +178,11 @@ func RingGap(params RingParameters) (uint64, error) {
 	var gap uint64
 
 	switch params.ringType {
-	case Cyclotomic:
+	case TypeCyclotomic:
 		gap = cyclotomicGap(params.cycloOrd, params.rank)
-	case Cyclic:
+	case TypeCyclic:
 		gap = cyclicGap(params.rank)
-	case AutFixed:
+	case TypeAutFixed:
 		gap = autFixedGap(params.cycloOrd, params.rank)
 	default:
 		return 0, errors.New("RingGap: invalid ring type")

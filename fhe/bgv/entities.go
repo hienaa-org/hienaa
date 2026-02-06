@@ -9,12 +9,12 @@ import (
 
 // SecretKey is a BGV secret key.
 type SecretKey struct {
-	Value *crt.Poly
+	Value *crt.Element
 }
 
 // Plaintext is a BGV plaintext embedded in ciphertext modulus.
 type Plaintext struct {
-	Value *crt.Poly
+	Value *crt.Element
 }
 
 // Ciphertext is a BGV ciphertext.

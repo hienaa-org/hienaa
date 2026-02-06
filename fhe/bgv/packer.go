@@ -8,7 +8,7 @@ import (
 )
 
 type packerBuffer struct {
-	poly *crt.Poly
+	poly *crt.Element
 }
 
 func newPackerBuffer(rank int, modLen int) packerBuffer {
@@ -19,14 +19,14 @@ func newPackerBuffer(rank int, modLen int) packerBuffer {
 type Packer struct {
 	params Parameters
 	pack   pack.PackerInt
-	eval   crt.PolyEvaluator
+	eval   crt.Operator
 	emb    *crt.Embedder
 	buf    packerBuffer
 }
 
 func NewPacker(params Parameters) *Packer {
 	pack := pack.NewPackerInt(params.ringParams, params.messageModulus)
-	eval := crt.NewPolyEvaluator(params.ringParams, params.modulus)
+	eval := crt.NewOperator(params.ringParams, params.modulus)
 	emb := crt.NewEmbedder([]*num.Modulus{params.messageModulus}, params.modulus)
 	buf := newPackerBuffer(params.ringParams.Rank(), len(params.modulus))
 	return &Packer{

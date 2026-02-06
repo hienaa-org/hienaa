@@ -4,7 +4,7 @@ import "github.com/hienaa-org/hienaa/math/crt"
 
 // Element represents an element in a finite field.
 type Element struct {
-	poly *crt.Poly
+	poly *crt.Element
 }
 
 // NewElement creates a new [Element].

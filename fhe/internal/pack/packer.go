@@ -29,7 +29,7 @@ type PackerInt interface {
 
 func NewPackerInt(params dft.RingParameters, mod *num.Modulus) PackerInt {
 	switch params.RingType() {
-	case dft.Cyclotomic:
+	case dft.TypeCyclotomic:
 		switch {
 		case num.IsPowerOfTwo(params.CycloOrder()):
 			primes, _ := num.Factor(mod.Value())
@@ -49,7 +49,7 @@ func NewPackerInt(params dft.RingParameters, mod *num.Modulus) PackerInt {
 		case dft.IsNTTFriendly(params, mod):
 			return newCyclotomicAnyNTTPacker(params, mod)
 		}
-	case dft.AutFixed:
+	case dft.TypeAutFixed:
 		switch {
 		case num.IsPowerOfTwo(params.CycloOrder()):
 			primes, _ := num.Factor(mod.Value())

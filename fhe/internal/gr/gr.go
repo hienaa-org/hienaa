@@ -8,9 +8,9 @@ import (
 	"github.com/hienaa-org/hienaa/math/num"
 )
 
-// GaloisRing represents a galois ring as [*crt.PolyEvaluator].
+// GaloisRing represents a galois ring as [*crt.Operator].
 type GaloisRing struct {
-	polyEvaluator crt.PolyEvaluator
+	op crt.Operator
 	// ord is the order of the multiplicative group of the Galois ring.
 	// Equals prime^((exp-1)*rank) * (prime^rank - 1).
 	ord *big.Int
@@ -61,9 +61,9 @@ func NewGaloisRingCustom(modulus uint64, modPoly []int64) *GaloisRing {
 	invExp := new(big.Int).Sub(ord, big.NewInt(1))
 
 	return &GaloisRing{
-		polyEvaluator: crt.NewPolyEvaluatorWithModPoly([]*num.Modulus{num.NewModulus(modulus)}, modPoly),
-		ord:           ord,
-		invExp:        invExp,
+		op:     crt.NewOperatorWithModPoly([]*num.Modulus{num.NewModulus(modulus)}, modPoly),
+		ord:    ord,
+		invExp: invExp,
 
 		buf: newGaloisRingBuffer(modulus, rank),
 	}
@@ -84,25 +84,25 @@ func newGaloisRingBuffer(modulus uint64, rank int) galoisRingBuffer {
 // NewElement creates a new [Element] in the finite field.
 func (gr *GaloisRing) NewElement() *Element {
 	return &Element{
-		poly: gr.polyEvaluator.NewNTTPoly(),
+		poly: gr.op.NewNTTPoly(),
 	}
 }
 
 // NewElementFromUint64 creates a new [Element] from a uint64 value.
 func (gr *GaloisRing) NewElementFromUint64(x uint64) *Element {
 	e := gr.NewElement()
-	e.poly.Coeffs[0][0] = num.Reduce(x, gr.polyEvaluator.Modulus()[0])
+	e.poly.Coeffs[0][0] = num.Reduce(x, gr.op.Modulus()[0])
 	return e
 }
 
 // Modulus returns the modulus of the finite field.
 func (gr *GaloisRing) Modulus() uint64 {
-	return gr.polyEvaluator.Modulus()[0].Value()
+	return gr.op.Modulus()[0].Value()
 }
 
 // Rank returns the rank of the finite field.
 func (gr *GaloisRing) Rank() int {
-	return gr.polyEvaluator.Params().Rank()
+	return gr.op.Params().Rank()
 }
 
 // Ord returns the order of the multiplicative group of the Galois ring.
@@ -119,7 +119,7 @@ func (gr *GaloisRing) Add(x0, x1 *Element) *Element {
 
 // AddTo computes xOut = x0 + x1.
 func (gr *GaloisRing) AddTo(xOut, x0, x1 *Element) {
-	gr.polyEvaluator.AddTo(xOut.poly, x0.poly, x1.poly)
+	gr.op.AddTo(xOut.poly, x0.poly, x1.poly)
 }
 
 // Sub returns x0 - x1.
@@ -131,41 +131,19 @@ func (gr *GaloisRing) Sub(x0, x1 *Element) *Element {
 
 // SubTo computes xOut = x0 - x1.
 func (gr *GaloisRing) SubTo(xOut, x0, x1 *Element) {
-	gr.polyEvaluator.SubTo(xOut.poly, x0.poly, x1.poly)
+	gr.op.SubTo(xOut.poly, x0.poly, x1.poly)
 }
 
 // Neg returns -x.
 func (gr *GaloisRing) Neg(x *Element) *Element {
 	xOut := gr.NewElement()
-	gr.polyEvaluator.NegTo(xOut.poly, x.poly)
+	gr.op.NegTo(xOut.poly, x.poly)
 	return xOut
 }
 
 // NegTo computes xOut = -x.
 func (gr *GaloisRing) NegTo(xOut, x *Element) {
-	gr.polyEvaluator.NegTo(xOut.poly, x.poly)
-}
-
-// ScalarMul returns x * c.
-func (gr *GaloisRing) ScalarMul(x *Element, c uint64) *Element {
-	xOut := gr.NewElement()
-	gr.ScalarMulTo(xOut, x, c)
-	return xOut
-}
-
-// ScalarMulTo computes xOut = x * c.
-func (gr *GaloisRing) ScalarMulTo(xOut, x *Element, c uint64) {
-	gr.polyEvaluator.ScalarMulTo(xOut.poly, x.poly, crt.Scalar{c})
-}
-
-// ScalarMulAddTo computes xOut += x * c.
-func (gr *GaloisRing) ScalarMulAddTo(xOut, x *Element, c uint64) {
-	gr.polyEvaluator.ScalarMulAddTo(xOut.poly, x.poly, crt.Scalar{c})
-}
-
-// ScalarMulSubTo computes xOut -= x * c.
-func (gr *GaloisRing) ScalarMulSubTo(xOut, x *Element, c uint64) {
-	gr.polyEvaluator.ScalarMulSubTo(xOut.poly, x.poly, crt.Scalar{c})
+	gr.op.NegTo(xOut.poly, x.poly)
 }
 
 // Mul returns x0 * x1.
@@ -177,17 +155,17 @@ func (gr *GaloisRing) Mul(x0, x1 *Element) *Element {
 
 // MulTo computes xOut = x0 * x1.
 func (gr *GaloisRing) MulTo(xOut, x0, x1 *Element) {
-	gr.polyEvaluator.MulTo(xOut.poly, x0.poly, x1.poly)
+	gr.op.MulTo(xOut.poly, x0.poly, x1.poly)
 }
 
 // MulAddTo computes xOut += x0 * x1.
 func (gr *GaloisRing) MulAddTo(xOut, x0, x1 *Element) {
-	gr.polyEvaluator.MulAddTo(xOut.poly, x0.poly, x1.poly)
+	gr.op.MulAddTo(xOut.poly, x0.poly, x1.poly)
 }
 
 // MulSubTo computes xOut -= x0 * x1.
 func (gr *GaloisRing) MulSubTo(xOut, x0, x1 *Element) {
-	gr.polyEvaluator.MulSubTo(xOut.poly, x0.poly, x1.poly)
+	gr.op.MulSubTo(xOut.poly, x0.poly, x1.poly)
 }
 
 // Exp returns xOut = x^e.
@@ -253,9 +231,9 @@ func (gr *GaloisRing) InvTo(xOut, x *Element) {
 // SafeCopy returns a thread-safe copy.
 func (gr *GaloisRing) SafeCopy() *GaloisRing {
 	return &GaloisRing{
-		polyEvaluator: gr.polyEvaluator.SafeCopy(),
-		ord:           gr.ord,
-		invExp:        gr.invExp,
+		op:     gr.op.SafeCopy(),
+		ord:    gr.ord,
+		invExp: gr.invExp,
 
 		buf: newGaloisRingBuffer(gr.Modulus(), gr.Rank()),
 	}
