@@ -110,7 +110,9 @@ func (r *LongDivReducer) Reduce(p *Element) *Element {
 //
 // Panics when p is in NTT form, or the rank of p is larger than maxRank.
 func (r *LongDivReducer) ReduceTo(pOut, p *Element) {
-	if p.IsNTT {
+	if p.Type() != TypePoly {
+		panic("input(s) must be polynomial")
+	} else if p.IsNTT {
 		panic("input(s) must be in standard form")
 	} else if p.Rank() > r.maxRank {
 		panic("rank must be less than or equal to maxRank")
@@ -520,7 +522,9 @@ func (r *CyclotomicReducer) Reduce(p *Element) *Element {
 //
 // Panics when p is in NTT form, or the rank of p is larger than CycloOrd.
 func (r *CyclotomicReducer) ReduceTo(pOut, p *Element) {
-	if p.IsNTT {
+	if p.Type() != TypePoly {
+		panic("input(s) must be polynomial")
+	} else if p.IsNTT {
 		panic("input(s) must be in standard form")
 	} else if p.Rank() > r.params.CycloOrder() {
 		panic("rank must be less than or equal to cycloOrd")

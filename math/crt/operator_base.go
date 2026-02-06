@@ -138,7 +138,7 @@ func (op *baseOperator) Neg(e *Element) *Element {
 	return eOut
 }
 
-// NegTo computes pOut = -p.
+// NegTo computes eOut = -e.
 func (op *baseOperator) NegTo(eOut, e *Element) {
 	checkBinaryOperable(op.params.Rank(), len(op.mod), eOut, e)
 
