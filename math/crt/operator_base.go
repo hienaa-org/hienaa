@@ -204,9 +204,7 @@ func (op *baseOperator) subOperator(idx ...int) baseOperator {
 	for i := range idx {
 		modCopy[i] = op.mod[idx[i]]
 		isNTTFriendlyCopy[i] = op.isNTTFriendly[idx[i]]
-		if op.ntt[idx[i]] != nil {
-			nttCopy[i] = op.ntt[idx[i]].SafeCopy()
-		}
+		nttCopy[i] = op.ntt[idx[i]]
 	}
 
 	return baseOperator{
@@ -215,24 +213,6 @@ func (op *baseOperator) subOperator(idx ...int) baseOperator {
 		modPoly: op.modPoly,
 
 		isNTTFriendly: isNTTFriendlyCopy,
-		ntt:           nttCopy,
-	}
-}
-
-func (op *baseOperator) safeCopy() baseOperator {
-	nttCopy := make([]dft.Transformer, len(op.ntt))
-	for i := range op.ntt {
-		if op.ntt[i] != nil {
-			nttCopy[i] = op.ntt[i].SafeCopy()
-		}
-	}
-
-	return baseOperator{
-		params:  op.params,
-		mod:     op.mod,
-		modPoly: op.modPoly,
-
-		isNTTFriendly: op.isNTTFriendly,
 		ntt:           nttCopy,
 	}
 }

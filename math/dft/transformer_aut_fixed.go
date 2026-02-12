@@ -1,6 +1,7 @@
 package dft
 
 import (
+	"sync"
 	"unsafe"
 
 	"github.com/hienaa-org/hienaa/math/num"
@@ -24,7 +25,7 @@ type pow2AutFixedTransformer struct {
 	// rankInv is the modular inverse of the rank.
 	rankInv uint64
 
-	buf transformerBuffer
+	pool *sync.Pool
 }
 
 // newPow2AutFixedTransformer creates a new [pow2AutFixedTransformer].
@@ -70,21 +71,36 @@ func newPow2AutFixedTransformer(params RingParameters, mod *num.Modulus) *pow2Au
 
 		rankInv: num.InvMForm(num.Inv(uint64(2*params.rank), mod), mod),
 
-		buf: newTransformerBuffer(params.rank),
+		pool: &sync.Pool{
+			New: func() any {
+				v := make([]uint64, params.rank)
+				return &v
+			},
+		},
 	}
 }
 
 // ForwardTo transforms the uint64 vector to NTT form.
 func (ntt *pow2AutFixedTransformer) ForwardTo(vNTT, v []uint64) {
+	checkLength(ntt.params.rank, len(vNTT), len(v))
+
+	vBufPtr := ntt.pool.Get().(*[]uint64)
+	vBuf := *vBufPtr
+	defer ntt.pool.Put(vBufPtr)
+
 	tw0Neg, tw0NegS := ntt.mod.Value()-ntt.tw[0], -ntt.twS[0]-1
 
 	M := ((ntt.params.rank - 1) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
 
-	ntt.buf.coeffs[0] = v[0]
+	rOut := unsafe.Pointer(unsafe.SliceData(vBuf))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	vBuf[0] = v[0]
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&ntt.buf.coeffs[1+i]))
-		w := (*[8]uint64)(unsafe.Pointer(&v[1+i]))
-		wRev := (*[8]uint64)(unsafe.Pointer(&v[ntt.params.rank-(i+8)]))
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(1+i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(1+i)*L))
+		wRev := (*[8]uint64)(unsafe.Add(r, uintptr(ntt.params.rank-(i+8))*L))
 
 		wOut[0] = w[0] + num.SMul(wRev[7], tw0Neg, tw0NegS, ntt.mod)
 		wOut[1] = w[1] + num.SMul(wRev[6], tw0Neg, tw0NegS, ntt.mod)
@@ -98,26 +114,35 @@ func (ntt *pow2AutFixedTransformer) ForwardTo(vNTT, v []uint64) {
 	}
 
 	for i := M + 1; i < ntt.params.rank; i++ {
-		ntt.buf.coeffs[i] = v[i] + num.SMul(v[ntt.params.rank-i], tw0Neg, tw0NegS, ntt.mod)
+		vBuf[i] = v[i] + num.SMul(v[ntt.params.rank-i], tw0Neg, tw0NegS, ntt.mod)
 	}
 
-	nttInPlacePow2(ntt.buf.coeffs, ntt.tw, ntt.twS, ntt.mod.Value())
-	vec.MFormTo(vNTT, ntt.buf.coeffs, ntt.mod)
+	nttInPlacePow2(vBuf, ntt.tw, ntt.twS, ntt.mod.Value())
+	vec.MFormTo(vNTT, vBuf, ntt.mod)
 }
 
 // InverseTo transforms the uint64 vector to Standard form.
 func (ntt *pow2AutFixedTransformer) InverseTo(v, vNTT []uint64) {
-	copy(v, vNTT)
+	checkLength(ntt.params.rank, len(vNTT), len(v))
 
+	copy(v, vNTT)
 	inttInPlacePow2(v, ntt.twInv, ntt.twInvS, ntt.mod.Value())
 
-	M := ((ntt.params.rank - 1) >> 3) << 3
+	vBufPtr := ntt.pool.Get().(*[]uint64)
+	vBuf := *vBufPtr
+	defer ntt.pool.Put(vBufPtr)
 
-	ntt.buf.coeffs[0] = v[0] << 1
+	M := ((ntt.params.rank - 1) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vBuf))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	vBuf[0] = v[0] << 1
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&ntt.buf.coeffs[1+i]))
-		w := (*[8]uint64)(unsafe.Pointer(&v[1+i]))
-		wRev := (*[8]uint64)(unsafe.Pointer(&v[ntt.params.rank-(i+8)]))
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(1+i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(1+i)*L))
+		wRev := (*[8]uint64)(unsafe.Add(r, uintptr(ntt.params.rank-(i+8))*L))
 
 		wOut[0] = w[0] + num.SMul(wRev[7], ntt.tw[0], ntt.twS[0], ntt.mod)
 		wOut[1] = w[1] + num.SMul(wRev[6], ntt.tw[0], ntt.twS[0], ntt.mod)
@@ -131,10 +156,10 @@ func (ntt *pow2AutFixedTransformer) InverseTo(v, vNTT []uint64) {
 	}
 
 	for i := M + 1; i < ntt.params.rank; i++ {
-		ntt.buf.coeffs[i] = v[i] + num.SMul(v[ntt.params.rank-i], ntt.tw[0], ntt.twS[0], ntt.mod)
+		vBuf[i] = v[i] + num.SMul(v[ntt.params.rank-i], ntt.tw[0], ntt.twS[0], ntt.mod)
 	}
 
-	vec.MulScalarTo(v, ntt.buf.coeffs, ntt.rankInv, ntt.mod)
+	vec.MulScalarTo(v, vBuf, ntt.rankInv, ntt.mod)
 }
 
 // Params returns the ring parameters.
@@ -145,23 +170,6 @@ func (ntt *pow2AutFixedTransformer) Params() RingParameters {
 // Modulus returns the modulus used for the transform.
 func (ntt *pow2AutFixedTransformer) Modulus() *num.Modulus {
 	return ntt.mod
-}
-
-// SafeCopy returns a thread-safe copy.
-func (ntt *pow2AutFixedTransformer) SafeCopy() Transformer {
-	return &pow2AutFixedTransformer{
-		params: ntt.params,
-		mod:    ntt.mod,
-
-		tw:     ntt.tw,
-		twS:    ntt.twS,
-		twInv:  ntt.twInv,
-		twInvS: ntt.twInvS,
-
-		rankInv: ntt.rankInv,
-
-		buf: newTransformerBuffer(ntt.params.rank),
-	}
 }
 
 // primeAutFixedTransformer is a transformer for prime order autfixed ring.
@@ -188,7 +196,7 @@ type primeAutFixedTransformer struct {
 	// cycloOrdInv is the modular inverse of the cyclotomic order.
 	cycloOrdInv uint64
 
-	buf transformerBuffer
+	pool *sync.Pool
 }
 
 // newPrimeAutFixedTransformer creates a new [primeAutFixedTransformer].
@@ -252,18 +260,33 @@ func newPrimeAutFixedTransformer(params RingParameters, mod *num.Modulus) *prime
 		ambRankInvM: ambRankInv,
 		cycloOrdInv: num.Inv(uint64(params.cycloOrd), mod),
 
-		buf: newTransformerBuffer(ambRank),
+		pool: &sync.Pool{
+			New: func() any {
+				v := make([]uint64, ambRank)
+				return &v
+			},
+		},
 	}
 }
 
 // ForwardTo transforms the uint64 vector to NTT form.
 func (ntt *primeAutFixedTransformer) ForwardTo(vNTT, v []uint64) {
-	M := ((ntt.params.rank - 1) >> 3) << 3
+	checkLength(ntt.params.rank, len(vNTT), len(v))
 
-	ntt.buf.coeffs[0] = v[0]
+	vBufPtr := ntt.pool.Get().(*[]uint64)
+	vBuf := *vBufPtr
+	defer ntt.pool.Put(vBufPtr)
+
+	M := ((ntt.params.rank - 1) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vBuf))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	vBuf[0] = v[0]
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&ntt.buf.coeffs[1+i]))
-		wRev := (*[8]uint64)(unsafe.Pointer(&v[ntt.params.rank-(i+8)]))
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(1+i)*L))
+		wRev := (*[8]uint64)(unsafe.Add(r, uintptr(ntt.params.rank-(i+8))*L))
 
 		wOut[0] = wRev[7]
 		wOut[1] = wRev[6]
@@ -277,35 +300,45 @@ func (ntt *primeAutFixedTransformer) ForwardTo(vNTT, v []uint64) {
 	}
 
 	for i := M + 1; i < ntt.params.rank; i++ {
-		ntt.buf.coeffs[i] = v[ntt.params.rank-i]
+		vBuf[i] = v[ntt.params.rank-i]
 	}
 
-	clear(ntt.buf.coeffs[ntt.params.rank:])
+	clear(vBuf[ntt.params.rank:])
 
-	nttInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.tw[0], ntt.ambNTT.twS[0], ntt.mod.Value())
-	vec.MFormTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.mod)
+	nttInPlacePow2(vBuf, ntt.ambNTT.tw[0], ntt.ambNTT.twS[0], ntt.mod.Value())
+	vec.MFormTo(vBuf, vBuf, ntt.mod)
 
-	vec.MMulLazyTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.root, ntt.mod)
+	vec.MMulLazyTo(vBuf, vBuf, ntt.root, ntt.mod)
 
-	inttInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvS[0], ntt.mod.Value())
-	vec.MMulScalarTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.ambRankInvM, ntt.mod)
+	inttInPlacePow2(vBuf, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvS[0], ntt.mod.Value())
+	vec.MMulScalarTo(vBuf, vBuf, ntt.ambRankInvM, ntt.mod)
 
 	if ntt.isPow2 {
-		copy(vNTT, ntt.buf.coeffs)
+		copy(vNTT, vBuf)
 	} else {
-		vec.AddTo(vNTT, ntt.buf.coeffs[:ntt.params.rank], ntt.buf.coeffs[ntt.params.rank:2*ntt.params.rank], ntt.mod)
+		vec.AddTo(vNTT, vBuf[:ntt.params.rank], vBuf[ntt.params.rank:2*ntt.params.rank], ntt.mod)
 	}
 }
 
 // InverseTo transforms the uint64 vector to Standard form.
 func (ntt *primeAutFixedTransformer) InverseTo(v, vNTT []uint64) {
-	M := ((ntt.params.rank - 1) >> 3) << 3
+	checkLength(ntt.params.rank, len(vNTT), len(v))
 
-	ntt.buf.coeffs[0] = vNTT[0]
+	vBufPtr := ntt.pool.Get().(*[]uint64)
+	vBuf := *vBufPtr
+	defer ntt.pool.Put(vBufPtr)
+
+	M := ((ntt.params.rank - 1) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vBuf))
+	r := unsafe.Pointer(unsafe.SliceData(vNTT))
+
 	sumFold := vNTT[0]
+	vBuf[0] = vNTT[0]
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Pointer(&ntt.buf.coeffs[1+i]))
-		wRev := (*[8]uint64)(unsafe.Pointer(&vNTT[ntt.params.rank-(i+8)]))
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(1+i)*L))
+		wRev := (*[8]uint64)(unsafe.Add(r, uintptr(ntt.params.rank-(i+8))*L))
 
 		wOut[0] = wRev[7]
 		wOut[1] = wRev[6]
@@ -329,25 +362,25 @@ func (ntt *primeAutFixedTransformer) InverseTo(v, vNTT []uint64) {
 	}
 
 	for i := M + 1; i < ntt.params.rank; i++ {
-		ntt.buf.coeffs[i] = vNTT[ntt.params.rank-i]
-		sumFold = num.Add(sumFold, ntt.buf.coeffs[i], ntt.mod)
+		vBuf[i] = vNTT[ntt.params.rank-i]
+		sumFold = num.Add(sumFold, vBuf[i], ntt.mod)
 	}
 
-	clear(ntt.buf.coeffs[ntt.params.rank:])
+	clear(vBuf[ntt.params.rank:])
 
-	nttInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.tw[0], ntt.ambNTT.twS[0], ntt.mod.Value())
+	nttInPlacePow2(vBuf, ntt.ambNTT.tw[0], ntt.ambNTT.twS[0], ntt.mod.Value())
 
-	vec.MMulLazyTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.rootInv, ntt.mod)
+	vec.MMulLazyTo(vBuf, vBuf, ntt.rootInv, ntt.mod)
 
-	inttInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvS[0], ntt.mod.Value())
-	vec.MulScalarLazyTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.ambNTT.rankInv, ntt.mod)
+	inttInPlacePow2(vBuf, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvS[0], ntt.mod.Value())
+	vec.MulScalarLazyTo(vBuf, vBuf, ntt.ambNTT.rankInv, ntt.mod)
 
 	if !ntt.isPow2 {
-		vec.AddTo(ntt.buf.coeffs[:ntt.params.rank-1], ntt.buf.coeffs[:ntt.params.rank-1], ntt.buf.coeffs[ntt.params.rank:2*ntt.params.rank-1], ntt.mod)
+		vec.AddTo(vBuf[:ntt.params.rank-1], vBuf[:ntt.params.rank-1], vBuf[ntt.params.rank:2*ntt.params.rank-1], ntt.mod)
 	}
 
 	sumFold = num.MMul(sumFold, ntt.fold, ntt.mod)
-	vec.SubScalarTo(v, ntt.buf.coeffs[:ntt.params.rank], sumFold, ntt.mod)
+	vec.SubScalarTo(v, vBuf[:ntt.params.rank], sumFold, ntt.mod)
 	vec.MulScalarTo(v, v, ntt.cycloOrdInv, ntt.mod)
 }
 
@@ -359,25 +392,4 @@ func (ntt *primeAutFixedTransformer) Params() RingParameters {
 // Modulus returns the modulus used for the transform.
 func (ntt *primeAutFixedTransformer) Modulus() *num.Modulus {
 	return ntt.mod
-}
-
-// SafeCopy returns a thread-safe copy.
-func (ntt *primeAutFixedTransformer) SafeCopy() Transformer {
-	return &primeAutFixedTransformer{
-		params: ntt.params,
-		mod:    ntt.mod,
-
-		ambNTT: ntt.ambNTT,
-
-		isPow2: ntt.isPow2,
-
-		root:    ntt.root,
-		rootInv: ntt.rootInv,
-
-		fold:        ntt.fold,
-		ambRankInvM: ntt.ambRankInvM,
-		cycloOrdInv: ntt.cycloOrdInv,
-
-		buf: newTransformerBuffer(ntt.ambNTT.params.rank),
-	}
 }

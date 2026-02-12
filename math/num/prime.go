@@ -54,6 +54,8 @@ func isPrimeUint64(x uint64) bool {
 	return true
 }
 
+// MustPrevPrime returns the previous prime number of x with skip.
+// It panics if an error occurs.
 func MustPrevPrime[T Integer](x T, skip T) T {
 	prime, err := PrevPrime(x, skip)
 	if err != nil {
@@ -63,7 +65,7 @@ func MustPrevPrime[T Integer](x T, skip T) T {
 }
 
 // PrevPrime returns the previous prime number of x with skip.
-// If skip <= 0, or there is no prime number meets the condition, it panics.
+// If skip <= 0, or there is no prime number meets the condition, it returns an error.
 func PrevPrime[T Integer](x T, skip T) (T, error) {
 	if skip <= 0 {
 		return 0, errors.New("PrevPrime: skip must be positive")
@@ -80,6 +82,8 @@ func PrevPrime[T Integer](x T, skip T) (T, error) {
 	}
 }
 
+// MustNextPrime returns the next prime number of x with skip.
+// It panics if an error occurs.
 func MustNextPrime[T Integer](x T, skip T) T {
 	prime, err := NextPrime(x, skip)
 	if err != nil {
@@ -89,7 +93,7 @@ func MustNextPrime[T Integer](x T, skip T) T {
 }
 
 // NextPrime returns the next prime number of x with skip.
-// If skip <= 0, or there is no prime number meets the condition, it panics.
+// If skip <= 0, or there is no prime number meets the condition, it returns an error.
 func NextPrime[T Integer](x T, skip T) (T, error) {
 	if skip <= 0 {
 		panic("skip must be positive")
@@ -97,7 +101,7 @@ func NextPrime[T Integer](x T, skip T) (T, error) {
 
 	for t := x + skip; ; t += skip {
 		if uint64(t) > MaxModulus {
-			return 0, errors.New("NextPrime: overflow")
+			return 0, errors.New("overflow")
 		}
 
 		if IsPrime(t) {

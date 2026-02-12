@@ -1,6 +1,8 @@
 package dft
 
 import (
+	"sync"
+
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
 )
@@ -38,26 +40,7 @@ type cyclotomicReducer struct {
 	// Precisely, it is floor(X^d_qs/\Phi_m(X)) modulo the modulus, where d_qs is the degree of the quotient polynomial Q_sp.
 	divPoly []uint64
 
-	buf reducerBuffer
-}
-
-// reducerBuffer is a buffer for [cyclotomicReducerNTTModulus].
-type reducerBuffer struct {
-	// pIn is a buffer for the input polynomial.
-	pIn []uint64
-	// pQuo is a buffer for the quotient polynomial.
-	pQuo []uint64
-	// pRem is a buffer for the remainder polynomial.
-	pRem []uint64
-}
-
-// newReducerBuffer creates a new [reducerBuffer].
-func newReducerBuffer(in, quo, rem int) reducerBuffer {
-	return reducerBuffer{
-		pIn:  make([]uint64, in),
-		pQuo: make([]uint64, quo),
-		pRem: make([]uint64, rem),
-	}
+	pool *sync.Pool
 }
 
 // newCyclotomicReducer creates a new [cyclotomicReducer].
@@ -118,54 +101,71 @@ func newCyclotomicReducer(params RingParameters, mod *num.Modulus) *cyclotomicRe
 		cycloPoly: cycloPoly,
 		divPoly:   divPoly,
 
-		buf: newReducerBuffer(params.cycloOrd, diffDegNext, degNext),
+		pool: &sync.Pool{
+			New: func() any {
+				p := make([]uint64, max(params.cycloOrd, diffDegNext, degNext))
+				return &p
+			},
+		},
 	}
 }
 
 func (r *cyclotomicReducer) reduceTo(pOut, p []uint64) {
 	cycloOrd, rank := r.params.cycloOrd, r.params.rank
 
-	copy(r.buf.pIn, p)
+	pInPtr := r.pool.Get().(*[]uint64)
+	pIn := (*pInPtr)[:cycloOrd]
+	defer r.pool.Put(pInPtr)
+
+	copy(pIn, p)
 	if cycloOrd%2 == 1 {
 		skip := cycloOrd / r.leastFac
 
 		for j := 0; j < skip; j++ {
 			for i := 0; i < r.leastFac-1; i++ {
-				r.buf.pIn[i*skip+j] = num.Sub(r.buf.pIn[i*skip+j], r.buf.pIn[cycloOrd-skip+j], r.mod)
+				pIn[i*skip+j] = num.Sub(pIn[i*skip+j], pIn[cycloOrd-skip+j], r.mod)
 			}
-			r.buf.pIn[cycloOrd-skip+j] = 0
+			pIn[cycloOrd-skip+j] = 0
 		}
 	} else {
 		skip := (cycloOrd / 2) / r.leastFac
 
 		for i := 0; i < cycloOrd/2; i++ {
-			r.buf.pIn[i] = num.Sub(r.buf.pIn[i], r.buf.pIn[cycloOrd/2+i], r.mod)
-			r.buf.pIn[cycloOrd/2+i] = 0
+			pIn[i] = num.Sub(pIn[i], pIn[cycloOrd/2+i], r.mod)
+			pIn[cycloOrd/2+i] = 0
 		}
 
 		for j := 0; j < skip; j++ {
 			for i := 0; i < r.leastFac-1; i++ {
 				if i%2 == 0 {
-					r.buf.pIn[i*skip+j] = num.Sub(r.buf.pIn[i*skip+j], r.buf.pIn[cycloOrd/2-skip+j], r.mod)
+					pIn[i*skip+j] = num.Sub(pIn[i*skip+j], pIn[cycloOrd/2-skip+j], r.mod)
 				} else {
-					r.buf.pIn[i*skip+j] = num.Add(r.buf.pIn[i*skip+j], r.buf.pIn[cycloOrd/2-skip+j], r.mod)
+					pIn[i*skip+j] = num.Add(pIn[i*skip+j], pIn[cycloOrd/2-skip+j], r.mod)
 				}
 			}
-			r.buf.pIn[cycloOrd/2-skip+j] = 0
+			pIn[cycloOrd/2-skip+j] = 0
 		}
 	}
 
 	if !r.isTrivial {
+		pQuoPtr := r.pool.Get().(*[]uint64)
+		pQuo := (*pQuoPtr)[:r.diffDegNext]
+		defer r.pool.Put(pQuoPtr)
+
 		// pQuo = floor(pIn / X^deg)
-		clear(r.buf.pQuo)
+		clear(pQuo)
 		for j := 0; j < r.diffDeg; j++ {
-			r.buf.pQuo[j] = r.buf.pIn[rank+j]
+			pQuo[j] = pIn[rank+j]
 		}
 
 		// pQuo = pQuo * floor(X^(deg+diffDeg)/\Phi_m(X))
-		r.diffDegNextNTT.ForwardTo(r.buf.pQuo, r.buf.pQuo)
-		vec.MMulLazyTo(r.buf.pQuo, r.buf.pQuo, r.divPoly, r.mod)
-		r.diffDegNextNTT.InverseTo(r.buf.pQuo, r.buf.pQuo)
+		r.diffDegNextNTT.ForwardTo(pQuo, pQuo)
+		vec.MMulLazyTo(pQuo, pQuo, r.divPoly, r.mod)
+		r.diffDegNextNTT.InverseTo(pQuo, pQuo)
+
+		pRemPtr := r.pool.Get().(*[]uint64)
+		pRem := (*pRemPtr)[:r.degNext]
+		defer r.pool.Put(pRemPtr)
 
 		// pRem = floor(pQuo / X^diffDeg) % (X^degNext - 1)
 		for i := 1; i <= num.DivCeil(r.diffDeg, r.degNext); i++ {
@@ -173,20 +173,20 @@ func (r *cyclotomicReducer) reduceTo(pOut, p []uint64) {
 				if i*r.degNext+j > r.diffDeg {
 					break
 				}
-				r.buf.pQuo[r.diffDeg+j] = num.Add(r.buf.pQuo[r.diffDeg+j], r.buf.pQuo[r.diffDeg+i*r.degNext+j], r.mod)
-				r.buf.pQuo[r.diffDeg+i*r.degNext+j] = 0
+				pQuo[r.diffDeg+j] = num.Add(pQuo[r.diffDeg+j], pQuo[r.diffDeg+i*r.degNext+j], r.mod)
+				pQuo[r.diffDeg+i*r.degNext+j] = 0
 			}
 		}
 
-		clear(r.buf.pRem)
+		clear(pRem)
 		for j := 0; j < min(r.diffDeg, r.degNext); j++ {
-			r.buf.pRem[j] = r.buf.pQuo[r.diffDeg+j]
+			pRem[j] = pQuo[r.diffDeg+j]
 		}
 
 		// pRem = pRem * cycloPoly % (X^degNext - 1)
-		r.degNextNTT.ForwardTo(r.buf.pRem, r.buf.pRem)
-		vec.MMulLazyTo(r.buf.pRem, r.buf.pRem, r.cycloPoly, r.mod)
-		r.degNextNTT.InverseTo(r.buf.pRem, r.buf.pRem)
+		r.degNextNTT.ForwardTo(pRem, pRem)
+		vec.MMulLazyTo(pRem, pRem, r.cycloPoly, r.mod)
+		r.degNextNTT.InverseTo(pRem, pRem)
 
 		// pIn = pIn % X^degNext - 1
 		for i := 1; i <= num.DivCeil(r.redDeg, r.degNext); i++ {
@@ -194,40 +194,17 @@ func (r *cyclotomicReducer) reduceTo(pOut, p []uint64) {
 				if i*r.degNext+j > r.redDeg {
 					break
 				}
-				r.buf.pIn[j] = num.Add(r.buf.pIn[j], r.buf.pIn[i*r.degNext+j], r.mod)
-				r.buf.pIn[i*r.degNext+j] = 0
+				pIn[j] = num.Add(pIn[j], pIn[i*r.degNext+j], r.mod)
+				pIn[i*r.degNext+j] = 0
 			}
 		}
 
 		// pOut = pIn - pRem
 		for i := 0; i < rank; i++ {
-			pOut[i] = num.Sub(r.buf.pIn[i], r.buf.pRem[i], r.mod)
+			pOut[i] = num.Sub(pIn[i], pRem[i], r.mod)
 		}
 	} else {
-		copy(pOut, r.buf.pIn[:rank])
-	}
-}
-
-func (r *cyclotomicReducer) SafeCopy() *cyclotomicReducer {
-	return &cyclotomicReducer{
-		params: r.params,
-		mod:    r.mod,
-
-		leastFac:  r.leastFac,
-		isTrivial: r.isTrivial,
-
-		redDeg:      r.redDeg,
-		diffDeg:     r.diffDeg,
-		diffDegNext: r.diffDegNext,
-		degNext:     r.degNext,
-
-		diffDegNextNTT: r.diffDegNextNTT,
-		degNextNTT:     r.degNextNTT,
-
-		cycloPoly: r.cycloPoly,
-		divPoly:   r.divPoly,
-
-		buf: newReducerBuffer(r.params.cycloOrd, r.diffDegNext, r.degNext),
+		copy(pOut, pIn[:rank])
 	}
 }
 

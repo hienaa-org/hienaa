@@ -174,26 +174,23 @@ func autFixedGap(cycloOrd, rank int) uint64 {
 	return uint64(gap)
 }
 
-func RingGap(params RingParameters) (uint64, error) {
-	var gap uint64
-
+// NTTPrimeGap returns the "gap" of the NTT-friendly modulus for the given ring parameters.
+func NTTPrimeGap(params RingParameters) (uint64, error) {
 	switch params.ringType {
-	case TypeCyclotomic:
-		gap = cyclotomicGap(params.cycloOrd, params.rank)
 	case TypeCyclic:
-		gap = cyclicGap(params.rank)
+		return cyclicGap(params.rank), nil
+	case TypeCyclotomic:
+		return cyclotomicGap(params.cycloOrd, params.rank), nil
 	case TypeAutFixed:
-		gap = autFixedGap(params.cycloOrd, params.rank)
+		return autFixedGap(params.cycloOrd, params.rank), nil
 	default:
-		return 0, errors.New("RingGap: invalid ring type")
+		return 0, errors.New("unsupported parameters")
 	}
-
-	return gap, nil
 }
 
 // IsNTTFriendly checks if the given modulus is NTT-friendly with respect to the ring parameters.
 func IsNTTFriendly(params RingParameters, mod *num.Modulus) bool {
-	gap, err := RingGap(params)
+	gap, err := NTTPrimeGap(params)
 	if err != nil {
 		return false
 	}
@@ -207,6 +204,9 @@ func IsNTTFriendly(params RingParameters, mod *num.Modulus) bool {
 	return true
 }
 
+// MustFindNextNTTPrimes finds a list of prime moduli that are NTT-friendly with respect to the given ring parameters.
+// Specifically, it outputs the first cnt NTT-friendly primes greater than or equal to 2^bits.
+// It panics if an error occurs.
 func MustFindNextNTTPrimes(params RingParameters, bits float64, cnt int) []*num.Modulus {
 	primes, err := FindNextNTTPrimes(params, bits, cnt)
 	if err != nil {
@@ -218,28 +218,29 @@ func MustFindNextNTTPrimes(params RingParameters, bits float64, cnt int) []*num.
 // FindNextNTTPrimes finds a list of prime moduli that are NTT-friendly with respect to the given ring parameters.
 // Specifically, it outputs the first cnt NTT-friendly primes greater than or equal to 2^bits.
 func FindNextNTTPrimes(params RingParameters, bits float64, cnt int) ([]*num.Modulus, error) {
-	gap, err := RingGap(params)
+	gap, err := NTTPrimeGap(params)
 	if err != nil {
 		return nil, err
 	}
 
-	start := (uint64(math.Round(math.Exp2(bits)))/gap)*gap + 1
+	start := (uint64(math.Floor(math.Exp2(bits))/float64(gap)))*gap + 1
+
 	primes := make([]*num.Modulus, cnt)
-	prime, err := num.NextPrime(start, gap)
-	if err != nil {
-		return nil, err
-	}
-
 	for i := 0; i < cnt; i++ {
-		primes[i] = num.NewModulus(prime)
-		prime, err = num.NextPrime(prime, gap)
+		prime, err := num.NextPrime(start, gap)
 		if err != nil {
 			return nil, err
 		}
+		primes[i] = num.NewModulus(prime)
+		start = prime
 	}
+
 	return primes, nil
 }
 
+// MustFindPrevNTTPrimes finds a list of prime moduli that are NTT-friendly with respect to the given ring parameters.
+// Specifically, it outputs the first cnt NTT-friendly primes less than or equal to 2^bits.
+// It panics if an error occurs.
 func MustFindPrevNTTPrimes(params RingParameters, bits float64, cnt int) []*num.Modulus {
 	primes, err := FindPrevNTTPrimes(params, bits, cnt)
 	if err != nil {
@@ -251,27 +252,30 @@ func MustFindPrevNTTPrimes(params RingParameters, bits float64, cnt int) []*num.
 // FindPrevNTTPrimes finds a list of prime moduli that are NTT-friendly with respect to the given ring parameters.
 // Specifically, it outputs the first cnt NTT-friendly primes less than or equal to 2^bits.
 func FindPrevNTTPrimes(params RingParameters, bits float64, cnt int) ([]*num.Modulus, error) {
-	gap, err := RingGap(params)
+	gap, err := NTTPrimeGap(params)
 	if err != nil {
 		return nil, err
 	}
 
-	start := (uint64(math.Floor(math.Exp2(bits)))/gap)*gap + 1
+	start := (uint64(math.Floor(math.Exp2(bits))/float64(gap)))*gap + 1
+
 	primes := make([]*num.Modulus, cnt)
-	prime, err := num.PrevPrime(start, gap)
-	if err != nil {
-		return nil, err
-	}
 	for i := 0; i < cnt; i++ {
-		primes[i] = num.NewModulus(prime)
-		prime, err = num.PrevPrime(prime, gap)
+		prime, err := num.PrevPrime(start, gap)
 		if err != nil {
 			return nil, err
 		}
+		primes[i] = num.NewModulus(prime)
+		start = prime
 	}
+
 	return primes, nil
 }
 
+// FindNearestNTTPrimes finds a list of prime moduli that are NTT-friendly with respect to the given ring parameters.
+// Specifically, it outputs the first cnt NTT-friendly primes nearest to 2^bits.
+// Output moduli are alternating in size.
+// It panics if an error occurs.
 func MustFindNearestNTTPrimes(params RingParameters, bits float64, cnt int) []*num.Modulus {
 	primes, err := FindNearestNTTPrimes(params, bits, cnt)
 	if err != nil {
@@ -284,58 +288,100 @@ func MustFindNearestNTTPrimes(params RingParameters, bits float64, cnt int) []*n
 // Specifically, it outputs the first cnt NTT-friendly primes nearest to 2^bits.
 // Output moduli are alternating in size.
 func FindNearestNTTPrimes(params RingParameters, bits float64, cnt int) ([]*num.Modulus, error) {
-	gap, err := RingGap(params)
+	gap, err := NTTPrimeGap(params)
 	if err != nil {
 		return nil, err
 	}
 
-	// Sample half of the primes from the larger side.
-	start := (uint64(math.Round(math.Exp2(bits)))/gap)*gap + 1
-	primes := make([]*num.Modulus, cnt)
-	halfcnt := cnt / 2
-	prime, err := num.NextPrime(start, gap)
-	for i := 0; i < halfcnt; i++ {
-		if err != nil {
-			halfcnt = i
-		} else {
-			primes[i] = num.NewModulus(prime)
-			prime, err = num.NextPrime(prime, gap)
-		}
-	}
+	start := (uint64(math.Floor(math.Exp2(bits))/float64(gap)))*gap + 1
+	nextCnt := cnt >> 1
+	prevCnt := cnt - nextCnt
 
-	// Sample the other half of the primes from the smaller side.
-	start = (uint64(math.Floor(math.Exp2(bits)))/gap)*gap + 1
-	prime, err = num.PrevPrime(start, gap)
-	currcnt := cnt
-	for i := halfcnt; i < cnt; i++ {
+	nextStart := start
+	nextPrimes := make([]*num.Modulus, 0, nextCnt)
+	for i := 0; i < nextCnt; i++ {
+		prime, err := num.NextPrime(nextStart, gap)
 		if err != nil {
-			currcnt = i
 			break
-		} else {
-			primes[i] = num.NewModulus(prime)
-			prime, err = num.PrevPrime(prime, gap)
 		}
+		nextPrimes = append(nextPrimes, num.NewModulus(prime))
+		nextStart = prime
 	}
 
-	// If the number of sampled primes is less than cnt, sample the remaining primes from the larger side.
-	if currcnt < cnt {
-		if currcnt != 0 {
-			start = primes[currcnt-1].Value()
+	prevStart := start
+	prevPrimes := make([]*num.Modulus, 0, prevCnt)
+	for i := 0; i < prevCnt; i++ {
+		prime, err := num.PrevPrime(prevStart, gap)
+		if err != nil {
+			break
 		}
-		prime, err = num.NextPrime(start, gap)
-		for i := currcnt; i < cnt; i++ {
+		prevPrimes = append(prevPrimes, num.NewModulus(prime))
+		prevStart = prime
+	}
+
+	if len(nextPrimes) < nextCnt && len(prevPrimes) < prevCnt {
+		return nil, errors.New("not enough primes found")
+	} else if len(nextPrimes) < nextCnt {
+		prevStart := prevPrimes[prevCnt-1].Value()
+		for i := 0; i < cnt-(len(nextPrimes)+len(prevPrimes)); i++ {
+			prime, err := num.PrevPrime(prevStart, gap)
 			if err != nil {
 				return nil, err
 			}
-			primes[i] = num.NewModulus(prime)
-			prime, err = num.NextPrime(prime, gap)
+			prevPrimes = append(prevPrimes, num.NewModulus(prime))
+			prevStart = prime
+		}
+	} else if len(prevPrimes) < prevCnt {
+		nextStart := nextPrimes[nextCnt-1].Value()
+		for i := 0; i < cnt-(len(nextPrimes)+len(prevPrimes)); i++ {
+			prime, err := num.NextPrime(nextStart, gap)
+			if err != nil {
+				return nil, err
+			}
+			nextPrimes = append(nextPrimes, num.NewModulus(prime))
+			nextStart = prime
 		}
 	}
 
-	// Sort the primes by value.
-	slices.SortFunc(primes, func(a, b *num.Modulus) int {
-		return int(a.Value() - b.Value())
-	})
+	primes := append(append(make([]*num.Modulus, 0, cnt), prevPrimes...), nextPrimes...)
+	slices.SortFunc(primes, num.CmpModulus)
+
+	return primes, nil
+}
+
+// MustFindAmbientPrimes finds the list of NTT-friendly primes such that their product is at least 2^minBits.
+// It panics if an error occurs.
+func MustFindAmbientPrimes(params RingParameters, minBits float64) []*num.Modulus {
+	primes, err := FindAmbientPrimes(params, minBits)
+	if err != nil {
+		panic(err)
+	}
+	return primes
+}
+
+// FindAmbientPrimes finds the list of NTT-friendly primes such that their product is at least 2^minBits.
+func FindAmbientPrimes(params RingParameters, minBits float64) ([]*num.Modulus, error) {
+	gap, err := NTTPrimeGap(params)
+	if err != nil {
+		return nil, err
+	}
+
+	start := (uint64(math.Floor(num.MaxModulus/float64(gap))))*gap + 1
+	bits := 0.0
+	primes := make([]*num.Modulus, 0)
+	for {
+		prime, err := num.PrevPrime(start, gap)
+		if err != nil {
+			return nil, err
+		}
+		primes = append(primes, num.NewModulus(prime))
+		start = prime
+
+		bits += num.Log2(prime)
+		if bits > minBits {
+			break
+		}
+	}
 
 	return primes, nil
 }

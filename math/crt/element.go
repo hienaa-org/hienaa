@@ -23,7 +23,7 @@ const (
 // A polynomial can have Standard or NTT form.
 // All coefficients in NTT form are also in Montgomery form.
 type Element struct {
-	// Coeffs are the coefficients of the polynomial.
+	// Coeffs are the coefficients of the element.
 	// Ordered as [ModLen][Rank].
 	//
 	// All subslice of Coeffs are assumed to have the same length,

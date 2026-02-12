@@ -39,7 +39,7 @@ func Recompose(d rlwe.Decomposer, dcmp *rlwe.Tensor) *crt.Element {
 func TestDecompose(t *testing.T) {
 	N := 1 << 10
 	rP := dft.NewCyclotomicParameters(N << 1)
-	q, qAux := rlwe.FindNTTPrimesFromBits(rP, 400, 100)
+	q, qAux := rlwe.FindNTTPrimes(rP, 400, 100)
 
 	paramsLiteral := rlwe.ParametersLiteral{
 		RingParams: rP,

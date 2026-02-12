@@ -130,9 +130,6 @@ type Sampler interface {
 	Sample(rank int, mod []*num.Modulus) *Element
 	// SampleTo samples an [Element] to eOut in standard domain.
 	SampleTo(eOut *Element, mod []*num.Modulus)
-	// SafeCopy returns a thread-safe copy.
-	// This always returns a freshly seeded sampler.
-	SafeCopy() Sampler
 }
 
 // UniformSampler is a sampler for uniform distribution.
@@ -203,14 +200,6 @@ func (s *UniformSampler) sampleToBounded(eOut *Element, mod []*num.Modulus) {
 		for i := range mod {
 			eOut.Coeffs[i][j] = new(big.Int).Mod(cInt, modBig[i]).Uint64()
 		}
-	}
-}
-
-// SafeCopy returns a thread-safe copy.
-// This always returns a freshly seeded sampler.
-func (s *UniformSampler) SafeCopy() Sampler {
-	return &UniformSampler{
-		baseSampler: csprng.NewUniformSampler(),
 	}
 }
 
@@ -317,21 +306,6 @@ func (s *TernarySampler) SampleTo(eOut *Element, mod []*num.Modulus) {
 	eOut.IsNTT = false
 }
 
-// SafeCopy returns a thread-safe copy.
-// This always returns a freshly seeded sampler.
-func (s *TernarySampler) SafeCopy() Sampler {
-	return &TernarySampler{
-		baseSampler: csprng.NewUniformSampler(),
-
-		posFloat: s.posFloat,
-		negFloat: s.negFloat,
-
-		pos: s.pos,
-		neg: s.neg,
-		hw:  s.hw,
-	}
-}
-
 // RoundedGaussianSampler is a sampler for rounded Gaussian distribution.
 type RoundedGaussianSampler[T float64 | *big.Float] struct {
 	baseSampler *csprng.RoundedGaussianSampler
@@ -392,15 +366,4 @@ func (s *RoundedGaussianSampler[T]) sampleBigFloatTo(eOut *Element, mod []*num.M
 	}
 
 	eOut.IsNTT = false
-}
-
-// SafeCopy returns a thread-safe copy.
-// This always returns a freshly seeded sampler.
-func (s *RoundedGaussianSampler[T]) SafeCopy() Sampler {
-	return &RoundedGaussianSampler[T]{
-		baseSampler: csprng.NewRoundedGaussianSampler(),
-
-		center: s.center,
-		stdDev: s.stdDev,
-	}
 }

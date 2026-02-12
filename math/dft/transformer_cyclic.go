@@ -2,6 +2,7 @@ package dft
 
 import (
 	"slices"
+	"sync"
 
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
@@ -95,7 +96,7 @@ type pow235CyclicTransformer struct {
 	// Empty if the mapping is not needed, or in other words, rank is a prime power.
 	idx []int
 
-	buf transformerBuffer
+	pool *sync.Pool
 }
 
 // newCyclicPow235Transformer creates a new [cyclicNativeTransformer].
@@ -153,11 +154,6 @@ func newCyclicPow235Transformer(params RingParameters, mod *num.Modulus) *pow235
 		}
 	}
 
-	var buf transformerBuffer
-	if len(idx) > 0 {
-		buf = newTransformerBuffer(params.rank)
-	}
-
 	return &pow235CyclicTransformer{
 		params:      params,
 		mod:         mod,
@@ -175,17 +171,26 @@ func newCyclicPow235Transformer(params RingParameters, mod *num.Modulus) *pow235
 
 		idx: idx,
 
-		buf: buf,
+		pool: &sync.Pool{
+			New: func() any {
+				v := make([]uint64, params.rank)
+				return &v
+			},
+		},
 	}
 }
 
 // ForwardTo transforms the uint64 vector to NTT form.
 func (ntt *pow235CyclicTransformer) ForwardTo(vNTT, v []uint64) {
 	if len(ntt.idx) > 0 {
+		vBufPtr := ntt.pool.Get().(*[]uint64)
+		vBuf := *vBufPtr
+		defer ntt.pool.Put(vBufPtr)
+
 		for i := 0; i < ntt.params.rank; i++ {
-			ntt.buf.coeffs[i] = v[ntt.idx[i]]
+			vBuf[i] = v[ntt.idx[i]]
 		}
-		copy(vNTT, ntt.buf.coeffs)
+		copy(vNTT, vBuf)
 	} else {
 		copy(vNTT, v)
 	}
@@ -230,10 +235,14 @@ func (ntt *pow235CyclicTransformer) InverseTo(v, vNTT []uint64) {
 	}
 
 	if len(ntt.idx) > 0 {
+		vBufPtr := ntt.pool.Get().(*[]uint64)
+		vBuf := *vBufPtr
+		defer ntt.pool.Put(vBufPtr)
+
 		for i := 0; i < ntt.params.rank; i++ {
-			ntt.buf.coeffs[ntt.idx[i]] = v[i]
+			vBuf[ntt.idx[i]] = v[i]
 		}
-		copy(v, ntt.buf.coeffs)
+		copy(v, vBuf)
 	}
 
 	vec.MulScalarTo(v, v, ntt.rankInv, ntt.mod)
@@ -247,33 +256,6 @@ func (ntt *pow235CyclicTransformer) Params() RingParameters {
 // Modulus returns the modulus used for the transform.
 func (ntt *pow235CyclicTransformer) Modulus() *num.Modulus {
 	return ntt.mod
-}
-
-// SafeCopy returns a thread-safe copy.
-func (ntt *pow235CyclicTransformer) SafeCopy() Transformer {
-	if len(ntt.idx) == 0 {
-		return ntt
-	}
-
-	return &pow235CyclicTransformer{
-		params:      ntt.params,
-		mod:         ntt.mod,
-		rankFactors: ntt.rankFactors,
-
-		tw:     ntt.tw,
-		twS:    ntt.twS,
-		twInv:  ntt.twInv,
-		twInvS: ntt.twInvS,
-
-		root:  ntt.root,
-		rootS: ntt.rootS,
-
-		rankInv: ntt.rankInv,
-
-		idx: ntt.idx,
-
-		buf: newTransformerBuffer(ntt.params.rank),
-	}
 }
 
 // anyCyclicTransformer is a transformer for aribtrary rank cyclic ring.
@@ -300,7 +282,7 @@ type anyCyclicTransformer struct {
 	// chirpInv is the inverse chirp factor for Bluestein NTT.
 	chirpInv []uint64
 
-	buf transformerBuffer
+	pool *sync.Pool
 }
 
 // newAnyCyclicTransformer creates a new [anyCyclicTransformer].
@@ -354,36 +336,49 @@ func newAnyCyclicTransformer(params RingParameters, mod *num.Modulus) *anyCyclic
 		chirpMS:  vec.SForm(chirpM, mod),
 		chirpInv: chirpInv,
 
-		buf: newTransformerBuffer(ambRank),
+		pool: &sync.Pool{
+			New: func() any {
+				v := make([]uint64, ambRank)
+				return &v
+			},
+		},
 	}
 }
 
 // ForwardTo transforms the uint64 vector to NTT form.
 func (ntt *anyCyclicTransformer) ForwardTo(vNTT, v []uint64) {
-	vec.SMulLazyTo(ntt.buf.coeffs[:ntt.params.rank], v, ntt.z, ntt.zS, ntt.mod)
-	clear(ntt.buf.coeffs[ntt.params.rank:])
+	vBufPtr := ntt.pool.Get().(*[]uint64)
+	vBuf := *vBufPtr
+	defer ntt.pool.Put(vBufPtr)
 
-	nttInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.tw[0], ntt.ambNTT.twS[0], ntt.mod.Value())
+	vec.SMulLazyTo(vBuf[:ntt.params.rank], v, ntt.z, ntt.zS, ntt.mod)
+	clear(vBuf[ntt.params.rank:])
 
-	vec.SMulLazyTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.chirpM, ntt.chirpMS, ntt.mod)
+	nttInPlacePow2(vBuf, ntt.ambNTT.tw[0], ntt.ambNTT.twS[0], ntt.mod.Value())
 
-	inttInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvS[0], ntt.mod.Value())
+	vec.SMulLazyTo(vBuf, vBuf, ntt.chirpM, ntt.chirpMS, ntt.mod)
 
-	vec.SMulTo(vNTT, ntt.buf.coeffs[:ntt.params.rank], ntt.z, ntt.zS, ntt.mod)
+	inttInPlacePow2(vBuf, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvS[0], ntt.mod.Value())
+
+	vec.SMulTo(vNTT, vBuf[:ntt.params.rank], ntt.z, ntt.zS, ntt.mod)
 }
 
 // InverseTo transforms the uint64 vector to Standard form.
 func (ntt *anyCyclicTransformer) InverseTo(v, vNTT []uint64) {
-	vec.SMulLazyTo(ntt.buf.coeffs[:ntt.params.rank], vNTT, ntt.zInv, ntt.zInvS, ntt.mod)
-	clear(ntt.buf.coeffs[ntt.params.rank:])
+	vBufPtr := ntt.pool.Get().(*[]uint64)
+	vBuf := *vBufPtr
+	defer ntt.pool.Put(vBufPtr)
 
-	nttInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.tw[0], ntt.ambNTT.twS[0], ntt.mod.Value())
+	vec.SMulLazyTo(vBuf[:ntt.params.rank], vNTT, ntt.zInv, ntt.zInvS, ntt.mod)
+	clear(vBuf[ntt.params.rank:])
 
-	vec.MMulLazyTo(ntt.buf.coeffs, ntt.buf.coeffs, ntt.chirpInv, ntt.mod)
+	nttInPlacePow2(vBuf, ntt.ambNTT.tw[0], ntt.ambNTT.twS[0], ntt.mod.Value())
 
-	inttInPlacePow2(ntt.buf.coeffs, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvS[0], ntt.mod.Value())
+	vec.MMulLazyTo(vBuf, vBuf, ntt.chirpInv, ntt.mod)
 
-	vec.SMulTo(v, ntt.buf.coeffs[:ntt.params.rank], ntt.zInv, ntt.zInvS, ntt.mod)
+	inttInPlacePow2(vBuf, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvS[0], ntt.mod.Value())
+
+	vec.SMulTo(v, vBuf[:ntt.params.rank], ntt.zInv, ntt.zInvS, ntt.mod)
 }
 
 // Params returns the ring parameters.
@@ -394,25 +389,4 @@ func (ntt *anyCyclicTransformer) Params() RingParameters {
 // Modulus returns the modulus used for the transform.
 func (ntt *anyCyclicTransformer) Modulus() *num.Modulus {
 	return ntt.mod
-}
-
-// SafeCopy returns a thread-safe copy.
-func (ntt *anyCyclicTransformer) SafeCopy() Transformer {
-	return &anyCyclicTransformer{
-		params: ntt.params,
-		mod:    ntt.mod,
-
-		ambNTT: ntt.ambNTT.SafeCopy().(*pow235CyclicTransformer),
-
-		z:     ntt.z,
-		zS:    ntt.zS,
-		zInv:  ntt.zInv,
-		zInvS: ntt.zInvS,
-
-		chirpM:   ntt.chirpM,
-		chirpMS:  ntt.chirpMS,
-		chirpInv: ntt.chirpInv,
-
-		buf: newTransformerBuffer(ntt.ambNTT.params.rank),
-	}
 }

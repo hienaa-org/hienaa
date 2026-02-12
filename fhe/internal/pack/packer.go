@@ -2,32 +2,30 @@
 package pack
 
 import (
-	"github.com/hienaa-org/hienaa/fhe/internal/gnum"
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
 )
 
-// packerInt is the interface for packing/unpacking integers.
-type PackerInt interface {
+// IntPacker is the interface for packing/unpacking integers.
+type IntPacker interface {
 	// Params returns the ring parameters.
 	Params() dft.RingParameters
 	// Modulus returns the modulus used for the packing/unpacking.
 	Modulus() *num.Modulus
 	// PackLen returns the length of the packing/unpacking.
 	PackLen() int
-	// SafeCopy returns a thread-safe copy.
-	SafeCopy() PackerInt
-	// Pack packs the input integer vector.
-	Pack(vIn []uint64) []uint64
-	// PackTo packs the input integer vector to the polynomial p.
-	PackTo(vOut []uint64, vIn []uint64)
-	// UnPack unpacks the polynomial p.
-	UnPack(vIn []uint64) []uint64
-	// UnPackTo unpacks the polynomial p to the output integer vector.
-	UnPackTo(vOut []uint64, vIn []uint64)
+	// Pack returns the packing of v.
+	Pack(v []uint64) []uint64
+	// PackTo packs v to vPack.
+	PackTo(vPack, v []uint64)
+	// UnPack returns the unpacking of vPack.
+	UnPack(vPack []uint64) []uint64
+	// UnPackTo unpacks vPack to v.
+	UnPackTo(v, vPack []uint64)
 }
 
-func NewPackerInt(params dft.RingParameters, mod *num.Modulus) PackerInt {
+// NewIntPacker creates a new [IntPacker].
+func NewIntPacker(params dft.RingParameters, mod *num.Modulus) IntPacker {
 	switch params.RingType() {
 	case dft.TypeCyclotomic:
 		switch {
@@ -42,13 +40,15 @@ func NewPackerInt(params dft.RingParameters, mod *num.Modulus) PackerInt {
 			}
 
 			if isMod1 {
-				return newCyclotomicPow2Mod1Packer(params, mod)
+				return newPow2CyclotomicMod1Packer(params, mod)
 			} else if len(primes) == 1 {
-				return newCyclotomicPow2Mod3Packer(params, mod)
+				return newPow2CyclotomicMod3Packer(params, mod)
 			}
+
 		case dft.IsNTTFriendly(params, mod):
-			return newCyclotomicAnyNTTPacker(params, mod)
+			return newAnyCyclotomicPacker(params, mod)
 		}
+
 	case dft.TypeAutFixed:
 		switch {
 		case num.IsPowerOfTwo(params.CycloOrder()):
@@ -61,10 +61,11 @@ func NewPackerInt(params dft.RingParameters, mod *num.Modulus) PackerInt {
 				}
 			}
 			if isMod1 {
-				return newAutFixedPow2Mod1Packer(params, mod)
+				return newPow2AutFixedMod1Packer(params, mod)
 			} else if len(primes) == 1 {
-				return newAutFixedPow2Mod3Packer(params, mod)
+				return newPow2AutFixedMod3Packer(params, mod)
 			}
+
 		case num.IsPrime(params.CycloOrder()):
 			primes, _ := num.Factor(mod.Value())
 			if len(primes) == 1 {
@@ -74,30 +75,4 @@ func NewPackerInt(params dft.RingParameters, mod *num.Modulus) PackerInt {
 	}
 
 	panic("NewPackerInt: unsupported ring type or parameters")
-}
-
-// packerBuffer is a buffer for [PackerInt].
-type packerBuffer struct {
-	coeffs [][]uint64
-}
-
-func newPackerBuffer(dim, rank int) packerBuffer {
-	coeffs := make([][]uint64, dim)
-	for i := range coeffs {
-		coeffs[i] = make([]uint64, rank)
-	}
-	return packerBuffer{coeffs: coeffs}
-}
-
-// pow2Mod3PackerBuffer is a buffer for [pow2Mod3Packer].
-type pow2Mod3PackerBuffer struct {
-	coeffs []gnum.GaussianInt
-}
-
-func newPow2Mod3PackerBuffer(rank int) pow2Mod3PackerBuffer {
-	coeffs := make([]gnum.GaussianInt, rank)
-	for i := range coeffs {
-		coeffs[i] = gnum.GaussianInt{Real: 0, Imag: 0}
-	}
-	return pow2Mod3PackerBuffer{coeffs: coeffs}
 }

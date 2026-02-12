@@ -1,41 +1,12 @@
 package crt
 
 import (
-	"math"
+	"sync"
 
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
 )
-
-// reducerBuffer is a buffer for [Reducer].
-type reducerBuffer struct {
-	// pIn is a buffer for the input polynomial.
-	pIn [][]uint64
-	// pQuo is a buffer for the quotient polynomial.
-	pQuo [][]uint64
-	// pRem is a buffer for the remainder polynomial.
-	pRem [][]uint64
-}
-
-// newReducerBuffer creates a new [reducerBuffer].
-func newReducerBuffer(lenAmbMod, in, quo, rem int) reducerBuffer {
-	pIn := make([][]uint64, lenAmbMod)
-	pQuo := make([][]uint64, lenAmbMod)
-	pRem := make([][]uint64, lenAmbMod)
-
-	for i := range pIn {
-		pIn[i] = make([]uint64, in)
-		pQuo[i] = make([]uint64, quo)
-		pRem[i] = make([]uint64, rem)
-	}
-
-	return reducerBuffer{
-		pIn:  pIn,
-		pQuo: pQuo,
-		pRem: pRem,
-	}
-}
 
 // LongDivReducer reduces a polynomial modulo modulus polynomial using long division.
 // In cases where the modulus polynomial is small or sparse, this might be more efficient than [Reducer].
@@ -49,7 +20,7 @@ type LongDivReducer struct {
 	// modPoly is the polynomial we target to reduce to.
 	modPoly [][]uint64
 
-	buf reducerBuffer
+	pool *sync.Pool
 }
 
 // NewLongDivReducer creates a new [LongDivReducer].
@@ -72,21 +43,30 @@ func NewLongDivReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *LongDi
 		maxRank: maxRank,
 		modPoly: modPolyRed,
 
-		buf: newReducerBuffer(1, maxRank, maxRank-len(modPoly)+1, maxRank),
+		pool: &sync.Pool{
+			New: func() any {
+				v := make([]uint64, max(maxRank, maxRank-len(modPoly)+1))
+				return &v
+			},
+		},
 	}
 }
 
 // quoRemTo computes quotient and remainder of p to pQuo, pRem with the idx-th modulus.
 func (r *LongDivReducer) quoRemTo(pQuo, pRem, p []uint64, idx int) {
+	pInPtr := r.pool.Get().(*[]uint64)
+	pIn := (*pInPtr)[:r.maxRank]
+	defer r.pool.Put(pInPtr)
+
 	clear(pQuo)
-	clear(r.buf.pIn[0])
-	copy(r.buf.pIn[0], p)
+	clear(pIn)
+	copy(pIn, p)
 
 	for i := 0; i <= len(p)-len(r.modPoly[idx]); i++ {
-		if r.buf.pIn[0][len(r.buf.pIn[0])-i-1] != 0 {
-			pQuo[len(pQuo)-i-1] = r.buf.pIn[0][len(r.buf.pIn[0])-i-1]
+		if pIn[len(pIn)-i-1] != 0 {
+			pQuo[len(pQuo)-i-1] = pIn[len(pIn)-i-1]
 			vec.MulSubScalarTo(
-				r.buf.pIn[0][len(r.buf.pIn[0])-i-len(r.modPoly[idx]):len(r.buf.pIn[0])-i],
+				pIn[len(pIn)-i-len(r.modPoly[idx]):len(pIn)-i],
 				r.modPoly[idx],
 				pQuo[len(pQuo)-i-1],
 				r.mod[idx],
@@ -94,7 +74,7 @@ func (r *LongDivReducer) quoRemTo(pQuo, pRem, p []uint64, idx int) {
 		}
 	}
 
-	copy(pRem, r.buf.pIn[0][:r.params.Rank()])
+	copy(pRem, pIn[:r.params.Rank()])
 }
 
 // Reduce reduces p.
@@ -120,8 +100,12 @@ func (r *LongDivReducer) ReduceTo(pOut, p *Element) {
 		panic("input(s) not consistent")
 	}
 
+	pQuoPtr := r.pool.Get().(*[]uint64)
+	pQuo := (*pQuoPtr)[:r.maxRank-len(r.modPoly[0])+1]
+	defer r.pool.Put(pQuoPtr)
+
 	for i := range r.mod {
-		r.quoRemTo(r.buf.pQuo[0], pOut.Coeffs[i], p.Coeffs[i], i)
+		r.quoRemTo(pQuo, pOut.Coeffs[i], p.Coeffs[i], i)
 	}
 }
 
@@ -146,8 +130,12 @@ func (r *LongDivReducer) QuotientTo(pOut, p *Element) {
 		panic("input(s) not consistent")
 	}
 
+	pRemPtr := r.pool.Get().(*[]uint64)
+	pRem := (*pRemPtr)[:r.params.Rank()]
+	defer r.pool.Put(pRemPtr)
+
 	for i := range r.mod {
-		r.quoRemTo(pOut.Coeffs[i], r.buf.pRem[0], p.Coeffs[i], i)
+		r.quoRemTo(pOut.Coeffs[i], pRem, p.Coeffs[i], i)
 	}
 }
 
@@ -200,21 +188,7 @@ func (r *LongDivReducer) SubReducer(idx ...int) *LongDivReducer {
 
 		modPoly: modPolyCopy,
 
-		buf: newReducerBuffer(1, r.maxRank, r.maxRank-len(modPolyCopy[0])+1, r.maxRank),
-	}
-}
-
-// SafeCopy returns a thread-safe copy.
-func (r *LongDivReducer) SafeCopy() *LongDivReducer {
-	return &LongDivReducer{
-		params: r.params,
-		mod:    r.mod,
-
-		maxRank: r.maxRank,
-
-		modPoly: r.modPoly,
-
-		buf: newReducerBuffer(1, r.maxRank, r.maxRank-len(r.modPoly[0])+1, r.maxRank),
+		pool: r.pool,
 	}
 }
 
@@ -263,7 +237,7 @@ type CyclotomicReducer struct {
 	// Precisely, it is floor(X^d_qs/\Phi_m(X)) modulo the modulus, where d_qs is the degree of the quotient polynomial Q_sp.
 	divPoly [][][]uint64
 
-	buf reducerBuffer
+	pool *sync.Pool
 }
 
 // NewCyclotomicReducer creates a new [CyclotomicReducer].
@@ -298,21 +272,35 @@ func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *Cyclot
 		diffDegNextParams := dft.NewCyclicParameters(diffDegNext)
 		degNextParams := dft.NewCyclicParameters(degNext)
 
-		ambModLen = make([]int, len(mod))
+		maxBits := make([]float64, len(mod))
 		for i := range mod {
 			if dft.IsNTTFriendly(diffDegNextParams, mod[i]) && dft.IsNTTFriendly(degNextParams, mod[i]) {
 				continue
 			}
-			maxBits := num.Log2(max(diffDegNext, degNext)) + 2*num.Log2(mod[i].Value())
-			ambModLen[i] = int(math.Ceil(maxBits / num.MaxModulusBits))
+			maxBits[i] = float64(num.Log2(max(diffDegNext, degNext)) + 2*num.Log2(mod[i].Value()))
 		}
 
-		ambMod = dft.MustFindPrevNTTPrimes(params, num.MaxModulusBits, vec.Max(ambModLen))
+		ambMod = dft.MustFindAmbientPrimes(params, vec.Max(maxBits))
 		diffDegNextAmbNTT = make([]dft.Transformer, len(ambMod))
 		degNextAmbNTT = make([]dft.Transformer, len(ambMod))
 		for i := range ambMod {
 			diffDegNextAmbNTT[i] = dft.NewTransformer(diffDegNextParams, ambMod[i])
 			degNextAmbNTT[i] = dft.NewTransformer(degNextParams, ambMod[i])
+		}
+
+		ambModLen = make([]int, len(mod))
+		for i := range mod {
+			if maxBits[i] == 0 {
+				continue
+			}
+			currBits := 0.0
+			for j := range ambMod {
+				currBits += num.Log2(ambMod[j].Value())
+				if currBits >= maxBits[i] {
+					ambModLen[i] = j + 1
+					break
+				}
+			}
 		}
 
 		embedder = make([]*Embedder, len(mod))
@@ -396,7 +384,15 @@ func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *Cyclot
 		cycloPoly: cycloPoly,
 		divPoly:   divPoly,
 
-		buf: newReducerBuffer(max(1, vec.Max(ambModLen)), cycloOrd, diffDegNext, degNext),
+		pool: &sync.Pool{
+			New: func() any {
+				p := make([][]uint64, max(1, vec.Max(ambModLen)))
+				for i := range p {
+					p[i] = make([]uint64, max(cycloOrd, diffDegNext, degNext))
+				}
+				return &p
+			},
+		},
 	}
 }
 
@@ -404,58 +400,76 @@ func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *Cyclot
 func (r *CyclotomicReducer) reduceTo(pOut, p []uint64, idx int) {
 	cycloOrd, rank := r.params.CycloOrder(), r.params.Rank()
 
-	copy(r.buf.pIn[0], p)
+	pInPtr := r.pool.Get().(*[][]uint64)
+	pIn := (*pInPtr)[0][:cycloOrd]
+	defer r.pool.Put(pInPtr)
+
+	copy(pIn, p)
 	if cycloOrd%2 == 1 {
 		skip := cycloOrd / r.leastFac
 
 		for j := 0; j < skip; j++ {
 			for i := 0; i < r.leastFac-1; i++ {
-				r.buf.pIn[0][i*skip+j] = num.Sub(r.buf.pIn[0][i*skip+j], r.buf.pIn[0][cycloOrd-skip+j], r.mod[idx])
+				pIn[i*skip+j] = num.Sub(pIn[i*skip+j], pIn[cycloOrd-skip+j], r.mod[idx])
 			}
-			r.buf.pIn[0][cycloOrd-skip+j] = 0
+			pIn[cycloOrd-skip+j] = 0
 		}
 	} else {
 		skip := (cycloOrd / 2) / r.leastFac
 
 		for i := 0; i < cycloOrd/2; i++ {
-			r.buf.pIn[0][i] = num.Sub(r.buf.pIn[0][i], r.buf.pIn[0][cycloOrd/2+i], r.mod[idx])
-			r.buf.pIn[0][cycloOrd/2+i] = 0
+			pIn[i] = num.Sub(pIn[i], pIn[cycloOrd/2+i], r.mod[idx])
+			pIn[cycloOrd/2+i] = 0
 		}
 
 		for j := 0; j < skip; j++ {
 			for i := 0; i < r.leastFac-1; i++ {
 				if i%2 == 0 {
-					r.buf.pIn[0][i*skip+j] = num.Sub(r.buf.pIn[0][i*skip+j], r.buf.pIn[0][cycloOrd/2-skip+j], r.mod[idx])
+					pIn[i*skip+j] = num.Sub(pIn[i*skip+j], pIn[cycloOrd/2-skip+j], r.mod[idx])
 				} else {
-					r.buf.pIn[0][i*skip+j] = num.Add(r.buf.pIn[0][i*skip+j], r.buf.pIn[0][cycloOrd/2-skip+j], r.mod[idx])
+					pIn[i*skip+j] = num.Add(pIn[i*skip+j], pIn[cycloOrd/2-skip+j], r.mod[idx])
 				}
 			}
-			r.buf.pIn[0][cycloOrd/2-skip+j] = 0
+			pIn[cycloOrd/2-skip+j] = 0
 		}
 	}
 
 	if !r.isTrivial {
+		pQuoPtr := r.pool.Get().(*[][]uint64)
+		pQuo := *pQuoPtr
+		for i := range pQuo {
+			pQuo[i] = pQuo[i][:r.diffDegNext]
+		}
+		defer r.pool.Put(pQuoPtr)
+
 		// pQuo = floor(pIn / X^deg)
 		for i := 0; i < max(1, r.ambModLen[idx]); i++ {
-			clear(r.buf.pQuo[i])
+			clear(pQuo[i])
 			for j := 0; j < r.diffDeg; j++ {
-				r.buf.pQuo[i][j] = r.buf.pIn[0][rank+j]
+				pQuo[i][j] = pIn[rank+j]
 			}
 		}
 
 		// pQuo = pQuo * floor(X^(deg+diffDeg)/\Phi_m(X))
 		if r.ambModLen[idx] == 0 {
-			r.diffDegNextNTT[idx].ForwardTo(r.buf.pQuo[0], r.buf.pQuo[0])
-			vec.MMulLazyTo(r.buf.pQuo[0], r.buf.pQuo[0], r.divPoly[idx][0], r.mod[idx])
-			r.diffDegNextNTT[idx].InverseTo(r.buf.pQuo[0], r.buf.pQuo[0])
+			r.diffDegNextNTT[idx].ForwardTo(pQuo[0], pQuo[0])
+			vec.MMulLazyTo(pQuo[0], pQuo[0], r.divPoly[idx][0], r.mod[idx])
+			r.diffDegNextNTT[idx].InverseTo(pQuo[0], pQuo[0])
 		} else {
 			for i := 0; i < r.ambModLen[idx]; i++ {
-				r.diffDegNextAmbNTT[i].ForwardTo(r.buf.pQuo[i], r.buf.pQuo[i])
-				vec.MMulLazyTo(r.buf.pQuo[i], r.buf.pQuo[i], r.divPoly[idx][i], r.ambMod[i])
-				r.diffDegNextAmbNTT[i].InverseTo(r.buf.pQuo[i], r.buf.pQuo[i])
+				r.diffDegNextAmbNTT[i].ForwardTo(pQuo[i], pQuo[i])
+				vec.MMulLazyTo(pQuo[i], pQuo[i], r.divPoly[idx][i], r.ambMod[i])
+				r.diffDegNextAmbNTT[i].InverseTo(pQuo[i], pQuo[i])
 			}
-			r.embedder[idx].EmbedVecTo(r.buf.pQuo[:1], r.buf.pQuo[:r.ambModLen[idx]])
+			r.embedder[idx].EmbedVecTo(pQuo[:1], pQuo[:r.ambModLen[idx]])
 		}
+
+		pRemPtr := r.pool.Get().(*[][]uint64)
+		pRem := *pRemPtr
+		for i := range pRem {
+			pRem[i] = pRem[i][:r.degNext]
+		}
+		defer r.pool.Put(pRemPtr)
 
 		// pRem = floor(pQuo / X^diffDeg) % (X^degNext - 1)
 		for i := 1; i <= num.DivCeil(r.diffDeg, r.degNext); i++ {
@@ -463,30 +477,30 @@ func (r *CyclotomicReducer) reduceTo(pOut, p []uint64, idx int) {
 				if i*r.degNext+j > r.diffDeg {
 					break
 				}
-				r.buf.pQuo[0][r.diffDeg+j] = num.Add(r.buf.pQuo[0][r.diffDeg+j], r.buf.pQuo[0][r.diffDeg+i*r.degNext+j], r.mod[idx])
-				r.buf.pQuo[0][r.diffDeg+i*r.degNext+j] = 0
+				pQuo[0][r.diffDeg+j] = num.Add(pQuo[0][r.diffDeg+j], pQuo[0][r.diffDeg+i*r.degNext+j], r.mod[idx])
+				pQuo[0][r.diffDeg+i*r.degNext+j] = 0
 			}
 		}
 
 		for i := 0; i < max(1, r.ambModLen[idx]); i++ {
-			clear(r.buf.pRem[i])
+			clear(pRem[i])
 			for j := 0; j < min(r.diffDeg, r.degNext); j++ {
-				r.buf.pRem[i][j] = r.buf.pQuo[0][r.diffDeg+j]
+				pRem[i][j] = pQuo[0][r.diffDeg+j]
 			}
 		}
 
 		// pRem = pRem * cycloPoly % (X^degNext - 1)
 		if r.ambModLen[idx] == 0 {
-			r.degNextNTT[idx].ForwardTo(r.buf.pRem[0], r.buf.pRem[0])
-			vec.MMulLazyTo(r.buf.pRem[0], r.buf.pRem[0], r.cycloPoly[idx][0], r.mod[idx])
-			r.degNextNTT[idx].InverseTo(r.buf.pRem[0], r.buf.pRem[0])
+			r.degNextNTT[idx].ForwardTo(pRem[0], pRem[0])
+			vec.MMulLazyTo(pRem[0], pRem[0], r.cycloPoly[idx][0], r.mod[idx])
+			r.degNextNTT[idx].InverseTo(pRem[0], pRem[0])
 		} else {
 			for i := 0; i < r.ambModLen[idx]; i++ {
-				r.degNextAmbNTT[i].ForwardTo(r.buf.pRem[i], r.buf.pRem[i])
-				vec.MMulLazyTo(r.buf.pRem[i], r.buf.pRem[i], r.cycloPoly[idx][i], r.ambMod[i])
-				r.degNextAmbNTT[i].InverseTo(r.buf.pRem[i], r.buf.pRem[i])
+				r.degNextAmbNTT[i].ForwardTo(pRem[i], pRem[i])
+				vec.MMulLazyTo(pRem[i], pRem[i], r.cycloPoly[idx][i], r.ambMod[i])
+				r.degNextAmbNTT[i].InverseTo(pRem[i], pRem[i])
 			}
-			r.embedder[idx].EmbedVecTo(r.buf.pRem[:1], r.buf.pRem[:r.ambModLen[idx]])
+			r.embedder[idx].EmbedVecTo(pRem[:1], pRem[:r.ambModLen[idx]])
 		}
 
 		// pIn = pIn % X^degNext - 1
@@ -495,17 +509,17 @@ func (r *CyclotomicReducer) reduceTo(pOut, p []uint64, idx int) {
 				if i*r.degNext+j > r.redDeg {
 					break
 				}
-				r.buf.pIn[0][j] = num.Add(r.buf.pIn[0][j], r.buf.pIn[0][i*r.degNext+j], r.mod[idx])
-				r.buf.pIn[0][i*r.degNext+j] = 0
+				pIn[j] = num.Add(pIn[j], pIn[i*r.degNext+j], r.mod[idx])
+				pIn[i*r.degNext+j] = 0
 			}
 		}
 
 		// pOut = pIn - pRem
 		for i := 0; i < rank; i++ {
-			pOut[i] = num.Sub(r.buf.pIn[0][i], r.buf.pRem[0][i], r.mod[idx])
+			pOut[i] = num.Sub(pIn[i], pRem[0][i], r.mod[idx])
 		}
 	} else {
-		copy(pOut, r.buf.pIn[0][:rank])
+		copy(pOut, pIn[:rank])
 	}
 }
 
@@ -571,26 +585,15 @@ func (r *CyclotomicReducer) SubReducer(idx ...int) *CyclotomicReducer {
 		diffDegNextNTTCopy = make([]dft.Transformer, len(idx))
 		degNextNTTCopy = make([]dft.Transformer, len(idx))
 		for i := range idx {
-			if r.embedder[idx[i]] != nil {
-				embedderCopy[i] = r.embedder[idx[i]].SafeCopy()
-			}
-			if r.diffDegNextNTT[idx[i]] != nil {
-				diffDegNextNTTCopy[i] = r.diffDegNextNTT[idx[i]].SafeCopy()
-			}
-			if r.degNextNTT[idx[i]] != nil {
-				degNextNTTCopy[i] = r.degNextNTT[idx[i]].SafeCopy()
-			}
+			embedderCopy[i] = r.embedder[idx[i]]
+			diffDegNextNTTCopy[i] = r.diffDegNextNTT[idx[i]]
+			degNextNTTCopy[i] = r.degNextNTT[idx[i]]
 		}
 
 		maxAmbModLen := vec.Max(ambModLenCopy)
-		diffDegNextAmbNTTCopy = make([]dft.Transformer, maxAmbModLen)
-		degNextAmbNTTCopy = make([]dft.Transformer, maxAmbModLen)
-		for i := 0; i < maxAmbModLen; i++ {
-			diffDegNextAmbNTTCopy[i] = r.diffDegNextAmbNTT[i].SafeCopy()
-			degNextAmbNTTCopy[i] = r.degNextAmbNTT[i].SafeCopy()
-		}
-
 		ambModCopy = r.ambMod[:maxAmbModLen]
+		diffDegNextAmbNTTCopy = r.diffDegNextAmbNTT[:maxAmbModLen]
+		degNextAmbNTTCopy = r.degNextAmbNTT[:maxAmbModLen]
 	}
 
 	return &CyclotomicReducer{
@@ -618,67 +621,7 @@ func (r *CyclotomicReducer) SubReducer(idx ...int) *CyclotomicReducer {
 		cycloPoly: cycloPolyCopy,
 		divPoly:   divPolyCopy,
 
-		buf: newReducerBuffer(max(1, vec.Max(ambModLenCopy)), r.params.CycloOrder(), r.diffDegNext, r.degNext),
-	}
-}
-
-// SafeCopy returns a thread-safe copy.
-func (r *CyclotomicReducer) SafeCopy() *CyclotomicReducer {
-	var embedderCopy []*Embedder
-	var diffDegNextNTTCopy, degNextNTTCopy []dft.Transformer
-
-	if !r.isTrivial {
-		embedderCopy = make([]*Embedder, len(r.mod))
-		diffDegNextNTTCopy = make([]dft.Transformer, len(r.mod))
-		degNextNTTCopy = make([]dft.Transformer, len(r.mod))
-		for i := range r.mod {
-			if r.embedder[i] != nil {
-				embedderCopy[i] = r.embedder[i].SafeCopy()
-			}
-			if r.diffDegNextNTT[i] != nil {
-				diffDegNextNTTCopy[i] = r.diffDegNextNTT[i].SafeCopy()
-			}
-			if r.degNextNTT[i] != nil {
-				degNextNTTCopy[i] = r.degNextNTT[i].SafeCopy()
-			}
-		}
-	}
-
-	diffDegNextAmbNTTCopy := make([]dft.Transformer, len(r.diffDegNextAmbNTT))
-	for i := range r.diffDegNextAmbNTT {
-		diffDegNextAmbNTTCopy[i] = r.diffDegNextAmbNTT[i].SafeCopy()
-	}
-	degNextAmbNTTCopy := make([]dft.Transformer, len(r.degNextAmbNTT))
-	for i := range r.degNextAmbNTT {
-		degNextAmbNTTCopy[i] = r.degNextAmbNTT[i].SafeCopy()
-	}
-
-	return &CyclotomicReducer{
-		params: r.params,
-		mod:    r.mod,
-
-		leastFac:  r.leastFac,
-		isTrivial: r.isTrivial,
-
-		redDeg:      r.redDeg,
-		diffDeg:     r.diffDeg,
-		diffDegNext: r.diffDegNext,
-		degNext:     r.degNext,
-
-		diffDegNextNTT: diffDegNextNTTCopy,
-		degNextNTT:     degNextNTTCopy,
-
-		ambModLen: r.ambModLen,
-		ambMod:    r.ambMod,
-		embedder:  embedderCopy,
-
-		diffDegNextAmbNTT: diffDegNextAmbNTTCopy,
-		degNextAmbNTT:     degNextAmbNTTCopy,
-
-		cycloPoly: r.cycloPoly,
-		divPoly:   r.divPoly,
-
-		buf: newReducerBuffer(max(1, vec.Max(r.ambModLen)), r.params.CycloOrder(), r.diffDegNext, r.degNext),
+		pool: r.pool,
 	}
 }
 
@@ -721,7 +664,7 @@ type Reducer struct {
 	// Precisely, it is floor(X^d_qs/modPoly(X)) modulo the modulus, where d_qs is the degree of the quotient polynomial Q_sp.
 	divPoly [][][]uint64
 
-	buf reducerBuffer
+	pool *sync.Pool
 }
 
 // NewReducer creates a new [Reducer].
@@ -742,21 +685,36 @@ func NewReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *Reducer {
 	degNextParams := dft.NewCyclicParameters(degNext)
 
 	ambParams := dft.NewCyclicParameters(2 * max(diffDegNext, degNext))
-	ambModLen := make([]int, len(mod))
+
+	maxBits := make([]float64, len(mod))
 	for i := range mod {
 		if dft.IsNTTFriendly(diffDegNextParams, mod[i]) && dft.IsNTTFriendly(degNextParams, mod[i]) {
 			continue
 		}
-		maxBits := num.Log2(max(diffDegNext, degNext)) + 2*num.Log2(mod[i].Value())
-		ambModLen[i] = int(math.Ceil(maxBits / num.MaxModulusBits))
+		maxBits[i] = float64(num.Log2(max(diffDegNext, degNext)) + 2*num.Log2(mod[i].Value()))
 	}
 
-	ambMod := dft.MustFindPrevNTTPrimes(ambParams, num.MaxModulusBits, vec.Max(ambModLen))
+	ambMod := dft.MustFindAmbientPrimes(ambParams, vec.Max(maxBits))
 	diffDegNextAmbNTT := make([]dft.Transformer, len(ambMod))
 	degNextAmbNTT := make([]dft.Transformer, len(ambMod))
 	for i := range ambMod {
 		diffDegNextAmbNTT[i] = dft.NewTransformer(diffDegNextParams, ambMod[i])
 		degNextAmbNTT[i] = dft.NewTransformer(degNextParams, ambMod[i])
+	}
+
+	ambModLen := make([]int, len(mod))
+	for i := range mod {
+		if maxBits[i] == 0 {
+			continue
+		}
+		currBits := 0.0
+		for j := range ambMod {
+			currBits += num.Log2(ambMod[j].Value())
+			if currBits >= maxBits[i] {
+				ambModLen[i] = j + 1
+				break
+			}
+		}
 	}
 
 	embedder := make([]*Embedder, len(mod))
@@ -837,7 +795,15 @@ func NewReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *Reducer {
 		modPoly: modPolyRed,
 		divPoly: divPoly,
 
-		buf: newReducerBuffer(max(1, vec.Max(ambModLen)), maxRank, diffDegNext, degNext),
+		pool: &sync.Pool{
+			New: func() any {
+				p := make([][]uint64, max(1, vec.Max(ambModLen)))
+				for i := range p {
+					p[i] = make([]uint64, max(maxRank, diffDegNext, degNext))
+				}
+				return &p
+			},
+		},
 	}
 }
 
@@ -845,29 +811,47 @@ func NewReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *Reducer {
 func (r *Reducer) reduceTo(pOut, p []uint64, idx int) {
 	rank := r.params.Rank()
 
-	copy(r.buf.pIn[0], p)
+	pInPtr := r.pool.Get().(*[][]uint64)
+	pIn := (*pInPtr)[0][:r.maxRank]
+	defer r.pool.Put(pInPtr)
+
+	copy(pIn, p)
+
+	pQuoPtr := r.pool.Get().(*[][]uint64)
+	pQuo := *pQuoPtr
+	for i := range pQuo {
+		pQuo[i] = pQuo[i][:r.diffDegNext]
+	}
+	defer r.pool.Put(pQuoPtr)
 
 	// pQuo = floor(pIn / X^deg)
 	for i := 0; i < max(1, r.ambModLen[idx]); i++ {
-		clear(r.buf.pQuo[i])
+		clear(pQuo[i])
 		for j := 0; j <= r.diffDeg; j++ {
-			r.buf.pQuo[i][j] = r.buf.pIn[0][rank+j]
+			pQuo[i][j] = pIn[rank+j]
 		}
 	}
 
 	// pQuo = pQuo * floor(X^(deg+diffDeg)/modPoly(X))
 	if r.ambModLen[idx] == 0 {
-		r.diffDegNextNTT[idx].ForwardTo(r.buf.pQuo[0], r.buf.pQuo[0])
-		vec.MMulLazyTo(r.buf.pQuo[0], r.buf.pQuo[0], r.divPoly[idx][0], r.mod[idx])
-		r.diffDegNextNTT[idx].InverseTo(r.buf.pQuo[0], r.buf.pQuo[0])
+		r.diffDegNextNTT[idx].ForwardTo(pQuo[0], pQuo[0])
+		vec.MMulLazyTo(pQuo[0], pQuo[0], r.divPoly[idx][0], r.mod[idx])
+		r.diffDegNextNTT[idx].InverseTo(pQuo[0], pQuo[0])
 	} else {
 		for i := 0; i < r.ambModLen[idx]; i++ {
-			r.diffDegNextAmbNTT[i].ForwardTo(r.buf.pQuo[i], r.buf.pQuo[i])
-			vec.MMulLazyTo(r.buf.pQuo[i], r.buf.pQuo[i], r.divPoly[idx][i], r.ambMod[i])
-			r.diffDegNextAmbNTT[i].InverseTo(r.buf.pQuo[i], r.buf.pQuo[i])
+			r.diffDegNextAmbNTT[i].ForwardTo(pQuo[i], pQuo[i])
+			vec.MMulLazyTo(pQuo[i], pQuo[i], r.divPoly[idx][i], r.ambMod[i])
+			r.diffDegNextAmbNTT[i].InverseTo(pQuo[i], pQuo[i])
 		}
-		r.embedder[idx].EmbedVecTo(r.buf.pQuo[:1], r.buf.pQuo[:r.ambModLen[idx]])
+		r.embedder[idx].EmbedVecTo(pQuo[:1], pQuo[:r.ambModLen[idx]])
 	}
+
+	pRemPtr := r.pool.Get().(*[][]uint64)
+	pRem := *pRemPtr
+	for i := range pRem {
+		pRem[i] = pRem[i][:r.degNext]
+	}
+	defer r.pool.Put(pRemPtr)
 
 	// pRem = floor(pQuo / X^diffDeg) % (X^degNext - 1)
 	for i := 1; i <= num.DivCeil(r.diffDeg, r.degNext); i++ {
@@ -875,30 +859,30 @@ func (r *Reducer) reduceTo(pOut, p []uint64, idx int) {
 			if i*r.degNext+j > r.diffDeg {
 				break
 			}
-			r.buf.pQuo[0][r.diffDeg+j] = num.Add(r.buf.pQuo[0][r.diffDeg+j], r.buf.pQuo[0][r.diffDeg+i*r.degNext+j], r.mod[idx])
-			r.buf.pQuo[0][r.diffDeg+i*r.degNext+j] = 0
+			pQuo[0][r.diffDeg+j] = num.Add(pQuo[0][r.diffDeg+j], pQuo[0][r.diffDeg+i*r.degNext+j], r.mod[idx])
+			pQuo[0][r.diffDeg+i*r.degNext+j] = 0
 		}
 	}
 
 	for i := 0; i < max(1, r.ambModLen[idx]); i++ {
-		clear(r.buf.pRem[i])
+		clear(pRem[i])
 		for j := 0; j < min(r.diffDeg+1, r.degNext); j++ {
-			r.buf.pRem[i][j] = r.buf.pQuo[0][r.diffDeg+j]
+			pRem[i][j] = pQuo[0][r.diffDeg+j]
 		}
 	}
 
 	// pRem = pRem * modPoly % (X^degNext - 1)
 	if r.ambModLen[idx] == 0 {
-		r.degNextNTT[idx].ForwardTo(r.buf.pRem[0], r.buf.pRem[0])
-		vec.MMulLazyTo(r.buf.pRem[0], r.buf.pRem[0], r.modPoly[idx][0], r.mod[idx])
-		r.degNextNTT[idx].InverseTo(r.buf.pRem[0], r.buf.pRem[0])
+		r.degNextNTT[idx].ForwardTo(pRem[0], pRem[0])
+		vec.MMulLazyTo(pRem[0], pRem[0], r.modPoly[idx][0], r.mod[idx])
+		r.degNextNTT[idx].InverseTo(pRem[0], pRem[0])
 	} else {
 		for i := 0; i < r.ambModLen[idx]; i++ {
-			r.degNextAmbNTT[i].ForwardTo(r.buf.pRem[i], r.buf.pRem[i])
-			vec.MMulLazyTo(r.buf.pRem[i], r.buf.pRem[i], r.modPoly[idx][i], r.ambMod[i])
-			r.degNextAmbNTT[i].InverseTo(r.buf.pRem[i], r.buf.pRem[i])
+			r.degNextAmbNTT[i].ForwardTo(pRem[i], pRem[i])
+			vec.MMulLazyTo(pRem[i], pRem[i], r.modPoly[idx][i], r.ambMod[i])
+			r.degNextAmbNTT[i].InverseTo(pRem[i], pRem[i])
 		}
-		r.embedder[idx].EmbedVecTo(r.buf.pRem[:1], r.buf.pRem[:r.ambModLen[idx]])
+		r.embedder[idx].EmbedVecTo(pRem[:1], pRem[:r.ambModLen[idx]])
 	}
 
 	// pIn = pIn % (X^degNext - 1)
@@ -907,14 +891,14 @@ func (r *Reducer) reduceTo(pOut, p []uint64, idx int) {
 			if i*r.degNext+j >= r.maxRank {
 				break
 			}
-			r.buf.pIn[0][j] = num.Add(r.buf.pIn[0][j], r.buf.pIn[0][i*r.degNext+j], r.mod[idx])
-			r.buf.pIn[0][i*r.degNext+j] = 0
+			pIn[j] = num.Add(pIn[j], pIn[i*r.degNext+j], r.mod[idx])
+			pIn[i*r.degNext+j] = 0
 		}
 	}
 
 	// pOut = pIn - pRem
 	for i := 0; i < rank; i++ {
-		pOut[i] = num.Sub(r.buf.pIn[0][i], r.buf.pRem[0][i], r.mod[idx])
+		pOut[i] = num.Sub(pIn[i], pRem[0][i], r.mod[idx])
 	}
 }
 
@@ -976,23 +960,17 @@ func (r *Reducer) SubReducer(idx ...int) *Reducer {
 	diffDegNextNTTCopy := make([]dft.Transformer, len(idx))
 	degNextNTTCopy := make([]dft.Transformer, len(idx))
 	for i := range idx {
-		if r.embedder[idx[i]] != nil {
-			embedderCopy[i] = r.embedder[idx[i]].SafeCopy()
-		}
-		if r.diffDegNextNTT[idx[i]] != nil {
-			diffDegNextNTTCopy[i] = r.diffDegNextNTT[idx[i]].SafeCopy()
-		}
-		if r.degNextNTT[idx[i]] != nil {
-			degNextNTTCopy[i] = r.degNextNTT[idx[i]].SafeCopy()
-		}
+		embedderCopy[i] = r.embedder[idx[i]]
+		diffDegNextNTTCopy[i] = r.diffDegNextNTT[idx[i]]
+		degNextNTTCopy[i] = r.degNextNTT[idx[i]]
 	}
 
 	maxAmbModLen := vec.Max(ambModLenCopy)
 	diffDegNextAmbNTTCopy := make([]dft.Transformer, maxAmbModLen)
 	degNextAmbNTTCopy := make([]dft.Transformer, maxAmbModLen)
 	for i := 0; i < maxAmbModLen; i++ {
-		diffDegNextAmbNTTCopy[i] = r.diffDegNextAmbNTT[i].SafeCopy()
-		degNextAmbNTTCopy[i] = r.degNextAmbNTT[i].SafeCopy()
+		diffDegNextAmbNTTCopy[i] = r.diffDegNextAmbNTT[i]
+		degNextAmbNTTCopy[i] = r.degNextAmbNTT[i]
 	}
 
 	return &Reducer{
@@ -1017,59 +995,6 @@ func (r *Reducer) SubReducer(idx ...int) *Reducer {
 		modPoly: modPolyCopy,
 		divPoly: divPolyCopy,
 
-		buf: newReducerBuffer(max(1, maxAmbModLen), r.maxRank, r.diffDegNext, r.degNext),
-	}
-
-}
-
-// SafeCopy returns a thread-safe copy.
-func (r *Reducer) SafeCopy() *Reducer {
-	embedderCopy := make([]*Embedder, len(r.mod))
-	diffDegNextNTTCopy := make([]dft.Transformer, len(r.mod))
-	degNextNTTCopy := make([]dft.Transformer, len(r.mod))
-	for i := range r.mod {
-		if r.embedder[i] != nil {
-			embedderCopy[i] = r.embedder[i].SafeCopy()
-		}
-		if r.diffDegNextNTT[i] != nil {
-			diffDegNextNTTCopy[i] = r.diffDegNextNTT[i].SafeCopy()
-		}
-		if r.degNextNTT[i] != nil {
-			degNextNTTCopy[i] = r.degNextNTT[i].SafeCopy()
-		}
-	}
-
-	diffDegNextAmbNTTCopy := make([]dft.Transformer, len(r.diffDegNextAmbNTT))
-	for i := range r.diffDegNextAmbNTT {
-		diffDegNextAmbNTTCopy[i] = r.diffDegNextAmbNTT[i].SafeCopy()
-	}
-	degNextAmbNTTCopy := make([]dft.Transformer, len(r.degNextAmbNTT))
-	for i := range r.degNextAmbNTT {
-		degNextAmbNTTCopy[i] = r.degNextAmbNTT[i].SafeCopy()
-	}
-
-	return &Reducer{
-		params: r.params,
-		mod:    r.mod,
-
-		maxRank:     r.maxRank,
-		diffDeg:     r.diffDeg,
-		diffDegNext: r.diffDegNext,
-		degNext:     r.degNext,
-
-		diffDegNextNTT: diffDegNextNTTCopy,
-		degNextNTT:     degNextNTTCopy,
-
-		ambModLen: r.ambModLen,
-		ambMod:    r.ambMod,
-		embedder:  embedderCopy,
-
-		diffDegNextAmbNTT: diffDegNextAmbNTTCopy,
-		degNextAmbNTT:     degNextAmbNTTCopy,
-
-		modPoly: r.modPoly,
-		divPoly: r.divPoly,
-
-		buf: newReducerBuffer(max(1, vec.Max(r.ambModLen)), r.maxRank, r.diffDegNext, r.degNext),
+		pool: r.pool,
 	}
 }

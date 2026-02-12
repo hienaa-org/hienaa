@@ -16,8 +16,6 @@ type Transformer interface {
 	ForwardTo(vNTT, v []uint64)
 	// InverseTo transforms the uint64 vector to Standard form.
 	InverseTo(v, vNTT []uint64)
-	// SafeCopy returns a thread-safe copy.
-	SafeCopy() Transformer
 }
 
 // NewTransformer creates a new [Transformer].
@@ -53,17 +51,4 @@ func NewTransformer(params RingParameters, mod *num.Modulus) Transformer {
 	}
 
 	panic("unsupported ring type or parameters")
-}
-
-// transformerBuffer is a buffer for [Transformer].
-type transformerBuffer struct {
-	// coeffs is the input.
-	coeffs []uint64
-}
-
-// newTransformerBuffer creates a new [transformerBuffer].
-func newTransformerBuffer(rank int) transformerBuffer {
-	return transformerBuffer{
-		coeffs: make([]uint64, rank),
-	}
 }

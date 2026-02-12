@@ -3,6 +3,7 @@ package gr
 
 import (
 	"math/big"
+	"sync"
 
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/num"
@@ -18,14 +19,7 @@ type GaloisRing struct {
 	// Equals ord - 1.
 	invExp *big.Int
 
-	buf galoisRingBuffer
-}
-
-// galoisRingBuffer is a buffer for [GaloisRing].
-type galoisRingBuffer struct {
-	xOut *Element
-	xTmp *Element
-	exp  *big.Int
+	pool *sync.Pool
 }
 
 // NewGaloisRing creates a new [GaloisRing].
@@ -41,12 +35,12 @@ func NewGaloisRing(modulus uint64, rank int) *GaloisRing {
 // NewGaloisRingCustom creates a new [GaloisRing] with a custom irreducible polynomial.
 func NewGaloisRingCustom(modulus uint64, modPoly []int64) *GaloisRing {
 	primes, exps := num.Factor(modulus)
-	switch {
-	case len(primes) != 1:
-		panic("NewGaloisRing: modulus must be a prime power")
-	case !num.IsPrime(primes[0]):
-		panic("NewGaloisRing: modulus must be a prime")
+	if len(primes) != 1 {
+		panic("modulus must be a prime power")
+	} else if !num.IsPrime(primes[0]) {
+		panic("modulus must be a prime")
 	}
+
 	prime, exp := primes[0], exps[0]
 
 	rank := len(modPoly) - 1
@@ -65,19 +59,11 @@ func NewGaloisRingCustom(modulus uint64, modPoly []int64) *GaloisRing {
 		ord:    ord,
 		invExp: invExp,
 
-		buf: newGaloisRingBuffer(modulus, rank),
-	}
-}
-
-// newGaloisRingBuffer creates a new [galoisRingBuffer].
-func newGaloisRingBuffer(modulus uint64, rank int) galoisRingBuffer {
-	exp := new(big.Int).SetUint64(modulus)
-	exp.Exp(exp, big.NewInt(int64(rank)), nil)
-
-	return galoisRingBuffer{
-		xOut: &Element{poly: crt.NewNTTPoly(rank, 1)},
-		xTmp: &Element{poly: crt.NewNTTPoly(rank, 1)},
-		exp:  exp,
+		pool: &sync.Pool{
+			New: func() any {
+				return &Element{poly: crt.NewNTTPoly(rank, 1)}
+			},
+		},
 	}
 }
 
@@ -177,19 +163,21 @@ func (gr *GaloisRing) Exp(x *Element, e uint64) *Element {
 
 // ExpTo computes xOut = x^e.
 func (gr *GaloisRing) ExpTo(xOut, x *Element, e uint64) {
-	gr.buf.xOut.Clear()
-	gr.buf.xOut.Coeffs()[0] = 1
-	gr.buf.xTmp.CopyFrom(x)
+	xOutBuf := gr.pool.Get().(*Element)
+	defer gr.pool.Put(xOutBuf)
+
+	xBuf := gr.pool.Get().(*Element)
+	defer gr.pool.Put(xBuf)
 
 	for e > 0 {
 		if e&1 == 1 {
-			gr.MulTo(gr.buf.xOut, gr.buf.xOut, gr.buf.xTmp)
+			gr.MulTo(xOutBuf, xOutBuf, xBuf)
 		}
 		e >>= 1
-		gr.MulTo(gr.buf.xTmp, gr.buf.xTmp, gr.buf.xTmp)
+		gr.MulTo(xBuf, xBuf, xBuf)
 	}
 
-	xOut.CopyFrom(gr.buf.xOut)
+	xOut.CopyFrom(xOutBuf)
 }
 
 // ExpBig returns xOut = x^e.
@@ -200,20 +188,28 @@ func (gr *GaloisRing) ExpBig(xOut, x *Element, e *big.Int) *Element {
 
 // ExpBigTo computes xOut = x^e.
 func (gr *GaloisRing) ExpBigTo(xOut, x *Element, e *big.Int) {
-	gr.buf.xOut.Clear()
-	gr.buf.xOut.Coeffs()[0] = 1
-	gr.buf.xTmp.CopyFrom(x)
+	exp := new(big.Int).Set(e)
 
-	gr.buf.exp.Set(e)
-	for gr.buf.exp.Sign() > 0 {
-		if gr.buf.exp.Bit(0) == 1 {
-			gr.MulTo(gr.buf.xOut, gr.buf.xOut, gr.buf.xTmp)
+	xBuf := gr.pool.Get().(*Element)
+	defer gr.pool.Put(xBuf)
+
+	xOutBuf := gr.pool.Get().(*Element)
+	defer gr.pool.Put(xOutBuf)
+
+	xOutBuf.Clear()
+	xOutBuf.poly.Coeffs[0][0] = 1
+	xBuf.CopyFrom(x)
+
+	exp.Set(e)
+	for exp.Sign() > 0 {
+		if exp.Bit(0) == 1 {
+			gr.MulTo(xOutBuf, xOutBuf, xBuf)
 		}
-		gr.buf.exp.Rsh(gr.buf.exp, 1)
-		gr.MulTo(gr.buf.xTmp, gr.buf.xTmp, gr.buf.xTmp)
+		exp.Rsh(exp, 1)
+		gr.MulTo(xBuf, xBuf, xBuf)
 	}
 
-	xOut.CopyFrom(gr.buf.xOut)
+	xOut.CopyFrom(xOutBuf)
 }
 
 // Inv returns xOut = x^-1.
@@ -226,15 +222,4 @@ func (gr *GaloisRing) Inv(x *Element) *Element {
 // InvTo computes xOut = x^-1.
 func (gr *GaloisRing) InvTo(xOut, x *Element) {
 	gr.ExpBigTo(xOut, x, gr.invExp)
-}
-
-// SafeCopy returns a thread-safe copy.
-func (gr *GaloisRing) SafeCopy() *GaloisRing {
-	return &GaloisRing{
-		op:     gr.op.SafeCopy(),
-		ord:    gr.ord,
-		invExp: gr.invExp,
-
-		buf: newGaloisRingBuffer(gr.Modulus(), gr.Rank()),
-	}
 }

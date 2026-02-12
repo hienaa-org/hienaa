@@ -2,6 +2,7 @@ package crt
 
 import (
 	"math/big"
+	"sync"
 	"unsafe"
 
 	"github.com/hienaa-org/hienaa/math/internal/float128"
@@ -43,20 +44,8 @@ type Embedder struct {
 	// -1 if the input modulus limb does not overlap with the output modulus limb.
 	idx []int
 
-	buf embedderBuffer
-}
-
-// embedderBuffer is a buffer for [Embedder].
-type embedderBuffer struct {
-	// f128 is a buffer for the floating-point number.
-	// Always has length 8.
-	f128 []float128.Float128
-	// u64 is a buffer for the 64-bit integers.
-	// Always has length 8.
-	u64 []uint64
-	// in is a buffer for input coefficient.
-	// Always has length [len(modIn)][8].
-	in [][]uint64
+	f128Pool *sync.Pool
+	u64Pool  *sync.Pool
 }
 
 // NewEmbedder creates a new [Embedder].
@@ -136,21 +125,16 @@ func NewEmbedder(modOut []*num.Modulus, modIn []*num.Modulus) *Embedder {
 
 		idx: idx,
 
-		buf: newEmbedderBuffer(modIn),
-	}
-}
-
-// newEmbedderBuffer creates a new [embedderBuffer].
-func newEmbedderBuffer(modIn []*num.Modulus) embedderBuffer {
-	in := make([][]uint64, len(modIn))
-	for i := range in {
-		in[i] = make([]uint64, 8)
-	}
-
-	return embedderBuffer{
-		f128: make([]float128.Float128, 8),
-		u64:  make([]uint64, 8),
-		in:   in,
+		f128Pool: &sync.Pool{
+			New: func() any {
+				return &[8]float128.Float128{}
+			},
+		},
+		u64Pool: &sync.Pool{
+			New: func() any {
+				return &[8]uint64{}
+			},
+		},
 	}
 }
 
@@ -191,6 +175,7 @@ func (emb *Embedder) EmbedVec(v [][]uint64) [][]uint64 {
 // it only embeds to len(vOut) elements.
 func (emb *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 	M := (len(v[0]) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
 
 	inLen, outLen := len(v), min(len(vOut), len(emb.modOut))
 
@@ -202,76 +187,89 @@ func (emb *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 		qv := emb.modIn[0].Value()
 		halfQv := qv >> 1
 
-		bufIn := (*[8]uint64)(unsafe.Pointer(&emb.buf.in[0][0]))
+		vBuf := emb.u64Pool.Get().(*[8]uint64)
+		defer emb.u64Pool.Put(vBuf)
+
+		r := unsafe.Pointer(unsafe.SliceData(v[0]))
 
 		for i := 0; i < M; i += 8 {
-			wIn := (*[8]uint64)(unsafe.Pointer(&v[0][i]))
-			copy(bufIn[:], wIn[:])
+			wIn := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+			copy(vBuf[:], wIn[:])
 
 			for j := 0; j < outLen; j++ {
-				wOut := (*[8]uint64)(unsafe.Pointer(&vOut[j][i]))
+				rOut := unsafe.Pointer(unsafe.SliceData(vOut[j]))
+				wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
 
 				if emb.idx[j] == 0 {
-					copy(wOut[:], bufIn[:])
+					copy(wOut[:], vBuf[:])
 				} else {
-					wOut[0] = reduceModInToModOutSigned(bufIn[0], emb.modOut[j], qv, halfQv)
-					wOut[1] = reduceModInToModOutSigned(bufIn[1], emb.modOut[j], qv, halfQv)
-					wOut[2] = reduceModInToModOutSigned(bufIn[2], emb.modOut[j], qv, halfQv)
-					wOut[3] = reduceModInToModOutSigned(bufIn[3], emb.modOut[j], qv, halfQv)
+					wOut[0] = reduceModInToModOutSigned(vBuf[0], emb.modOut[j], qv, halfQv)
+					wOut[1] = reduceModInToModOutSigned(vBuf[1], emb.modOut[j], qv, halfQv)
+					wOut[2] = reduceModInToModOutSigned(vBuf[2], emb.modOut[j], qv, halfQv)
+					wOut[3] = reduceModInToModOutSigned(vBuf[3], emb.modOut[j], qv, halfQv)
 
-					wOut[4] = reduceModInToModOutSigned(bufIn[4], emb.modOut[j], qv, halfQv)
-					wOut[5] = reduceModInToModOutSigned(bufIn[5], emb.modOut[j], qv, halfQv)
-					wOut[6] = reduceModInToModOutSigned(bufIn[6], emb.modOut[j], qv, halfQv)
-					wOut[7] = reduceModInToModOutSigned(bufIn[7], emb.modOut[j], qv, halfQv)
+					wOut[4] = reduceModInToModOutSigned(vBuf[4], emb.modOut[j], qv, halfQv)
+					wOut[5] = reduceModInToModOutSigned(vBuf[5], emb.modOut[j], qv, halfQv)
+					wOut[6] = reduceModInToModOutSigned(vBuf[6], emb.modOut[j], qv, halfQv)
+					wOut[7] = reduceModInToModOutSigned(vBuf[7], emb.modOut[j], qv, halfQv)
 				}
 			}
 		}
 
 		for i := M; i < len(v[0]); i++ {
-			vi := v[0][i]
+			c := v[0][i]
 			for j := 0; j < outLen; j++ {
 				if emb.idx[j] == 0 {
-					vOut[j][i] = vi
+					vOut[j][i] = c
 				} else {
-					vOut[j][i] = reduceModInToModOutSigned(vi, emb.modOut[j], qv, halfQv)
+					vOut[j][i] = reduceModInToModOutSigned(c, emb.modOut[j], qv, halfQv)
 				}
 			}
 		}
+
 		return
 	}
 
-	f128 := (*[8]float128.Float128)(unsafe.Pointer(&emb.buf.f128[0]))
-	i64 := (*[8]uint64)(unsafe.Pointer(&emb.buf.u64[0]))
+	f128 := emb.f128Pool.Get().(*[8]float128.Float128)
+	defer emb.f128Pool.Put(f128)
+	i64 := emb.u64Pool.Get().(*[8]uint64)
+	defer emb.u64Pool.Put(i64)
+	vBuf := make([]*[8]uint64, inLen)
+	for i := range vBuf {
+		vBuf[i] = emb.u64Pool.Get().(*[8]uint64)
+		defer emb.u64Pool.Put(vBuf[i])
+	}
 
 	for k := 0; k < M; k += 8 {
 		clear(f128[:])
 		for i := 0; i < inLen; i++ {
-			wIn := (*[8]uint64)(unsafe.Pointer(&v[i][k]))
-			bufIn := (*[8]uint64)(unsafe.Pointer(&emb.buf.in[i][0]))
+			r := unsafe.Pointer(unsafe.SliceData(v[i]))
+			w := (*[8]uint64)(unsafe.Add(r, uintptr(k)*L))
+			wBuf := vBuf[i]
 
 			compInv, compInvS := emb.compInv[i], emb.compInvS[i]
 			inv := emb.inv[i]
 			modIn := emb.modIn[i]
 
-			bufIn[0] = num.SMul(wIn[0], compInv, compInvS, modIn)
-			bufIn[1] = num.SMul(wIn[1], compInv, compInvS, modIn)
-			bufIn[2] = num.SMul(wIn[2], compInv, compInvS, modIn)
-			bufIn[3] = num.SMul(wIn[3], compInv, compInvS, modIn)
+			wBuf[0] = num.SMul(w[0], compInv, compInvS, modIn)
+			wBuf[1] = num.SMul(w[1], compInv, compInvS, modIn)
+			wBuf[2] = num.SMul(w[2], compInv, compInvS, modIn)
+			wBuf[3] = num.SMul(w[3], compInv, compInvS, modIn)
 
-			bufIn[4] = num.SMul(wIn[4], compInv, compInvS, modIn)
-			bufIn[5] = num.SMul(wIn[5], compInv, compInvS, modIn)
-			bufIn[6] = num.SMul(wIn[6], compInv, compInvS, modIn)
-			bufIn[7] = num.SMul(wIn[7], compInv, compInvS, modIn)
+			wBuf[4] = num.SMul(w[4], compInv, compInvS, modIn)
+			wBuf[5] = num.SMul(w[5], compInv, compInvS, modIn)
+			wBuf[6] = num.SMul(w[6], compInv, compInvS, modIn)
+			wBuf[7] = num.SMul(w[7], compInv, compInvS, modIn)
 
-			f128[0] = float128.Add(f128[0], float128.Mul(float128.FromInt64(int64(bufIn[0])), inv))
-			f128[1] = float128.Add(f128[1], float128.Mul(float128.FromInt64(int64(bufIn[1])), inv))
-			f128[2] = float128.Add(f128[2], float128.Mul(float128.FromInt64(int64(bufIn[2])), inv))
-			f128[3] = float128.Add(f128[3], float128.Mul(float128.FromInt64(int64(bufIn[3])), inv))
+			f128[0] = float128.Add(f128[0], float128.Mul(float128.FromInt64(int64(wBuf[0])), inv))
+			f128[1] = float128.Add(f128[1], float128.Mul(float128.FromInt64(int64(wBuf[1])), inv))
+			f128[2] = float128.Add(f128[2], float128.Mul(float128.FromInt64(int64(wBuf[2])), inv))
+			f128[3] = float128.Add(f128[3], float128.Mul(float128.FromInt64(int64(wBuf[3])), inv))
 
-			f128[4] = float128.Add(f128[4], float128.Mul(float128.FromInt64(int64(bufIn[4])), inv))
-			f128[5] = float128.Add(f128[5], float128.Mul(float128.FromInt64(int64(bufIn[5])), inv))
-			f128[6] = float128.Add(f128[6], float128.Mul(float128.FromInt64(int64(bufIn[6])), inv))
-			f128[7] = float128.Add(f128[7], float128.Mul(float128.FromInt64(int64(bufIn[7])), inv))
+			f128[4] = float128.Add(f128[4], float128.Mul(float128.FromInt64(int64(wBuf[4])), inv))
+			f128[5] = float128.Add(f128[5], float128.Mul(float128.FromInt64(int64(wBuf[5])), inv))
+			f128[6] = float128.Add(f128[6], float128.Mul(float128.FromInt64(int64(wBuf[6])), inv))
+			f128[7] = float128.Add(f128[7], float128.Mul(float128.FromInt64(int64(wBuf[7])), inv))
 		}
 
 		i64[0] = float128.ToUint64(f128[0])
@@ -285,7 +283,8 @@ func (emb *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 		i64[7] = float128.ToUint64(f128[7])
 
 		for i := 0; i < outLen; i++ {
-			wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i][k]))
+			rOut := unsafe.Pointer(unsafe.SliceData(vOut[i]))
+			wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(k)*L))
 
 			if 0 <= emb.idx[i] && emb.idx[i] < inLen {
 				copy(wOut[:], v[emb.idx[i]][k:k+8])
@@ -306,19 +305,19 @@ func (emb *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 				comp, compS := emb.comp[i], emb.compS[i]
 
 				for j := 0; j < inLen; j++ {
-					bufIn := (*[8]uint64)(unsafe.Pointer(&emb.buf.in[j][0]))
+					wBuf := vBuf[j]
 
 					comp, compS := comp[j], compS[j]
 
-					wOut[0] = num.Add(wOut[0], num.SMul(bufIn[0], comp, compS, modOut), modOut)
-					wOut[1] = num.Add(wOut[1], num.SMul(bufIn[1], comp, compS, modOut), modOut)
-					wOut[2] = num.Add(wOut[2], num.SMul(bufIn[2], comp, compS, modOut), modOut)
-					wOut[3] = num.Add(wOut[3], num.SMul(bufIn[3], comp, compS, modOut), modOut)
+					wOut[0] = num.Add(wOut[0], num.SMul(wBuf[0], comp, compS, modOut), modOut)
+					wOut[1] = num.Add(wOut[1], num.SMul(wBuf[1], comp, compS, modOut), modOut)
+					wOut[2] = num.Add(wOut[2], num.SMul(wBuf[2], comp, compS, modOut), modOut)
+					wOut[3] = num.Add(wOut[3], num.SMul(wBuf[3], comp, compS, modOut), modOut)
 
-					wOut[4] = num.Add(wOut[4], num.SMul(bufIn[4], comp, compS, modOut), modOut)
-					wOut[5] = num.Add(wOut[5], num.SMul(bufIn[5], comp, compS, modOut), modOut)
-					wOut[6] = num.Add(wOut[6], num.SMul(bufIn[6], comp, compS, modOut), modOut)
-					wOut[7] = num.Add(wOut[7], num.SMul(bufIn[7], comp, compS, modOut), modOut)
+					wOut[4] = num.Add(wOut[4], num.SMul(wBuf[4], comp, compS, modOut), modOut)
+					wOut[5] = num.Add(wOut[5], num.SMul(wBuf[5], comp, compS, modOut), modOut)
+					wOut[6] = num.Add(wOut[6], num.SMul(wBuf[6], comp, compS, modOut), modOut)
+					wOut[7] = num.Add(wOut[7], num.SMul(wBuf[7], comp, compS, modOut), modOut)
 				}
 			}
 		}
@@ -327,8 +326,8 @@ func (emb *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 	for k := M; k < len(v[0]); k++ {
 		f128[0] = float128.Float128{}
 		for i := 0; i < inLen; i++ {
-			emb.buf.in[i][0] = num.SMul(v[i][k], emb.compInv[i], emb.compInvS[i], emb.modIn[i])
-			f128[0] = float128.Add(f128[0], float128.Mul(float128.FromInt64(int64(emb.buf.in[i][0])), emb.inv[i]))
+			vBuf[i][0] = num.SMul(v[i][k], emb.compInv[i], emb.compInvS[i], emb.modIn[i])
+			f128[0] = float128.Add(f128[0], float128.Mul(float128.FromInt64(int64(vBuf[i][0])), emb.inv[i]))
 		}
 		i64[0] = float128.ToUint64(f128[0])
 
@@ -338,7 +337,7 @@ func (emb *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 			} else {
 				vOut[i][k] = num.SMul(i64[0], emb.negMod[i], emb.negModS[i], emb.modOut[i])
 				for j := 0; j < inLen; j++ {
-					vOut[i][k] = num.Add(vOut[i][k], num.SMul(emb.buf.in[j][0], emb.comp[i][j], emb.compS[i][j], emb.modOut[i]), emb.modOut[i])
+					vOut[i][k] = num.Add(vOut[i][k], num.SMul(vBuf[j][0], emb.comp[i][j], emb.compS[i][j], emb.modOut[i]), emb.modOut[i])
 				}
 			}
 		}
@@ -353,29 +352,6 @@ func (emb *Embedder) ModulusIn() []*num.Modulus {
 // ModulusOut returns the output modulus.
 func (emb *Embedder) ModulusOut() []*num.Modulus {
 	return emb.modOut
-}
-
-// SafeCopy returns a thread-safe copy.
-func (emb *Embedder) SafeCopy() *Embedder {
-	return &Embedder{
-		modIn:  emb.modIn,
-		modOut: emb.modOut,
-
-		compInv:  emb.compInv,
-		compInvS: emb.compInvS,
-
-		comp:  emb.comp,
-		compS: emb.compS,
-
-		negMod:  emb.negMod,
-		negModS: emb.negModS,
-
-		inv: emb.inv,
-
-		idx: emb.idx,
-
-		buf: newEmbedderBuffer(emb.modIn),
-	}
 }
 
 // Scaler scales a polynomial to different modulus.
@@ -403,24 +379,8 @@ type Scaler struct {
 	// scFrac is the fractional part of the modulus scaling factor.
 	scFrac []float128.Float128
 
-	buf scalerBuffer
-}
-
-// scalerBuffer is a buffer for [Scaler].
-type scalerBuffer struct {
-	// f128 is a buffer for the 128-bit floating-point number.
-	// Always has length 8.
-	f128     []float128.Float128
-	fLo, fHi []float64
-	// uHi is a buffer for the high bits of the 64-bit integers.
-	// Always has length 8.
-	uHi []uint64
-	// uLo is a buffer for the low bits of the 64-bit integers.
-	// Always has length 8.
-	uLo []uint64
-	// in is a buffer for input coefficient.
-	// Always has length [len(modIn)][8].
-	in [][]uint64
+	f128Pool *sync.Pool
+	u64Pool  *sync.Pool
 }
 
 // NewScaler creates a new [Scaler].
@@ -487,24 +447,16 @@ func NewScaler(modOut []*num.Modulus, modIn []*num.Modulus) *Scaler {
 
 		scFrac: scFrac,
 
-		buf: newScalerBuffer(modIn),
-	}
-}
-
-// newScalerBuffer creates a new [scalerBuffer].
-func newScalerBuffer(modIn []*num.Modulus) scalerBuffer {
-	in := make([][]uint64, len(modIn))
-	for i := range in {
-		in[i] = make([]uint64, 8)
-	}
-
-	return scalerBuffer{
-		f128: make([]float128.Float128, 8),
-		fLo:  make([]float64, 8),
-		fHi:  make([]float64, 8),
-		uHi:  make([]uint64, 8),
-		uLo:  make([]uint64, 8),
-		in:   in,
+		f128Pool: &sync.Pool{
+			New: func() any {
+				return &[8]float128.Float128{}
+			},
+		},
+		u64Pool: &sync.Pool{
+			New: func() any {
+				return &[8]uint64{}
+			},
+		},
 	}
 }
 
@@ -544,40 +496,50 @@ func (sc *Scaler) ScaleVecTo(vOut, v [][]uint64) {
 
 	inLen, outLen := len(sc.modIn), len(sc.modOut)
 	M := (len(v[0]) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
 
-	f128 := (*[8]float128.Float128)(unsafe.Pointer(&sc.buf.f128[0]))
-	uHi := (*[8]uint64)(unsafe.Pointer(&sc.buf.uHi[0]))
-	uLo := (*[8]uint64)(unsafe.Pointer(&sc.buf.uLo[0]))
+	f128 := sc.f128Pool.Get().(*[8]float128.Float128)
+	defer sc.f128Pool.Put(f128)
+	uHi := sc.u64Pool.Get().(*[8]uint64)
+	defer sc.u64Pool.Put(uHi)
+	uLo := sc.u64Pool.Get().(*[8]uint64)
+	defer sc.u64Pool.Put(uLo)
+	vBuf := make([]*[8]uint64, inLen)
+	for i := range vBuf {
+		vBuf[i] = sc.u64Pool.Get().(*[8]uint64)
+		defer sc.u64Pool.Put(vBuf[i])
+	}
 
 	for k := 0; k < M; k += 8 {
-		clear(sc.buf.f128)
+		clear(f128[:])
 		for i := 0; i < inLen; i++ {
-			wIn := (*[8]uint64)(unsafe.Pointer(&v[i][k]))
-			bufIn := (*[8]uint64)(unsafe.Pointer(&sc.buf.in[i][0]))
+			r := unsafe.Pointer(unsafe.SliceData(v[i]))
+			w := (*[8]uint64)(unsafe.Add(r, uintptr(k)*L))
+			wBuf := vBuf[i]
 
 			compInv, compInvS := sc.compInv[i], sc.compInvS[i]
 			scFrac := sc.scFrac[i]
 			modIn := sc.modIn[i]
 
-			bufIn[0] = num.SMul(wIn[0], compInv, compInvS, modIn)
-			bufIn[1] = num.SMul(wIn[1], compInv, compInvS, modIn)
-			bufIn[2] = num.SMul(wIn[2], compInv, compInvS, modIn)
-			bufIn[3] = num.SMul(wIn[3], compInv, compInvS, modIn)
+			wBuf[0] = num.SMul(w[0], compInv, compInvS, modIn)
+			wBuf[1] = num.SMul(w[1], compInv, compInvS, modIn)
+			wBuf[2] = num.SMul(w[2], compInv, compInvS, modIn)
+			wBuf[3] = num.SMul(w[3], compInv, compInvS, modIn)
 
-			bufIn[4] = num.SMul(wIn[4], compInv, compInvS, modIn)
-			bufIn[5] = num.SMul(wIn[5], compInv, compInvS, modIn)
-			bufIn[6] = num.SMul(wIn[6], compInv, compInvS, modIn)
-			bufIn[7] = num.SMul(wIn[7], compInv, compInvS, modIn)
+			wBuf[4] = num.SMul(w[4], compInv, compInvS, modIn)
+			wBuf[5] = num.SMul(w[5], compInv, compInvS, modIn)
+			wBuf[6] = num.SMul(w[6], compInv, compInvS, modIn)
+			wBuf[7] = num.SMul(w[7], compInv, compInvS, modIn)
 
-			f128[0] = float128.Add(f128[0], float128.Mul(float128.FromInt64(int64(bufIn[0])), scFrac))
-			f128[1] = float128.Add(f128[1], float128.Mul(float128.FromInt64(int64(bufIn[1])), scFrac))
-			f128[2] = float128.Add(f128[2], float128.Mul(float128.FromInt64(int64(bufIn[2])), scFrac))
-			f128[3] = float128.Add(f128[3], float128.Mul(float128.FromInt64(int64(bufIn[3])), scFrac))
+			f128[0] = float128.Add(f128[0], float128.Mul(float128.FromInt64(int64(wBuf[0])), scFrac))
+			f128[1] = float128.Add(f128[1], float128.Mul(float128.FromInt64(int64(wBuf[1])), scFrac))
+			f128[2] = float128.Add(f128[2], float128.Mul(float128.FromInt64(int64(wBuf[2])), scFrac))
+			f128[3] = float128.Add(f128[3], float128.Mul(float128.FromInt64(int64(wBuf[3])), scFrac))
 
-			f128[4] = float128.Add(f128[4], float128.Mul(float128.FromInt64(int64(bufIn[4])), scFrac))
-			f128[5] = float128.Add(f128[5], float128.Mul(float128.FromInt64(int64(bufIn[5])), scFrac))
-			f128[6] = float128.Add(f128[6], float128.Mul(float128.FromInt64(int64(bufIn[6])), scFrac))
-			f128[7] = float128.Add(f128[7], float128.Mul(float128.FromInt64(int64(bufIn[7])), scFrac))
+			f128[4] = float128.Add(f128[4], float128.Mul(float128.FromInt64(int64(wBuf[4])), scFrac))
+			f128[5] = float128.Add(f128[5], float128.Mul(float128.FromInt64(int64(wBuf[5])), scFrac))
+			f128[6] = float128.Add(f128[6], float128.Mul(float128.FromInt64(int64(wBuf[6])), scFrac))
+			f128[7] = float128.Add(f128[7], float128.Mul(float128.FromInt64(int64(wBuf[7])), scFrac))
 		}
 
 		uHi[0], uLo[0] = float128.ToUint128(f128[0])
@@ -591,7 +553,8 @@ func (sc *Scaler) ScaleVecTo(vOut, v [][]uint64) {
 		uHi[7], uLo[7] = float128.ToUint128(f128[7])
 
 		for i := 0; i < outLen; i++ {
-			wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i][k]))
+			rOut := unsafe.Pointer(unsafe.SliceData(vOut[i]))
+			wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(k)*L))
 
 			modOut := sc.modOut[i]
 
@@ -608,19 +571,19 @@ func (sc *Scaler) ScaleVecTo(vOut, v [][]uint64) {
 			modScInt, modScIntS := sc.scInt[i], sc.scIntS[i]
 
 			for j := 0; j < inLen; j++ {
-				bufIn := (*[8]uint64)(unsafe.Pointer(&sc.buf.in[j][0]))
+				wBuf := vBuf[j]
 
 				modScInt, modScIntS := modScInt[j], modScIntS[j]
 
-				wOut[0] = num.Add(wOut[0], num.SMul(bufIn[0], modScInt, modScIntS, modOut), modOut)
-				wOut[1] = num.Add(wOut[1], num.SMul(bufIn[1], modScInt, modScIntS, modOut), modOut)
-				wOut[2] = num.Add(wOut[2], num.SMul(bufIn[2], modScInt, modScIntS, modOut), modOut)
-				wOut[3] = num.Add(wOut[3], num.SMul(bufIn[3], modScInt, modScIntS, modOut), modOut)
+				wOut[0] = num.Add(wOut[0], num.SMul(wBuf[0], modScInt, modScIntS, modOut), modOut)
+				wOut[1] = num.Add(wOut[1], num.SMul(wBuf[1], modScInt, modScIntS, modOut), modOut)
+				wOut[2] = num.Add(wOut[2], num.SMul(wBuf[2], modScInt, modScIntS, modOut), modOut)
+				wOut[3] = num.Add(wOut[3], num.SMul(wBuf[3], modScInt, modScIntS, modOut), modOut)
 
-				wOut[4] = num.Add(wOut[4], num.SMul(bufIn[4], modScInt, modScIntS, modOut), modOut)
-				wOut[5] = num.Add(wOut[5], num.SMul(bufIn[5], modScInt, modScIntS, modOut), modOut)
-				wOut[6] = num.Add(wOut[6], num.SMul(bufIn[6], modScInt, modScIntS, modOut), modOut)
-				wOut[7] = num.Add(wOut[7], num.SMul(bufIn[7], modScInt, modScIntS, modOut), modOut)
+				wOut[4] = num.Add(wOut[4], num.SMul(wBuf[4], modScInt, modScIntS, modOut), modOut)
+				wOut[5] = num.Add(wOut[5], num.SMul(wBuf[5], modScInt, modScIntS, modOut), modOut)
+				wOut[6] = num.Add(wOut[6], num.SMul(wBuf[6], modScInt, modScIntS, modOut), modOut)
+				wOut[7] = num.Add(wOut[7], num.SMul(wBuf[7], modScInt, modScIntS, modOut), modOut)
 			}
 		}
 	}
@@ -628,15 +591,15 @@ func (sc *Scaler) ScaleVecTo(vOut, v [][]uint64) {
 	for k := M; k < len(v[0]); k++ {
 		f128[0] = float128.Float128{}
 		for i := 0; i < inLen; i++ {
-			sc.buf.in[i][0] = num.SMul(v[i][k], sc.compInv[i], sc.compInvS[i], sc.modIn[i])
-			f128[0] = float128.Add(f128[0], float128.Mul(float128.FromInt64(int64(sc.buf.in[i][0])), sc.scFrac[i]))
+			vBuf[i][0] = num.SMul(v[i][k], sc.compInv[i], sc.compInvS[i], sc.modIn[i])
+			f128[0] = float128.Add(f128[0], float128.Mul(float128.FromInt64(int64(vBuf[i][0])), sc.scFrac[i]))
 		}
 		uHi[0], uLo[0] = float128.ToUint128(f128[0])
 
 		for i := 0; i < outLen; i++ {
 			vOut[i][k] = num.Reduce128(uHi[0], uLo[0], sc.modOut[i])
 			for j := 0; j < inLen; j++ {
-				vOut[i][k] = num.Add(vOut[i][k], num.SMul(sc.buf.in[j][0], sc.scInt[i][j], sc.scIntS[i][j], sc.modOut[i]), sc.modOut[i])
+				vOut[i][k] = num.Add(vOut[i][k], num.SMul(vBuf[j][0], sc.scInt[i][j], sc.scIntS[i][j], sc.modOut[i]), sc.modOut[i])
 			}
 		}
 	}
@@ -650,24 +613,6 @@ func (sc *Scaler) ModulusIn() []*num.Modulus {
 // ModulusOut returns the output modulus.
 func (sc *Scaler) ModulusOut() []*num.Modulus {
 	return sc.modOut
-}
-
-// SafeCopy returns a thread-safe copy.
-func (sc *Scaler) SafeCopy() *Scaler {
-	return &Scaler{
-		modIn:  sc.modIn,
-		modOut: sc.modOut,
-
-		compInv:  sc.compInv,
-		compInvS: sc.compInvS,
-
-		scInt:  sc.scInt,
-		scIntS: sc.scIntS,
-
-		scFrac: sc.scFrac,
-
-		buf: newScalerBuffer(sc.modIn),
-	}
 }
 
 // ScaleEmbedder scales a polynomial and embeds it into different modulus.
@@ -710,7 +655,8 @@ type ScaleEmbedder struct {
 	// for the constant to compute the overflow multiplied by the scaling factor.
 	ovfFrac float128.Float128
 
-	buf scalerBuffer
+	f128Pool *sync.Pool
+	u64Pool  *sync.Pool
 }
 
 // NewScaleEmbedder creates a new [ScaleEmbedder].
@@ -811,7 +757,16 @@ func NewScaleEmbedder(modOut []*num.Modulus, modIn []*num.Modulus, scale *big.Ra
 
 		ovfFrac: ovfFrac,
 
-		buf: newScalerBuffer(modIn),
+		f128Pool: &sync.Pool{
+			New: func() any {
+				return &[8]float128.Float128{}
+			},
+		},
+		u64Pool: &sync.Pool{
+			New: func() any {
+				return &[8]uint64{}
+			},
+		},
 	}
 }
 
@@ -851,39 +806,49 @@ func (sc *ScaleEmbedder) ScaleEmbedVecTo(vOut, v [][]uint64) {
 
 	inLen, outLen := len(sc.modIn), len(sc.modOut)
 	M := (len(v[0]) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
 
-	f128 := (*[8]float128.Float128)(unsafe.Pointer(&sc.buf.f128[0]))
-	uHi := (*[8]uint64)(unsafe.Pointer(&sc.buf.uHi[0]))
-	uLo := (*[8]uint64)(unsafe.Pointer(&sc.buf.uLo[0]))
+	f128 := sc.f128Pool.Get().(*[8]float128.Float128)
+	defer sc.f128Pool.Put(f128)
+	uHi := sc.u64Pool.Get().(*[8]uint64)
+	defer sc.u64Pool.Put(uHi)
+	uLo := sc.u64Pool.Get().(*[8]uint64)
+	defer sc.u64Pool.Put(uLo)
+	vBuf := make([]*[8]uint64, inLen)
+	for i := range vBuf {
+		vBuf[i] = sc.u64Pool.Get().(*[8]uint64)
+		defer sc.u64Pool.Put(vBuf[i])
+	}
 
 	for k := 0; k < M; k += 8 {
 		clear(f128[:])
 		for i := 0; i < inLen; i++ {
-			wIn := (*[8]uint64)(unsafe.Pointer(&v[i][k]))
-			bufIn := (*[8]uint64)(unsafe.Pointer(&sc.buf.in[i][0]))
+			r := unsafe.Pointer(unsafe.SliceData(v[i]))
+			w := (*[8]uint64)(unsafe.Add(r, uintptr(k)*L))
+			wBuf := vBuf[i]
 
 			compInv, compInvS, modIn := sc.compInv[i], sc.compInvS[i], sc.modIn[i]
 			inv := sc.inv[i]
 
-			bufIn[0] = num.SMul(wIn[0], compInv, compInvS, modIn)
-			bufIn[1] = num.SMul(wIn[1], compInv, compInvS, modIn)
-			bufIn[2] = num.SMul(wIn[2], compInv, compInvS, modIn)
-			bufIn[3] = num.SMul(wIn[3], compInv, compInvS, modIn)
+			wBuf[0] = num.SMul(w[0], compInv, compInvS, modIn)
+			wBuf[1] = num.SMul(w[1], compInv, compInvS, modIn)
+			wBuf[2] = num.SMul(w[2], compInv, compInvS, modIn)
+			wBuf[3] = num.SMul(w[3], compInv, compInvS, modIn)
 
-			bufIn[4] = num.SMul(wIn[4], compInv, compInvS, modIn)
-			bufIn[5] = num.SMul(wIn[5], compInv, compInvS, modIn)
-			bufIn[6] = num.SMul(wIn[6], compInv, compInvS, modIn)
-			bufIn[7] = num.SMul(wIn[7], compInv, compInvS, modIn)
+			wBuf[4] = num.SMul(w[4], compInv, compInvS, modIn)
+			wBuf[5] = num.SMul(w[5], compInv, compInvS, modIn)
+			wBuf[6] = num.SMul(w[6], compInv, compInvS, modIn)
+			wBuf[7] = num.SMul(w[7], compInv, compInvS, modIn)
 
-			f128[0] = float128.Add(f128[0], float128.Mul(float128.FromInt64(int64(bufIn[0])), inv))
-			f128[1] = float128.Add(f128[1], float128.Mul(float128.FromInt64(int64(bufIn[1])), inv))
-			f128[2] = float128.Add(f128[2], float128.Mul(float128.FromInt64(int64(bufIn[2])), inv))
-			f128[3] = float128.Add(f128[3], float128.Mul(float128.FromInt64(int64(bufIn[3])), inv))
+			f128[0] = float128.Add(f128[0], float128.Mul(float128.FromInt64(int64(wBuf[0])), inv))
+			f128[1] = float128.Add(f128[1], float128.Mul(float128.FromInt64(int64(wBuf[1])), inv))
+			f128[2] = float128.Add(f128[2], float128.Mul(float128.FromInt64(int64(wBuf[2])), inv))
+			f128[3] = float128.Add(f128[3], float128.Mul(float128.FromInt64(int64(wBuf[3])), inv))
 
-			f128[4] = float128.Add(f128[4], float128.Mul(float128.FromInt64(int64(bufIn[4])), inv))
-			f128[5] = float128.Add(f128[5], float128.Mul(float128.FromInt64(int64(bufIn[5])), inv))
-			f128[6] = float128.Add(f128[6], float128.Mul(float128.FromInt64(int64(bufIn[6])), inv))
-			f128[7] = float128.Add(f128[7], float128.Mul(float128.FromInt64(int64(bufIn[7])), inv))
+			f128[4] = float128.Add(f128[4], float128.Mul(float128.FromInt64(int64(wBuf[4])), inv))
+			f128[5] = float128.Add(f128[5], float128.Mul(float128.FromInt64(int64(wBuf[5])), inv))
+			f128[6] = float128.Add(f128[6], float128.Mul(float128.FromInt64(int64(wBuf[6])), inv))
+			f128[7] = float128.Add(f128[7], float128.Mul(float128.FromInt64(int64(wBuf[7])), inv))
 		}
 
 		uLo[0] = float128.ToUint64(f128[0])
@@ -897,7 +862,8 @@ func (sc *ScaleEmbedder) ScaleEmbedVecTo(vOut, v [][]uint64) {
 		uLo[7] = float128.ToUint64(f128[7])
 
 		for i := 0; i < outLen; i++ {
-			wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i][k]))
+			rOut := unsafe.Pointer(unsafe.SliceData(vOut[i]))
+			wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(k)*L))
 
 			intOv, intOvS := sc.ovfInt[i], sc.ovfIntS[i]
 			modOut, modOutv := sc.modOut[i], sc.modOut[i].Value()
@@ -915,37 +881,37 @@ func (sc *ScaleEmbedder) ScaleEmbedVecTo(vOut, v [][]uint64) {
 			modScInt, modScIntS := sc.scInt[i], sc.scIntS[i]
 
 			for j := 0; j < inLen; j++ {
-				bufIn := (*[8]uint64)(unsafe.Pointer(&sc.buf.in[j][0]))
+				wBuf := vBuf[j]
 
 				modScInt, modScIntS := modScInt[j], modScIntS[j]
 
-				wOut[0] = num.Add(wOut[0], num.SMul(bufIn[0], modScInt, modScIntS, modOut), modOut)
-				wOut[1] = num.Add(wOut[1], num.SMul(bufIn[1], modScInt, modScIntS, modOut), modOut)
-				wOut[2] = num.Add(wOut[2], num.SMul(bufIn[2], modScInt, modScIntS, modOut), modOut)
-				wOut[3] = num.Add(wOut[3], num.SMul(bufIn[3], modScInt, modScIntS, modOut), modOut)
+				wOut[0] = num.Add(wOut[0], num.SMul(wBuf[0], modScInt, modScIntS, modOut), modOut)
+				wOut[1] = num.Add(wOut[1], num.SMul(wBuf[1], modScInt, modScIntS, modOut), modOut)
+				wOut[2] = num.Add(wOut[2], num.SMul(wBuf[2], modScInt, modScIntS, modOut), modOut)
+				wOut[3] = num.Add(wOut[3], num.SMul(wBuf[3], modScInt, modScIntS, modOut), modOut)
 
-				wOut[4] = num.Add(wOut[4], num.SMul(bufIn[4], modScInt, modScIntS, modOut), modOut)
-				wOut[5] = num.Add(wOut[5], num.SMul(bufIn[5], modScInt, modScIntS, modOut), modOut)
-				wOut[6] = num.Add(wOut[6], num.SMul(bufIn[6], modScInt, modScIntS, modOut), modOut)
-				wOut[7] = num.Add(wOut[7], num.SMul(bufIn[7], modScInt, modScIntS, modOut), modOut)
+				wOut[4] = num.Add(wOut[4], num.SMul(wBuf[4], modScInt, modScIntS, modOut), modOut)
+				wOut[5] = num.Add(wOut[5], num.SMul(wBuf[5], modScInt, modScIntS, modOut), modOut)
+				wOut[6] = num.Add(wOut[6], num.SMul(wBuf[6], modScInt, modScIntS, modOut), modOut)
+				wOut[7] = num.Add(wOut[7], num.SMul(wBuf[7], modScInt, modScIntS, modOut), modOut)
 			}
 		}
 
 		clear(f128[:])
 		for i := 0; i < inLen; i++ {
-			bufIn := (*[8]uint64)(unsafe.Pointer(&sc.buf.in[i][0]))
+			wBuf := vBuf[i]
 
 			modScFrac := sc.scFrac[i]
 
-			f128[0] = float128.Add(f128[0], float128.Mul(float128.FromInt64(int64(bufIn[0])), modScFrac))
-			f128[1] = float128.Add(f128[1], float128.Mul(float128.FromInt64(int64(bufIn[1])), modScFrac))
-			f128[2] = float128.Add(f128[2], float128.Mul(float128.FromInt64(int64(bufIn[2])), modScFrac))
-			f128[3] = float128.Add(f128[3], float128.Mul(float128.FromInt64(int64(bufIn[3])), modScFrac))
+			f128[0] = float128.Add(f128[0], float128.Mul(float128.FromInt64(int64(wBuf[0])), modScFrac))
+			f128[1] = float128.Add(f128[1], float128.Mul(float128.FromInt64(int64(wBuf[1])), modScFrac))
+			f128[2] = float128.Add(f128[2], float128.Mul(float128.FromInt64(int64(wBuf[2])), modScFrac))
+			f128[3] = float128.Add(f128[3], float128.Mul(float128.FromInt64(int64(wBuf[3])), modScFrac))
 
-			f128[4] = float128.Add(f128[4], float128.Mul(float128.FromInt64(int64(bufIn[4])), modScFrac))
-			f128[5] = float128.Add(f128[5], float128.Mul(float128.FromInt64(int64(bufIn[5])), modScFrac))
-			f128[6] = float128.Add(f128[6], float128.Mul(float128.FromInt64(int64(bufIn[6])), modScFrac))
-			f128[7] = float128.Add(f128[7], float128.Mul(float128.FromInt64(int64(bufIn[7])), modScFrac))
+			f128[4] = float128.Add(f128[4], float128.Mul(float128.FromInt64(int64(wBuf[4])), modScFrac))
+			f128[5] = float128.Add(f128[5], float128.Mul(float128.FromInt64(int64(wBuf[5])), modScFrac))
+			f128[6] = float128.Add(f128[6], float128.Mul(float128.FromInt64(int64(wBuf[6])), modScFrac))
+			f128[7] = float128.Add(f128[7], float128.Mul(float128.FromInt64(int64(wBuf[7])), modScFrac))
 		}
 
 		f128[0] = float128.Sub(f128[0], float128.Mul(float128.FromInt64(int64(uLo[0])), sc.ovfFrac))
@@ -969,7 +935,8 @@ func (sc *ScaleEmbedder) ScaleEmbedVecTo(vOut, v [][]uint64) {
 		uHi[7], uLo[7] = float128.ToUint128(f128[7])
 
 		for i := 0; i < outLen; i++ {
-			wOut := (*[8]uint64)(unsafe.Pointer(&vOut[i][k]))
+			rOut := unsafe.Pointer(unsafe.SliceData(vOut[i]))
+			wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(k)*L))
 
 			modOut := sc.modOut[i]
 
@@ -988,9 +955,9 @@ func (sc *ScaleEmbedder) ScaleEmbedVecTo(vOut, v [][]uint64) {
 	for k := M; k < len(v[0]); k++ {
 		f128[0] = float128.Float128{}
 		for i := 0; i < inLen; i++ {
-			sc.buf.in[i][0] = num.SMul(v[i][k], sc.compInv[i], sc.compInvS[i], sc.modIn[i])
+			vBuf[i][0] = num.SMul(v[i][k], sc.compInv[i], sc.compInvS[i], sc.modIn[i])
 
-			f128[0] = float128.Add(f128[0], float128.Mul(float128.FromInt64(int64(sc.buf.in[i][0])), sc.inv[i]))
+			f128[0] = float128.Add(f128[0], float128.Mul(float128.FromInt64(int64(vBuf[i][0])), sc.inv[i]))
 		}
 
 		uLo[0] = float128.ToUint64(f128[0])
@@ -998,13 +965,13 @@ func (sc *ScaleEmbedder) ScaleEmbedVecTo(vOut, v [][]uint64) {
 		for i := 0; i < outLen; i++ {
 			vOut[i][k] = num.SMul(sc.modOut[i].Value()-uLo[0], sc.ovfInt[i], sc.ovfIntS[i], sc.modOut[i])
 			for j := 0; j < inLen; j++ {
-				vOut[i][k] = num.Add(vOut[i][k], num.SMul(sc.buf.in[j][0], sc.scInt[i][j], sc.scIntS[i][j], sc.modOut[i]), sc.modOut[i])
+				vOut[i][k] = num.Add(vOut[i][k], num.SMul(vBuf[j][0], sc.scInt[i][j], sc.scIntS[i][j], sc.modOut[i]), sc.modOut[i])
 			}
 		}
 
 		f128[0] = float128.Float128{}
 		for i := 0; i < inLen; i++ {
-			f128[0] = float128.Add(f128[0], float128.Mul(float128.FromInt64(int64(sc.buf.in[i][0])), sc.scFrac[i]))
+			f128[0] = float128.Add(f128[0], float128.Mul(float128.FromInt64(int64(vBuf[i][0])), sc.scFrac[i]))
 		}
 
 		f128[0] = float128.Sub(f128[0], float128.Mul(float128.FromInt64(int64(uLo[0])), sc.ovfFrac))
@@ -1030,29 +997,4 @@ func (sc *ScaleEmbedder) ModulusOut() []*num.Modulus {
 // ScalingFactor returns the scaling factor.
 func (sc *ScaleEmbedder) ScalingFactor() *big.Rat {
 	return sc.scale
-}
-
-// SafeCopy returns a thread-safe copy.
-func (sc *ScaleEmbedder) SafeCopy() *ScaleEmbedder {
-	return &ScaleEmbedder{
-		modIn:  sc.modIn,
-		modOut: sc.modOut,
-
-		compInv:  sc.compInv,
-		compInvS: sc.compInvS,
-
-		inv: sc.inv,
-
-		scInt:  sc.scInt,
-		scIntS: sc.scIntS,
-
-		scFrac: sc.scFrac,
-
-		ovfInt:  sc.ovfInt,
-		ovfIntS: sc.ovfIntS,
-
-		ovfFrac: sc.ovfFrac,
-
-		buf: newScalerBuffer(sc.modIn),
-	}
 }

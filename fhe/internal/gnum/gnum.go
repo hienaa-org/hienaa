@@ -6,11 +6,13 @@ import (
 	"github.com/hienaa-org/hienaa/math/num"
 )
 
+// GaussianInt represents a Gaussian integer.
 type GaussianInt struct {
 	Real uint64
 	Imag uint64
 }
 
+// Add returns g0 + g1.
 func Add(g0, g1 GaussianInt, q *num.Modulus) GaussianInt {
 	return GaussianInt{
 		Real: num.Add(g0.Real, g1.Real, q),
@@ -18,6 +20,7 @@ func Add(g0, g1 GaussianInt, q *num.Modulus) GaussianInt {
 	}
 }
 
+// Sub returns g0 - g1.
 func Sub(g0, g1 GaussianInt, q *num.Modulus) GaussianInt {
 	return GaussianInt{
 		Real: num.Sub(g0.Real, g1.Real, q),
@@ -25,6 +28,7 @@ func Sub(g0, g1 GaussianInt, q *num.Modulus) GaussianInt {
 	}
 }
 
+// Neg returns -g.
 func Neg(g GaussianInt, q *num.Modulus) GaussianInt {
 	return GaussianInt{
 		Real: num.Neg(g.Real, q),
@@ -32,6 +36,7 @@ func Neg(g GaussianInt, q *num.Modulus) GaussianInt {
 	}
 }
 
+// Mul returns g0 * g1.
 func Mul(g0, g1 GaussianInt, q *num.Modulus) GaussianInt {
 	return GaussianInt{
 		Real: num.Sub(num.Mul(g0.Real, g1.Real, q), num.Mul(g0.Imag, g1.Imag, q), q),
@@ -39,49 +44,52 @@ func Mul(g0, g1 GaussianInt, q *num.Modulus) GaussianInt {
 	}
 }
 
+// Exp returns g^e.
 func Exp(g GaussianInt, e uint64, q *num.Modulus) GaussianInt {
 	out := GaussianInt{1, 0}
-	tmp := GaussianInt{Real: g.Real, Imag: g.Imag}
+	r := GaussianInt{Real: g.Real, Imag: g.Imag}
 
 	for e > 0 {
 		if e&1 == 1 {
-			out = Mul(out, tmp, q)
+			out = Mul(out, r, q)
 		}
 		e >>= 1
-		tmp = Mul(tmp, tmp, q)
+		r = Mul(r, r, q)
 	}
 
 	return out
 }
 
+// ExpBig returns g^e where e is a [*big.Int].
 func ExpBig(g GaussianInt, e *big.Int, q *num.Modulus) GaussianInt {
 	out := GaussianInt{Real: 1, Imag: 0}
-	tmp := GaussianInt{Real: g.Real, Imag: g.Imag}
+	r := GaussianInt{Real: g.Real, Imag: g.Imag}
 
 	exp := new(big.Int).Set(e)
 	for exp.Sign() > 0 {
 		if exp.Bit(0) == 1 {
-			out = Mul(out, tmp, q)
+			out = Mul(out, r, q)
 		}
 		exp.Rsh(exp, 1)
-		tmp = Mul(tmp, tmp, q)
+		r = Mul(r, r, q)
 	}
 
 	return out
 }
 
+// Inv returns the multiplicative inverse of g mod q.
 func Inv(g GaussianInt, q *num.Modulus) GaussianInt {
 	primes, exps := num.Factor(q.Value())
 	if len(primes) != 1 {
-		panic("Inv: q must be a prime power")
+		panic("q must be a prime power")
 	}
 
 	ord := new(big.Int).SetUint64(primes[0])
-	tmp := new(big.Int).SetUint64(primes[0])
+	r := new(big.Int).SetUint64(primes[0])
 	ord.Exp(ord, big.NewInt(int64(exps[0]-1)*2), nil)
-	tmp.Exp(tmp, big.NewInt(2), nil)
-	tmp.Sub(tmp, big.NewInt(1))
-	ord.Mul(ord, tmp)
+	r.Exp(r, big.NewInt(2), nil)
+	r.Sub(r, big.NewInt(1))
+	ord.Mul(ord, r)
 	invExp := new(big.Int).Sub(ord, big.NewInt(1))
 
 	return ExpBig(g, invExp, q)

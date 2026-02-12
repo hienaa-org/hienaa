@@ -43,8 +43,10 @@ func checkTernaryOperable(rank, modLen int, eOut, e0, e1 *Element) {
 		if e1.Type() == TypePoly {
 			checkShape(rank, modLen, e1)
 		}
-		if e0.IsNTT != e1.IsNTT {
-			panic("input(s) NTT flag not consistent")
+		if e0.Type() == TypePoly && e1.Type() == TypePoly {
+			if e0.IsNTT != e1.IsNTT {
+				panic("input(s) NTT flag not consistent")
+			}
 		}
 	}
 }

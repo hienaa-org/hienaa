@@ -124,22 +124,6 @@ func gIntNthRoot(n int, q *num.Modulus) gnum.GaussianInt {
 	return root
 }
 
-// bitReverseInPlace computes the bit reverse of v in-place.
-func bitReverseInPlace(v []gnum.GaussianInt) {
-	var bit, j int
-	for i := 1; i < len(v); i++ {
-		bit = len(v) >> 1
-		for j >= bit {
-			j -= bit
-			bit >>= 1
-		}
-		j += bit
-		if i < j {
-			v[i], v[j] = v[j], v[i]
-		}
-	}
-}
-
 // nttGaloisRingInPlacePow2 performs NTT over the Galois ring in-place.
 func nttGaloisRingInPlacePow2(coeffs []gnum.GaussianInt, tw []gnum.GaussianInt, q *num.Modulus) {
 	t := len(coeffs) >> 1

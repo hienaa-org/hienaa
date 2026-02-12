@@ -56,8 +56,6 @@ type Operator interface {
 	// SubOperator returns a operator for modulus of given indices.
 	// Useful for "levelled" operations, especially with [vec.Range].
 	SubOperator(idx ...int) Operator
-	// SafeCopy returns a thread-safe copy.
-	SafeCopy() Operator
 }
 
 // NewOperator creates a new [Operator].
@@ -152,16 +150,6 @@ func (e *pow2CyclotomicOperator) SubOperator(idx ...int) Operator {
 	}
 }
 
-// SafeCopy returns a thread-safe copy.
-func (e *pow2CyclotomicOperator) SafeCopy() Operator {
-	return &pow2CyclotomicOperator{
-		baseOperator:              e.baseOperator.safeCopy(),
-		baseAddSubOperator:        e.baseAddSubOperator,
-		baseMulOperator:           e.baseMulOperator.safeCopy(),
-		pow2CyclotomicAutOperator: e.pow2CyclotomicAutOperator.safeCopy(),
-	}
-}
-
 // anyCyclotomicOperator is a [Operator] for arbitrary order cyclotomic ring.
 type anyCyclotomicOperator struct {
 	baseOperator
@@ -181,16 +169,6 @@ func (e *anyCyclotomicOperator) SubOperator(idx ...int) Operator {
 	}
 }
 
-// SafeCopy returns a thread-safe copy.
-func (e *anyCyclotomicOperator) SafeCopy() Operator {
-	return &anyCyclotomicOperator{
-		baseOperator:             e.baseOperator.safeCopy(),
-		baseAddSubOperator:       e.baseAddSubOperator,
-		anyCyclotomicMulOperator: e.anyCyclotomicMulOperator.safeCopy(),
-		anyCyclotomicAutOperator: e.anyCyclotomicAutOperator.safeCopy(),
-	}
-}
-
 // pow235CyclicOperator is a [Operator] for cyclic ring with ranks multiple of 2, 3 and 5.
 type pow235CyclicOperator struct {
 	baseOperator
@@ -206,16 +184,6 @@ func (e *pow235CyclicOperator) SubOperator(idx ...int) Operator {
 		baseOperator:       e.baseOperator.subOperator(idx...),
 		baseAddSubOperator: e.baseAddSubOperator.subOperator(idx...),
 		baseMulOperator:    e.baseMulOperator.subOperator(idx...),
-		noAutOperator:      e.noAutOperator,
-	}
-}
-
-// SafeCopy returns a thread-safe copy.
-func (e *pow235CyclicOperator) SafeCopy() Operator {
-	return &pow235CyclicOperator{
-		baseOperator:       e.baseOperator.safeCopy(),
-		baseAddSubOperator: e.baseAddSubOperator,
-		baseMulOperator:    e.baseMulOperator.safeCopy(),
 		noAutOperator:      e.noAutOperator,
 	}
 }
@@ -239,16 +207,6 @@ func (e *pow2AutFixedOperator) SubOperator(idx ...int) Operator {
 	}
 }
 
-// SafeCopy returns a thread-safe copy.
-func (e *pow2AutFixedOperator) SafeCopy() Operator {
-	return &pow2AutFixedOperator{
-		baseOperator:            e.baseOperator.safeCopy(),
-		baseAddSubOperator:      e.baseAddSubOperator,
-		baseMulOperator:         e.baseMulOperator.safeCopy(),
-		pow2AutFixedAutOperator: e.pow2AutFixedAutOperator.safeCopy(),
-	}
-}
-
 // primeAutFixedOperator is a [Operator] for prime order autfixed ring.
 type primeAutFixedOperator struct {
 	baseOperator
@@ -268,16 +226,6 @@ func (e *primeAutFixedOperator) SubOperator(idx ...int) Operator {
 	}
 }
 
-// SafeCopy returns a thread-safe copy.
-func (e *primeAutFixedOperator) SafeCopy() Operator {
-	return &primeAutFixedOperator{
-		baseOperator:                e.baseOperator.safeCopy(),
-		primeAutFixedAddSubOperator: e.primeAutFixedAddSubOperator,
-		baseMulOperator:             e.baseMulOperator.safeCopy(),
-		primeAutFixedAutOperator:    e.primeAutFixedAutOperator.safeCopy(),
-	}
-}
-
 // anyOperator is a [Operator] for aribtrary modulus polynomial.
 type anyOperator struct {
 	baseOperator
@@ -293,16 +241,6 @@ func (e *anyOperator) SubOperator(idx ...int) Operator {
 		baseOperator:       e.baseOperator.subOperator(idx...),
 		baseAddSubOperator: e.baseAddSubOperator.subOperator(idx...),
 		reduceMulOperator:  e.reduceMulOperator.subOperator(idx...),
-		noAutOperator:      e.noAutOperator,
-	}
-}
-
-// SafeCopy returns a thread-safe copy.
-func (e *anyOperator) SafeCopy() Operator {
-	return &anyOperator{
-		baseOperator:       e.baseOperator.safeCopy(),
-		baseAddSubOperator: e.baseAddSubOperator,
-		reduceMulOperator:  e.reduceMulOperator.safeCopy(),
 		noAutOperator:      e.noAutOperator,
 	}
 }

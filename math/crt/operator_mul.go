@@ -1,7 +1,7 @@
 package crt
 
 import (
-	"math"
+	"sync"
 
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
@@ -24,20 +24,6 @@ type mulOperator interface {
 	MulSubTo(eOut, e0, e1 *Element)
 }
 
-// mulOperatorBuffer is a buffer for [mulOperator].
-type mulOperatorBuffer struct {
-	p0 *Element
-	p1 *Element
-}
-
-// newMulOperatorBuffer creates a new [mulOperatorBuffer].
-func newMulOperatorBuffer(rank, modLen int) mulOperatorBuffer {
-	return mulOperatorBuffer{
-		p0: NewPoly(rank, modLen),
-		p1: NewPoly(rank, modLen),
-	}
-}
-
 // baseMulOperator is a [mulOperator] for rings that do not require reduction after
 // multiplication.
 // This includes all rings except aribtrary cyclotomic and quotient ring.
@@ -50,30 +36,44 @@ type baseMulOperator struct {
 	ambNTT    []dft.Transformer
 	embedder  []*Embedder
 
-	buf mulOperatorBuffer
+	pool *sync.Pool
 }
 
 // newBaseMulOperator creates a new [baseMulOperator].
 func newBaseMulOperator(params dft.RingParameters, mod []*num.Modulus) baseMulOperator {
-	ambModLen := make([]int, len(mod))
+	maxBits := make([]float64, len(mod))
 	for i := range mod {
 		if dft.IsNTTFriendly(params, mod[i]) {
 			continue
 		}
-		maxBits := 2 * num.Log2(mod[i].Value())
+		maxBits[i] = 2 * num.Log2(mod[i].Value())
 		switch params.RingType() {
 		case dft.TypeCyclic, dft.TypeCyclotomic:
-			maxBits += num.Log2(params.Rank())
+			maxBits[i] += num.Log2(params.Rank())
 		case dft.TypeAutFixed:
-			maxBits += num.Log2(params.CycloOrder())
+			maxBits[i] += num.Log2(params.CycloOrder())
 		}
-		ambModLen[i] = int(math.Ceil(maxBits / num.MaxModulusBits))
 	}
 
-	ambMod := dft.MustFindPrevNTTPrimes(params, num.MaxModulusBits, vec.Max(ambModLen))
+	ambMod := dft.MustFindAmbientPrimes(params, vec.Max(maxBits))
 	ambNTT := make([]dft.Transformer, len(ambMod))
 	for i := range ambMod {
 		ambNTT[i] = dft.NewTransformer(params, ambMod[i])
+	}
+
+	ambModLen := make([]int, len(mod))
+	for i := range mod {
+		if maxBits[i] == 0 {
+			continue
+		}
+		currBits := 0.0
+		for j := range ambMod {
+			currBits += num.Log2(ambMod[j].Value())
+			if currBits >= maxBits[i] {
+				ambModLen[i] = j + 1
+				break
+			}
+		}
 	}
 
 	embedder := make([]*Embedder, len(mod))
@@ -93,7 +93,11 @@ func newBaseMulOperator(params dft.RingParameters, mod []*num.Modulus) baseMulOp
 		ambNTT:    ambNTT,
 		embedder:  embedder,
 
-		buf: newMulOperatorBuffer(params.Rank(), max(1, vec.Max(ambModLen))),
+		pool: &sync.Pool{
+			New: func() any {
+				return NewPoly(params.Rank(), max(1, vec.Max(ambModLen)))
+			},
+		},
 	}
 }
 
@@ -120,17 +124,28 @@ func (op *baseMulOperator) MulTo(eOut, e0, e1 *Element) {
 			panic("input(s) must be in NTT form")
 		}
 
+		var e0Amb, e1Amb *Element
+		for i := range op.ambModLen {
+			if op.ambModLen[i] > 0 {
+				e0Amb = op.pool.Get().(*Element)
+				e1Amb = op.pool.Get().(*Element)
+				defer op.pool.Put(e0Amb)
+				defer op.pool.Put(e1Amb)
+				break
+			}
+		}
+
 		for i := range op.mod {
 			if op.ambModLen[i] == 0 {
 				vec.MMulTo(eOut.Coeffs[i], e0.Coeffs[i], e1.Coeffs[i], op.mod[i])
 			} else {
 				for j := 0; j < op.ambModLen[i]; j++ {
-					op.ambNTT[j].ForwardTo(op.buf.p0.Coeffs[j], e0.Coeffs[i])
-					op.ambNTT[j].ForwardTo(op.buf.p1.Coeffs[j], e1.Coeffs[i])
-					vec.MMulTo(op.buf.p0.Coeffs[j], op.buf.p0.Coeffs[j], op.buf.p1.Coeffs[j], op.ambMod[j])
-					op.ambNTT[j].InverseTo(op.buf.p0.Coeffs[j], op.buf.p0.Coeffs[j])
+					op.ambNTT[j].ForwardTo(e0Amb.Coeffs[j], e0.Coeffs[i])
+					op.ambNTT[j].ForwardTo(e1Amb.Coeffs[j], e1.Coeffs[i])
+					vec.MMulTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j], e1Amb.Coeffs[j], op.ambMod[j])
+					op.ambNTT[j].InverseTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 				}
-				op.embedder[i].EmbedVecTo(eOut.Coeffs[i:i+1], op.buf.p0.Coeffs[:op.ambModLen[i]])
+				op.embedder[i].EmbedVecTo(eOut.Coeffs[i:i+1], e0Amb.Coeffs[:op.ambModLen[i]])
 			}
 		}
 
@@ -158,18 +173,29 @@ func (op *baseMulOperator) MulAddTo(eOut, e0, e1 *Element) {
 			panic("input(s) must be in NTT form")
 		}
 
+		var e0Amb, e1Amb *Element
+		for i := range op.ambModLen {
+			if op.ambModLen[i] > 0 {
+				e0Amb = op.pool.Get().(*Element)
+				e1Amb = op.pool.Get().(*Element)
+				defer op.pool.Put(e0Amb)
+				defer op.pool.Put(e1Amb)
+				break
+			}
+		}
+
 		for i := range op.mod {
 			if op.ambModLen[i] == 0 {
 				vec.MMulAddTo(eOut.Coeffs[i], e0.Coeffs[i], e1.Coeffs[i], op.mod[i])
 			} else {
 				for j := 0; j < op.ambModLen[i]; j++ {
-					op.ambNTT[j].ForwardTo(op.buf.p0.Coeffs[j], e0.Coeffs[i])
-					op.ambNTT[j].ForwardTo(op.buf.p1.Coeffs[j], e1.Coeffs[i])
-					vec.MMulTo(op.buf.p0.Coeffs[j], op.buf.p0.Coeffs[j], op.buf.p1.Coeffs[j], op.ambMod[j])
-					op.ambNTT[j].InverseTo(op.buf.p0.Coeffs[j], op.buf.p0.Coeffs[j])
+					op.ambNTT[j].ForwardTo(e0Amb.Coeffs[j], e0.Coeffs[i])
+					op.ambNTT[j].ForwardTo(e1Amb.Coeffs[j], e1.Coeffs[i])
+					vec.MMulTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j], e1Amb.Coeffs[j], op.ambMod[j])
+					op.ambNTT[j].InverseTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 				}
-				op.embedder[i].EmbedVecTo(op.buf.p0.Coeffs[:1], op.buf.p0.Coeffs[:op.ambModLen[i]])
-				vec.AddTo(eOut.Coeffs[i], eOut.Coeffs[i], op.buf.p0.Coeffs[0], op.mod[i])
+				op.embedder[i].EmbedVecTo(e0Amb.Coeffs[:1], e0Amb.Coeffs[:op.ambModLen[i]])
+				vec.AddTo(eOut.Coeffs[i], eOut.Coeffs[i], e0Amb.Coeffs[0], op.mod[i])
 			}
 		}
 
@@ -197,18 +223,29 @@ func (op *baseMulOperator) MulSubTo(eOut, e0, e1 *Element) {
 			panic("input(s) must be in NTT form")
 		}
 
+		var e0Amb, e1Amb *Element
+		for i := range op.ambModLen {
+			if op.ambModLen[i] > 0 {
+				e0Amb = op.pool.Get().(*Element)
+				e1Amb = op.pool.Get().(*Element)
+				defer op.pool.Put(e0Amb)
+				defer op.pool.Put(e1Amb)
+				break
+			}
+		}
+
 		for i := range op.mod {
 			if op.ambModLen[i] == 0 {
 				vec.MMulSubTo(eOut.Coeffs[i], e0.Coeffs[i], e1.Coeffs[i], op.mod[i])
 			} else {
 				for j := 0; j < op.ambModLen[i]; j++ {
-					op.ambNTT[j].ForwardTo(op.buf.p0.Coeffs[j], e0.Coeffs[i])
-					op.ambNTT[j].ForwardTo(op.buf.p1.Coeffs[j], e1.Coeffs[i])
-					vec.MMulTo(op.buf.p0.Coeffs[j], op.buf.p0.Coeffs[j], op.buf.p1.Coeffs[j], op.ambMod[j])
-					op.ambNTT[j].InverseTo(op.buf.p0.Coeffs[j], op.buf.p0.Coeffs[j])
+					op.ambNTT[j].ForwardTo(e0Amb.Coeffs[j], e0.Coeffs[i])
+					op.ambNTT[j].ForwardTo(e1Amb.Coeffs[j], e1.Coeffs[i])
+					vec.MMulTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j], e1Amb.Coeffs[j], op.ambMod[j])
+					op.ambNTT[j].InverseTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 				}
-				op.embedder[i].EmbedVecTo(op.buf.p0.Coeffs[:1], op.buf.p0.Coeffs[:op.ambModLen[i]])
-				vec.SubTo(eOut.Coeffs[i], eOut.Coeffs[i], op.buf.p0.Coeffs[0], op.mod[i])
+				op.embedder[i].EmbedVecTo(e0Amb.Coeffs[:1], e0Amb.Coeffs[:op.ambModLen[i]])
+				vec.SubTo(eOut.Coeffs[i], eOut.Coeffs[i], e0Amb.Coeffs[0], op.mod[i])
 			}
 		}
 
@@ -222,63 +259,31 @@ func (op *baseMulOperator) MulSubTo(eOut, e0, e1 *Element) {
 	}
 }
 
-func (e *baseMulOperator) subOperator(idx ...int) baseMulOperator {
+func (op *baseMulOperator) subOperator(idx ...int) baseMulOperator {
 	modCopy := make([]*num.Modulus, len(idx))
 	ambModLenCopy := make([]int, len(idx))
 	for i := range idx {
-		modCopy[i] = e.mod[idx[i]]
-		ambModLenCopy[i] = e.ambModLen[idx[i]]
-	}
-
-	maxAmbModLen := vec.Max(ambModLenCopy)
-	ambNTTCopy := make([]dft.Transformer, maxAmbModLen)
-	for i := range ambNTTCopy {
-		ambNTTCopy[i] = e.ambNTT[i].SafeCopy()
+		modCopy[i] = op.mod[idx[i]]
+		ambModLenCopy[i] = op.ambModLen[idx[i]]
 	}
 
 	embedderCopy := make([]*Embedder, len(idx))
 	for i := range idx {
-		if e.embedder[idx[i]] != nil {
-			embedderCopy[i] = e.embedder[idx[i]].SafeCopy()
-		}
+		embedderCopy[i] = op.embedder[idx[i]]
 	}
 
+	maxAmbModLen := vec.Max(ambModLenCopy)
+
 	return baseMulOperator{
-		rank: e.rank,
+		rank: op.rank,
 		mod:  modCopy,
 
 		ambModLen: ambModLenCopy,
-		ambMod:    e.ambMod[:maxAmbModLen],
-		ambNTT:    ambNTTCopy,
+		ambMod:    op.ambMod[:maxAmbModLen],
+		ambNTT:    op.ambNTT[:maxAmbModLen],
 		embedder:  embedderCopy,
 
-		buf: newMulOperatorBuffer(e.rank, max(1, maxAmbModLen)),
-	}
-}
-
-func (e *baseMulOperator) safeCopy() baseMulOperator {
-	ambNTTCopy := make([]dft.Transformer, len(e.ambNTT))
-	for i := range e.ambNTT {
-		ambNTTCopy[i] = e.ambNTT[i].SafeCopy()
-	}
-
-	embedderCopy := make([]*Embedder, len(e.embedder))
-	for i := range e.embedder {
-		if e.embedder[i] != nil {
-			embedderCopy[i] = e.embedder[i].SafeCopy()
-		}
-	}
-
-	return baseMulOperator{
-		rank: e.rank,
-		mod:  e.mod,
-
-		ambModLen: e.ambModLen,
-		ambMod:    e.ambMod,
-		ambNTT:    ambNTTCopy,
-		embedder:  embedderCopy,
-
-		buf: newMulOperatorBuffer(e.rank, max(1, vec.Max(e.ambModLen))),
+		pool: op.pool,
 	}
 }
 
@@ -294,25 +299,39 @@ type anyCyclotomicMulOperator struct {
 
 	reducer *CyclotomicReducer
 
-	buf mulOperatorBuffer
+	pool *sync.Pool
 }
 
 // newAnyCyclotomicMulOperator creates a new [anyCyclotomicMulOperator].
 func newAnyCyclotomicMulOperator(params dft.RingParameters, mod []*num.Modulus, reducer *CyclotomicReducer) anyCyclotomicMulOperator {
-	ambModLen := make([]int, len(mod))
+	maxBits := make([]float64, len(mod))
 	for i := range mod {
 		if dft.IsNTTFriendly(params, mod[i]) {
 			continue
 		}
-		maxBits := num.Log2(params.CycloOrder()) + 2*num.Log2(mod[i].Value())
-		ambModLen[i] = int(math.Ceil(maxBits / num.MaxModulusBits))
+		maxBits[i] = num.Log2(params.CycloOrder()) + 2*num.Log2(mod[i].Value())
 	}
 
 	ambParams := dft.NewCyclicParameters(params.CycloOrder())
-	ambMod := dft.MustFindPrevNTTPrimes(ambParams, num.MaxModulusBits, vec.Max(ambModLen))
+	ambMod := dft.MustFindAmbientPrimes(ambParams, vec.Max(maxBits))
 	ambNTT := make([]dft.Transformer, len(ambMod))
 	for i := range ambMod {
 		ambNTT[i] = dft.NewTransformer(ambParams, ambMod[i])
+	}
+
+	ambModLen := make([]int, len(mod))
+	for i := range mod {
+		if maxBits[i] == 0 {
+			continue
+		}
+		currBits := 0.0
+		for j := range ambMod {
+			currBits += num.Log2(ambMod[j].Value())
+			if currBits >= maxBits[i] {
+				ambModLen[i] = j + 1
+				break
+			}
+		}
 	}
 
 	embedder := make([]*Embedder, len(mod))
@@ -332,9 +351,13 @@ func newAnyCyclotomicMulOperator(params dft.RingParameters, mod []*num.Modulus, 
 		ambNTT:    ambNTT,
 		embedder:  embedder,
 
-		reducer: reducer.SafeCopy(),
+		reducer: reducer,
 
-		buf: newMulOperatorBuffer(params.CycloOrder(), max(1, vec.Max(ambModLen))),
+		pool: &sync.Pool{
+			New: func() any {
+				return NewPoly(params.CycloOrder(), max(1, vec.Max(ambModLen)))
+			},
+		},
 	}
 }
 
@@ -361,25 +384,36 @@ func (op *anyCyclotomicMulOperator) MulTo(eOut, e0, e1 *Element) {
 			panic("input(s) must be in NTT form")
 		}
 
+		var e0Amb, e1Amb *Element
+		for i := range op.ambModLen {
+			if op.ambModLen[i] > 0 {
+				e0Amb = op.pool.Get().(*Element)
+				e1Amb = op.pool.Get().(*Element)
+				defer op.pool.Put(e0Amb)
+				defer op.pool.Put(e1Amb)
+				break
+			}
+		}
+
 		for i := range op.mod {
 			if op.ambModLen[i] == 0 {
 				vec.MMulTo(eOut.Coeffs[i], e0.Coeffs[i], e1.Coeffs[i], op.mod[i])
 			} else {
 				rank := op.params.Rank()
 				for j := 0; j < op.ambModLen[i]; j++ {
-					copy(op.buf.p0.Coeffs[j], e0.Coeffs[i])
-					clear(op.buf.p0.Coeffs[j][rank:])
-					op.ambNTT[j].ForwardTo(op.buf.p0.Coeffs[j], op.buf.p0.Coeffs[j])
+					copy(e0Amb.Coeffs[j], e0.Coeffs[i])
+					clear(e0Amb.Coeffs[j][rank:])
+					op.ambNTT[j].ForwardTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 
-					copy(op.buf.p1.Coeffs[j], e1.Coeffs[i])
-					clear(op.buf.p1.Coeffs[j][rank:])
-					op.ambNTT[j].ForwardTo(op.buf.p1.Coeffs[j], op.buf.p1.Coeffs[j])
+					copy(e1Amb.Coeffs[j], e1.Coeffs[i])
+					clear(e1Amb.Coeffs[j][rank:])
+					op.ambNTT[j].ForwardTo(e1Amb.Coeffs[j], e1Amb.Coeffs[j])
 
-					vec.MMulTo(op.buf.p0.Coeffs[j], op.buf.p0.Coeffs[j], op.buf.p1.Coeffs[j], op.ambMod[j])
-					op.ambNTT[j].InverseTo(op.buf.p0.Coeffs[j], op.buf.p0.Coeffs[j])
+					vec.MMulTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j], e1Amb.Coeffs[j], op.ambMod[j])
+					op.ambNTT[j].InverseTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 				}
-				op.embedder[i].EmbedVecTo(op.buf.p0.Coeffs[:1], op.buf.p0.Coeffs[:op.ambModLen[i]])
-				op.reducer.reduceTo(eOut.Coeffs[i], op.buf.p0.Coeffs[0], i)
+				op.embedder[i].EmbedVecTo(e0Amb.Coeffs[:1], e0Amb.Coeffs[:op.ambModLen[i]])
+				op.reducer.reduceTo(eOut.Coeffs[i], e0Amb.Coeffs[0], i)
 			}
 		}
 
@@ -407,26 +441,37 @@ func (op *anyCyclotomicMulOperator) MulAddTo(eOut, e0, e1 *Element) {
 			panic("input(s) must be in NTT form")
 		}
 
+		var e0Amb, e1Amb *Element
+		for i := range op.ambModLen {
+			if op.ambModLen[i] > 0 {
+				e0Amb = op.pool.Get().(*Element)
+				e1Amb = op.pool.Get().(*Element)
+				defer op.pool.Put(e0Amb)
+				defer op.pool.Put(e1Amb)
+				break
+			}
+		}
+
 		for i := range op.mod {
 			if op.ambModLen[i] == 0 {
 				vec.MMulAddTo(eOut.Coeffs[i], e0.Coeffs[i], e1.Coeffs[i], op.mod[i])
 			} else {
 				rank := op.params.Rank()
 				for j := 0; j < op.ambModLen[i]; j++ {
-					copy(op.buf.p0.Coeffs[j], e0.Coeffs[i])
-					clear(op.buf.p0.Coeffs[j][rank:])
-					op.ambNTT[j].ForwardTo(op.buf.p0.Coeffs[j], op.buf.p0.Coeffs[j])
+					copy(e0Amb.Coeffs[j], e0.Coeffs[i])
+					clear(e0Amb.Coeffs[j][rank:])
+					op.ambNTT[j].ForwardTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 
-					copy(op.buf.p1.Coeffs[j], e1.Coeffs[i])
-					clear(op.buf.p1.Coeffs[j][rank:])
-					op.ambNTT[j].ForwardTo(op.buf.p1.Coeffs[j], op.buf.p1.Coeffs[j])
+					copy(e1Amb.Coeffs[j], e1.Coeffs[i])
+					clear(e1Amb.Coeffs[j][rank:])
+					op.ambNTT[j].ForwardTo(e1Amb.Coeffs[j], e1Amb.Coeffs[j])
 
-					vec.MMulTo(op.buf.p0.Coeffs[j], op.buf.p0.Coeffs[j], op.buf.p1.Coeffs[j], op.ambMod[j])
-					op.ambNTT[j].InverseTo(op.buf.p0.Coeffs[j], op.buf.p0.Coeffs[j])
+					vec.MMulTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j], e1Amb.Coeffs[j], op.ambMod[j])
+					op.ambNTT[j].InverseTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 				}
-				op.embedder[i].EmbedVecTo(op.buf.p0.Coeffs[:1], op.buf.p0.Coeffs[:op.ambModLen[i]])
-				op.reducer.reduceTo(op.buf.p0.Coeffs[0][:rank], op.buf.p0.Coeffs[0], i)
-				vec.AddTo(eOut.Coeffs[i], eOut.Coeffs[i], op.buf.p0.Coeffs[0][:rank], op.mod[i])
+				op.embedder[i].EmbedVecTo(e0Amb.Coeffs[:1], e0Amb.Coeffs[:op.ambModLen[i]])
+				op.reducer.reduceTo(e0Amb.Coeffs[0][:rank], e0Amb.Coeffs[0], i)
+				vec.AddTo(eOut.Coeffs[i], eOut.Coeffs[i], e0Amb.Coeffs[0][:rank], op.mod[i])
 			}
 		}
 
@@ -454,26 +499,37 @@ func (op *anyCyclotomicMulOperator) MulSubTo(eOut, e0, e1 *Element) {
 			panic("input(s) must be in NTT form")
 		}
 
+		var e0Amb, e1Amb *Element
+		for i := range op.ambModLen {
+			if op.ambModLen[i] > 0 {
+				e0Amb = op.pool.Get().(*Element)
+				e1Amb = op.pool.Get().(*Element)
+				defer op.pool.Put(e0Amb)
+				defer op.pool.Put(e1Amb)
+				break
+			}
+		}
+
 		for i := range op.mod {
 			if op.ambModLen[i] == 0 {
 				vec.MMulSubTo(eOut.Coeffs[i], e0.Coeffs[i], e1.Coeffs[i], op.mod[i])
 			} else {
 				rank := op.params.Rank()
 				for j := 0; j < op.ambModLen[i]; j++ {
-					copy(op.buf.p0.Coeffs[j], e0.Coeffs[i])
-					clear(op.buf.p0.Coeffs[j][rank:])
-					op.ambNTT[j].ForwardTo(op.buf.p0.Coeffs[j], op.buf.p0.Coeffs[j])
+					copy(e0Amb.Coeffs[j], e0.Coeffs[i])
+					clear(e0Amb.Coeffs[j][rank:])
+					op.ambNTT[j].ForwardTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 
-					copy(op.buf.p1.Coeffs[j], e1.Coeffs[i])
-					clear(op.buf.p1.Coeffs[j][rank:])
-					op.ambNTT[j].ForwardTo(op.buf.p1.Coeffs[j], op.buf.p1.Coeffs[j])
+					copy(e1Amb.Coeffs[j], e1.Coeffs[i])
+					clear(e1Amb.Coeffs[j][rank:])
+					op.ambNTT[j].ForwardTo(e1Amb.Coeffs[j], e1Amb.Coeffs[j])
 
-					vec.MMulTo(op.buf.p0.Coeffs[j], op.buf.p0.Coeffs[j], op.buf.p1.Coeffs[j], op.ambMod[j])
-					op.ambNTT[j].InverseTo(op.buf.p0.Coeffs[j], op.buf.p0.Coeffs[j])
+					vec.MMulTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j], e1Amb.Coeffs[j], op.ambMod[j])
+					op.ambNTT[j].InverseTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 				}
-				op.embedder[i].EmbedVecTo(op.buf.p0.Coeffs[:1], op.buf.p0.Coeffs[:op.ambModLen[i]])
-				op.reducer.reduceTo(op.buf.p0.Coeffs[0][:rank], op.buf.p0.Coeffs[0], i)
-				vec.SubTo(eOut.Coeffs[i], eOut.Coeffs[i], op.buf.p0.Coeffs[0][:rank], op.mod[i])
+				op.embedder[i].EmbedVecTo(e0Amb.Coeffs[:1], e0Amb.Coeffs[:op.ambModLen[i]])
+				op.reducer.reduceTo(e0Amb.Coeffs[0][:rank], e0Amb.Coeffs[0], i)
+				vec.SubTo(eOut.Coeffs[i], eOut.Coeffs[i], e0Amb.Coeffs[0][:rank], op.mod[i])
 			}
 		}
 
@@ -496,16 +552,10 @@ func (op *anyCyclotomicMulOperator) subOperator(idx ...int) anyCyclotomicMulOper
 	}
 
 	maxAmbModLen := vec.Max(ambModLenCopy)
-	ambNTTCopy := make([]dft.Transformer, maxAmbModLen)
-	for i := range ambNTTCopy {
-		ambNTTCopy[i] = op.ambNTT[i].SafeCopy()
-	}
 
 	embedderCopy := make([]*Embedder, len(idx))
 	for i := range idx {
-		if op.embedder[idx[i]] != nil {
-			embedderCopy[i] = op.embedder[idx[i]].SafeCopy()
-		}
+		embedderCopy[i] = op.embedder[idx[i]]
 	}
 
 	return anyCyclotomicMulOperator{
@@ -514,40 +564,12 @@ func (op *anyCyclotomicMulOperator) subOperator(idx ...int) anyCyclotomicMulOper
 
 		ambModLen: ambModLenCopy,
 		ambMod:    op.ambMod[:maxAmbModLen],
-		ambNTT:    ambNTTCopy,
+		ambNTT:    op.ambNTT[:maxAmbModLen],
 		embedder:  embedderCopy,
 
 		reducer: op.reducer.SubReducer(idx...),
 
-		buf: newMulOperatorBuffer(op.params.CycloOrder(), max(1, maxAmbModLen)),
-	}
-}
-
-func (e *anyCyclotomicMulOperator) safeCopy() anyCyclotomicMulOperator {
-	ambNTTCopy := make([]dft.Transformer, len(e.ambNTT))
-	for i := range e.ambNTT {
-		ambNTTCopy[i] = e.ambNTT[i].SafeCopy()
-	}
-
-	embedderCopy := make([]*Embedder, len(e.embedder))
-	for i := range e.embedder {
-		if e.embedder[i] != nil {
-			embedderCopy[i] = e.embedder[i].SafeCopy()
-		}
-	}
-
-	return anyCyclotomicMulOperator{
-		params: e.params,
-		mod:    e.mod,
-
-		ambModLen: e.ambModLen,
-		ambMod:    e.ambMod,
-		ambNTT:    ambNTTCopy,
-		embedder:  embedderCopy,
-
-		reducer: e.reducer.SafeCopy(),
-
-		buf: newMulOperatorBuffer(e.params.CycloOrder(), max(1, vec.Max(e.ambModLen))),
+		pool: op.pool,
 	}
 }
 
@@ -566,26 +588,42 @@ type reduceMulOperator struct {
 
 	reducer *Reducer
 
-	buf mulOperatorBuffer
+	pool *sync.Pool
 }
 
 // newReduceMulOperator creates a new [reduceMulOperator].
 func newReduceMulOperator(mod []*num.Modulus, modPoly []int64, reducer *Reducer) reduceMulOperator {
 	ambParams := dft.NewCyclicParameters(num.NextProdPower(2*len(modPoly)-1, []int{2}))
-	ambModLen := make([]int, len(mod))
+
+	maxBits := make([]float64, len(mod))
 	ntt := make([]dft.Transformer, len(mod))
 	for i := range mod {
 		if dft.IsNTTFriendly(ambParams, mod[i]) {
 			ntt[i] = dft.NewTransformer(ambParams, mod[i])
+			continue
 		}
-		maxBits := num.Log2(ambParams.Rank()) + 2*num.Log2(mod[i].Value())
-		ambModLen[i] = int(math.Ceil(maxBits / num.MaxModulusBits))
+		maxBits[i] = num.Log2(ambParams.Rank()) + 2*num.Log2(mod[i].Value())
 	}
 
-	ambMod := dft.MustFindPrevNTTPrimes(ambParams, num.MaxModulusBits, vec.Max(ambModLen))
+	ambMod := dft.MustFindAmbientPrimes(ambParams, vec.Max(maxBits))
 	ambNTT := make([]dft.Transformer, len(ambMod))
 	for i := range ambMod {
 		ambNTT[i] = dft.NewTransformer(ambParams, ambMod[i])
+	}
+
+	ambModLen := make([]int, len(mod))
+	for i := range mod {
+		if maxBits[i] == 0 {
+			continue
+		}
+		currBits := 0.0
+		for j := range ambMod {
+			currBits += num.Log2(ambMod[j].Value())
+			if currBits >= maxBits[i] {
+				ambModLen[i] = j + 1
+				break
+			}
+		}
 	}
 
 	embedder := make([]*Embedder, len(mod))
@@ -608,9 +646,13 @@ func newReduceMulOperator(mod []*num.Modulus, modPoly []int64, reducer *Reducer)
 		ambNTT:    ambNTT,
 		embedder:  embedder,
 
-		reducer: reducer.SafeCopy(),
+		reducer: reducer,
 
-		buf: newMulOperatorBuffer(ambParams.Rank(), max(1, vec.Max(ambModLen))),
+		pool: &sync.Pool{
+			New: func() any {
+				return NewPoly(ambParams.Rank(), max(1, vec.Max(ambModLen)))
+			},
+		},
 	}
 }
 
@@ -637,34 +679,39 @@ func (op *reduceMulOperator) MulTo(eOut, e0, e1 *Element) {
 			panic("input(s) must be in NTT form")
 		}
 
+		e0Amb := op.pool.Get().(*Element)
+		e1Amb := op.pool.Get().(*Element)
+		defer op.pool.Put(e0Amb)
+		defer op.pool.Put(e1Amb)
+
 		for i := range op.mod {
 			if op.ambModLen[i] == 0 {
-				copy(op.buf.p0.Coeffs[0], e0.Coeffs[i])
-				clear(op.buf.p0.Coeffs[0][op.rank:])
-				op.ntt[i].ForwardTo(op.buf.p0.Coeffs[0], op.buf.p0.Coeffs[0])
+				copy(e0Amb.Coeffs[0], e0.Coeffs[i])
+				clear(e0Amb.Coeffs[0][op.rank:])
+				op.ntt[i].ForwardTo(e0Amb.Coeffs[0], e0Amb.Coeffs[0])
 
-				copy(op.buf.p1.Coeffs[0], e1.Coeffs[i])
-				clear(op.buf.p1.Coeffs[0][op.rank:])
-				op.ntt[i].ForwardTo(op.buf.p1.Coeffs[0], op.buf.p1.Coeffs[0])
+				copy(e1Amb.Coeffs[0], e1.Coeffs[i])
+				clear(e1Amb.Coeffs[0][op.rank:])
+				op.ntt[i].ForwardTo(e1Amb.Coeffs[0], e1Amb.Coeffs[0])
 
-				vec.MMulTo(op.buf.p0.Coeffs[0], op.buf.p0.Coeffs[0], op.buf.p1.Coeffs[0], op.mod[i])
-				op.ntt[i].InverseTo(op.buf.p0.Coeffs[0], op.buf.p0.Coeffs[0])
-				op.reducer.reduceTo(eOut.Coeffs[i], op.buf.p0.Coeffs[0], i)
+				vec.MMulTo(e0Amb.Coeffs[0], e0Amb.Coeffs[0], e1Amb.Coeffs[0], op.mod[i])
+				op.ntt[i].InverseTo(e0Amb.Coeffs[0], e0Amb.Coeffs[0])
+				op.reducer.reduceTo(eOut.Coeffs[i], e0Amb.Coeffs[0], i)
 			} else {
 				for j := 0; j < op.ambModLen[i]; j++ {
-					copy(op.buf.p0.Coeffs[j], e0.Coeffs[i])
-					clear(op.buf.p0.Coeffs[j][op.rank:])
-					op.ambNTT[j].ForwardTo(op.buf.p0.Coeffs[j], op.buf.p0.Coeffs[j])
+					copy(e0Amb.Coeffs[j], e0.Coeffs[i])
+					clear(e0Amb.Coeffs[j][op.rank:])
+					op.ambNTT[j].ForwardTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 
-					copy(op.buf.p1.Coeffs[j], e1.Coeffs[i])
-					clear(op.buf.p1.Coeffs[j][op.rank:])
-					op.ambNTT[j].ForwardTo(op.buf.p1.Coeffs[j], op.buf.p1.Coeffs[j])
+					copy(e1Amb.Coeffs[j], e1.Coeffs[i])
+					clear(e1Amb.Coeffs[j][op.rank:])
+					op.ambNTT[j].ForwardTo(e1Amb.Coeffs[j], e1Amb.Coeffs[j])
 
-					vec.MMulTo(op.buf.p0.Coeffs[j], op.buf.p0.Coeffs[j], op.buf.p1.Coeffs[j], op.ambMod[j])
-					op.ambNTT[j].InverseTo(op.buf.p0.Coeffs[j], op.buf.p0.Coeffs[j])
+					vec.MMulTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j], e1Amb.Coeffs[j], op.ambMod[j])
+					op.ambNTT[j].InverseTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 				}
-				op.embedder[i].EmbedVecTo(op.buf.p0.Coeffs[:1], op.buf.p0.Coeffs[:op.ambModLen[i]])
-				op.reducer.reduceTo(eOut.Coeffs[i], op.buf.p0.Coeffs[0], i)
+				op.embedder[i].EmbedVecTo(e0Amb.Coeffs[:1], e0Amb.Coeffs[:op.ambModLen[i]])
+				op.reducer.reduceTo(eOut.Coeffs[i], e0Amb.Coeffs[0], i)
 			}
 		}
 
@@ -692,36 +739,41 @@ func (op *reduceMulOperator) MulAddTo(eOut, e0, e1 *Element) {
 			panic("input(s) must be in NTT form")
 		}
 
+		e0Amb := op.pool.Get().(*Element)
+		e1Amb := op.pool.Get().(*Element)
+		defer op.pool.Put(e0Amb)
+		defer op.pool.Put(e1Amb)
+
 		for i := range op.mod {
 			if op.ambModLen[i] == 0 {
-				copy(op.buf.p0.Coeffs[0], e0.Coeffs[i])
-				clear(op.buf.p0.Coeffs[0][op.rank:])
-				op.ntt[i].ForwardTo(op.buf.p0.Coeffs[0], op.buf.p0.Coeffs[0])
+				copy(e0Amb.Coeffs[0], e0.Coeffs[i])
+				clear(e0Amb.Coeffs[0][op.rank:])
+				op.ntt[i].ForwardTo(e0Amb.Coeffs[0], e0Amb.Coeffs[0])
 
-				copy(op.buf.p1.Coeffs[0], e1.Coeffs[i])
-				clear(op.buf.p1.Coeffs[0][op.rank:])
-				op.ntt[i].ForwardTo(op.buf.p1.Coeffs[0], op.buf.p1.Coeffs[0])
+				copy(e1Amb.Coeffs[0], e1.Coeffs[i])
+				clear(e1Amb.Coeffs[0][op.rank:])
+				op.ntt[i].ForwardTo(e1Amb.Coeffs[0], e1Amb.Coeffs[0])
 
-				vec.MMulTo(op.buf.p0.Coeffs[0], op.buf.p0.Coeffs[0], op.buf.p1.Coeffs[0], op.mod[i])
-				op.ntt[i].InverseTo(op.buf.p0.Coeffs[0], op.buf.p0.Coeffs[0])
-				op.reducer.reduceTo(op.buf.p0.Coeffs[0][:op.rank], op.buf.p0.Coeffs[0], i)
-				vec.AddTo(eOut.Coeffs[i], eOut.Coeffs[i], op.buf.p0.Coeffs[0][:op.rank], op.mod[i])
+				vec.MMulTo(e0Amb.Coeffs[0], e0Amb.Coeffs[0], e1Amb.Coeffs[0], op.mod[i])
+				op.ntt[i].InverseTo(e0Amb.Coeffs[0], e0Amb.Coeffs[0])
+				op.reducer.reduceTo(e0Amb.Coeffs[0][:op.rank], e0Amb.Coeffs[0], i)
+				vec.AddTo(eOut.Coeffs[i], eOut.Coeffs[i], e0Amb.Coeffs[0][:op.rank], op.mod[i])
 			} else {
 				for j := 0; j < op.ambModLen[i]; j++ {
-					copy(op.buf.p0.Coeffs[j], e0.Coeffs[i])
-					clear(op.buf.p0.Coeffs[j][op.rank:])
-					op.ambNTT[j].ForwardTo(op.buf.p0.Coeffs[j], op.buf.p0.Coeffs[j])
+					copy(e0Amb.Coeffs[j], e0.Coeffs[i])
+					clear(e0Amb.Coeffs[j][op.rank:])
+					op.ambNTT[j].ForwardTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 
-					copy(op.buf.p1.Coeffs[j], e1.Coeffs[i])
-					clear(op.buf.p1.Coeffs[j][op.rank:])
-					op.ambNTT[j].ForwardTo(op.buf.p1.Coeffs[j], op.buf.p1.Coeffs[j])
+					copy(e1Amb.Coeffs[j], e1.Coeffs[i])
+					clear(e1Amb.Coeffs[j][op.rank:])
+					op.ambNTT[j].ForwardTo(e1Amb.Coeffs[j], e1Amb.Coeffs[j])
 
-					vec.MMulTo(op.buf.p0.Coeffs[j], op.buf.p0.Coeffs[j], op.buf.p1.Coeffs[j], op.ambMod[j])
-					op.ambNTT[j].InverseTo(op.buf.p0.Coeffs[j], op.buf.p0.Coeffs[j])
+					vec.MMulTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j], e1Amb.Coeffs[j], op.ambMod[j])
+					op.ambNTT[j].InverseTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 				}
-				op.embedder[i].EmbedVecTo(op.buf.p0.Coeffs[:1], op.buf.p0.Coeffs[:op.ambModLen[i]])
-				op.reducer.reduceTo(op.buf.p0.Coeffs[0][:op.rank], op.buf.p0.Coeffs[0], i)
-				vec.AddTo(eOut.Coeffs[i], eOut.Coeffs[i], op.buf.p0.Coeffs[0][:op.rank], op.mod[i])
+				op.embedder[i].EmbedVecTo(e0Amb.Coeffs[:1], e0Amb.Coeffs[:op.ambModLen[i]])
+				op.reducer.reduceTo(e0Amb.Coeffs[0][:op.rank], e0Amb.Coeffs[0], i)
+				vec.AddTo(eOut.Coeffs[i], eOut.Coeffs[i], e0Amb.Coeffs[0][:op.rank], op.mod[i])
 			}
 		}
 
@@ -749,36 +801,41 @@ func (op *reduceMulOperator) MulSubTo(eOut, e0, e1 *Element) {
 			panic("input(s) must be in NTT form")
 		}
 
+		e0Amb := op.pool.Get().(*Element)
+		e1Amb := op.pool.Get().(*Element)
+		defer op.pool.Put(e0Amb)
+		defer op.pool.Put(e1Amb)
+
 		for i := range op.mod {
 			if op.ambModLen[i] == 0 {
-				copy(op.buf.p0.Coeffs[0], e0.Coeffs[i])
-				clear(op.buf.p0.Coeffs[0][op.rank:])
-				op.ntt[i].ForwardTo(op.buf.p0.Coeffs[0], op.buf.p0.Coeffs[0])
+				copy(e0Amb.Coeffs[0], e0.Coeffs[i])
+				clear(e0Amb.Coeffs[0][op.rank:])
+				op.ntt[i].ForwardTo(e0Amb.Coeffs[0], e0Amb.Coeffs[0])
 
-				copy(op.buf.p1.Coeffs[0], e1.Coeffs[i])
-				clear(op.buf.p1.Coeffs[0][op.rank:])
-				op.ntt[i].ForwardTo(op.buf.p1.Coeffs[0], op.buf.p1.Coeffs[0])
+				copy(e1Amb.Coeffs[0], e1.Coeffs[i])
+				clear(e1Amb.Coeffs[0][op.rank:])
+				op.ntt[i].ForwardTo(e1Amb.Coeffs[0], e1Amb.Coeffs[0])
 
-				vec.MMulTo(op.buf.p0.Coeffs[0], op.buf.p0.Coeffs[0], op.buf.p1.Coeffs[0], op.mod[i])
-				op.ntt[i].InverseTo(op.buf.p0.Coeffs[0], op.buf.p0.Coeffs[0])
-				op.reducer.reduceTo(op.buf.p0.Coeffs[0][:op.rank], op.buf.p0.Coeffs[0], i)
-				vec.SubTo(eOut.Coeffs[i], eOut.Coeffs[i], op.buf.p0.Coeffs[0][:op.rank], op.mod[i])
+				vec.MMulTo(e0Amb.Coeffs[0], e0Amb.Coeffs[0], e1Amb.Coeffs[0], op.mod[i])
+				op.ntt[i].InverseTo(e0Amb.Coeffs[0], e0Amb.Coeffs[0])
+				op.reducer.reduceTo(e0Amb.Coeffs[0][:op.rank], e0Amb.Coeffs[0], i)
+				vec.SubTo(eOut.Coeffs[i], eOut.Coeffs[i], e0Amb.Coeffs[0][:op.rank], op.mod[i])
 			} else {
 				for j := 0; j < op.ambModLen[i]; j++ {
-					copy(op.buf.p0.Coeffs[j], e0.Coeffs[i])
-					clear(op.buf.p0.Coeffs[j][op.rank:])
-					op.ambNTT[j].ForwardTo(op.buf.p0.Coeffs[j], op.buf.p0.Coeffs[j])
+					copy(e0Amb.Coeffs[j], e0.Coeffs[i])
+					clear(e0Amb.Coeffs[j][op.rank:])
+					op.ambNTT[j].ForwardTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 
-					copy(op.buf.p1.Coeffs[j], e1.Coeffs[i])
-					clear(op.buf.p1.Coeffs[j][op.rank:])
-					op.ambNTT[j].ForwardTo(op.buf.p1.Coeffs[j], op.buf.p1.Coeffs[j])
+					copy(e1Amb.Coeffs[j], e1.Coeffs[i])
+					clear(e1Amb.Coeffs[j][op.rank:])
+					op.ambNTT[j].ForwardTo(e1Amb.Coeffs[j], e1Amb.Coeffs[j])
 
-					vec.MMulTo(op.buf.p0.Coeffs[j], op.buf.p0.Coeffs[j], op.buf.p1.Coeffs[j], op.ambMod[j])
-					op.ambNTT[j].InverseTo(op.buf.p0.Coeffs[j], op.buf.p0.Coeffs[j])
+					vec.MMulTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j], e1Amb.Coeffs[j], op.ambMod[j])
+					op.ambNTT[j].InverseTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 				}
-				op.embedder[i].EmbedVecTo(op.buf.p0.Coeffs[:1], op.buf.p0.Coeffs[:op.ambModLen[i]])
-				op.reducer.reduceTo(op.buf.p0.Coeffs[0][:op.rank], op.buf.p0.Coeffs[0], i)
-				vec.SubTo(eOut.Coeffs[i], eOut.Coeffs[i], op.buf.p0.Coeffs[0][:op.rank], op.mod[i])
+				op.embedder[i].EmbedVecTo(e0Amb.Coeffs[:1], e0Amb.Coeffs[:op.ambModLen[i]])
+				op.reducer.reduceTo(e0Amb.Coeffs[0][:op.rank], e0Amb.Coeffs[0], i)
+				vec.SubTo(eOut.Coeffs[i], eOut.Coeffs[i], e0Amb.Coeffs[0][:op.rank], op.mod[i])
 			}
 		}
 
@@ -794,23 +851,19 @@ func (op *reduceMulOperator) MulSubTo(eOut, e0, e1 *Element) {
 
 func (op *reduceMulOperator) subOperator(idx ...int) reduceMulOperator {
 	modCopy := make([]*num.Modulus, len(idx))
+	nttCopy := make([]dft.Transformer, len(idx))
 	ambModLenCopy := make([]int, len(idx))
 	for i := range idx {
 		modCopy[i] = op.mod[idx[i]]
+		nttCopy[i] = op.ntt[idx[i]]
 		ambModLenCopy[i] = op.ambModLen[idx[i]]
 	}
 
 	maxAmbModLen := vec.Max(ambModLenCopy)
-	ambNTTCopy := make([]dft.Transformer, maxAmbModLen)
-	for i := range ambNTTCopy {
-		ambNTTCopy[i] = op.ambNTT[i].SafeCopy()
-	}
 
 	embedderCopy := make([]*Embedder, len(idx))
 	for i := range idx {
-		if op.embedder[idx[i]] != nil {
-			embedderCopy[i] = op.embedder[idx[i]].SafeCopy()
-		}
+		embedderCopy[i] = op.embedder[idx[i]]
 	}
 
 	return reduceMulOperator{
@@ -818,42 +871,15 @@ func (op *reduceMulOperator) subOperator(idx ...int) reduceMulOperator {
 		ambRank: op.ambRank,
 		mod:     modCopy,
 
+		ntt: nttCopy,
+
 		ambModLen: ambModLenCopy,
 		ambMod:    op.ambMod[:maxAmbModLen],
-		ambNTT:    ambNTTCopy,
+		ambNTT:    op.ambNTT[:maxAmbModLen],
 		embedder:  embedderCopy,
 
 		reducer: op.reducer.SubReducer(idx...),
 
-		buf: newMulOperatorBuffer(op.ambRank, max(1, maxAmbModLen)),
-	}
-}
-
-func (op *reduceMulOperator) safeCopy() reduceMulOperator {
-	ambNTTCopy := make([]dft.Transformer, len(op.ambNTT))
-	for i := range op.ambNTT {
-		ambNTTCopy[i] = op.ambNTT[i].SafeCopy()
-	}
-
-	embedderCopy := make([]*Embedder, len(op.embedder))
-	for i := range op.embedder {
-		if op.embedder[i] != nil {
-			embedderCopy[i] = op.embedder[i].SafeCopy()
-		}
-	}
-
-	return reduceMulOperator{
-		rank:    op.rank,
-		ambRank: op.ambRank,
-		mod:     op.mod,
-
-		ambModLen: op.ambModLen,
-		ambMod:    op.ambMod,
-		ambNTT:    ambNTTCopy,
-		embedder:  embedderCopy,
-
-		reducer: op.reducer.SafeCopy(),
-
-		buf: newMulOperatorBuffer(op.ambRank, max(1, vec.Max(op.ambModLen))),
+		pool: op.pool,
 	}
 }

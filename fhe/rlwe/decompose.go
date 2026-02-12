@@ -3,6 +3,7 @@ package rlwe
 import (
 	"math"
 	"math/big"
+	"sync"
 
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/num"
@@ -23,8 +24,6 @@ type Decomposer interface {
 	Decompose(p *crt.Element) *Tensor
 	// DecomposeTo decomposes p into pOut.
 	DecomposeTo(pOut *Tensor, p *crt.Element)
-	// SafeCopy returns a thread-safe copy.
-	SafeCopy() Decomposer
 }
 
 // NewDecomposer creates a new [Decomposer] for the given parameters.
@@ -148,25 +147,6 @@ func (d *rnsDecomposer) DecomposeTo(pOut *Tensor, p *crt.Element) {
 	}
 }
 
-// SafeCopy returns a thread-safe copy.
-func (d *rnsDecomposer) SafeCopy() Decomposer {
-	embeddersCopy := make([][]*crt.Embedder, len(d.embedders))
-	for i := range d.embedders {
-		embeddersCopy[i] = make([]*crt.Embedder, len(d.embedders[i]))
-		for j := range d.embedders[i] {
-			embeddersCopy[i][j] = d.embedders[i][j].SafeCopy()
-		}
-	}
-
-	return &rnsDecomposer{
-		params:    d.params,
-		gadparams: d.gadparams,
-
-		gadVec:    d.gadVec,
-		embedders: embeddersCopy,
-	}
-}
-
 // digitDecomposer computes digit decomposition.
 type digitDecomposer struct {
 	params    Parameters
@@ -177,55 +157,47 @@ type digitDecomposer struct {
 	digitEmbedder []*crt.Embedder
 	modEmbedder   *crt.Embedder
 
-	buf digitDecomposerBuffer
-}
-
-// digitDecomposerBuffer is a buffer for [digitDecomposer].
-type digitDecomposerBuffer struct {
-	p *crt.Element
-}
-
-// newDigitDecomposerBuffer creates a new [digitDecomposerBuffer].
-func newDigitDecomposerBuffer(params Parameters) digitDecomposerBuffer {
-	return digitDecomposerBuffer{
-		p: crt.NewPoly(params.ringParams.Rank(), len(params.modulus)),
-	}
+	pool *sync.Pool
 }
 
 // newDigitDecomposer creates a new [digitDecomposer].
-func newDigitDecomposer(p Parameters) Decomposer {
-	logDigitBase := p.gadgetParams.(DigitGadgetParameters).logDigitBase
+func newDigitDecomposer(params Parameters) Decomposer {
+	logDigitBase := params.gadgetParams.(DigitGadgetParameters).logDigitBase
 	baseMod := num.NewModulus(1 << logDigitBase)
 
-	gadLen := p.GadgetLen()
+	gadLen := params.GadgetLen()
 	gadVec := make([]*crt.Element, gadLen)
 
 	g := big.NewInt(1)
-	for _, q := range p.auxModulus {
+	for _, q := range params.auxModulus {
 		g.Mul(g, new(big.Int).SetUint64(q.Value()))
 	}
 
 	for i := 0; i < gadLen; i++ {
-		gadVec[i] = crt.NewScalar(g, p.fullModulus)
+		gadVec[i] = crt.NewScalar(g, params.fullModulus)
 		g.Lsh(g, uint(logDigitBase))
 	}
 
-	digitEmbedder := make([]*crt.Embedder, len(p.modulus))
-	for i := range p.modulus {
-		digitEmbedder[i] = crt.NewEmbedder([]*num.Modulus{baseMod}, p.modulus[:i+1])
+	digitEmbedder := make([]*crt.Embedder, len(params.modulus))
+	for i := range params.modulus {
+		digitEmbedder[i] = crt.NewEmbedder([]*num.Modulus{baseMod}, params.modulus[:i+1])
 	}
-	modEmbedder := crt.NewEmbedder(p.fullModulus, []*num.Modulus{baseMod})
+	modEmbedder := crt.NewEmbedder(params.fullModulus, []*num.Modulus{baseMod})
 
 	return &digitDecomposer{
-		params:    p,
-		gadParams: p.gadgetParams.(DigitGadgetParameters),
+		params:    params,
+		gadParams: params.gadgetParams.(DigitGadgetParameters),
 
 		gadVec: gadVec,
 
 		digitEmbedder: digitEmbedder,
 		modEmbedder:   modEmbedder,
 
-		buf: newDigitDecomposerBuffer(p),
+		pool: &sync.Pool{
+			New: func() any {
+				return crt.NewPoly(params.ringParams.Rank(), len(params.modulus))
+			},
+		},
 	}
 }
 
@@ -279,10 +251,10 @@ func (d *digitDecomposer) DecomposeTo(pOut *Tensor, p *crt.Element) {
 		panic("inconsistent input(s)")
 	}
 
-	pBuf := &crt.Element{
-		Coeffs: d.buf.p.Coeffs[:modLen],
-		IsNTT:  false,
-	}
+	pBuf := d.pool.Get().(*crt.Element)
+	defer d.pool.Put(pBuf)
+
+	pBuf = pBuf.WithModIdx(vec.Range(0, modLen)...)
 	pBuf.CopyFrom(p)
 
 	base := uint64(1 << d.gadParams.logDigitBase)
@@ -294,25 +266,5 @@ func (d *digitDecomposer) DecomposeTo(pOut *Tensor, p *crt.Element) {
 			vec.SubTo(pBuf.Coeffs[j], pBuf.Coeffs[j], pOut.Value[i].Coeffs[auxLen+j], d.params.modulus[j])
 			vec.MulScalarTo(pBuf.Coeffs[j], pBuf.Coeffs[j], num.Inv(base, d.params.modulus[j]), d.params.modulus[j])
 		}
-	}
-}
-
-// SafeCopy returns a thread-safe copy.
-func (d *digitDecomposer) SafeCopy() Decomposer {
-	digitEmbedderCopy := make([]*crt.Embedder, len(d.digitEmbedder))
-	for i := range d.digitEmbedder {
-		digitEmbedderCopy[i] = d.digitEmbedder[i].SafeCopy()
-	}
-
-	return &digitDecomposer{
-		params:    d.params,
-		gadParams: d.gadParams,
-
-		gadVec: d.gadVec,
-
-		digitEmbedder: digitEmbedderCopy,
-		modEmbedder:   d.modEmbedder.SafeCopy(),
-
-		buf: newDigitDecomposerBuffer(d.params),
 	}
 }

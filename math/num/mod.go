@@ -1,6 +1,7 @@
 package num
 
 import (
+	"cmp"
 	"fmt"
 	"math/bits"
 
@@ -283,4 +284,9 @@ func Inv(x uint64, q *Modulus) uint64 {
 		return q.Value() - ss
 	}
 	return ss
+}
+
+// CmpModulus implements [cmp.Ordered] functionality for [Modulus].
+func CmpModulus(a, b *Modulus) int {
+	return cmp.Compare(a.Value(), b.Value())
 }

@@ -5,11 +5,9 @@ import (
 )
 
 // Packer pack/unpacks vector of numbers into [Plaintext] in a SIMD manner.
-type Packer[Self any, P Plaintext, T num.Number] interface {
+type Packer[P Plaintext, T num.Number] interface {
 	// PackLen returns the length of packable vector.
 	PackLen() int
-	// SafeCopy returns a thread-safe copy.
-	SafeCopy() Packer[Self, P, T]
 	// Pack packs v.
 	Pack(v []T) P
 	// PackTo packs v to ptOut.

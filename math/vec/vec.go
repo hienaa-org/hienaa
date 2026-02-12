@@ -56,7 +56,7 @@ func Range[T num.Integer](start, end T) []T {
 
 // RadixReverseInPlace computes the radix-r reverse of v in-place.
 // Assumes len(v) is a power of r.
-func RadixReverseInPlace(v []uint64, r int) {
+func RadixReverseInPlace[T any](v []T, r int) {
 	if r == 2 {
 		var bit, j int
 		for i := 1; i < len(v); i++ {

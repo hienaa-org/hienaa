@@ -3,6 +3,7 @@ package crt
 import (
 	"math/bits"
 	"slices"
+	"sync"
 
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
@@ -20,25 +21,13 @@ type autOperator interface {
 	AutTo(eOut, e *Element, idx int)
 }
 
-// autOperatorBuffer is a buffer for [autOperator] operations.
-type autOperatorBuffer struct {
-	p []uint64
-}
-
-// newAutOperatorBuffer creates a new [autOperatorBuffer].
-func newAutOperatorBuffer(rank int) autOperatorBuffer {
-	return autOperatorBuffer{
-		p: make([]uint64, rank),
-	}
-}
-
 // pow2CyclotomicAutOperator is a [autOperator] for power-of-two cyclotomic ring.
 type pow2CyclotomicAutOperator struct {
 	params        dft.RingParameters
 	mod           []*num.Modulus
 	isNTTFriendly []bool
 
-	buf autOperatorBuffer
+	pool *sync.Pool
 }
 
 // newPow2CyclotomicAutOperator creates a new [pow2CyclotomicAutOperator].
@@ -53,7 +42,12 @@ func newPow2CyclotomicAutOperator(params dft.RingParameters, mod []*num.Modulus)
 		mod:           mod,
 		isNTTFriendly: isNTTFriendly,
 
-		buf: newAutOperatorBuffer(params.Rank()),
+		pool: &sync.Pool{
+			New: func() any {
+				v := make([]uint64, params.Rank())
+				return &v
+			},
+		},
 	}
 }
 
@@ -93,27 +87,31 @@ func (op *pow2CyclotomicAutOperator) AutTo(eOut, e *Element, idx int) {
 			return
 		}
 
+		eBufPtr := op.pool.Get().(*[]uint64)
+		eBuf := *eBufPtr
+		defer op.pool.Put(eBufPtr)
+
 		for i := range op.mod {
 			if e.IsNTT && op.isNTTFriendly[i] {
-				copy(op.buf.p, e.Coeffs[i])
+				copy(eBuf, e.Coeffs[i])
 				revShiftBits := 64 - int(num.Log2(rank))
 				for j := 0; j < rank; j++ {
 					jOut := ((2*j + 1) * idx) & (cycloOrd - 1)
 					idxIn := int(bits.Reverse64((uint64(jOut)-1)/2) >> revShiftBits)
 					idxOut := int(bits.Reverse64(uint64(j)) >> revShiftBits)
-					eOut.Coeffs[i][idxOut] = op.buf.p[idxIn]
+					eOut.Coeffs[i][idxOut] = eBuf[idxIn]
 				}
 			} else {
-				clear(op.buf.p)
+				clear(eBuf)
 				for j := 0; j < rank; j++ {
 					idxOut := (j * idx) & (cycloOrd - 1)
 					if idxOut >= rank {
-						op.buf.p[idxOut-rank] = num.Neg(e.Coeffs[i][j], op.mod[i])
+						eBuf[idxOut-rank] = num.Neg(e.Coeffs[i][j], op.mod[i])
 					} else {
-						op.buf.p[idxOut] = e.Coeffs[i][j]
+						eBuf[idxOut] = e.Coeffs[i][j]
 					}
 				}
-				copy(eOut.Coeffs[i], op.buf.p)
+				copy(eOut.Coeffs[i], eBuf)
 			}
 		}
 
@@ -134,17 +132,7 @@ func (op *pow2CyclotomicAutOperator) subOperator(idx ...int) pow2CyclotomicAutOp
 		mod:           modCopy,
 		isNTTFriendly: isNTTFriendlyCopy,
 
-		buf: newAutOperatorBuffer(op.params.Rank()),
-	}
-}
-
-func (op *pow2CyclotomicAutOperator) safeCopy() pow2CyclotomicAutOperator {
-	return pow2CyclotomicAutOperator{
-		params:        op.params,
-		mod:           op.mod,
-		isNTTFriendly: op.isNTTFriendly,
-
-		buf: newAutOperatorBuffer(op.params.Rank()),
+		pool: op.pool,
 	}
 }
 
@@ -164,7 +152,7 @@ type anyCyclotomicAutOperator struct {
 	// dims is the dimension of the hypercube structure.
 	dims []int
 
-	buf autOperatorBuffer
+	pool *sync.Pool
 }
 
 // newAnyCyclotomicAutOperator creates a new [anyCyclotomicAutOperator].
@@ -219,13 +207,18 @@ func newAnyCyclotomicAutOperator(params dft.RingParameters, mod []*num.Modulus, 
 		mod:           mod,
 		isNTTFriendly: isNTTFriendly,
 
-		reducer: reducer.SafeCopy(),
+		reducer: reducer,
 
 		primeExpMods: pExpMods,
 		rootExps:     rootExps,
 		dims:         dims,
 
-		buf: newAutOperatorBuffer(params.CycloOrder()),
+		pool: &sync.Pool{
+			New: func() any {
+				v := make([]uint64, params.CycloOrder())
+				return &v
+			},
+		},
 	}
 }
 
@@ -265,6 +258,10 @@ func (op *anyCyclotomicAutOperator) AutTo(eOut, e *Element, idx int) {
 			return
 		}
 
+		eBufPtr := op.pool.Get().(*[]uint64)
+		eBuf := *eBufPtr
+		defer op.pool.Put(eBufPtr)
+
 		for i := range op.mod {
 			if e.IsNTT && op.isNTTFriendly[i] {
 				idxDigits := make([]int, len(op.primeExpMods))
@@ -285,7 +282,7 @@ func (op *anyCyclotomicAutOperator) AutTo(eOut, e *Element, idx int) {
 					}
 				}
 
-				copy(op.buf.p, e.Coeffs[i])
+				copy(eBuf, e.Coeffs[i])
 
 				idxOutDigits := make([]int, len(op.primeExpMods))
 				for j := 0; j < rank; j++ {
@@ -299,15 +296,15 @@ func (op *anyCyclotomicAutOperator) AutTo(eOut, e *Element, idx int) {
 						idxOut *= op.dims[k]
 						idxOut += idxOutDigits[k]
 					}
-					eOut.Coeffs[i][idxOut] = op.buf.p[j]
+					eOut.Coeffs[i][idxOut] = eBuf[j]
 				}
 			} else {
-				clear(op.buf.p)
+				clear(eBuf)
 				for j := 0; j < rank; j++ {
 					idxOut := num.Mul(uint64(j), uint64(idx), op.cycloOrdMod)
-					op.buf.p[idxOut] = e.Coeffs[i][j]
+					eBuf[idxOut] = e.Coeffs[i][j]
 				}
-				op.reducer.reduceTo(eOut.Coeffs[i], op.buf.p, i)
+				op.reducer.reduceTo(eOut.Coeffs[i], eBuf, i)
 			}
 		}
 
@@ -335,24 +332,7 @@ func (op *anyCyclotomicAutOperator) subOperator(idx ...int) anyCyclotomicAutOper
 		rootExps:     op.rootExps,
 		dims:         op.dims,
 
-		buf: newAutOperatorBuffer(op.params.CycloOrder()),
-	}
-}
-
-func (op *anyCyclotomicAutOperator) safeCopy() anyCyclotomicAutOperator {
-	return anyCyclotomicAutOperator{
-		params:        op.params,
-		cycloOrdMod:   op.cycloOrdMod,
-		mod:           op.mod,
-		isNTTFriendly: op.isNTTFriendly,
-
-		reducer: op.reducer.SafeCopy(),
-
-		primeExpMods: op.primeExpMods,
-		rootExps:     op.rootExps,
-		dims:         op.dims,
-
-		buf: newAutOperatorBuffer(op.params.CycloOrder()),
+		pool: op.pool,
 	}
 }
 
@@ -362,7 +342,7 @@ type pow2AutFixedAutOperator struct {
 	mod           []*num.Modulus
 	isNTTFriendly []bool
 
-	buf autOperatorBuffer
+	pool *sync.Pool
 }
 
 // newPow2AutFixedAutOperator creates a new [pow2AutFixedAutOperator].
@@ -377,7 +357,12 @@ func newPow2AutFixedAutOperator(params dft.RingParameters, mod []*num.Modulus) p
 		mod:           mod,
 		isNTTFriendly: isNTTFriendly,
 
-		buf: newAutOperatorBuffer(params.Rank()),
+		pool: &sync.Pool{
+			New: func() any {
+				v := make([]uint64, params.Rank())
+				return &v
+			},
+		},
 	}
 }
 
@@ -417,9 +402,13 @@ func (op *pow2AutFixedAutOperator) AutTo(eOut, e *Element, idx int) {
 			return
 		}
 
+		eBufPtr := op.pool.Get().(*[]uint64)
+		eBuf := *eBufPtr
+		defer op.pool.Put(eBufPtr)
+
 		for i := range op.mod {
 			if e.IsNTT && op.isNTTFriendly[i] {
-				copy(op.buf.p, e.Coeffs[i])
+				copy(eBuf, e.Coeffs[i])
 				revShiftBits := 64 - int(num.Log2(rank)+1)
 				for j := 0; j < rank; j++ {
 					jOut := ((2*j + 1) * idx) & (cycloOrd - 1)
@@ -431,24 +420,24 @@ func (op *pow2AutFixedAutOperator) AutTo(eOut, e *Element, idx int) {
 					if idxOut >= rank {
 						idxOut = 2*rank - 1 - idxOut
 					}
-					eOut.Coeffs[i][idxOut] = op.buf.p[idxIn]
+					eOut.Coeffs[i][idxOut] = eBuf[idxIn]
 				}
 			} else {
-				clear(op.buf.p)
+				clear(eBuf)
 				for j := 0; j < rank; j++ {
 					idxOut := (j * idx) & (cycloOrd - 1)
 					switch {
 					case idxOut >= 3*rank:
-						op.buf.p[4*rank-idxOut] = e.Coeffs[i][j]
+						eBuf[4*rank-idxOut] = e.Coeffs[i][j]
 					case idxOut >= 2*rank:
-						op.buf.p[idxOut-2*rank] = num.Neg(e.Coeffs[i][j], op.mod[i])
+						eBuf[idxOut-2*rank] = num.Neg(e.Coeffs[i][j], op.mod[i])
 					case idxOut >= rank:
-						op.buf.p[2*rank-idxOut] = num.Neg(e.Coeffs[i][j], op.mod[i])
+						eBuf[2*rank-idxOut] = num.Neg(e.Coeffs[i][j], op.mod[i])
 					default:
-						op.buf.p[idxOut] = e.Coeffs[i][j]
+						eBuf[idxOut] = e.Coeffs[i][j]
 					}
 				}
-				copy(eOut.Coeffs[i], op.buf.p)
+				copy(eOut.Coeffs[i], eBuf)
 			}
 		}
 
@@ -469,17 +458,7 @@ func (op *pow2AutFixedAutOperator) subOperator(idx ...int) pow2AutFixedAutOperat
 		mod:           modCopy,
 		isNTTFriendly: isNTTFriendlyCopy,
 
-		buf: newAutOperatorBuffer(op.params.Rank()),
-	}
-}
-
-func (op *pow2AutFixedAutOperator) safeCopy() pow2AutFixedAutOperator {
-	return pow2AutFixedAutOperator{
-		params:        op.params,
-		mod:           op.mod,
-		isNTTFriendly: op.isNTTFriendly,
-
-		buf: newAutOperatorBuffer(op.params.Rank()),
+		pool: op.pool,
 	}
 }
 
@@ -494,7 +473,7 @@ type primeAutFixedAutOperator struct {
 	// rootPowInv are the powers of the inverse of the generator modulo the cyclotomic order.
 	rootPowInv []uint64
 
-	buf autOperatorBuffer
+	pool *sync.Pool
 }
 
 // newPrimeAutFixedAutOperator creates a new [primeAutFixedAutOperator].
@@ -525,7 +504,12 @@ func newPrimeAutFixedAutOperator(params dft.RingParameters, mod []*num.Modulus) 
 		rootPow:    rootPow,
 		rootPowInv: rootPowInv,
 
-		buf: newAutOperatorBuffer(params.Rank()),
+		pool: &sync.Pool{
+			New: func() any {
+				v := make([]uint64, params.Rank())
+				return &v
+			},
+		},
 	}
 }
 
@@ -560,6 +544,10 @@ func (op *primeAutFixedAutOperator) AutTo(eOut, e *Element, idx int) {
 		cycloOrd, rank := op.params.CycloOrder(), op.params.Rank()
 		idx = (idx%cycloOrd + cycloOrd) % cycloOrd
 
+		eBufPtr := op.pool.Get().(*[]uint64)
+		eBuf := *eBufPtr
+		defer op.pool.Put(eBufPtr)
+
 		rotIdx := slices.Index(op.rootPow, uint64(idx))
 		if rotIdx == -1 {
 			rotIdx = slices.Index(op.rootPowInv, uint64(idx))
@@ -568,13 +556,13 @@ func (op *primeAutFixedAutOperator) AutTo(eOut, e *Element, idx int) {
 
 		for i := range op.mod {
 			if e.IsNTT && op.isNTTFriendly[i] {
-				copy(op.buf.p[:rank-rotIdx], e.Coeffs[i][rotIdx:])
-				copy(op.buf.p[rank-rotIdx:], e.Coeffs[i][:rotIdx])
-				copy(eOut.Coeffs[i], op.buf.p)
+				copy(eBuf[:rank-rotIdx], e.Coeffs[i][rotIdx:])
+				copy(eBuf[rank-rotIdx:], e.Coeffs[i][:rotIdx])
+				copy(eOut.Coeffs[i], eBuf)
 			} else {
-				copy(op.buf.p[:rotIdx], e.Coeffs[i][rank-rotIdx:])
-				copy(op.buf.p[rotIdx:], e.Coeffs[i][:rank-rotIdx])
-				copy(eOut.Coeffs[i], op.buf.p)
+				copy(eBuf[:rotIdx], e.Coeffs[i][rank-rotIdx:])
+				copy(eBuf[rotIdx:], e.Coeffs[i][:rank-rotIdx])
+				copy(eOut.Coeffs[i], eBuf)
 			}
 		}
 
@@ -598,20 +586,7 @@ func (op *primeAutFixedAutOperator) subOperator(idx ...int) primeAutFixedAutOper
 		rootPow:    op.rootPow,
 		rootPowInv: op.rootPowInv,
 
-		buf: newAutOperatorBuffer(op.params.Rank()),
-	}
-}
-
-func (op *primeAutFixedAutOperator) safeCopy() primeAutFixedAutOperator {
-	return primeAutFixedAutOperator{
-		params:        op.params,
-		mod:           op.mod,
-		isNTTFriendly: op.isNTTFriendly,
-
-		rootPow:    op.rootPow,
-		rootPowInv: op.rootPowInv,
-
-		buf: newAutOperatorBuffer(op.params.Rank()),
+		pool: op.pool,
 	}
 }
 

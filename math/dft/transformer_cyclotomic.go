@@ -1,6 +1,8 @@
 package dft
 
 import (
+	"sync"
+
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
 )
@@ -55,6 +57,8 @@ func newPow2CyclotomicTransformer(params RingParameters, mod *num.Modulus) *pow2
 
 // ForwardTo transforms the uint64 vector to NTT form.
 func (ntt *pow2CyclotomicTransformer) ForwardTo(vNTT, v []uint64) {
+	checkLength(ntt.params.rank, len(vNTT), len(v))
+
 	copy(vNTT, v)
 	nttInPlacePow2(vNTT, ntt.tw, ntt.twS, ntt.mod.Value())
 	vec.MFormTo(vNTT, vNTT, ntt.mod)
@@ -62,6 +66,8 @@ func (ntt *pow2CyclotomicTransformer) ForwardTo(vNTT, v []uint64) {
 
 // InverseTo transforms the uint64 vector to Standard form.
 func (ntt *pow2CyclotomicTransformer) InverseTo(v, vNTT []uint64) {
+	checkLength(ntt.params.rank, len(vNTT), len(v))
+
 	copy(v, vNTT)
 	inttInPlacePow2(v, ntt.twInv, ntt.twInvS, ntt.mod.Value())
 	vec.MulScalarTo(v, v, ntt.rankInv, ntt.mod)
@@ -77,11 +83,6 @@ func (ntt *pow2CyclotomicTransformer) Modulus() *num.Modulus {
 	return ntt.mod
 }
 
-// SafeCopy returns a thread-safe copy.
-func (ntt *pow2CyclotomicTransformer) SafeCopy() Transformer {
-	return ntt
-}
-
 // anyCyclotomicTransformer is a transformer for arbitrary order cyclotomic ring.
 type anyCyclotomicTransformer struct {
 	params RingParameters
@@ -93,7 +94,7 @@ type anyCyclotomicTransformer struct {
 	// idx is the CRT mapping index.
 	idx []int
 
-	buf transformerBuffer
+	pool *sync.Pool
 }
 
 // newAnyCyclotomicTransformer creates a new [anyCyclotomicTransformer].
@@ -185,32 +186,49 @@ func newAnyCyclotomicTransformer(params RingParameters, mod *num.Modulus) *anyCy
 
 		idx: idx,
 
-		buf: newTransformerBuffer(params.cycloOrd),
+		pool: &sync.Pool{
+			New: func() any {
+				v := make([]uint64, params.cycloOrd)
+				return &v
+			},
+		},
 	}
 }
 
 // ForwardTo transforms the uint64 vector to NTT form.
 func (ntt *anyCyclotomicTransformer) ForwardTo(vNTT, v []uint64) {
-	copy(ntt.buf.coeffs, v)
-	clear(ntt.buf.coeffs[ntt.params.rank:])
+	checkLength(ntt.params.rank, len(vNTT), len(v))
 
-	ntt.ambNTT.ForwardTo(ntt.buf.coeffs, ntt.buf.coeffs)
+	vBufPtr := ntt.pool.Get().(*[]uint64)
+	vBuf := *vBufPtr
+	defer ntt.pool.Put(vBufPtr)
+
+	copy(vBuf, v)
+	clear(vBuf[ntt.params.rank:])
+
+	ntt.ambNTT.ForwardTo(vBuf, vBuf)
 
 	for i := 0; i < ntt.params.rank; i++ {
-		vNTT[i] = ntt.buf.coeffs[ntt.idx[i]]
+		vNTT[i] = vBuf[ntt.idx[i]]
 	}
 }
 
 // InverseTo transforms the uint64 vector to Standard form.
 func (ntt *anyCyclotomicTransformer) InverseTo(v, vNTT []uint64) {
-	clear(ntt.buf.coeffs)
+	checkLength(ntt.params.rank, len(vNTT), len(v))
+
+	vBufPtr := ntt.pool.Get().(*[]uint64)
+	vBuf := *vBufPtr
+	defer ntt.pool.Put(vBufPtr)
+
+	clear(vBuf)
 	for i := 0; i < ntt.params.rank; i++ {
-		ntt.buf.coeffs[ntt.idx[i]] = vNTT[i]
+		vBuf[ntt.idx[i]] = vNTT[i]
 	}
 
-	ntt.ambNTT.InverseTo(ntt.buf.coeffs, ntt.buf.coeffs)
+	ntt.ambNTT.InverseTo(vBuf, vBuf)
 
-	ntt.reducer.reduceTo(v, ntt.buf.coeffs)
+	ntt.reducer.reduceTo(v, vBuf)
 }
 
 // Params returns the ring parameters.
@@ -221,19 +239,4 @@ func (ntt *anyCyclotomicTransformer) Params() RingParameters {
 // Modulus returns the modulus used for the transform.
 func (ntt *anyCyclotomicTransformer) Modulus() *num.Modulus {
 	return ntt.mod
-}
-
-// SafeCopy returns a thread-safe copy.
-func (ntt *anyCyclotomicTransformer) SafeCopy() Transformer {
-	return &anyCyclotomicTransformer{
-		params: ntt.params,
-		mod:    ntt.mod,
-
-		ambNTT:  ntt.ambNTT.SafeCopy(),
-		reducer: ntt.reducer.SafeCopy(),
-
-		idx: ntt.idx,
-
-		buf: newTransformerBuffer(ntt.params.cycloOrd),
-	}
 }
