@@ -150,9 +150,10 @@ func (emb *Embedder) Embed(e *Element) *Element {
 // If e.ModLen() < len(emb.modIn) or eOut.ModLen() < len(emb.modOut),
 // it only embeds the first emb.ModLen() elements to eOut.ModLen() elements.
 func (emb *Embedder) EmbedTo(eOut, e *Element) {
-	checkBinaryOperable(e.Rank(), e.ModLen(), eOut, e)
 	if e.Type() == TypePoly && e.IsNTT {
 		panic("input(s) must be in standard form")
+	} else if eOut.Rank() != e.Rank() {
+		panic("input(s) not consistent")
 	}
 
 	emb.EmbedVecTo(eOut.Coeffs, e.Coeffs)

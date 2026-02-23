@@ -1,1330 +1,703 @@
 package rlwe
 
-// import (
-// 	"github.com/hienaa-org/hienaa/math/crt"
-// 	"github.com/hienaa-org/hienaa/math/num"
-// 	"github.com/hienaa-org/hienaa/math/vec"
-// )
-
-// //////////////////////////////////////////
-// ///////// PlainScalar operations /////////
-// //////////////////////////////////////////
-
-// type PlainOperator struct {
-// 	Params Parameters
-// 	Eval   crt.PolyEvaluator
-// }
-
-// func NewPlainOperator(p Parameters) *PlainOperator {
-// 	eval := crt.NewPolyEvaluator(p.ringParams, append(p.auxModulus, p.modulus...))
-
-// 	return &PlainOperator{
-// 		Params: p,
-// 		Eval:   eval,
-// 	}
-// }
-
-// // SafeCopy returns a thread-safe copy.
-// func (o *PlainOperator) SafeCopy() *PlainOperator {
-// 	eval := o.Eval.SafeCopy()
-// 	return &PlainOperator{
-// 		Params: o.Params,
-// 		Eval:   eval,
-// 	}
-// }
-
-// // SubEvaluatorAt returns a sub evaluator at the given indices.
-// func (o *PlainOperator) SubEvaluatorAt(hasAux bool, modLen int) crt.PolyEvaluator {
-// 	if hasAux {
-// 		if o.Params.auxModulus == nil {
-// 			panic("auxiliary modulus is not set")
-// 		} else if modLen > len(o.Params.modulus)+len(o.Params.auxModulus) {
-// 			panic("modLen is too large")
-// 		}
-// 		return o.Eval.SubEvaluator(vec.Range(0, modLen)...)
-// 	} else {
-// 		if modLen > len(o.Params.modulus) {
-// 			panic("modLen is too large")
-// 		}
-// 		return o.Eval.SubEvaluator(vec.Range(len(o.Params.auxModulus), modLen+len(o.Params.auxModulus))...)
-// 	}
-// }
-
-// // AddScalar returns c0 + c1.
-// func (o *PlainOperator) AddScalar(c0 *PlainScalar, c1 *PlainScalar) *PlainScalar {
-// 	modLen := c0.ModLen()
-// 	var auxLen int
-// 	if c0.HasAux {
-// 		auxLen = len(o.Params.auxModulus)
-// 	}
-
-// 	cOut := NewPlainScalarCustom(modLen, auxLen)
-// 	o.AddScalarTo(cOut, c0, c1)
-
-// 	return cOut
-// }
-
-// // AddScalarTo performs c0 + c1 and stores the result in cOut.
-// func (o *PlainOperator) AddScalarTo(cOut *PlainScalar, c0 *PlainScalar, c1 *PlainScalar) {
-// 	if !(cOut.IsConsistent(c0) && cOut.IsConsistent(c1)) {
-// 		panic("inconsistent plaintexts")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(c0.HasAux, c0.ModLen())
-// 	crt.AddScalarTo(cOut.Value, c0.Value, c1.Value, eval.Modulus())
-// 	cOut.HasAux = c0.HasAux
-// }
-
-// // SubScalar returns c0 - c1.
-// func (o *PlainOperator) SubScalar(c0 *PlainScalar, c1 *PlainScalar) *PlainScalar {
-// 	modLen := c0.ModLen()
-// 	var auxLen int
-// 	if c0.HasAux {
-// 		auxLen = len(o.Params.auxModulus)
-// 	}
-
-// 	cOut := NewPlainScalarCustom(modLen, auxLen)
-// 	o.SubScalarTo(cOut, c0, c1)
-
-// 	return cOut
-// }
-
-// // SubScalarTo performs c0 - c1 and stores the result in cOut.
-// func (o *PlainOperator) SubScalarTo(cOut *PlainScalar, c0 *PlainScalar, c1 *PlainScalar) {
-// 	if !(cOut.IsConsistent(c0) && cOut.IsConsistent(c1)) {
-// 		panic("inconsistent plaintexts")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(c0.HasAux, c0.ModLen())
-// 	crt.SubScalarTo(cOut.Value, c0.Value, c1.Value, eval.Modulus())
-// 	cOut.HasAux = c0.HasAux
-// }
-
-// // NegScalar returns -c.
-// func (o *PlainOperator) NegScalar(c *PlainScalar) *PlainScalar {
-// 	modLen := c.ModLen()
-// 	var auxLen int
-// 	if c.HasAux {
-// 		auxLen = len(o.Params.auxModulus)
-// 	}
-
-// 	cOut := NewPlainScalarCustom(modLen, auxLen)
-// 	o.NegScalarTo(cOut, c)
-
-// 	return cOut
-// }
-
-// // NegScalarTo performs -c and stores the result in cOut.
-// func (o *PlainOperator) NegScalarTo(cOut *PlainScalar, c *PlainScalar) {
-// 	if !cOut.IsConsistent(c) {
-// 		panic("inconsistent plaintexts")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(c.HasAux, c.ModLen())
-// 	crt.NegScalarTo(cOut.Value, c.Value, eval.Modulus())
-// 	cOut.HasAux = c.HasAux
-// }
-
-// // MulScalar returns c0 * c1.
-// func (o *PlainOperator) MulScalar(c0 *PlainScalar, c1 *PlainScalar) *PlainScalar {
-// 	modLen := c0.ModLen()
-// 	var auxLen int
-// 	if c0.HasAux {
-// 		auxLen = len(o.Params.auxModulus)
-// 	}
-
-// 	cOut := NewPlainScalarCustom(modLen, auxLen)
-// 	o.MulScalarTo(cOut, c0, c1)
-
-// 	return cOut
-// }
-
-// // MulScalarTo performs c0 * c1 and stores the result in cOut.
-// func (o *PlainOperator) MulScalarTo(cOut *PlainScalar, c0 *PlainScalar, c1 *PlainScalar) {
-// 	if !(cOut.IsConsistent(c0) && cOut.IsConsistent(c1)) {
-// 		panic("inconsistent plaintexts")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(c0.HasAux, c0.ModLen())
-// 	crt.MulScalarTo(cOut.Value, c0.Value, c1.Value, eval.Modulus())
-// 	cOut.HasAux = c0.HasAux
-// }
-
-// // MulAddScalarTo performs cOut += c0 * c1.
-// func (o *PlainOperator) MulAddScalarTo(cOut *PlainScalar, c0 *PlainScalar, c1 *PlainScalar) {
-// 	if !(cOut.IsConsistent(c0) && cOut.IsConsistent(c1)) {
-// 		panic("inconsistent plaintexts")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(c0.HasAux, c0.ModLen())
-// 	crt.MulAddScalarTo(cOut.Value, c0.Value, c1.Value, eval.Modulus())
-// 	cOut.HasAux = c0.HasAux
-// }
-
-// // MulSubScalarTo performs cOut -= c0 * c1.
-// func (o *PlainOperator) MulSubScalarTo(cOut *PlainScalar, c0 *PlainScalar, c1 *PlainScalar) {
-// 	if !(cOut.IsConsistent(c0) && cOut.IsConsistent(c1)) {
-// 		panic("inconsistent plaintexts")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(c0.HasAux, c0.ModLen())
-// 	crt.MulSubScalarTo(cOut.Value, c0.Value, c1.Value, eval.Modulus())
-// 	cOut.HasAux = c0.HasAux
-// }
-
-// ////////////////////////////////////////
-// ///////// PlainPoly operations /////////
-// ////////////////////////////////////////
-
-// // FwdNTT performs FwdNTT(pt).
-// func (o *PlainOperator) FwdNTT(pt *PlainPoly) *PlainPoly {
-// 	rank := o.Params.ringParams.Rank()
-// 	modLen := pt.ModLen()
-// 	var auxLen int
-// 	if pt.HasAux {
-// 		auxLen = len(o.Params.auxModulus)
-// 	}
-
-// 	ptOut := NewPlainPolyCustom(rank, modLen, auxLen, true)
-// 	o.FwdNTTTo(ptOut, pt)
-
-// 	return ptOut
-// }
-
-// // FwdNTTTo performs FwdNTT(pt) and stores the result in pOut.
-// func (o *PlainOperator) FwdNTTTo(ptOut *PlainPoly, ptIn *PlainPoly) {
-// 	if !(ptOut.IsConsistent(ptIn)) {
-// 		panic("inconsistent plaintexts")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(ptIn.HasAux, ptIn.ModLen())
-// 	eval.FwdNTTTo(ptOut.Value, ptIn.Value)
-// }
-
-// // InvNTT performs InvNTT(pt).
-// func (o *PlainOperator) InvNTT(pt *PlainPoly) *PlainPoly {
-// 	rank := o.Params.ringParams.Rank()
-// 	modLen := pt.ModLen()
-// 	var auxLen int
-// 	if pt.HasAux {
-// 		auxLen = len(o.Params.auxModulus)
-// 	}
-
-// 	ptOut := NewPlainPolyCustom(rank, modLen, auxLen, false)
-// 	o.InvNTTTo(ptOut, pt)
-
-// 	return ptOut
-// }
-
-// // InvNTTTo performs InvNTT(pt) and stores the result in pOut.
-// func (o *PlainOperator) InvNTTTo(ptOut *PlainPoly, ptIn *PlainPoly) {
-// 	if !(ptOut.IsConsistent(ptIn)) {
-// 		panic("inconsistent plaintexts")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(ptIn.HasAux, ptIn.ModLen())
-// 	eval.InvNTTTo(ptOut.Value, ptIn.Value)
-// }
-
-// // ScalarAdd returns c + pt.
-// func (o *PlainOperator) ScalarAdd(cIn *PlainScalar, ptIn *PlainPoly) *PlainPoly {
-// 	rank := o.Params.ringParams.Rank()
-// 	modLen := cIn.ModLen()
-// 	var auxLen int
-// 	if cIn.HasAux {
-// 		auxLen = len(o.Params.auxModulus)
-// 	}
-
-// 	ptOut := NewPlainPolyCustom(rank, modLen, auxLen, false)
-// 	o.ScalarAddTo(ptOut, cIn, ptIn)
-
-// 	return ptOut
-// }
-
-// // ScalarAddTo performs c + pt and stores the result in ptOut.
-// func (o *PlainOperator) ScalarAddTo(ptOut *PlainPoly, cIn *PlainScalar, ptIn *PlainPoly) {
-// 	if !(ptOut.IsConsistent(ptIn) && (ptOut.ModLen() == cIn.ModLen())) {
-// 		panic("inconsistent plain polynomials or scalars")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(ptIn.HasAux, ptIn.ModLen())
-// 	eval.ScalarAddTo(ptOut.Value, ptIn.Value, cIn.Value)
-// }
-
-// // ScalarSub returns c - pt.
-// func (o *PlainOperator) ScalarSub(cIn *PlainScalar, ptIn *PlainPoly) *PlainPoly {
-// 	rank := o.Params.ringParams.Rank()
-// 	modLen := cIn.ModLen()
-// 	var auxLen int
-// 	if cIn.HasAux {
-// 		auxLen = len(o.Params.auxModulus)
-// 	}
-
-// 	ptOut := NewPlainPolyCustom(rank, modLen, auxLen, false)
-// 	o.ScalarSubTo(ptOut, cIn, ptIn)
-
-// 	return ptOut
-// }
-
-// // ScalarSubTo performs c - pt and stores the result in ptOut.
-// func (o *PlainOperator) ScalarSubTo(ptOut *PlainPoly, cIn *PlainScalar, ptIn *PlainPoly) {
-// 	if !(ptOut.IsConsistent(ptIn) && (ptOut.ModLen() == cIn.ModLen())) {
-// 		panic("inconsistent plain polynomials or scalars")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(ptIn.HasAux, ptIn.ModLen())
-// 	eval.ScalarSubTo(ptOut.Value, ptIn.Value, cIn.Value)
-// }
-
-// // ScalarMul returns c * pt.
-// func (o *PlainOperator) ScalarMul(cIn *PlainScalar, ptIn *PlainPoly) *PlainPoly {
-// 	rank := o.Params.ringParams.Rank()
-// 	modLen := cIn.ModLen()
-// 	var auxLen int
-// 	if cIn.HasAux {
-// 		auxLen = len(o.Params.auxModulus)
-// 	}
-
-// 	ptOut := NewPlainPolyCustom(rank, modLen, auxLen, false)
-// 	o.ScalarMulTo(ptOut, cIn, ptIn)
-
-// 	return ptOut
-// }
-
-// // ScalarMulTo performs c * pt and stores the result in ptOut.
-// func (o *PlainOperator) ScalarMulTo(ptOut *PlainPoly, cIn *PlainScalar, ptIn *PlainPoly) {
-// 	if !(ptOut.IsConsistent(ptIn) && (ptOut.ModLen() == cIn.ModLen())) {
-// 		panic("inconsistent plain polynomials or scalars")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(ptIn.HasAux, ptIn.ModLen())
-// 	eval.ScalarMulTo(ptOut.Value, ptIn.Value, cIn.Value)
-// }
-
-// // ScalarMulAddTo performs ptOut += c * pt.
-// func (o *PlainOperator) ScalarMulAddTo(ptOut *PlainPoly, cIn *PlainScalar, ptIn *PlainPoly) {
-// 	if !(ptOut.IsConsistent(ptIn) && (ptOut.ModLen() == cIn.ModLen())) {
-// 		panic("inconsistent plain polynomials or scalars")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(ptIn.HasAux, ptIn.ModLen())
-// 	eval.ScalarMulAddTo(ptOut.Value, ptIn.Value, cIn.Value)
-// }
-
-// // ScalarMulSubTo performs ptOut -= c * pt.
-// func (o *PlainOperator) ScalarMulSubTo(ptOut *PlainPoly, cIn *PlainScalar, ptIn *PlainPoly) {
-// 	if !(ptOut.IsConsistent(ptIn) && (ptOut.ModLen() == cIn.ModLen())) {
-// 		panic("inconsistent plain polynomials or scalars")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(ptIn.HasAux, ptIn.ModLen())
-// 	eval.ScalarMulSubTo(ptOut.Value, ptIn.Value, cIn.Value)
-// }
-
-// // Add performs pt0 + pt1.
-// func (o *PlainOperator) Add(pt0, pt1 *PlainPoly) *PlainPoly {
-// 	rank := o.Params.ringParams.Rank()
-// 	modLen := pt0.ModLen()
-// 	var auxLen int
-// 	if pt0.HasAux {
-// 		auxLen = len(o.Params.auxModulus)
-// 	}
-
-// 	ptOut := NewPlainPolyCustom(rank, modLen, auxLen, false)
-// 	o.AddTo(ptOut, pt0, pt1)
-
-// 	return ptOut
-// }
-
-// // AddTo performs pt0 + pt1 and stores the result in ptOut.
-// func (o *PlainOperator) AddTo(ptOut *PlainPoly, pt0, pt1 *PlainPoly) {
-// 	if !(ptOut.IsConsistent(pt0) && ptOut.IsConsistent(pt1)) {
-// 		panic("inconsistent plaintexts")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(pt0.HasAux, pt0.ModLen())
-// 	eval.AddTo(ptOut.Value, pt0.Value, pt1.Value)
-// }
-
-// // Sub performs pt0 - pt1.
-// func (o *PlainOperator) Sub(pt0, pt1 *PlainPoly) *PlainPoly {
-// 	rank := o.Params.ringParams.Rank()
-// 	modLen := pt0.ModLen()
-// 	var auxLen int
-// 	if pt0.HasAux {
-// 		auxLen = len(o.Params.auxModulus)
-// 	}
-
-// 	ptOut := NewPlainPolyCustom(rank, modLen, auxLen, false)
-// 	o.SubTo(ptOut, pt0, pt1)
-
-// 	return ptOut
-// }
-
-// // SubTo performs pt0 - pt1 and stores the result in ptOut.
-// func (o *PlainOperator) SubTo(ptOut *PlainPoly, pt0, pt1 *PlainPoly) {
-// 	if !(ptOut.IsConsistent(pt0) && ptOut.IsConsistent(pt1)) {
-// 		panic("SubTo: inconsistent plaintexts")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(pt0.HasAux, pt0.ModLen())
-// 	eval.SubTo(ptOut.Value, pt0.Value, pt1.Value)
-// }
-
-// // Neg performs -pt.
-// func (o *PlainOperator) Neg(pt *PlainPoly) *PlainPoly {
-// 	rank := o.Params.ringParams.Rank()
-// 	modLen := pt.ModLen()
-// 	var auxLen int
-// 	if pt.HasAux {
-// 		auxLen = len(o.Params.auxModulus)
-// 	}
-
-// 	ptOut := NewPlainPolyCustom(rank, modLen, auxLen, false)
-// 	o.NegTo(ptOut, pt)
-
-// 	return ptOut
-// }
-
-// // NegTo performs -pt and stores the result in ptOut.
-// func (o *PlainOperator) NegTo(ptOut *PlainPoly, ptIn *PlainPoly) {
-// 	if !ptOut.IsConsistent(ptIn) {
-// 		panic("inconsistent plaintexts")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(ptIn.HasAux, ptIn.ModLen())
-// 	eval.NegTo(ptOut.Value, ptIn.Value)
-// }
-
-// // Mul returns pt0 * pt1.
-// func (o *PlainOperator) Mul(pt0, pt1 *PlainPoly) *PlainPoly {
-// 	rank := o.Params.ringParams.Rank()
-// 	modLen := pt0.ModLen()
-// 	var auxLen int
-// 	if pt0.HasAux {
-// 		auxLen = len(o.Params.auxModulus)
-// 	}
-
-// 	ptOut := NewPlainPolyCustom(rank, modLen, auxLen, false)
-// 	o.MulTo(ptOut, pt0, pt1)
-
-// 	return ptOut
-// }
-
-// // MulTo performs pt0 * pt1 and stores the result in ptOut.
-// func (o *PlainOperator) MulTo(ptOut *PlainPoly, pt0, pt1 *PlainPoly) {
-// 	if !(ptOut.IsConsistent(pt0) && ptOut.IsConsistent(pt1)) {
-// 		panic("MulTo: inconsistent plaintexts")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(pt0.HasAux, pt0.ModLen())
-// 	eval.MulTo(ptOut.Value, pt0.Value, pt1.Value)
-// }
-
-// // MulAddTo performs ptOut += pt0 * pt1.
-// func (o *PlainOperator) MulAddTo(ptOut *PlainPoly, pt0, pt1 *PlainPoly) {
-// 	if !(ptOut.IsConsistent(pt0) && ptOut.IsConsistent(pt1)) {
-// 		panic("MulAddTo: inconsistent plaintexts")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(pt0.HasAux, pt0.ModLen())
-// 	eval.MulAddTo(ptOut.Value, pt0.Value, pt1.Value)
-// }
-
-// // MulSubTo performs ptOut -= pt0 * pt1.
-// func (o *PlainOperator) MulSubTo(ptOut *PlainPoly, pt0, pt1 *PlainPoly) {
-// 	if !(ptOut.IsConsistent(pt0) && ptOut.IsConsistent(pt1)) {
-// 		panic("MulSubTo: inconsistent plaintexts")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(pt0.HasAux, pt0.ModLen())
-// 	eval.MulSubTo(ptOut.Value, pt0.Value, pt1.Value)
-// }
-
-// ////////////////////////////////////////
-// ///////// Ciphertext operations ////////
-// ////////////////////////////////////////
-
-// // operatorBuffer is a buffer for the [Operator].
-// type operatorBuffer struct {
-// 	// pNTT is the buffer for the NTT of the plaintext.
-// 	pNTT *crt.Poly
-// 	// pDiv is the buffer for division by auxiliary modulus.
-// 	pDiv *crt.Poly
-// 	// pScale is the buffer for ciphertext scaling.
-// 	pScale *crt.Poly
-// 	// pKsw is the buffer for key switching.
-// 	pKsw *crt.Poly
-// 	// tenAut is the buffer for automorphism.
-// 	tenAut *Tensor
-
-// 	// ctGad is the buffer for gadget product.
-// 	ctGad *Ciphertext
-// 	// ctExt is the buffer for external product.
-// 	ctExt *Ciphertext
-
-// 	// decmp is the buffer for the gadget decomposition.
-// 	decmp *Tensor
-// }
-
-// // newOperatorBuffer creates a new [operatorBuffer] for the given parameters.
-// func newOperatorBuffer(p Parameters) operatorBuffer {
-// 	pNTT := crt.NewPoly(p.ringParams.Rank(), len(p.modulus)+len(p.auxModulus))
-// 	var pDiv *crt.Poly
-// 	if p.auxModulus != nil {
-// 		pDiv = crt.NewPoly(p.ringParams.Rank(), len(p.modulus)+len(p.auxModulus))
-// 	}
-// 	pScale := crt.NewPoly(p.ringParams.Rank(), len(p.modulus))
-// 	pKsw := crt.NewPoly(p.ringParams.Rank(), len(p.modulus))
-// 	tenAut := NewTensor(p, true, p.gadgetParams.gadgetLen(p), false)
-
-// 	ctProd := NewCiphertext(p, true, false)
-// 	ctExt := NewCiphertext(p, true, false)
-
-// 	decmp := NewTensor(p, true, p.gadgetParams.gadgetLen(p), false)
-
-// 	return operatorBuffer{
-// 		pNTT:   pNTT,
-// 		pDiv:   pDiv,
-// 		pScale: pScale,
-// 		pKsw:   pKsw,
-// 		tenAut: tenAut,
-
-// 		ctGad: ctProd,
-// 		ctExt: ctExt,
-
-// 		decmp: decmp,
-// 	}
-// }
-
-// // Operator is a struct that performs RLWE operations.
-// type Operator struct {
-// 	// Params is the RLWE parameters.
-// 	Params Parameters
-
-// 	// PlainOp is the plaintext operator.
-// 	PlainOp *PlainOperator
-
-// 	// Eval is the polynomial Eval.
-// 	Eval crt.PolyEvaluator
-// 	// Decmp is the decompose.
-// 	Decmp Decomposer
-
-// 	// buf is the buffer for the operator.
-// 	buf operatorBuffer
-// }
-
-// // NewOperator creates a new [Operator] for the given parameters.
-// func NewOperator(p Parameters) *Operator {
-// 	plainOp := NewPlainOperator(p)
-// 	eval := plainOp.Eval
-// 	decomposer := NewDecomposer(p)
-
-// 	return &Operator{
-// 		Params: p,
-
-// 		PlainOp: plainOp,
-
-// 		Eval:  eval,
-// 		Decmp: decomposer,
-
-// 		buf: newOperatorBuffer(p),
-// 	}
-// }
-
-// // SafeCopy returns a thread-safe copy.
-// func (o *Operator) SafeCopy() *Operator {
-// 	plainOp := o.PlainOp.SafeCopy()
-// 	eval := plainOp.Eval
-// 	decomposer := o.Decmp.SafeCopy()
-
-// 	return &Operator{
-// 		Params: o.Params,
-
-// 		PlainOp: plainOp,
-
-// 		Eval:  eval,
-// 		Decmp: decomposer,
-
-// 		buf: newOperatorBuffer(o.Params),
-// 	}
-// }
-
-// // SubEvaluatorAt returns a sub evaluator at the given indices.
-// func (o *Operator) SubEvaluatorAt(hasAux bool, modLen int) crt.PolyEvaluator {
-// 	return o.PlainOp.SubEvaluatorAt(hasAux, modLen)
-// }
-
-// // FwdNTT performs FwdNTT(c).
-// func (o *Operator) FwdNTT(c *Ciphertext) *Ciphertext {
-// 	rank := o.Params.ringParams.Rank()
-// 	modLen := c.ModLen()
-// 	var auxLen int
-// 	if c.HasAux {
-// 		auxLen = len(o.Params.auxModulus)
-// 	}
-
-// 	cOut := NewCiphertextCustom(rank, modLen, auxLen, c.HasAux)
-// 	o.FwdNTTTo(cOut, c)
-// 	return cOut
-// }
-
-// // FwdNTTTo performs FwdNTT(c) and stores the result in cOut.
-// func (o *Operator) FwdNTTTo(cOut *Ciphertext, c *Ciphertext) {
-// 	if !cOut.IsConsistent(c) {
-// 		panic("inconsistent ciphertexts")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(c.HasAux, c.ModLen())
-// 	eval.FwdNTTTo(cOut.Body, c.Body)
-// 	eval.FwdNTTTo(cOut.Mask, c.Mask)
-// }
-
-// // InvNTT performs InvNTT(c).
-// func (o *Operator) InvNTT(c *Ciphertext) *Ciphertext {
-// 	rank := o.Params.ringParams.Rank()
-// 	modLen := c.ModLen()
-// 	var auxLen int
-// 	if c.HasAux {
-// 		auxLen = len(o.Params.auxModulus)
-// 	}
-
-// 	cOut := NewCiphertextCustom(rank, modLen, auxLen, c.HasAux)
-// 	o.InvNTTTo(cOut, c)
-// 	return cOut
-// }
-
-// // InvNTTTo performs InvNTT(c) and stores the result in cOut.
-// func (o *Operator) InvNTTTo(cOut *Ciphertext, c *Ciphertext) {
-// 	if !cOut.IsConsistent(c) {
-// 		panic("inconsistent ciphertexts")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(c.HasAux, c.ModLen())
-// 	eval.InvNTTTo(cOut.Body, c.Body)
-// 	eval.InvNTTTo(cOut.Mask, c.Mask)
-// }
-
-// // Add performs c0 + c1.
-// func (o *Operator) Add(c0, c1 *Ciphertext) *Ciphertext {
-// 	rank := o.Params.ringParams.Rank()
-// 	modLen := c0.ModLen()
-// 	var auxLen int
-// 	if c0.HasAux {
-// 		auxLen = len(o.Params.auxModulus)
-// 	}
-
-// 	cOut := NewCiphertextCustom(rank, modLen, auxLen, c0.HasAux)
-// 	o.AddTo(cOut, c0, c1)
-// 	return cOut
-// }
-
-// // AddTo performs c0 + c1 and stores the result in cOut.
-// func (o *Operator) AddTo(cOut *Ciphertext, c0, c1 *Ciphertext) {
-// 	if !cOut.IsConsistent(c0) || !cOut.IsConsistent(c1) {
-// 		panic("inconsistent ciphertexts")
-// 	} else if !(c0.Body.IsNTT == c1.Body.IsNTT) {
-// 		panic("inconsistent NTT flags")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(c0.HasAux, c0.ModLen())
-// 	eval.AddTo(cOut.Body, c0.Body, c1.Body)
-// 	eval.AddTo(cOut.Mask, c0.Mask, c1.Mask)
-// }
-
-// // ScalarAdd performs s + c.
-// func (o *Operator) ScalarAdd(s *PlainScalar, c *Ciphertext) *Ciphertext {
-// 	rank := o.Params.ringParams.Rank()
-// 	modLen := c.ModLen()
-// 	var auxLen int
-// 	if c.HasAux {
-// 		auxLen = len(o.Params.auxModulus)
-// 	}
-
-// 	cOut := NewCiphertextCustom(rank, modLen, auxLen, c.HasAux)
-// 	o.ScalarAddTo(cOut, s, c)
-// 	return cOut
-// }
-
-// // ScalarAddTo performs c + s and stores the result in cOut.
-// func (o *Operator) ScalarAddTo(cOut *Ciphertext, s *PlainScalar, c *Ciphertext) {
-// 	if !(cOut.IsConsistent(c) && (cOut.ModLen() == s.ModLen())) {
-// 		panic("inconsistent ciphertexts or scalars")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(c.HasAux, c.ModLen())
-// 	eval.ScalarAddTo(cOut.Body, c.Body, s.Value)
-// 	cOut.Mask.CopyFrom(c.Mask)
-// }
-
-// // PolyAdd performs p + c.
-// func (o *Operator) PolyAdd(p *PlainPoly, c *Ciphertext) *Ciphertext {
-// 	rank := o.Params.ringParams.Rank()
-// 	modLen := p.ModLen()
-// 	var auxLen int
-// 	if p.HasAux {
-// 		auxLen = len(o.Params.auxModulus)
-// 	}
-
-// 	cOut := NewCiphertextCustom(rank, modLen, auxLen, p.HasAux)
-// 	o.PolyAddTo(cOut, p, c)
-// 	return cOut
-// }
-
-// // PolyAddTo performs p + c and stores the result in cOut.
-// func (o *Operator) PolyAddTo(cOut *Ciphertext, p *PlainPoly, c *Ciphertext) {
-// 	if !(cOut.IsConsistent(c) && (cOut.ModLen() == p.ModLen())) {
-// 		panic("inconsistent ciphertexts or polynomials")
-// 	} else if !(c.Body.IsNTT == p.Value.IsNTT) {
-// 		panic("inconsistent NTT flags")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(c.HasAux, c.ModLen())
-// 	eval.AddTo(cOut.Body, c.Body, p.Value)
-// 	cOut.Mask.CopyFrom(c.Mask)
-// }
-
-// // Sub performs c0 - c1.
-// func (o *Operator) Sub(c0, c1 *Ciphertext) *Ciphertext {
-// 	rank := o.Params.ringParams.Rank()
-// 	modLen := c0.ModLen()
-// 	var auxLen int
-// 	if c0.HasAux {
-// 		auxLen = len(o.Params.auxModulus)
-// 	}
-
-// 	cOut := NewCiphertextCustom(rank, modLen, auxLen, c0.HasAux)
-// 	o.SubTo(cOut, c0, c1)
-// 	return cOut
-// }
-
-// // SubTo performs c0 - c1 and stores the result in cOut.
-// func (o *Operator) SubTo(cOut *Ciphertext, c0, c1 *Ciphertext) {
-// 	if !cOut.IsConsistent(c0) || !cOut.IsConsistent(c1) {
-// 		panic("inconsistent ciphertexts")
-// 	} else if !(c0.Body.IsNTT == c1.Body.IsNTT) {
-// 		panic("inconsistent NTT flags")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(c0.HasAux, c0.ModLen())
-// 	eval.SubTo(cOut.Body, c0.Body, c1.Body)
-// 	eval.SubTo(cOut.Mask, c0.Mask, c1.Mask)
-// }
-
-// // ScalarSub performs s - c.
-// func (o *Operator) ScalarSub(s *PlainScalar, c *Ciphertext) *Ciphertext {
-// 	rank := o.Params.ringParams.Rank()
-// 	modLen := s.ModLen()
-// 	var auxLen int
-// 	if s.HasAux {
-// 		auxLen = len(o.Params.auxModulus)
-// 	}
-
-// 	cOut := NewCiphertextCustom(rank, modLen, auxLen, s.HasAux)
-// 	o.ScalarSubTo(cOut, s, c)
-// 	return cOut
-// }
-
-// // ScalarSubTo performs s - c and stores the result in cOut.
-// func (o *Operator) ScalarSubTo(cOut *Ciphertext, s *PlainScalar, c *Ciphertext) {
-// 	if !(cOut.IsConsistent(c) && (cOut.ModLen() == s.ModLen())) {
-// 		panic("ScalarSubTo: inconsistent ciphertexts or scalars")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(c.HasAux, c.ModLen())
-// 	eval.ScalarSubTo(cOut.Body, c.Body, s.Value)
-// 	cOut.Mask.CopyFrom(c.Mask)
-// }
-
-// // TOOD: Rewrite after the unification of Poly and Scalar.
-// // PolySub performs p - c.
-// func (o *Operator) PolySub(p *PlainPoly, c *Ciphertext) *Ciphertext {
-// 	rank := o.Params.ringParams.Rank()
-// 	modLen := p.ModLen()
-// 	var auxLen int
-// 	if p.HasAux {
-// 		auxLen = len(o.Params.auxModulus)
-// 	}
-
-// 	cOut := NewCiphertextCustom(rank, modLen, auxLen, p.HasAux)
-// 	o.PolySubTo(cOut, p, c)
-// 	return cOut
-// }
-
-// // TOOD: Rewrite after the unification of Poly and Scalar.
-// // PolySubTo performs p - c and stores the result in cOut.
-// func (o *Operator) PolySubTo(cOut *Ciphertext, p *PlainPoly, c *Ciphertext) {
-// 	if !(cOut.IsConsistent(c) && (cOut.ModLen() == p.ModLen()) && cOut.HasAux == p.HasAux) {
-// 		panic("inconsistent ciphertexts or polynomials")
-// 	} else if !(c.Body.IsNTT == p.Value.IsNTT) {
-// 		panic("inconsistent NTT flags")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(c.HasAux, c.ModLen())
-// 	eval.SubTo(cOut.Body, p.Value, c.Body)
-// 	cOut.Mask.CopyFrom(c.Mask)
-// }
-
-// // Neg performs -c.
-// func (o *Operator) Neg(c *Ciphertext) *Ciphertext {
-// 	rank := o.Params.ringParams.Rank()
-// 	modLen := c.ModLen()
-// 	var auxLen int
-// 	if c.HasAux {
-// 		auxLen = len(o.Params.auxModulus)
-// 	}
-
-// 	cOut := NewCiphertextCustom(rank, modLen, auxLen, c.HasAux)
-// 	o.NegTo(cOut, c)
-// 	return cOut
-// }
-
-// // NegTo performs -c and stores the result in cOut.
-// func (o *Operator) NegTo(cOut *Ciphertext, c *Ciphertext) {
-// 	if !cOut.IsConsistent(c) {
-// 		panic("inconsistent ciphertexts")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(c.HasAux, c.ModLen())
-// 	eval.NegTo(cOut.Body, c.Body)
-// 	eval.NegTo(cOut.Mask, c.Mask)
-// }
-
-// // ScalarMul performs s * c.
-// func (o *Operator) ScalarMul(s *PlainScalar, c *Ciphertext) *Ciphertext {
-// 	rank := o.Params.ringParams.Rank()
-// 	modLen := s.ModLen()
-// 	var auxLen int
-// 	if s.HasAux {
-// 		auxLen = len(o.Params.auxModulus)
-// 	}
-
-// 	cOut := NewCiphertextCustom(rank, modLen, auxLen, s.HasAux)
-// 	o.ScalarMulTo(cOut, s, c)
-// 	return cOut
-// }
-
-// // ScalarMulTo performs s * c and stores the result in cOut.
-// func (o *Operator) ScalarMulTo(cOut *Ciphertext, s *PlainScalar, c *Ciphertext) {
-// 	if !cOut.IsConsistent(c) || !(cOut.ModLen() == s.ModLen()) {
-// 		panic("inconsistent ciphertexts or scalars")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(c.HasAux, c.ModLen())
-// 	eval.ScalarMulTo(cOut.Body, c.Body, s.Value)
-// 	eval.ScalarMulTo(cOut.Mask, c.Mask, s.Value)
-// }
-
-// // MulPoly performs p * c.
-// func (o *Operator) PolyMul(p *PlainPoly, c *Ciphertext) *Ciphertext {
-// 	rank := o.Params.ringParams.Rank()
-// 	modLen := p.ModLen()
-// 	var auxLen int
-// 	if p.HasAux {
-// 		auxLen = len(o.Params.auxModulus)
-// 	}
-
-// 	cOut := NewCiphertextCustom(rank, modLen, auxLen, p.HasAux)
-// 	o.PolyMulTo(cOut, p, c)
-// 	return cOut
-// }
-
-// // PolyMulTo performs p * c and stores the result in cOut.
-// func (o *Operator) PolyMulTo(cOut *Ciphertext, p *PlainPoly, c *Ciphertext) {
-// 	if !(cOut.IsConsistent(c) && (cOut.ModLen() == p.ModLen())) {
-// 		panic("inconsistent ciphertexts or polynomials")
-// 	} else if !(c.Body.IsNTT && p.Value.IsNTT) {
-// 		panic("inconsistent NTT flags")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(c.HasAux, c.ModLen())
-// 	eval.MulTo(cOut.Body, c.Body, p.Value)
-// 	eval.MulTo(cOut.Mask, c.Mask, p.Value)
-// }
-
-// // ScalarMulAddTo performs cOut += s * c.
-// func (o *Operator) ScalarMulAddTo(cOut *Ciphertext, s *PlainScalar, c *Ciphertext) {
-// 	if !(cOut.IsConsistent(c) && (cOut.ModLen() == s.ModLen())) {
-// 		panic("inconsistent ciphertexts or scalars")
-// 	} else if !(cOut.Body.IsNTT == c.Body.IsNTT) {
-// 		panic("inconsistent NTT flags")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(c.HasAux, c.ModLen())
-// 	eval.ScalarMulAddTo(cOut.Body, c.Body, s.Value)
-// 	eval.ScalarMulAddTo(cOut.Mask, c.Mask, s.Value)
-// }
-
-// // PolyMulAddTo performs cOut += p * c.
-// func (o *Operator) PolyMulAddTo(cOut *Ciphertext, p *PlainPoly, c *Ciphertext) {
-// 	if !(cOut.IsConsistent(c) && (cOut.ModLen() == p.ModLen())) {
-// 		panic("inconsistent ciphertexts or polynomials")
-// 	} else if !(cOut.Body.IsNTT && p.Value.IsNTT && c.Body.IsNTT) {
-// 		panic("inconsistent NTT flags")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(c.HasAux, c.ModLen())
-// 	eval.MulAddTo(cOut.Body, c.Body, p.Value)
-// 	eval.MulAddTo(cOut.Mask, c.Mask, p.Value)
-// }
-
-// // TODO: Rewrite after the unification of Poly and Scalar.
-// // ScalarMulSubTo performs cOut -= s * c.
-// func (o *Operator) ScalarMulSubTo(cOut *Ciphertext, s *PlainScalar, c *Ciphertext) {
-// 	if !(cOut.IsConsistent(c) && (cOut.ModLen() == s.ModLen())) {
-// 		panic("inconsistent ciphertexts or scalars")
-// 	} else if !(cOut.Body.IsNTT == c.Body.IsNTT) {
-// 		panic("inconsistent NTT flags")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(c.HasAux, c.ModLen())
-// 	eval.ScalarMulSubTo(cOut.Body, c.Body, s.Value)
-// 	eval.ScalarMulSubTo(cOut.Mask, c.Mask, s.Value)
-// }
-
-// // TODO: Rewrite after the unification of Poly and Scalar.
-// // PolyMulSubTo performs cOut -= p * c.
-// func (o *Operator) PolyMulSubTo(cOut *Ciphertext, p *PlainPoly, c *Ciphertext) {
-// 	if !(cOut.IsConsistent(c) && (cOut.ModLen() == p.ModLen())) {
-// 		panic("inconsistent ciphertexts or polynomials")
-// 	} else if !(cOut.Body.IsNTT && p.Value.IsNTT && c.Body.IsNTT) {
-// 		panic("inconsistent NTT flags")
-// 	}
-
-// 	eval := o.SubEvaluatorAt(c.HasAux, c.ModLen())
-// 	eval.MulSubTo(cOut.Body, c.Body, p.Value)
-// 	eval.MulSubTo(cOut.Mask, c.Mask, p.Value)
-// }
-
-// // DivByAux performs round(cIn / auxModulus).
-// func (o *Operator) DivByAux(cIn *Ciphertext, isNTT bool) *Ciphertext {
-// 	if !cIn.HasAux {
-// 		panic("input ciphertext must have auxiliary modulus")
-// 	}
-
-// 	rank := o.Params.ringParams.Rank()
-// 	modLen := cIn.ModLen() - len(o.Params.auxModulus)
-// 	cOut := NewCiphertextCustom(rank, modLen, 0, false)
-// 	o.DivByAuxTo(cOut, cIn, isNTT)
-// 	return cOut
-// }
-
-// // DivByAuxTo performs cOut = round(cIn / auxModulus) and stores the result in cOut.
-// func (o *Operator) DivByAuxTo(cOut, cIn *Ciphertext, isNTT bool) {
-// 	if o.Params.auxModulus == nil {
-// 		panic("Auxiliary modulus is not set.")
-// 	} else if !cIn.HasAux {
-// 		panic("Input ciphertext must have auxiliary modulus.")
-// 	} else if cOut.ModLen() != cIn.ModLen()-len(o.Params.auxModulus) {
-// 		panic("Inconsistent ciphertext output.")
-// 	} else if !(cOut.Body.Rank() == cIn.Body.Rank() && cOut.Mask.Rank() == cIn.Mask.Rank()) {
-// 		panic("Inconsistent rank.")
-// 	}
-
-// 	auxLen := len(o.Params.auxModulus)
-// 	modLen := cIn.ModLen() - auxLen
-// 	evalMod := o.SubEvaluatorAt(false, modLen)
-// 	evalAux := o.SubEvaluatorAt(true, auxLen)
-
-// 	buf := o.buf.pDiv.WithModIdx(vec.Range(0, modLen+auxLen)...)
-// 	bufMod := buf.WithModIdx(vec.Range(auxLen, modLen+auxLen)...)
-// 	bufAux := buf.WithModIdx(vec.Range(0, auxLen)...)
-
-// 	mod := evalMod.Modulus()
-// 	auxMod := evalAux.Modulus()
-// 	ss := crt.NewScaler(mod, auxMod)
-
-// 	// Compute auxInvMod and modInvAux
-// 	auxInvMod := crt.NewScalar(1, mod)
-// 	modInvAux := crt.NewScalar(1, auxMod)
-// 	for i, modi := range mod {
-// 		for j, auxj := range auxMod {
-// 			auxInvMod[i] = num.Mul(auxInvMod[i], num.Inv(auxj.Value(), modi), modi)
-// 			modInvAux[j] = num.Mul(modInvAux[j], num.Inv(modi.Value(), auxj), auxj)
-// 		}
-// 	}
-
-// 	// scale the body.
-// 	buf.CopyFrom(cIn.Body)
-// 	bufMod.IsNTT = buf.IsNTT
-// 	bufAux.IsNTT = buf.IsNTT
-
-// 	evalAux.ScalarMulTo(bufAux, bufAux, modInvAux)
-// 	evalMod.ScalarMulTo(bufMod, bufMod, auxInvMod)
-
-// 	if bufAux.IsNTT {
-// 		evalAux.InvNTTTo(bufAux, bufAux)
-// 	}
-
-// 	ss.ScaleTo(cOut.Body, bufAux)
-// 	cOut.Body.IsNTT = false
-
-// 	if isNTT {
-// 		evalMod.FwdNTTTo(cOut.Body, cOut.Body)
-// 		if !bufMod.IsNTT {
-// 			evalMod.FwdNTTTo(bufMod, bufMod)
-// 		}
-// 	} else {
-// 		if bufMod.IsNTT {
-// 			evalMod.InvNTTTo(bufMod, bufMod)
-// 		}
-// 	}
-// 	evalMod.AddTo(cOut.Body, cOut.Body, bufMod)
-
-// 	// scale the mask.
-// 	buf.CopyFrom(cIn.Mask)
-// 	bufMod.IsNTT = buf.IsNTT
-// 	bufAux.IsNTT = buf.IsNTT
-
-// 	evalAux.ScalarMulTo(bufAux, bufAux, modInvAux)
-// 	evalMod.ScalarMulTo(bufMod, bufMod, auxInvMod)
-
-// 	if bufAux.IsNTT {
-// 		evalAux.InvNTTTo(bufAux, bufAux)
-// 	}
-
-// 	ss.ScaleTo(cOut.Mask, bufAux)
-// 	cOut.Mask.IsNTT = false
-
-// 	if isNTT {
-// 		evalMod.FwdNTTTo(cOut.Mask, cOut.Mask)
-// 		if !bufMod.IsNTT {
-// 			evalMod.FwdNTTTo(bufMod, bufMod)
-// 		}
-// 	} else {
-// 		if bufMod.IsNTT {
-// 			evalMod.InvNTTTo(bufMod, bufMod)
-// 		}
-// 	}
-// 	evalMod.AddTo(cOut.Mask, cOut.Mask, bufMod)
-
-// 	// Set the auxiliary flag to false.
-// 	cOut.HasAux = false
-// }
-
-// // Scale performs round(cIn / modulus).
-// func (o *Operator) Scale(cIn *Ciphertext, newLen int, isNTT bool) *Ciphertext {
-// 	if newLen < 1 {
-// 		panic("Invalid output modulus length.")
-// 	}
-
-// 	rank := o.Params.ringParams.Rank()
-// 	cOut := NewCiphertextCustom(rank, newLen, 0, false)
-// 	o.ScaleTo(cOut, cIn, newLen, isNTT)
-// 	return cOut
-// }
-
-// // ScaleTo scales cIn to cOut and stores the result in cOut.
-// func (o *Operator) ScaleTo(cOut *Ciphertext, cIn *Ciphertext, newLen int, isNTT bool) {
-// 	if cIn.HasAux {
-// 		panic("Input ciphertext must not have auxiliary modulus.")
-// 	} else if cIn.ModLen() > len(o.Params.modulus) {
-// 		panic("Invalid input modulus length.")
-// 	} else if cOut.ModLen() != newLen {
-// 		panic("Inconsistent output modulus length.")
-// 	} else if !(cOut.Body.Rank() == cIn.Body.Rank() && cOut.Mask.Rank() == cIn.Mask.Rank()) {
-// 		panic("Inconsistent rank.")
-// 	}
-
-// 	oldLen := cIn.ModLen()
-
-// 	if oldLen > newLen {
-// 		evalOld := o.SubEvaluatorAt(false, oldLen)
-// 		evalNew := evalOld.SubEvaluator(vec.Range(0, newLen)...)
-// 		evalSc := evalOld.SubEvaluator(vec.Range(newLen, oldLen)...)
-
-// 		bufOld := o.buf.pScale.WithModIdx(vec.Range(0, oldLen)...)
-// 		bufNew := bufOld.WithModIdx(vec.Range(0, newLen)...)
-// 		bufSc := bufOld.WithModIdx(vec.Range(newLen, oldLen)...)
-
-// 		modOld := evalOld.Modulus()
-// 		modNew := modOld[:newLen]
-// 		modSc := modOld[newLen:]
-// 		ss := crt.NewScaler(modNew, modSc)
-
-// 		// Compute scInvNew and newInvSc
-// 		scInvNew := crt.NewScalar(1, modNew)
-// 		newInvSc := crt.NewScalar(1, modSc)
-// 		for i, newi := range modNew {
-// 			for j, scj := range modSc {
-// 				scInvNew[i] = num.Mul(scInvNew[i], num.Inv(scj.Value(), newi), newi)
-// 				newInvSc[j] = num.Mul(newInvSc[j], num.Inv(newi.Value(), scj), scj)
-// 			}
-// 		}
-
-// 		// scale the body.
-// 		bufOld.CopyFrom(cIn.Body)
-// 		bufNew.IsNTT = bufOld.IsNTT
-// 		bufSc.IsNTT = bufOld.IsNTT
-
-// 		evalNew.ScalarMulTo(bufNew, bufNew, scInvNew)
-// 		evalSc.ScalarMulTo(bufSc, bufSc, newInvSc)
-
-// 		if bufSc.IsNTT {
-// 			evalSc.InvNTTTo(bufSc, bufSc)
-// 		}
-
-// 		ss.ScaleTo(cOut.Body, bufSc)
-// 		cOut.Body.IsNTT = false
-
-// 		if isNTT {
-// 			evalNew.FwdNTTTo(cOut.Body, cOut.Body)
-// 			if !bufNew.IsNTT {
-// 				evalNew.FwdNTTTo(bufNew, bufNew)
-// 			}
-// 		} else {
-// 			if bufNew.IsNTT {
-// 				evalNew.InvNTTTo(bufNew, bufNew)
-// 			}
-// 		}
-// 		evalNew.AddTo(cOut.Body, cOut.Body, bufNew)
-
-// 		// scale the mask.
-// 		bufOld.CopyFrom(cIn.Mask)
-// 		bufNew.IsNTT = bufOld.IsNTT
-// 		bufSc.IsNTT = bufOld.IsNTT
-
-// 		evalNew.ScalarMulTo(bufNew, bufNew, scInvNew)
-// 		evalSc.ScalarMulTo(bufSc, bufSc, newInvSc)
-
-// 		if bufSc.IsNTT {
-// 			evalSc.InvNTTTo(bufSc, bufSc)
-// 		}
-
-// 		ss.ScaleTo(cOut.Mask, bufSc)
-// 		cOut.Mask.IsNTT = false
-
-// 		if isNTT {
-// 			evalNew.FwdNTTTo(cOut.Mask, cOut.Mask)
-// 			if !bufNew.IsNTT {
-// 				evalNew.FwdNTTTo(bufNew, bufNew)
-// 			}
-// 		} else {
-// 			if bufNew.IsNTT {
-// 				evalNew.InvNTTTo(bufNew, bufNew)
-// 			}
-// 		}
-// 		evalNew.AddTo(cOut.Mask, cOut.Mask, bufNew)
-// 	} else if oldLen < newLen {
-// 		evalNew := o.SubEvaluatorAt(false, newLen)
-// 		modOld := evalNew.Modulus()[:oldLen]
-// 		modSc := evalNew.Modulus()[oldLen:]
-
-// 		sc := crt.NewScalar(1, modOld)
-// 		for i, modi := range modOld {
-// 			for _, modj := range modSc {
-// 				sc[i] = num.Mul(sc[i], modj.Value(), modi)
-// 			}
-// 		}
-
-// 		cOut.Body.IsNTT = cIn.Body.IsNTT
-// 		cOut.Mask.IsNTT = cIn.Mask.IsNTT
-
-// 		for i := 0; i < oldLen; i++ {
-// 			vec.ScalarMulTo(cOut.Body.Coeffs[i], cIn.Body.Coeffs[i], sc[i], evalNew.Modulus()[i])
-// 			vec.ScalarMulTo(cOut.Mask.Coeffs[i], cIn.Mask.Coeffs[i], sc[i], evalNew.Modulus()[i])
-// 		}
-// 		for i := oldLen; i < newLen; i++ {
-// 			clear(cOut.Body.Coeffs[i])
-// 			clear(cOut.Mask.Coeffs[i])
-// 		}
-
-// 		// perform NTT if needed.
-// 		if isNTT && !cOut.Body.IsNTT {
-// 			evalNew.FwdNTTTo(cOut.Body, cOut.Body)
-// 			evalNew.FwdNTTTo(cOut.Mask, cOut.Mask)
-// 		} else if !isNTT && cOut.Body.IsNTT {
-// 			evalNew.InvNTTTo(cOut.Body, cOut.Body)
-// 			evalNew.InvNTTTo(cOut.Mask, cOut.Mask)
-// 		}
-// 	} else {
-// 		eval := o.SubEvaluatorAt(false, newLen)
-// 		cOut.CopyFrom(cIn)
-
-// 		// perform NTT if needed.
-// 		if isNTT && !cOut.Body.IsNTT {
-// 			eval.FwdNTTTo(cOut.Body, cOut.Body)
-// 			eval.FwdNTTTo(cOut.Mask, cOut.Mask)
-// 		} else if !isNTT && cOut.Body.IsNTT {
-// 			eval.InvNTTTo(cOut.Body, cOut.Body)
-// 			eval.InvNTTTo(cOut.Mask, cOut.Mask)
-// 		}
-// 	}
-// }
-
-// // HoistedGadgetProdLazy performs a lazy hoisted gadget product and returns the result.
-// func (o *Operator) HoistedGadgetProdLazy(decmp *Tensor, gadenc *GadgetEncryption, isNTT bool) *Ciphertext {
-// 	modLen := decmp.ModLen()
-// 	cOut := NewCiphertextCustom(o.Params.ringParams.Rank(), modLen, 0, false)
-// 	o.HoistedGadgetProdLazyTo(cOut, decmp, gadenc, isNTT)
-// 	return cOut
-// }
-
-// // HoistedGadgetProdLazyTo performs a lazy hoisted gadget product and stores the result in cOut.
-// func (o *Operator) HoistedGadgetProdLazyTo(cOut *Ciphertext, decmp *Tensor, gadenc *GadgetEncryption, isNTT bool) {
-// 	if !(decmp.HasAux == gadenc.Value[0].HasAux && decmp.HasAux == (o.Params.auxModulus != nil)) {
-// 		panic("Inconsistent auxiliary flag.")
-// 	} else if cOut.HasAux != decmp.HasAux {
-// 		panic("Inconsistent auxiliary flag.")
-// 	}
-
-// 	gadLen := decmp.Degree()
-// 	modLen := decmp.ModLen()
-// 	var auxLen int
-// 	if decmp.HasAux {
-// 		auxLen = len(o.Params.auxModulus)
-// 		modLen -= auxLen
-// 	}
-// 	eval := o.SubEvaluatorAt(decmp.HasAux, modLen+auxLen)
-
-// 	if cOut.ModLen() != modLen+auxLen {
-// 		panic("Inconsistent ciphertext output.")
-// 	} else if gadLen != o.Decmp.DecomposeLen(modLen) {
-// 		panic("Inconsistent decomposition length.")
-// 	}
-
-// 	cOut.Clear()
-// 	cOut.Body.IsNTT = true
-// 	cOut.Mask.IsNTT = true
-// 	cOut.HasAux = decmp.HasAux
-
-// 	for i := 0; i < gadLen; i++ {
-// 		if !decmp.Value[i].IsNTT {
-// 			panic("Decomposition must be in NTT form.")
-// 		}
-
-// 		gadenci := gadenc.Value[i].WithModIdx(vec.Range(0, modLen+auxLen)...)
-// 		eval.MulAddTo(cOut.Body, decmp.Value[i], gadenci.Body)
-// 		eval.MulAddTo(cOut.Mask, decmp.Value[i], gadenci.Mask)
-// 	}
-
-// 	if !isNTT {
-// 		eval.InvNTTTo(cOut.Body, cOut.Body)
-// 		eval.InvNTTTo(cOut.Mask, cOut.Mask)
-// 	}
-// }
-
-// // HoistedGadgetProd performs a hoisted gadget product and returns the result.
-// func (o *Operator) HoistedGadgetProd(decmp *Tensor, gadenc *GadgetEncryption, isNTT bool) *Ciphertext {
-// 	modLen := decmp.ModLen()
-// 	if o.Params.auxModulus != nil {
-// 		modLen -= len(o.Params.auxModulus)
-// 	}
-// 	cOut := NewCiphertextCustom(o.Params.ringParams.Rank(), modLen, 0, false)
-// 	o.HoistedGadgetProdTo(cOut, decmp, gadenc, isNTT)
-// 	return cOut
-// }
-
-// // HoistedGadgetProdTo performs a hoisted gadget product and stores the result in cOut.
-// func (o *Operator) HoistedGadgetProdTo(cOut *Ciphertext, decmp *Tensor, gadenc *GadgetEncryption, isNTT bool) {
-// 	modLen := decmp.ModLen()
-// 	var auxLen int
-// 	if decmp.HasAux {
-// 		auxLen = len(o.Params.auxModulus)
-// 		modLen -= auxLen
-// 	}
-
-// 	buf := o.buf.ctGad.WithModIdx(vec.Range(0, modLen+auxLen)...)
-// 	o.HoistedGadgetProdLazyTo(buf, decmp, gadenc, true)
-
-// 	if !decmp.HasAux {
-// 		cOut.CopyFrom(buf)
-// 	} else {
-// 		o.DivByAuxTo(cOut, buf, isNTT)
-// 	}
-
-// 	eval := o.SubEvaluatorAt(false, modLen)
-// 	if isNTT && !cOut.Body.IsNTT {
-// 		eval.FwdNTTTo(cOut.Body, cOut.Body)
-// 		eval.FwdNTTTo(cOut.Mask, cOut.Mask)
-// 	} else if !isNTT && cOut.Body.IsNTT {
-// 		eval.InvNTTTo(cOut.Body, cOut.Body)
-// 		eval.InvNTTTo(cOut.Mask, cOut.Mask)
-// 	}
-// }
-
-// // GadgetProdLazy performs a lazy gadget product and returns the result.
-// func (o *Operator) GadgetProdLazy(pIn *PlainPoly, gadenc *GadgetEncryption, isNTT bool) *Ciphertext {
-// 	modLen := pIn.ModLen()
-// 	if o.Params.auxModulus != nil {
-// 		modLen += len(o.Params.auxModulus)
-// 	}
-// 	cOut := NewCiphertextCustom(o.Params.ringParams.Rank(), modLen, 0, false)
-// 	o.GadgetProdLazyTo(cOut, pIn, gadenc, isNTT)
-// 	return cOut
-// }
-
-// // GadgetProdLazyTo performs a lazy gadget product and stores the result in cOut.
-// func (o *Operator) GadgetProdLazyTo(cOut *Ciphertext, pIn *PlainPoly, gadenc *GadgetEncryption, isNTT bool) {
-// 	if pIn.HasAux {
-// 		panic("Plain polynomial must not have auxiliary modulus.")
-// 	}
-
-// 	modLen := pIn.ModLen()
-// 	var auxLen int
-// 	if o.Params.auxModulus != nil {
-// 		auxLen = len(o.Params.auxModulus)
-// 	}
-
-// 	eval := o.SubEvaluatorAt(false, modLen)
-// 	buf := o.buf.pNTT.WithModIdx(vec.Range(0, modLen)...)
-// 	if pIn.Value.IsNTT {
-// 		eval.InvNTTTo(buf, pIn.Value)
-// 	} else {
-// 		buf.CopyFrom(pIn.Value)
-// 	}
-
-// 	decmpLen := o.Decmp.DecomposeLen(modLen)
-// 	decmp := o.buf.decmp.WithDegreeAndModIdx(decmpLen, vec.Range(0, modLen+auxLen)...)
-// 	o.Decmp.DecomposeTo(decmp, buf)
-
-// 	evalAux := o.SubEvaluatorAt(true, modLen+auxLen)
-// 	for i := 0; i < decmpLen; i++ {
-// 		evalAux.FwdNTTTo(decmp.Value[i], decmp.Value[i])
-// 	}
-
-// 	o.HoistedGadgetProdLazyTo(cOut, decmp, gadenc, isNTT)
-// }
-
-// // GadgetProd performs a gadget product and returns the result.
-// func (o *Operator) GadgetProd(pIn *PlainPoly, gadenc *GadgetEncryption, isNTT bool) *Ciphertext {
-// 	modLen := pIn.ModLen()
-// 	cOut := NewCiphertextCustom(o.Params.ringParams.Rank(), modLen, 0, false)
-// 	o.GadgetProdTo(cOut, pIn, gadenc, isNTT)
-// 	return cOut
-// }
-
-// // GadgetProdTo performs a gadget product and stores the result in cOut.
-// func (o *Operator) GadgetProdTo(cOut *Ciphertext, pIn *PlainPoly, gadenc *GadgetEncryption, isNTT bool) {
-// 	if pIn.HasAux {
-// 		panic("Plain polynomial must not have auxiliary modulus.")
-// 	}
-
-// 	modLen := pIn.ModLen()
-// 	var auxLen int
-// 	if o.Params.auxModulus != nil {
-// 		auxLen = len(o.Params.auxModulus)
-// 	}
-
-// 	eval := o.SubEvaluatorAt(false, modLen)
-// 	buf := o.buf.pNTT.WithModIdx(vec.Range(0, modLen)...)
-// 	if pIn.Value.IsNTT {
-// 		eval.InvNTTTo(buf, pIn.Value)
-// 	} else {
-// 		buf.CopyFrom(pIn.Value)
-// 	}
-
-// 	decmpLen := o.Decmp.DecomposeLen(modLen)
-// 	decmp := o.buf.decmp.WithDegreeAndModIdx(decmpLen, vec.Range(0, modLen+auxLen)...)
-// 	o.Decmp.DecomposeTo(decmp, buf)
-
-// 	evalAux := o.SubEvaluatorAt(true, modLen+auxLen)
-// 	for i := 0; i < decmpLen; i++ {
-// 		evalAux.FwdNTTTo(decmp.Value[i], decmp.Value[i])
-// 	}
-
-// 	o.HoistedGadgetProdTo(cOut, decmp, gadenc, isNTT)
-// }
+import (
+	"sync"
+
+	"github.com/hienaa-org/hienaa/math/crt"
+	"github.com/hienaa-org/hienaa/math/num"
+	"github.com/hienaa-org/hienaa/math/vec"
+)
+
+// PlainOperator evaluates operations over [*Element].
+type PlainOperator struct {
+	Params Parameters
+	crtOp  crt.Operator
+}
+
+// NewPlainOperator creates a new [PlainOperator].
+func NewPlainOperator(params Parameters) *PlainOperator {
+	return &PlainOperator{
+		Params: params,
+		crtOp:  params.crtOp,
+	}
+}
+
+// Add returns e0 + e1.
+func (op *PlainOperator) Add(e0, e1 *Element) *Element {
+	eOut := NewPolyCustom(e0.Rank(), e0.ModLen(), e0.HasAuxModulus(), e0.IsNTT())
+	op.AddTo(eOut, e0, e1)
+	return eOut
+}
+
+// AddTo computes eOut = e0 + e1.
+func (op *PlainOperator) AddTo(eOut, e0, e1 *Element) {
+	checkOperable(len(op.Params.fullMod), eOut, e0, e1)
+
+	op.subCRTOperator(eOut.ModLen(), eOut.HasAuxModulus()).AddTo(eOut.Value, e0.Value, e1.Value)
+}
+
+// Sub returns e0 - e1.
+func (op *PlainOperator) Sub(e0, e1 *Element) *Element {
+	eOut := NewPolyCustom(e0.Rank(), e0.ModLen(), e0.HasAuxModulus(), e0.IsNTT())
+	op.SubTo(eOut, e0, e1)
+	return eOut
+}
+
+// SubTo computes eOut = e0 - e1.
+func (op *PlainOperator) SubTo(eOut, e0, e1 *Element) {
+	checkOperable(len(op.Params.fullMod), eOut, e0, e1)
+
+	op.subCRTOperator(eOut.ModLen(), eOut.HasAuxModulus()).SubTo(eOut.Value, e0.Value, e1.Value)
+}
+
+// Neg returns -e.
+func (op *PlainOperator) Neg(e *Element) *Element {
+	eOut := NewPolyCustom(e.Rank(), e.ModLen(), e.HasAuxModulus(), e.IsNTT())
+	op.NegTo(eOut, e)
+	return eOut
+}
+
+// NegTo computes eOut = -e.
+func (op *PlainOperator) NegTo(eOut, e *Element) {
+	checkOperable(len(op.Params.fullMod), eOut, e)
+
+	op.subCRTOperator(eOut.ModLen(), eOut.HasAuxModulus()).NegTo(eOut.Value, e.Value)
+}
+
+// Mul returns e0 * e1.
+func (op *PlainOperator) Mul(e0, e1 *Element) *Element {
+	eOut := NewPolyCustom(e0.Rank(), e0.ModLen(), e0.HasAuxModulus(), e0.IsNTT())
+	op.MulTo(eOut, e0, e1)
+	return eOut
+}
+
+// MulTo computes eOut = e0 * e1.
+func (op *PlainOperator) MulTo(eOut, e0, e1 *Element) {
+	checkOperable(len(op.Params.fullMod), eOut, e0, e1)
+
+	op.subCRTOperator(eOut.ModLen(), eOut.HasAuxModulus()).MulTo(eOut.Value, e0.Value, e1.Value)
+}
+
+// MulAdd returns eOut += e0 * e1.
+func (op *PlainOperator) MulAdd(e0, e1 *Element) *Element {
+	eOut := NewPolyCustom(e0.Rank(), e0.ModLen(), e0.HasAuxModulus(), e0.IsNTT())
+	op.MulAddTo(eOut, e0, e1)
+	return eOut
+}
+
+// MulAddTo computes eOut += e0 * e1.
+func (op *PlainOperator) MulAddTo(eOut, e0, e1 *Element) {
+	checkOperable(len(op.Params.fullMod), eOut, e0, e1)
+
+	op.subCRTOperator(eOut.ModLen(), eOut.HasAuxModulus()).MulAddTo(eOut.Value, e0.Value, e1.Value)
+}
+
+// MulSub returns eOut -= e0 * e1.
+func (op *PlainOperator) MulSub(e0, e1 *Element) *Element {
+	eOut := NewPolyCustom(e0.Rank(), e0.ModLen(), e0.HasAuxModulus(), e0.IsNTT())
+	op.MulSubTo(eOut, e0, e1)
+	return eOut
+}
+
+// MulSubTo computes eOut -= e0 * e1.
+func (op *PlainOperator) MulSubTo(eOut, e0, e1 *Element) {
+	checkOperable(len(op.Params.fullMod), eOut, e0, e1)
+
+	op.subCRTOperator(eOut.ModLen(), eOut.HasAuxModulus()).MulSubTo(eOut.Value, e0.Value, e1.Value)
+}
+
+// FwdNTTT returns FwdNTT(e).
+func (op *PlainOperator) FwdNTT(e *Element) *Element {
+	eOut := NewPolyCustom(e.Rank(), e.ModLen(), e.HasAuxModulus(), true)
+	op.FwdNTTTo(eOut, e)
+	return eOut
+}
+
+// FwdNTTTo computes FwdNTT(e) and stores the result in eOut.
+func (op *PlainOperator) FwdNTTTo(eOut, e *Element) {
+	checkOperable(len(op.Params.fullMod), eOut, e)
+
+	op.subCRTOperator(eOut.ModLen(), eOut.HasAuxModulus()).FwdNTTTo(eOut.Value, e.Value)
+}
+
+// InvNTT returns InvNTT(e).
+func (op *PlainOperator) InvNTT(e *Element) *Element {
+	eOut := NewPolyCustom(e.Rank(), e.ModLen(), e.HasAuxModulus(), true)
+	op.InvNTTTo(eOut, e)
+	return eOut
+}
+
+// InvNTTTo computes InvNTT(e) and stores the result in eOut.
+func (op *PlainOperator) InvNTTTo(eOut, e *Element) {
+	checkOperable(len(op.Params.fullMod), eOut, e)
+
+	op.subCRTOperator(eOut.ModLen(), eOut.HasAuxModulus()).InvNTTTo(eOut.Value, e.Value)
+}
+
+// subCRTOperator returns a [crt.Operator] for modulus up to given modulus length.
+func (op *PlainOperator) subCRTOperator(modLen int, hasAux bool) crt.Operator {
+	var idx []int
+	if hasAux {
+		idx = vec.Range(0, modLen)
+	} else {
+		idx = vec.Range(len(op.Params.auxMod), len(op.Params.auxMod)+modLen)
+	}
+	return op.crtOp.SubOperator(idx...)
+}
+
+// Operator evaluates operations over [*Ciphertext].
+type Operator struct {
+	Params Parameters
+
+	plainOp *PlainOperator
+	// TODO: We should eliminate the need for crtOp,
+	// and replace it with plainOp instead
+	crtOp crt.Operator
+	dcmp  Decomposer
+
+	pPool    *sync.Pool
+	ctPool   *sync.Pool
+	dcmpPool *sync.Pool
+}
+
+// NewOperator creates a new [Operator].
+func NewOperator(params Parameters) *Operator {
+	return &Operator{
+		Params: params,
+
+		plainOp: NewPlainOperator(params),
+		crtOp:   params.crtOp,
+		dcmp:    NewDecomposer(params),
+
+		pPool: &sync.Pool{
+			New: func() any {
+				return crt.NewPoly(params.RingParams().Rank(), len(params.fullMod))
+			},
+		},
+		ctPool: &sync.Pool{
+			New: func() any {
+				return NewCiphertext(params, params.HasAuxModulus(), true)
+			},
+		},
+		dcmpPool: &sync.Pool{
+			New: func() any {
+				return NewVector(params, params.GadgetLen(), params.HasAuxModulus(), false)
+			},
+		},
+	}
+}
+
+// AddPlain returns ct + pt.
+func (op *Operator) AddPlain(ct *Ciphertext, pt *Element) *Ciphertext {
+	ctOut := NewCiphertextCustom(ct.Rank(), ct.ModLen(), pt.HasAuxModulus(), ct.IsNTT())
+	op.AddPlainTo(ctOut, ct, pt)
+	return ctOut
+}
+
+// AddPlainTo computes ctOut = ct + pt.
+func (op *Operator) AddPlainTo(ctOut, ct *Ciphertext, pt *Element) {
+	op.plainOp.AddTo(ctOut.Body, ct.Body, pt)
+	ctOut.Mask.CopyFrom(ct.Mask)
+}
+
+// SubPlain returns ct - pt.
+func (op *Operator) SubPlain(ct *Ciphertext, pt *Element) *Ciphertext {
+	ctOut := NewCiphertextCustom(ct.Rank(), ct.ModLen(), pt.HasAuxModulus(), ct.IsNTT())
+	op.SubPlainTo(ctOut, ct, pt)
+	return ctOut
+}
+
+// SubPlainTo computes ctOut = ct - pt.
+func (op *Operator) SubPlainTo(ctOut, ct *Ciphertext, pt *Element) {
+	op.plainOp.SubTo(ctOut.Body, ct.Body, pt)
+	ctOut.Mask.CopyFrom(ct.Mask)
+}
+
+// MulPlain returns ct * pt.
+func (op *Operator) MulPlain(ct *Ciphertext, pt *Element) *Ciphertext {
+	ctOut := NewCiphertextCustom(ct.Rank(), ct.ModLen(), pt.HasAuxModulus(), ct.IsNTT())
+	op.MulPlainTo(ctOut, ct, pt)
+	return ctOut
+}
+
+// MulPlainTo computes ctOut = ct * pt.
+func (op *Operator) MulPlainTo(ctOut, ct *Ciphertext, pt *Element) {
+	op.plainOp.MulTo(ctOut.Body, ct.Body, pt)
+	op.plainOp.MulTo(ctOut.Mask, ct.Mask, pt)
+}
+
+// MulAddPlain returns ct += pt.
+func (op *Operator) MulAddPlain(ct *Ciphertext, pt *Element) *Ciphertext {
+	ctOut := NewCiphertextCustom(ct.Rank(), ct.ModLen(), pt.HasAuxModulus(), ct.IsNTT())
+	op.MulAddPlainTo(ctOut, ct, pt)
+	return ctOut
+}
+
+// MulAddPlainTo computes ctOut += ct * pt.
+func (op *Operator) MulAddPlainTo(ctOut, ct *Ciphertext, pt *Element) {
+	op.plainOp.MulAddTo(ctOut.Body, ct.Body, pt)
+	op.plainOp.MulAddTo(ctOut.Mask, ct.Mask, pt)
+}
+
+// MulSub returns ct0 - ct1.
+func (op *Operator) MulSub(ct0, ct1 *Ciphertext) *Ciphertext {
+	ctOut := NewCiphertextCustom(ct0.Rank(), ct0.ModLen(), ct1.HasAuxModulus(), ct1.IsNTT())
+	op.MulSubTo(ctOut, ct0, ct1)
+	return ctOut
+}
+
+// MulSubTo computes ctOut = ct0 - ct1.
+func (op *Operator) MulSubTo(ctOut, ct0, ct1 *Ciphertext) {
+	op.plainOp.MulSubTo(ctOut.Body, ct0.Body, ct1.Body)
+	op.plainOp.MulSubTo(ctOut.Mask, ct0.Mask, ct1.Mask)
+}
+
+// Add returns ct0 + ct1.
+func (op *Operator) Add(ct0, ct1 *Ciphertext) *Ciphertext {
+	ctOut := NewCiphertextCustom(ct0.Rank(), ct0.ModLen(), ct1.HasAuxModulus(), ct1.IsNTT())
+	op.AddTo(ctOut, ct0, ct1)
+	return ctOut
+}
+
+// AddTo computes ctOut = ct0 + ct1.
+func (op *Operator) AddTo(ctOut, ct0, ct1 *Ciphertext) {
+	op.plainOp.AddTo(ctOut.Body, ct0.Body, ct1.Body)
+	op.plainOp.AddTo(ctOut.Mask, ct0.Mask, ct1.Mask)
+}
+
+// Sub returns ct0 - ct1.
+func (op *Operator) Sub(ct0, ct1 *Ciphertext) *Ciphertext {
+	ctOut := NewCiphertextCustom(ct0.Rank(), ct0.ModLen(), ct1.HasAuxModulus(), ct1.IsNTT())
+	op.SubTo(ctOut, ct0, ct1)
+	return ctOut
+}
+
+// SubTo computes ctOut = ct0 - ct1.
+func (op *Operator) SubTo(ctOut, ct0, ct1 *Ciphertext) {
+	op.plainOp.SubTo(ctOut.Body, ct0.Body, ct1.Body)
+	op.plainOp.SubTo(ctOut.Mask, ct0.Mask, ct1.Mask)
+}
+
+// TODO: FwdNTT/InvNTT of ciphertexts are very common, especially with isNTT flags.
+// We should create a seperate structure for this. (something like `rlwe.Transformer`.)
+
+// FwdNTT returns FwdNTT(ct).
+func (op *Operator) FwdNTT(ct *Ciphertext) *Ciphertext {
+	ctOut := NewCiphertextCustom(ct.Rank(), ct.ModLen(), ct.HasAuxModulus(), ct.IsNTT())
+	op.FwdNTTTo(ctOut, ct)
+	return ctOut
+}
+
+// FwdNTTTo computes ctOut = FwdNTT(ct).
+func (op *Operator) FwdNTTTo(ctOut, ct *Ciphertext) {
+	op.plainOp.FwdNTTTo(ctOut.Body, ct.Body)
+	op.plainOp.FwdNTTTo(ctOut.Mask, ct.Mask)
+}
+
+// InvNTT returns InvNTT(ct).
+func (op *Operator) InvNTT(ct *Ciphertext) *Ciphertext {
+	ctOut := NewCiphertextCustom(ct.Rank(), ct.ModLen(), ct.HasAuxModulus(), ct.IsNTT())
+	op.InvNTTTo(ctOut, ct)
+	return ctOut
+}
+
+// InvNTTTo computes ctOut = InvNTT(ct).
+func (op *Operator) InvNTTTo(ctOut, ct *Ciphertext) {
+	op.plainOp.InvNTTTo(ctOut.Body, ct.Body)
+	op.plainOp.InvNTTTo(ctOut.Mask, ct.Mask)
+}
+
+// DivByAuxModulus returns round(ct / AuxModulus).
+func (op *Operator) DivByAuxModulus(ct *Ciphertext, isNTT bool) *Ciphertext {
+	ctOut := NewCiphertextCustom(ct.Rank(), ct.ModLen(), isNTT, ct.IsNTT())
+	op.DivByAuxModulusTo(ctOut, ct, isNTT)
+	return ctOut
+}
+
+// DivByAuxModulusTo computes ctOut = round(ct / AuxModulus).
+func (op *Operator) DivByAuxModulusTo(ctOut, ct *Ciphertext, isNTT bool) {
+	if !op.Params.HasAuxModulus() || !ct.HasAuxModulus() {
+		panic("input(s) must have auxiliary modulus")
+	} else if ctOut.ModLen()+len(op.Params.auxMod) != ct.ModLen() {
+		panic("inconsistent output")
+	}
+
+	baseLen, auxLen := ct.ModLen()-len(op.Params.auxMod), len(op.Params.auxMod)
+
+	crtOpBase := op.crtOp.SubOperator(vec.Range(auxLen, auxLen+baseLen)...)
+	crtOpAux := op.crtOp.SubOperator(vec.Range(0, auxLen)...)
+
+	scaler := crt.NewScaler(op.Params.baseMod[:baseLen], op.Params.auxMod)
+
+	auxInvBase := crt.NewScalar(baseLen) // auxMod^{-1} mod baseMod
+	baseInvAux := crt.NewScalar(auxLen)  // baseMod^{-1} mod auxMod
+	for i := 0; i < baseLen; i++ {
+		for j := 0; j < auxLen; j++ {
+			auxInvBase.Coeffs[i][0] = num.Mul(auxInvBase.Coeffs[i][0], num.Inv(op.Params.auxMod[j].Value(), op.Params.baseMod[i]), op.Params.baseMod[i])
+			baseInvAux.Coeffs[j][0] = num.Mul(baseInvAux.Coeffs[j][0], num.Inv(op.Params.baseMod[i].Value(), op.Params.auxMod[j]), op.Params.auxMod[j])
+		}
+	}
+
+	pDiv := op.pPool.Get().(*crt.Element)
+	defer op.pPool.Put(pDiv)
+	pDivBase := pDiv.WithModIdx(vec.Range(auxLen, auxLen+baseLen)...)
+	pDivAux := pDiv.WithModIdx(vec.Range(0, auxLen)...)
+	pDiv = pDiv.WithModIdx(vec.Range(0, baseLen+auxLen)...)
+
+	pDiv.CopyFrom(ct.Body.Value)
+	pDivBase.IsNTT = pDiv.IsNTT
+	pDivAux.IsNTT = pDiv.IsNTT
+
+	crtOpBase.MulTo(pDivBase, pDivBase, auxInvBase)
+	crtOpAux.MulTo(pDivAux, pDivAux, baseInvAux)
+
+	if pDivAux.IsNTT {
+		crtOpAux.InvNTTTo(pDivAux, pDivAux)
+	}
+
+	scaler.ScaleTo(ctOut.Body.Value, pDivAux)
+	ctOut.Body.Value.IsNTT = false
+
+	if isNTT {
+		crtOpBase.FwdNTTTo(ctOut.Body.Value, ctOut.Body.Value)
+		if !pDivBase.IsNTT {
+			crtOpBase.FwdNTTTo(pDivBase, pDivBase)
+		}
+	} else {
+		if pDivBase.IsNTT {
+			crtOpBase.InvNTTTo(pDivBase, pDivBase)
+		}
+	}
+	crtOpBase.AddTo(ctOut.Body.Value, ctOut.Body.Value, pDivBase)
+
+	pDiv.CopyFrom(ct.Mask.Value)
+	pDivBase.IsNTT = pDiv.IsNTT
+	pDivAux.IsNTT = pDiv.IsNTT
+
+	crtOpBase.MulTo(pDivBase, pDivBase, auxInvBase)
+	crtOpAux.MulTo(pDivAux, pDivAux, baseInvAux)
+
+	if pDivAux.IsNTT {
+		crtOpAux.InvNTTTo(pDivAux, pDivAux)
+	}
+
+	scaler.ScaleTo(ctOut.Mask.Value, pDivAux)
+	ctOut.Mask.Value.IsNTT = false
+
+	if isNTT {
+		crtOpBase.FwdNTTTo(ctOut.Mask.Value, ctOut.Mask.Value)
+		if !pDivBase.IsNTT {
+			crtOpBase.FwdNTTTo(pDivBase, pDivBase)
+		}
+	} else {
+		if pDivBase.IsNTT {
+			crtOpBase.InvNTTTo(pDivBase, pDivBase)
+		}
+	}
+	crtOpBase.AddTo(ctOut.Mask.Value, ctOut.Mask.Value, pDivBase)
+
+	ctOut.Body.hasAux = false
+	ctOut.Mask.hasAux = false
+}
+
+// Scale scales ct to l-th modulus.
+//
+//   - When l < ct.ModLen, it returns round(ct / Modulus[l:ct.ModLen]).
+//   - When l > ct.ModLen, it returns ct * Modulus[l:ct.ModLen].
+//   - When l == ct.ModLen, it returns a copy of ct.
+func (op *Operator) Scale(ct *Ciphertext, l int, isNTT bool) *Ciphertext {
+	ctOut := NewCiphertextCustom(ct.Rank(), l, false, ct.IsNTT())
+	op.ScaleTo(ctOut, ct, l, isNTT)
+	return ctOut
+}
+
+// ScaleTo scales ct to l-th modulus and writes the result to ctOut.
+//
+//   - When l < ct.ModLen, ctOut = round(ct / Modulus[l:ct.ModLen]).
+//   - When l > ct.ModLen, ctOut = ct * Modulus[l:ct.ModLen].
+//   - When l == ct.ModLen, ctOut = ct.
+func (op *Operator) ScaleTo(ctOut, ct *Ciphertext, l int, isNTT bool) {
+	if ct.HasAuxModulus() {
+		panic("inconsistent input(s)")
+	} else if ctOut.ModLen() != l {
+		panic("inconsistent output")
+	}
+
+	inMod := op.Params.baseMod[:ct.ModLen()]
+	outMod := op.Params.baseMod[:l]
+
+	switch {
+	case len(inMod) > len(outMod):
+		scaleMod := inMod[l:]
+
+		crtOpOutMod := op.crtOp.SubOperator(vec.Range(0, len(outMod))...)
+		crtOpScale := op.crtOp.SubOperator(vec.Range(len(outMod), len(inMod))...)
+
+		pDiv := op.pPool.Get().(*crt.Element)
+		defer op.pPool.Put(pDiv)
+
+		pDivInMod := pDiv.WithModIdx(vec.Range(0, len(inMod))...)
+		pDivOutMod := pDiv.WithModIdx(vec.Range(0, len(outMod))...)
+		pDivScaleMod := pDiv.WithModIdx(vec.Range(len(outMod), len(inMod))...)
+
+		scaler := crt.NewScaler(outMod, inMod)
+
+		scInvOutMod := crt.NewScalar(len(outMod)) // scale^{-1} mod outMod
+		outModInvSc := crt.NewScalar(len(outMod)) // outMod^{-1} mod scale
+
+		for i := range outMod {
+			for j := range scaleMod {
+				scInvOutMod.Coeffs[i][0] = num.Mul(scInvOutMod.Coeffs[i][0], num.Inv(scaleMod[j].Value(), outMod[i]), outMod[i])
+				outModInvSc.Coeffs[j][0] = num.Mul(outModInvSc.Coeffs[j][0], num.Inv(outMod[i].Value(), scaleMod[j]), scaleMod[j])
+			}
+		}
+
+		pDivInMod.CopyFrom(ct.Body.Value)
+		pDivOutMod.IsNTT = pDivInMod.IsNTT
+		pDivScaleMod.IsNTT = pDivInMod.IsNTT
+
+		crtOpOutMod.MulTo(pDivOutMod, pDivOutMod, scInvOutMod)
+		crtOpScale.MulTo(pDivScaleMod, pDivScaleMod, outModInvSc)
+		if pDivScaleMod.IsNTT {
+			crtOpScale.InvNTTTo(pDivScaleMod, pDivScaleMod)
+		}
+
+		scaler.ScaleTo(ctOut.Body.Value, pDivScaleMod)
+		ctOut.Body.Value.IsNTT = false
+
+		if isNTT {
+			crtOpOutMod.FwdNTTTo(ctOut.Body.Value, ctOut.Body.Value)
+			if !pDivOutMod.IsNTT {
+				crtOpOutMod.FwdNTTTo(pDivOutMod, pDivOutMod)
+			}
+		} else {
+			if pDivOutMod.IsNTT {
+				crtOpOutMod.InvNTTTo(pDivOutMod, pDivOutMod)
+			}
+		}
+		crtOpOutMod.AddTo(ctOut.Body.Value, ctOut.Body.Value, pDivOutMod)
+
+		pDivInMod.CopyFrom(ct.Mask.Value)
+		pDivOutMod.IsNTT = pDivInMod.IsNTT
+		pDivScaleMod.IsNTT = pDivInMod.IsNTT
+
+		crtOpOutMod.MulTo(pDivOutMod, pDivOutMod, scInvOutMod)
+		crtOpScale.MulTo(pDivScaleMod, pDivScaleMod, outModInvSc)
+		if pDivScaleMod.IsNTT {
+			crtOpScale.InvNTTTo(pDivScaleMod, pDivScaleMod)
+		}
+
+		scaler.ScaleTo(ctOut.Mask.Value, pDivScaleMod)
+		ctOut.Mask.Value.IsNTT = false
+
+		if isNTT {
+			crtOpOutMod.FwdNTTTo(ctOut.Mask.Value, ctOut.Mask.Value)
+			if !pDivOutMod.IsNTT {
+				crtOpOutMod.FwdNTTTo(pDivOutMod, pDivOutMod)
+			}
+		} else {
+			if pDivOutMod.IsNTT {
+				crtOpOutMod.InvNTTTo(pDivOutMod, pDivOutMod)
+			}
+		}
+		crtOpOutMod.AddTo(ctOut.Mask.Value, ctOut.Mask.Value, pDivOutMod)
+
+	case len(inMod) < len(outMod):
+		scaleMod := outMod[:len(inMod)]
+		scale := crt.NewScalar(len(inMod))
+		for i := range inMod {
+			for j := range scaleMod {
+				scale.Coeffs[i][0] = num.Mul(scale.Coeffs[i][0], num.Inv(scaleMod[j].Value(), inMod[i]), inMod[i])
+			}
+		}
+
+		ctOut.Body.Value.IsNTT = ct.Body.Value.IsNTT
+		ctOut.Mask.Value.IsNTT = ct.Mask.Value.IsNTT
+
+		for i := 0; i < len(inMod); i++ {
+			vec.MulScalarTo(ctOut.Body.Value.Coeffs[i], ct.Body.Value.Coeffs[i], scale.Coeffs[i][0], outMod[i])
+			vec.MulScalarTo(ctOut.Mask.Value.Coeffs[i], ct.Mask.Value.Coeffs[i], scale.Coeffs[i][0], outMod[i])
+		}
+		for i := len(inMod); i < len(outMod); i++ {
+			clear(ctOut.Body.Value.Coeffs[i])
+			clear(ctOut.Mask.Value.Coeffs[i])
+		}
+
+		if isNTT {
+			if !ctOut.IsNTT() {
+				op.plainOp.FwdNTTTo(ctOut.Body, ctOut.Body)
+				op.plainOp.FwdNTTTo(ctOut.Mask, ctOut.Mask)
+			}
+		} else {
+			if ctOut.IsNTT() {
+				op.plainOp.InvNTTTo(ctOut.Body, ctOut.Body)
+				op.plainOp.InvNTTTo(ctOut.Mask, ctOut.Mask)
+			}
+		}
+
+	case ct.ModLen() == l:
+		ctOut.CopyFrom(ct)
+
+		if isNTT {
+			if !ctOut.IsNTT() {
+				op.plainOp.FwdNTTTo(ctOut.Body, ctOut.Body)
+				op.plainOp.FwdNTTTo(ctOut.Mask, ctOut.Mask)
+			}
+		} else {
+			if ctOut.IsNTT() {
+				op.plainOp.InvNTTTo(ctOut.Body, ctOut.Body)
+				op.plainOp.InvNTTTo(ctOut.Mask, ctOut.Mask)
+			}
+		}
+	}
+}
+
+// HoistedGadgetProdLazy returns ctOut = p * ctGadEnc, where the decomposition of p is precomputed.
+// The modulus of the output includes the auxillary modulus if present.
+func (op *Operator) HoistedGadgetProdLazy(pDcmp *Vector, ctGadEnc *GadgetEncryption, isNTT bool) *Ciphertext {
+	ctOut := NewCiphertext(op.Params, op.Params.HasAuxModulus(), true)
+	op.HoistedGadgetProdLazyTo(ctOut, pDcmp, ctGadEnc, isNTT)
+	return ctOut
+}
+
+// HoistedGadgetProdLazyTo computes ctOut = p * ctGadEnc, where the decomposition of p is precomputed.
+// The modulus of the output includes the auxillary modulus if present.
+func (op *Operator) HoistedGadgetProdLazyTo(ctOut *Ciphertext, pDcmp *Vector, ctGadEnc *GadgetEncryption, isNTT bool) {
+	if op.Params.HasAuxModulus() {
+		if !ctOut.HasAuxModulus() || !pDcmp.HasAuxModulus() || !ctGadEnc.HasAuxModulus() {
+			panic("inconsistent input(s)")
+		}
+	} else {
+		if ctOut.HasAuxModulus() || pDcmp.HasAuxModulus() || ctGadEnc.HasAuxModulus() {
+			panic("inconsistent input(s)")
+		}
+	}
+
+	baseLen, auxLen := pDcmp.ModLen()-len(op.Params.auxMod), len(op.Params.auxMod)
+	if ctOut.ModLen() != baseLen+auxLen || pDcmp.Len() != op.dcmp.DecomposeLen(baseLen) {
+		panic("inconsistent input(s)")
+	}
+
+	ctBuf := op.ctPool.Get().(*Ciphertext)
+	defer op.ctPool.Put(ctBuf)
+
+	ctBuf.Clear()
+	ctBuf.Body.hasAux = ctGadEnc.HasAuxModulus()
+	ctBuf.Mask.hasAux = ctGadEnc.HasAuxModulus()
+
+	for i := 0; i < pDcmp.Len(); i++ {
+		op.plainOp.MulAddTo(ctBuf.Body, pDcmp.Value[i], ctGadEnc.Value[i].Body.WithModIdx(vec.Range(0, baseLen+auxLen)...))
+		op.plainOp.MulAddTo(ctBuf.Mask, pDcmp.Value[i], ctGadEnc.Value[i].Mask.WithModIdx(vec.Range(0, baseLen+auxLen)...))
+	}
+
+	if !isNTT {
+		op.InvNTTTo(ctBuf, ctBuf)
+	}
+
+	ctOut.CopyFrom(ctBuf)
+}
+
+// HoistedGadgetProd returns ctOut = p * ctGadEnc, where the decomposition of p is precomputed.
+func (op *Operator) HoistedGadgetProd(pDcmp *Vector, ctGadEnc *GadgetEncryption, isNTT bool) *Ciphertext {
+	ctOut := NewCiphertext(op.Params, op.Params.HasAuxModulus(), true)
+	op.HoistedGadgetProdTo(ctOut, pDcmp, ctGadEnc, isNTT)
+	return ctOut
+}
+
+// HoistedGadgetProdTo computes ctOut = p * ctGadEnc, where the decomposition of p is precomputed.
+func (op *Operator) HoistedGadgetProdTo(ctOut *Ciphertext, pDcmp *Vector, ctGadEnc *GadgetEncryption, isNTT bool) {
+	ctOutFullMod := op.ctPool.Get().(*Ciphertext)
+	defer op.ctPool.Put(ctOutFullMod)
+
+	op.HoistedGadgetProdLazyTo(ctOutFullMod, pDcmp, ctGadEnc, true)
+
+	if op.Params.HasAuxModulus() {
+		op.DivByAuxModulusTo(ctOut, ctOutFullMod, isNTT)
+	} else {
+		ctOut.CopyFrom(ctOutFullMod)
+		if !isNTT {
+			op.InvNTTTo(ctOut, ctOut)
+		}
+	}
+}
+
+// GadgetProdLazy returns ctOut = p * ctGadEnc.
+// The modulus of the output includes the auxillary modulus if present.
+func (op *Operator) GadgetProdLazy(p *Element, ctGadEnc *GadgetEncryption, isNTT bool) *Ciphertext {
+	ctOut := NewCiphertext(op.Params, op.Params.HasAuxModulus(), true)
+	op.GadgetProdLazyTo(ctOut, p, ctGadEnc, isNTT)
+	return ctOut
+}
+
+// GadgetProdLazyTo computes ctOut = p * ctGadEnc.
+// The modulus of the output includes the auxillary modulus if present.
+func (op *Operator) GadgetProdLazyTo(ctOut *Ciphertext, p *Element, ctGadEnc *GadgetEncryption, isNTT bool) {
+	if p.HasAuxModulus() {
+		panic("inconsistent input(s)")
+	}
+
+	modLen, auxLen := p.ModLen(), len(op.Params.auxMod)
+
+	pInvNTT := op.pPool.Get().(*Element)
+	pInvNTT.CopyFrom(p)
+
+	pInvNTT = pInvNTT.WithModIdx(vec.Range(0, modLen)...)
+	if p.Value.IsNTT {
+		op.plainOp.InvNTTTo(pInvNTT, p)
+	} else {
+		pInvNTT.CopyFrom(p)
+	}
+
+	pDcmp := op.dcmpPool.Get().(*Vector)
+	defer op.dcmpPool.Put(pDcmp)
+	pDcmp = pDcmp.WithLenModIdx(op.dcmp.DecomposeLen(modLen), vec.Range(0, modLen+auxLen)...)
+	op.dcmp.DecomposeTo(pDcmp, pInvNTT)
+
+	for i := range pDcmp.Value {
+		op.plainOp.FwdNTTTo(pDcmp.Value[i], pDcmp.Value[i])
+	}
+
+	op.HoistedGadgetProdLazyTo(ctOut, pDcmp, ctGadEnc, isNTT)
+}
+
+// GadgetProd returns ctOut = p * ctGadEnc.
+// The modulus of the output includes the auxillary modulus if present.
+func (op *Operator) GadgetProd(p *Element, ctGadEnc *GadgetEncryption, isNTT bool) *Ciphertext {
+	ctOut := NewCiphertext(op.Params, op.Params.HasAuxModulus(), true)
+	op.GadgetProdTo(ctOut, p, ctGadEnc, isNTT)
+	return ctOut
+}
+
+// GadgetProdTo computes ctOut = p * ctGadEnc.
+// The modulus of the output includes the auxillary modulus if present.
+func (op *Operator) GadgetProdTo(ctOut *Ciphertext, p *Element, ctGadEnc *GadgetEncryption, isNTT bool) {
+	if p.HasAuxModulus() {
+		panic("inconsistent input(s)")
+	}
+
+	modLen, auxLen := p.ModLen(), len(op.Params.auxMod)
+
+	pInvNTT := op.pPool.Get().(*Element)
+	pInvNTT.CopyFrom(p)
+
+	pInvNTT = pInvNTT.WithModIdx(vec.Range(0, modLen)...)
+	if p.Value.IsNTT {
+		op.plainOp.InvNTTTo(pInvNTT, p)
+	} else {
+		pInvNTT.CopyFrom(p)
+	}
+
+	pDcmp := op.dcmpPool.Get().(*Vector)
+	defer op.dcmpPool.Put(pDcmp)
+	pDcmp = pDcmp.WithLenModIdx(op.dcmp.DecomposeLen(modLen), vec.Range(0, modLen+auxLen)...)
+	op.dcmp.DecomposeTo(pDcmp, pInvNTT)
+
+	for i := range pDcmp.Value {
+		op.plainOp.FwdNTTTo(pDcmp.Value[i], pDcmp.Value[i])
+	}
+
+	op.HoistedGadgetProdTo(ctOut, pDcmp, ctGadEnc, isNTT)
+}
 
 // // Relin performs a relinearisation and returns the result.
 // func (o *Operator) Relin(cIn *Tensor, rlk *RelinKey, isNTT bool) *Ciphertext {

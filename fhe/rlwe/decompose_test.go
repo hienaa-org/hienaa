@@ -15,19 +15,19 @@ var (
 	rSrc = csprng.NewUniformSamplerWithSeed(nil)
 )
 
-func Recompose(d rlwe.Decomposer, dcmp *rlwe.Tensor) *crt.Element {
+func Recompose(d rlwe.Decomposer, dcmp *rlwe.Vector) *crt.Element {
 	auxMod := d.Params().AuxModulus()
 	modLen := dcmp.ModLen() - len(auxMod)
 
 	pSum := crt.NewPolyCustom(d.Params().RingParams().Rank(), modLen+len(auxMod), false)
 	pOut := crt.NewPolyCustom(d.Params().RingParams().Rank(), modLen, false)
 
-	currMod := d.Params().Modulus()[:modLen]
+	currMod := d.Params().BaseModulus()[:modLen]
 	fullMod := d.Params().FullModulus()[:len(auxMod)+len(currMod)]
-	eval := crt.NewOperator(d.Params().RingParams(), fullMod)
+	op := crt.NewOperator(d.Params().RingParams(), fullMod)
 	for i := range dcmp.Value {
 		g := d.GadgetVector()[i].WithModIdx(vec.Range(0, modLen+len(auxMod))...)
-		eval.MulAddTo(pSum, dcmp.Value[i], g)
+		op.MulAddTo(pSum, dcmp.Value[i].Value, g.Value)
 	}
 
 	scaler := crt.NewScaler(currMod, fullMod)
@@ -42,9 +42,9 @@ func TestDecompose(t *testing.T) {
 	q, qAux := rlwe.FindNTTPrimes(rP, 400, 100)
 
 	paramsLiteral := rlwe.ParametersLiteral{
-		RingParams: rP,
-		Modulus:    q,
-		AuxModulus: qAux,
+		RingParams:  rP,
+		BaseModulus: q,
+		AuxModulus:  qAux,
 
 		GadgetParams: rlwe.RNSGadgetParametersLiteral{
 			ChunkSize: 2,
@@ -66,15 +66,16 @@ func TestDecompose(t *testing.T) {
 		}
 		params := paramsLiteral.Compile()
 
-		modLen := rSrc.SampleN(uint64(len(q)-1)) + 1
+		modLen := int(rSrc.SampleN(uint64(len(q)-1))) + 1
 		us := crt.UniformSamplerParameters{}.Sampler()
 
 		dcmp := rlwe.NewDecomposer(params)
-		p := us.Sample(rP.Rank(), q[:modLen])
+		p := rlwe.NewPolyCustom(rP.Rank(), modLen, false, false)
+		us.SampleTo(p.Value, q[:modLen])
 		pDec := dcmp.Decompose(p)
 		pRef := Recompose(dcmp, pDec)
 
-		assert.Equal(t, pRef, p)
+		assert.Equal(t, pRef, p.Value)
 	})
 
 	t.Run("type=Digit", func(t *testing.T) {
@@ -84,14 +85,15 @@ func TestDecompose(t *testing.T) {
 		}
 		params := paramsLiteral.Compile()
 
-		modLen := rSrc.SampleN(uint64(len(q)-1)) + 1
+		modLen := int(rSrc.SampleN(uint64(len(q)-1))) + 1
 		us := crt.UniformSamplerParameters{}.Sampler()
 
 		dcmp := rlwe.NewDecomposer(params)
-		p := us.Sample(rP.Rank(), q[:modLen])
+		p := rlwe.NewPolyCustom(rP.Rank(), modLen, false, false)
+		us.SampleTo(p.Value, q[:modLen])
 		pDec := dcmp.Decompose(p)
 		pRef := Recompose(dcmp, pDec)
 
-		assert.Equal(t, pRef, p)
+		assert.Equal(t, pRef, p.Value)
 	})
 }

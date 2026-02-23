@@ -110,8 +110,8 @@ func (DigitGadgetParameters) isGadgetParameters() {}
 type ParametersLiteral struct {
 	// RingParams is the parameters for underlying ring.
 	RingParams dft.RingParameters
-	// Modulus is the modulus for encryption.
-	Modulus []*num.Modulus
+	// BaseModulus is the modulus for encryption.
+	BaseModulus []*num.Modulus
 	// AuxModulus is the auxiliary or "special" modulus.
 	AuxModulus []*num.Modulus
 
@@ -132,18 +132,18 @@ func (p ParametersLiteral) Compile() Parameters {
 		gadgetParams = RNSGadgetParametersLiteral{ChunkSize: 1}
 	}
 
-	fullMod := make([]*num.Modulus, 0, len(p.AuxModulus)+len(p.Modulus))
+	fullMod := make([]*num.Modulus, 0, len(p.AuxModulus)+len(p.BaseModulus))
 	fullMod = append(fullMod, p.AuxModulus...)
-	fullMod = append(fullMod, p.Modulus...)
+	fullMod = append(fullMod, p.BaseModulus...)
 
 	_ = p.SecretKeyParams.Sampler()
 	_ = p.NoiseParams.Sampler()
 
 	return Parameters{
-		ringParams:  p.RingParams,
-		fullModulus: fullMod,
-		modulus:     fullMod[len(p.AuxModulus):],
-		auxModulus:  fullMod[:len(p.AuxModulus)],
+		crtOp:   crt.NewOperator(p.RingParams, fullMod),
+		fullMod: fullMod,
+		baseMod: fullMod[len(p.AuxModulus):],
+		auxMod:  fullMod[:len(p.AuxModulus)],
 
 		gadgetParams:    gadgetParams.Compile(),
 		secretKeyParams: p.SecretKeyParams,
@@ -153,14 +153,14 @@ func (p ParametersLiteral) Compile() Parameters {
 
 // Parameters is read-only parameters for the BGV scheme.
 type Parameters struct {
-	// RingParams is the parameters for underlying ring.
-	ringParams dft.RingParameters
-	// fullModulus is the full modulus chain.
-	fullModulus []*num.Modulus
-	// Modulus is the modulus for encryption.
-	modulus []*num.Modulus
+	// crtOp is an underlying [crt.Operator].
+	crtOp crt.Operator
+	// fullMod is the full modulus chain.
+	fullMod []*num.Modulus
+	// BaseModulus is the Modulus for encryption.
+	baseMod []*num.Modulus
 	// AuxModulus is the auxiliary or "special" modulus.
-	auxModulus []*num.Modulus
+	auxMod []*num.Modulus
 
 	// GadgetParams is the parameters for the gadget.
 	gadgetParams GadgetParameters
@@ -170,25 +170,35 @@ type Parameters struct {
 	noiseParams crt.SamplerParameters
 }
 
-// RingParams is the parameters for underlying ring.
-func (p Parameters) RingParams() dft.RingParameters {
-	return p.ringParams
+// Operator is the underlying [crt.Operator].
+func (p Parameters) Operator() crt.Operator {
+	return p.crtOp
 }
 
-// Modulus is the modulus for encryption.
-func (p Parameters) Modulus() []*num.Modulus {
-	return p.modulus
+// RingParams is the parameters for underlying ring.
+func (p Parameters) RingParams() dft.RingParameters {
+	return p.crtOp.Params()
+}
+
+// BaseModulus is the modulus for encryption.
+func (p Parameters) BaseModulus() []*num.Modulus {
+	return p.baseMod
+}
+
+// HasAuxModulus returns whether an auxiliary modulus exists.
+func (p Parameters) HasAuxModulus() bool {
+	return len(p.auxMod) > 0
 }
 
 // AuxModulus is the auxiliary or "special" modulus.
 func (p Parameters) AuxModulus() []*num.Modulus {
-	return p.auxModulus
+	return p.auxMod
 }
 
 // FullModulus is the full modulus chain.
-// Equals to AuxModulus || Modulus.
+// Equals to AuxModulus || BaseModulus.
 func (p Parameters) FullModulus() []*num.Modulus {
-	return p.fullModulus
+	return p.fullMod
 }
 
 // GadgetParams is the parameters for the gadget.
@@ -200,10 +210,10 @@ func (p Parameters) GadgetParams() GadgetParameters {
 func (p Parameters) GadgetLen() int {
 	switch gadgetParams := p.gadgetParams.(type) {
 	case RNSGadgetParameters:
-		return int(math.Ceil(float64(len(p.modulus)) / float64(gadgetParams.chunkSize)))
+		return int(math.Ceil(float64(len(p.baseMod)) / float64(gadgetParams.chunkSize)))
 	case DigitGadgetParameters:
 		modBitLen := 0.0
-		for _, q := range p.modulus {
+		for _, q := range p.baseMod {
 			modBitLen += num.Log2(q.Value())
 		}
 		return int(math.Ceil(modBitLen / float64(gadgetParams.logDigitBase)))

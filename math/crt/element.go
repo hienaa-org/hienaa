@@ -26,8 +26,6 @@ type Element struct {
 	// Coeffs are the coefficients of the element.
 	// Ordered as [ModLen][Rank].
 	//
-	// All subslice of Coeffs are assumed to have the same length,
-	// and the length of the first subslice is considered the rank.
 	// When rank is 1, the element represents a scalar.
 	Coeffs [][]uint64
 
@@ -37,8 +35,13 @@ type Element struct {
 }
 
 // NewScalar creates a new scalar [Element].
-func NewScalar[T num.Integer | *big.Int](x T, mod []*num.Modulus) *Element {
-	r := NewPolyCustom(1, len(mod), false)
+func NewScalar(modLen int) *Element {
+	return NewPolyCustom(1, modLen, false)
+}
+
+// NewScalarFrom creates a new scalar [Element] from x.
+func NewScalarFrom[T num.Integer | *big.Int](x T, mod []*num.Modulus) *Element {
+	r := NewScalar(len(mod))
 
 	var z T
 	switch any(z).(type) {
@@ -133,7 +136,15 @@ func (p *Element) Rank() int {
 	if len(p.Coeffs) == 0 {
 		return 0
 	}
-	return len(p.Coeffs[0])
+
+	rank := len(p.Coeffs[0])
+	for i := 1; i < len(p.Coeffs); i++ {
+		if len(p.Coeffs[i]) != rank {
+			panic("inconsistent rank")
+		}
+	}
+
+	return rank
 }
 
 // ModLen returns the number of RNS moduli of p.

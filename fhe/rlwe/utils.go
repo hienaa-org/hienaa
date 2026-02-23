@@ -9,7 +9,6 @@ import (
 	"github.com/hienaa-org/hienaa/math/num"
 )
 
-// FindNTTPrimes finds a set of NTT-friendly modulus and auxModulus for the given ring parameters,
 // where the product of modulus and auxModulus is approximately 2^modulusBits and 2^auxModulusBits respectively.
 func FindNTTPrimes(params dft.RingParameters, modulusBits, auxModulusBits float64) ([]*num.Modulus, []*num.Modulus) {
 	modLen := int(math.Ceil(modulusBits / num.MaxModulusBits))
@@ -18,7 +17,6 @@ func FindNTTPrimes(params dft.RingParameters, modulusBits, auxModulusBits float6
 	var modulus, auxModulus []*num.Modulus
 	var bitlen float64
 
-	// Sample the modulus.
 	for {
 		modulus = make([]*num.Modulus, modLen)
 
