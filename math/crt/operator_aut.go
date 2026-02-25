@@ -69,7 +69,7 @@ func (op *pow2CyclotomicAutOperator) Aut(e *Element, idx int) *Element {
 // AutTo computes eOut = aut(e, idx).
 // Panics when the automorphism index is invalid.
 func (op *pow2CyclotomicAutOperator) AutTo(eOut, e *Element, idx int) {
-	checkBinaryOperable(op.params.Rank(), len(op.mod), eOut, e)
+	isUnaryOperable(op.params.Rank(), len(op.mod), eOut, e)
 
 	switch e.Type() {
 	case TypeScalar:
@@ -240,7 +240,7 @@ func (op *anyCyclotomicAutOperator) Aut(e *Element, idx int) *Element {
 // AutTo computes eOut = aut(e, idx).
 // Panics when the automorphism index is invalid.
 func (op *anyCyclotomicAutOperator) AutTo(eOut, e *Element, idx int) {
-	checkBinaryOperable(op.params.Rank(), len(op.mod), eOut, e)
+	isUnaryOperable(op.params.Rank(), len(op.mod), eOut, e)
 
 	switch e.Type() {
 	case TypeScalar:
@@ -384,7 +384,7 @@ func (op *pow2AutFixedAutOperator) Aut(e *Element, idx int) *Element {
 // AutTo computes eOut = aut(e, idx).
 // Panics when the automorphism index is invalid.
 func (op *pow2AutFixedAutOperator) AutTo(eOut, e *Element, idx int) {
-	checkBinaryOperable(op.params.Rank(), len(op.mod), eOut, e)
+	isUnaryOperable(op.params.Rank(), len(op.mod), eOut, e)
 
 	switch e.Type() {
 	case TypeScalar:
@@ -531,7 +531,7 @@ func (op *primeAutFixedAutOperator) Aut(e *Element, idx int) *Element {
 // AutTo computes eOut = aut(e, idx).
 // Panics when the automorphism index is invalid.
 func (op *primeAutFixedAutOperator) AutTo(eOut, e *Element, idx int) {
-	checkBinaryOperable(op.params.Rank(), len(op.mod), eOut, e)
+	isUnaryOperable(op.params.Rank(), len(op.mod), eOut, e)
 
 	switch e.Type() {
 	case TypeScalar:

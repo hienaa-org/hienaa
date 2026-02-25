@@ -7,7 +7,6 @@ import (
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/csprng"
 	"github.com/hienaa-org/hienaa/math/dft"
-	"github.com/hienaa-org/hienaa/math/vec"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -17,16 +16,17 @@ var (
 
 func Recompose(d rlwe.Decomposer, dcmp *rlwe.Vector) *crt.Element {
 	auxMod := d.Params().AuxModulus()
-	modLen := dcmp.ModLen() - len(auxMod)
+	baseLen := dcmp.BaseModLen()
+	auxLen := d.AuxModLen(baseLen)
 
-	pSum := crt.NewPolyCustom(d.Params().RingParams().Rank(), modLen+len(auxMod), false)
-	pOut := crt.NewPolyCustom(d.Params().RingParams().Rank(), modLen, false)
+	pSum := crt.NewPolyCustom(d.Params().RingParams().Rank(), baseLen+auxLen, false)
+	pOut := crt.NewPolyCustom(d.Params().RingParams().Rank(), baseLen, false)
 
-	currMod := d.Params().BaseModulus()[:modLen]
+	currMod := d.Params().BaseModulus()[:baseLen]
 	fullMod := d.Params().FullModulus()[:len(auxMod)+len(currMod)]
 	op := crt.NewOperator(d.Params().RingParams(), fullMod)
 	for i := range dcmp.Value {
-		g := d.GadgetVector()[i].WithModIdx(vec.Range(0, modLen+len(auxMod))...)
+		g := d.GadgetVector()[i].WithModLen(baseLen, auxLen)
 		op.MulAddTo(pSum, dcmp.Value[i].Value, g.Value)
 	}
 
@@ -66,12 +66,13 @@ func TestDecompose(t *testing.T) {
 		}
 		params := paramsLiteral.Compile()
 
-		modLen := int(rSrc.SampleN(uint64(len(q)-1))) + 1
+		dcmp := rlwe.NewDecomposer(params)
+
+		baseLen := int(rSrc.SampleN(uint64(len(q)-1))) + 1
 		us := crt.UniformSamplerParameters{}.Sampler()
 
-		dcmp := rlwe.NewDecomposer(params)
-		p := rlwe.NewPolyCustom(rP.Rank(), modLen, false, false)
-		us.SampleTo(p.Value, q[:modLen])
+		p := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
+		us.SampleTo(p.Value, q[:baseLen])
 		pDec := dcmp.Decompose(p)
 		pRef := Recompose(dcmp, pDec)
 
@@ -85,12 +86,13 @@ func TestDecompose(t *testing.T) {
 		}
 		params := paramsLiteral.Compile()
 
-		modLen := int(rSrc.SampleN(uint64(len(q)-1))) + 1
+		dcmp := rlwe.NewDecomposer(params)
+
+		baseLen := int(rSrc.SampleN(uint64(len(q)-1))) + 1
 		us := crt.UniformSamplerParameters{}.Sampler()
 
-		dcmp := rlwe.NewDecomposer(params)
-		p := rlwe.NewPolyCustom(rP.Rank(), modLen, false, false)
-		us.SampleTo(p.Value, q[:modLen])
+		p := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
+		us.SampleTo(p.Value, q[:baseLen])
 		pDec := dcmp.Decompose(p)
 		pRef := Recompose(dcmp, pDec)
 

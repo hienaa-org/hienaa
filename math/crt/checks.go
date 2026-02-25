@@ -13,8 +13,8 @@ func checkShape(rank, modLen int, e *Element) {
 	}
 }
 
-// checkTernaryOperable panics if eOut, e0, e1 is not operable.
-func checkTernaryOperable(rank, modLen int, eOut, e0, e1 *Element) {
+// isBinaryOperable panics if eOut, e0, e1 is not operable.
+func isBinaryOperable(rank, modLen int, eOut, e0, e1 *Element) {
 	if e0.Type() == TypeScalar && e1.Type() == TypeScalar {
 		if eOut.Type() != TypeScalar {
 			panic("output type not consistent")
@@ -38,8 +38,8 @@ func checkTernaryOperable(rank, modLen int, eOut, e0, e1 *Element) {
 	}
 }
 
-// checkBinaryOperable panics if eOut, e is not operable.
-func checkBinaryOperable(rank, modLen int, eOut, e *Element) {
+// isUnaryOperable panics if eOut, e is not operable.
+func isUnaryOperable(rank, modLen int, eOut, e *Element) {
 	if e.Type() == TypeScalar {
 		if eOut.Type() != TypeScalar {
 			panic("output type not consistent")

@@ -470,8 +470,9 @@ func (sc *Scaler) Scale(e *Element) *Element {
 
 // ScaleTo scales e to eOut.
 func (sc *Scaler) ScaleTo(eOut, e *Element) {
-	checkBinaryOperable(e.Rank(), e.ModLen(), eOut, e)
-	if e.Type() == TypePoly && e.IsNTT {
+	if !(e.Rank() == eOut.Rank() && e.ModLen() == len(sc.modIn) && eOut.ModLen() == len(sc.modOut)) {
+		panic("input(s) not consistent")
+	} else if e.IsNTT {
 		panic("input(s) must be in standard form")
 	}
 
@@ -780,8 +781,9 @@ func (sc *ScaleEmbedder) ScaleEmbed(e *Element) *Element {
 
 // ScaleEmbedTo scales and embeds e to eOut.
 func (sc *ScaleEmbedder) ScaleEmbedTo(eOut, e *Element) {
-	checkBinaryOperable(e.Rank(), e.ModLen(), eOut, e)
-	if e.Type() != TypePoly && e.IsNTT {
+	if !(e.Rank() == eOut.Rank() && e.ModLen() == len(sc.modIn) && eOut.ModLen() == len(sc.modOut)) {
+		panic("input(s) not consistent")
+	} else if e.IsNTT {
 		panic("input(s) must be in standard form")
 	}
 

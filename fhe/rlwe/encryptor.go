@@ -4,7 +4,7 @@ import (
 	"sync"
 
 	"github.com/hienaa-org/hienaa/math/crt"
-	"github.com/hienaa-org/hienaa/math/vec"
+	"github.com/hienaa-org/hienaa/math/num"
 )
 
 // Encryptor encrypts/decrypts RLWE ciphertexts.
@@ -21,6 +21,7 @@ type Encryptor struct {
 	auxSampler crt.Sampler
 	eSampler   crt.Sampler
 
+	sPool  *sync.Pool
 	ptPool *sync.Pool
 	ctPool *sync.Pool
 }
@@ -30,8 +31,8 @@ type Encryptor struct {
 func NewEncryptor(params Parameters) *Encryptor {
 	skSampler := params.secretKeyParams.Sampler()
 	sk := &SecretKey{
-		Value:  skSampler.Sample(params.RingParams().Rank(), params.fullMod),
-		hasAux: params.HasAuxModulus(),
+		Value:  skSampler.Sample(params.Rank(), params.fullMod),
+		auxLen: len(params.auxMod),
 	}
 	params.crtOp.FwdNTTTo(sk.Value, sk.Value)
 
@@ -40,7 +41,7 @@ func NewEncryptor(params Parameters) *Encryptor {
 
 // NewEncryptorWithKey creates a new [Encryptor] from the given secret key.
 func NewEncryptorWithKey(params Parameters, sk *SecretKey) *Encryptor {
-	checkShape(len(params.fullMod), params.HasAuxModulus(), (*Element)(sk))
+	checkShape(len(params.baseMod), len(params.auxMod), (*Element)(sk))
 
 	skCopy := sk.Copy()
 	if !skCopy.Value.IsNTT {
@@ -62,7 +63,13 @@ func newEncryptorWithKey(params Parameters, skNTT *SecretKey) *Encryptor {
 
 		plainOp: NewPlainOperator(params),
 		crtOp:   params.crtOp,
+		dcmp:    NewDecomposer(params),
 
+		sPool: &sync.Pool{
+			New: func() any {
+				return NewScalar(params, params.HasAuxModulus())
+			},
+		},
 		ptPool: &sync.Pool{
 			New: func() any {
 				return NewPoly(params, params.HasAuxModulus(), false)
@@ -83,7 +90,14 @@ func (e *Encryptor) SecretKey() *SecretKey {
 
 // SampleRLWE returns a new RLWE encryption of zero.
 func (e *Encryptor) SampleRLWE(hasAux, isNTT bool) *Ciphertext {
-	ctOut := NewCiphertext(e.params, hasAux, false)
+	ctOut := NewCiphertext(e.params, hasAux, isNTT)
+	e.SampleRLWETo(ctOut, isNTT)
+	return ctOut
+}
+
+// SampleRLWECustom samples a new RLWE encryption of zero with the given parameters.
+func (e *Encryptor) SampleRLWECustom(baseLen, auxLen int, isNTT bool) *Ciphertext {
+	ctOut := NewCiphertextCustom(e.params.Rank(), baseLen, auxLen, isNTT)
 	e.SampleRLWETo(ctOut, isNTT)
 	return ctOut
 }
@@ -91,11 +105,11 @@ func (e *Encryptor) SampleRLWE(hasAux, isNTT bool) *Ciphertext {
 // SampleRLWETo samples a new RLWE encryption of zero to ctOut.
 func (e *Encryptor) SampleRLWETo(ctOut *Ciphertext, isNTT bool) {
 	var modStart, modEnd int
-	if ctOut.HasAuxModulus() {
-		modStart, modEnd = 0, ctOut.ModLen()
-	} else {
-		modStart, modEnd = len(e.params.auxMod), len(e.params.auxMod)+ctOut.ModLen()
-	}
+	baseLen := ctOut.BaseModLen()
+	auxLen := ctOut.AuxModLen()
+
+	modStart = len(e.params.auxMod) - auxLen
+	modEnd = len(e.params.auxMod) + baseLen
 
 	e.uSampler.SampleTo(ctOut.Mask.Value, e.params.fullMod[modStart:modEnd])
 	ctOut.Mask.Value.IsNTT = true
@@ -103,7 +117,7 @@ func (e *Encryptor) SampleRLWETo(ctOut *Ciphertext, isNTT bool) {
 	e.eSampler.SampleTo(ctOut.Body.Value, e.params.fullMod[modStart:modEnd])
 	e.plainOp.FwdNTTTo(ctOut.Body, ctOut.Body)
 
-	skValue := (*Element)(e.sk.WithModIdx(vec.Range(modStart, modEnd)...))
+	skValue := (*Element)(e.sk.WithModLen(baseLen, auxLen))
 	e.plainOp.MulSubTo(ctOut.Body, skValue, ctOut.Mask)
 
 	if !isNTT {
@@ -112,14 +126,46 @@ func (e *Encryptor) SampleRLWETo(ctOut *Ciphertext, isNTT bool) {
 	}
 }
 
-// Encrypt encrypts pt.
-func (e *Encryptor) Encrypt(pt *Element, isNTT bool) *Ciphertext {
-	modLen := pt.ModLen()
-	if e.params.HasAuxModulus() {
-		modLen -= len(e.params.auxMod)
+// Phase performs Phase(c).
+func (e *Encryptor) Phase(c *Ciphertext) *Element {
+	baseLen := c.BaseModLen()
+	auxLen := c.AuxModLen()
+
+	eOut := NewElement(e.params.Rank(), baseLen, auxLen, false)
+	e.PhaseTo(eOut, c)
+	return eOut
+}
+
+// PhaseTo performs Phase(c) and stores the result in pOut.
+func (e *Encryptor) PhaseTo(eOut *Element, c *Ciphertext) {
+	if e.sk == nil {
+		panic("secret key is not set")
 	}
 
-	ctOut := NewCiphertextCustom(e.params.RingParams().Rank(), modLen, pt.HasAuxModulus(), false)
+	baseLen := c.BaseModLen()
+	auxLen := c.AuxModLen()
+
+	cPhase := e.ctPool.Get().(*Ciphertext)
+	defer e.ctPool.Put(cPhase)
+	cPhase = cPhase.WithModLen(baseLen, auxLen)
+
+	keyMod := (*Element)(e.sk.WithModLen(baseLen, auxLen))
+
+	if c.IsNTT() {
+		cPhase.Body.CopyFrom(c.Body)
+		cPhase.Mask.CopyFrom(c.Mask)
+	} else {
+		e.plainOp.FwdNTTTo(cPhase.Body, c.Body)
+		e.plainOp.FwdNTTTo(cPhase.Mask, c.Mask)
+	}
+
+	e.plainOp.MulAddTo(cPhase.Body, keyMod, cPhase.Mask)
+	e.plainOp.InvNTTTo(eOut, cPhase.Body)
+}
+
+// Encrypt encrypts pt.
+func (e *Encryptor) Encrypt(pt *Element, isNTT bool) *Ciphertext {
+	ctOut := NewCiphertextCustom(e.params.Rank(), pt.BaseModLen(), pt.AuxModLen(), isNTT)
 	e.EncryptTo(ctOut, pt, isNTT)
 	return ctOut
 }
@@ -128,11 +174,13 @@ func (e *Encryptor) Encrypt(pt *Element, isNTT bool) *Ciphertext {
 func (e *Encryptor) EncryptTo(ctOut *Ciphertext, pt *Element, isNTT bool) {
 	e.SampleRLWETo(ctOut, isNTT)
 
-	if pt.IsNTT() == isNTT {
+	if pt.Value.Type() == crt.TypeScalar || pt.IsNTT() == isNTT {
 		e.plainOp.AddTo(ctOut.Body, ctOut.Body, pt)
 	} else {
 		ptBuf := e.ptPool.Get().(*Element)
 		defer e.ptPool.Put(ptBuf)
+
+		ptBuf = ptBuf.WithModLen(pt.BaseModLen(), pt.AuxModLen())
 
 		if isNTT {
 			e.plainOp.FwdNTTTo(ptBuf, pt)
@@ -145,30 +193,38 @@ func (e *Encryptor) EncryptTo(ctOut *Ciphertext, pt *Element, isNTT bool) {
 
 // GadgetEncrypt encrypts pt.
 func (e *Encryptor) GadgetEncrypt(pt *Element, isNTT bool) *GadgetEncryption {
-	gadLen := e.params.GadgetLen()
-	modLen := pt.ModLen()
-	if e.params.HasAuxModulus() {
-		modLen -= len(e.params.auxMod)
-	}
-
-	gOut := NewGadgetEncryptionCustom(e.params.RingParams().Rank(), modLen, e.params.HasAuxModulus(), gadLen, true)
+	gOut := NewGadgetEncryptionCustom(e.params.Rank(), pt.BaseModLen(), pt.AuxModLen(), e.params.GadgetLen(), true)
 	e.GadgetEncryptTo(gOut, pt, isNTT)
 	return gOut
 }
 
 // GadgetEncryptTo encrypts pt to ctOut.
 func (e *Encryptor) GadgetEncryptTo(ctOut *GadgetEncryption, pt *Element, isNTT bool) {
-	if ctOut.GadgetLen() != e.params.GadgetLen() || ctOut.ModLen() != pt.ModLen() {
-		panic("inconsistent output")
+	if pt.BaseModLen() != len(e.params.baseMod) || pt.AuxModLen() != len(e.params.auxMod) {
+		panic("inconsistent input plaintext")
+	} else if ctOut.GadgetLen() != e.params.GadgetLen() {
+		panic("inconsistent output gadget encryption")
 	}
 
-	ptBuf := e.ptPool.Get().(*Element)
-	defer e.ptPool.Put(ptBuf)
+	var ptBuf *Element
+	var ptMul *Element
 
-	if pt.IsNTT() == isNTT {
+	if pt.Value.Type() == crt.TypeScalar {
+		ptBuf = e.sPool.Get().(*Element)
+		ptMul = e.sPool.Get().(*Element)
+		defer e.sPool.Put(ptBuf)
+		defer e.sPool.Put(ptMul)
+
 		ptBuf.CopyFrom(pt)
 	} else {
-		if isNTT {
+		ptBuf = e.ptPool.Get().(*Element)
+		ptMul = e.ptPool.Get().(*Element)
+		defer e.ptPool.Put(ptBuf)
+		defer e.ptPool.Put(ptMul)
+
+		if isNTT == pt.IsNTT() {
+			ptBuf.CopyFrom(pt)
+		} else if isNTT {
 			e.plainOp.FwdNTTTo(ptBuf, pt)
 		} else {
 			e.plainOp.InvNTTTo(ptBuf, pt)
@@ -178,23 +234,45 @@ func (e *Encryptor) GadgetEncryptTo(ctOut *GadgetEncryption, pt *Element, isNTT 
 	gadVec := e.dcmp.GadgetVector()
 	for i := 0; i < e.params.GadgetLen(); i++ {
 		e.SampleRLWETo(ctOut.Value[i], isNTT)
-		e.plainOp.MulAddTo(ctOut.Value[i].Body, ptBuf, gadVec[i])
+		e.plainOp.MulTo(ptMul, ptBuf, gadVec[i])
+		e.plainOp.AddTo(ctOut.Value[i].Body, ctOut.Value[i].Body, ptMul)
 	}
+}
+
+// RGSWEncrypt encrypts pt.
+func (e *Encryptor) RGSWEncrypt(pt *Element, isNTT bool) *RGSW {
+	ctOut := NewRGSWCustom(e.params.Rank(), pt.BaseModLen(), pt.AuxModLen(), e.params.GadgetLen(), true)
+	e.RGSWEncryptTo(ctOut, pt, isNTT)
+	return ctOut
 }
 
 // RGSWencryptTo encrypts pt to ctOut.
 func (e *Encryptor) RGSWEncryptTo(ctOut *RGSW, pt *Element, isNTT bool) {
-	if ctOut.GadgetLen() != e.params.GadgetLen() || ctOut.ModLen() != pt.ModLen() {
-		panic("inconsistent output")
+	if pt.BaseModLen() != len(e.params.baseMod) || pt.AuxModLen() != len(e.params.auxMod) {
+		panic("inconsistent input plaintext")
+	} else if ctOut.GadgetLen() != e.params.GadgetLen() {
+		panic("inconsistent output RGSW ciphertext")
 	}
 
-	ptBuf := e.ptPool.Get().(*Element)
-	defer e.ptPool.Put(ptBuf)
+	var ptBuf *Element
+	var ptMul *Element
 
-	if pt.IsNTT() == isNTT {
+	if pt.Value.Type() == crt.TypeScalar {
+		ptBuf = e.sPool.Get().(*Element)
+		ptMul = e.sPool.Get().(*Element)
+		defer e.sPool.Put(ptBuf)
+		defer e.sPool.Put(ptMul)
+
 		ptBuf.CopyFrom(pt)
 	} else {
-		if isNTT {
+		ptBuf = e.ptPool.Get().(*Element)
+		ptMul = e.ptPool.Get().(*Element)
+		defer e.ptPool.Put(ptBuf)
+		defer e.ptPool.Put(ptMul)
+
+		if isNTT == pt.IsNTT() {
+			ptBuf.CopyFrom(pt)
+		} else if isNTT {
 			e.plainOp.FwdNTTTo(ptBuf, pt)
 		} else {
 			e.plainOp.InvNTTTo(ptBuf, pt)
@@ -203,90 +281,72 @@ func (e *Encryptor) RGSWEncryptTo(ctOut *RGSW, pt *Element, isNTT bool) {
 
 	gadVec := e.dcmp.GadgetVector()
 	for i := 0; i < e.params.GadgetLen(); i++ {
+		e.plainOp.MulTo(ptMul, ptBuf, gadVec[i])
+
 		e.SampleRLWETo(ctOut.Body.Value[i], isNTT)
-		e.plainOp.MulAddTo(ctOut.Body.Value[i].Body, ptBuf, gadVec[i])
+		e.plainOp.AddTo(ctOut.Body.Value[i].Body, ctOut.Body.Value[i].Body, ptMul)
 
 		e.SampleRLWETo(ctOut.Mask.Value[i], isNTT)
-		e.plainOp.MulAddTo(ctOut.Mask.Value[i].Mask, ptBuf, gadVec[i])
+		e.plainOp.AddTo(ctOut.Mask.Value[i].Mask, ctOut.Mask.Value[i].Mask, ptMul)
 	}
 }
 
-// // NewRelinKey creates a new relinearisation key.
-// func (e *Encryptor) NewRelinKey() *RelinKey {
-// 	rlk := NewGadgetEncryption(e.params, true)
+// NewRelinKey creates a new relinearisation key.
+func (e *Encryptor) NewRelinKey() *RelinKey {
+	rlk := NewGadgetEncryption(e.params, true)
 
-// 	gParams := e.params.gadgetParams
-// 	gLen := gParams.gadgetLen(e.params)
-// 	modLen := len(e.params.modulus)
-// 	if e.params.auxModulus != nil {
-// 		modLen += len(e.params.auxModulus)
-// 	}
+	skValue := (*Element)(e.sk)
+	for i := 0; i < e.params.GadgetLen(); i++ {
+		e.SampleRLWETo(rlk.Value[i], true)
+		e.plainOp.MulAddTo(rlk.Value[i].Mask, skValue, e.dcmp.GadgetVector()[i])
+	}
 
-// 	eval := e.op.PlainOp.SubEvaluatorAt(rlk.Value[0].HasAux, modLen)
-// 	gadVec := e.op.Decmp.GadgetVector()
+	return (*RelinKey)(rlk)
+}
 
-// 	for i := 0; i < gLen; i++ {
-// 		e.SampleRlweTo(rlk.Value[i], true)
-// 		eval.ScalarMulAddTo(rlk.Value[i].Mask, e.sk.Value, gadVec[i])
-// 	}
+// NewKeySwitchKey creates a new key switch key.
+func (e *Encryptor) NewKeySwitchKey(skNew *SecretKey) *KeySwitchKey {
+	return (*KeySwitchKey)(e.GadgetEncrypt((*Element)(skNew), true))
+}
 
-// 	return &RelinKey{
-// 		Value: rlk.Value,
-// 	}
-// }
+// NewAutomorphismKey creates a new automorphism key.
+func (e *Encryptor) NewAutomorphismKey(idx int) *AutomorphismKey {
+	if e.sk == nil {
+		panic("secret key is not set")
+	}
 
-// // NewKeySwitchKey creates a new key switch key.
-// func (e *Encryptor) NewKeySwitchKey(skNew *SecretKey) *KeySwitchKey {
-// 	pt := &PlainPoly{
-// 		Value:  skNew.Value,
-// 		HasAux: skNew.HasAux,
-// 	}
-// 	ksk := e.GadgetEncrypt(pt, true)
+	gLen := e.dcmp.Params().GadgetLen()
+	baseLen := len(e.params.baseMod)
+	auxLen := len(e.params.auxMod)
 
-// 	return &KeySwitchKey{
-// 		Value: ksk.Value,
-// 	}
-// }
+	pOp := e.plainOp
 
-// // NewAutomorphismKey creates a new automorphism key.
-// func (e *Encryptor) NewAutomorphismKey(idx int) *AutomorphismKey {
-// 	if e.sk == nil {
-// 		panic("secret key is not set")
-// 	}
+	atkVal := make([]*Ciphertext, gLen)
+	for i := 0; i < gLen; i++ {
+		atkVal[i] = NewCiphertextCustom(e.params.Rank(), baseLen, auxLen, true)
+	}
 
-// 	gParams := e.params.gadgetParams
-// 	gLen := gParams.gadgetLen(e.params)
-// 	modLen := len(e.params.modulus)
-// 	var auxLen int
-// 	if e.params.auxModulus != nil {
-// 		auxLen = len(e.params.auxModulus)
-// 	}
+	skAut := e.ptPool.Get().(*Element)
+	defer e.ptPool.Put(skAut)
 
-// 	atkVal := make([]*Ciphertext, gLen)
-// 	for i := 0; i < gLen; i++ {
-// 		atkVal[i] = NewCiphertextCustom(e.params.ringParams.Rank(), modLen, auxLen, true)
-// 	}
+	idxInv := int(num.Inv(uint64(idx), num.NewModulus(e.params.RingParams().CycloOrder())))
+	pOp.AutTo(skAut, (*Element)(e.sk), idxInv)
 
-// 	eval := e.op.PlainOp.SubEvaluatorAt(atkVal[0].HasAux, modLen+auxLen)
-// 	idxInv := int(num.Inv(uint64(idx), num.NewModulus(e.params.ringParams.CycloOrder())))
-// 	skAut := e.buf.pEnc
-// 	eval.AutTo(skAut, e.sk.Value, idxInv)
+	gadVec := e.dcmp.GadgetVector()
+	for i := 0; i < gLen; i++ {
+		e.uSampler.SampleTo(atkVal[i].Mask.Value, e.params.fullMod)
+		atkVal[i].Mask.Value.IsNTT = true
 
-// 	gadVec := e.op.Decmp.GadgetVector()
-// 	for i := 0; i < gLen; i++ {
-// 		e.uSampler.SampleTo(atkVal[i].Mask, eval.Modulus())
-// 		atkVal[i].Mask.IsNTT = true
+		e.eSampler.SampleTo(atkVal[i].Body.Value, e.params.fullMod)
+		atkVal[i].Body.Value.IsNTT = false
 
-// 		e.eSampler.SampleTo(atkVal[i].Body, eval.Modulus())
-// 		atkVal[i].Body.IsNTT = false
+		pOp.FwdNTTTo(atkVal[i].Body, atkVal[i].Body)
+		pOp.MulSubTo(atkVal[i].Body, skAut, atkVal[i].Mask)
+		pOp.MulAddTo(atkVal[i].Body, (*Element)(e.sk), gadVec[i])
+	}
 
-// 		eval.FwdNTTTo(atkVal[i].Body, atkVal[i].Body)
-// 		eval.MulSubTo(atkVal[i].Body, skAut, atkVal[i].Mask)
-// 		eval.ScalarMulAddTo(atkVal[i].Body, e.sk.Value, gadVec[i])
-// 	}
-
-// 	return &AutomorphismKey{
-// 		Value: atkVal,
-// 		Idx:   idx,
-// 	}
-// }
+	return &AutomorphismKey{
+		Value: atkVal,
+		Idx:   idx,
+	}
+}

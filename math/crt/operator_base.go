@@ -78,7 +78,7 @@ func (op *baseOperator) FwdNTT(e *Element) *Element {
 
 // FwdNTTTo computes eOut = NTT(e).
 func (op *baseOperator) FwdNTTTo(eOut, e *Element) {
-	checkBinaryOperable(op.params.Rank(), len(op.mod), eOut, e)
+	isUnaryOperable(op.params.Rank(), len(op.mod), eOut, e)
 
 	if e.Type() == TypeScalar {
 		eOut.CopyFrom(e)
@@ -109,7 +109,7 @@ func (op *baseOperator) InvNTT(e *Element) *Element {
 
 // InvNTTTo computes eOut = InvNTT(e).
 func (op *baseOperator) InvNTTTo(eOut, e *Element) {
-	checkBinaryOperable(op.params.Rank(), len(op.mod), eOut, e)
+	isUnaryOperable(op.params.Rank(), len(op.mod), eOut, e)
 
 	if e.Type() == TypeScalar {
 		eOut.CopyFrom(e)
@@ -140,7 +140,7 @@ func (op *baseOperator) Neg(e *Element) *Element {
 
 // NegTo computes eOut = -e.
 func (op *baseOperator) NegTo(eOut, e *Element) {
-	checkBinaryOperable(op.params.Rank(), len(op.mod), eOut, e)
+	isUnaryOperable(op.params.Rank(), len(op.mod), eOut, e)
 
 	switch e.Type() {
 	case TypeScalar:

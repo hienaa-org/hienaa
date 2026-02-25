@@ -112,7 +112,7 @@ func (op *baseMulOperator) Mul(e0, e1 *Element) *Element {
 // MulTo computes eOut = e0 * e1.
 // When e0, e1 are both polynomials, they must be in NTT form.
 func (op *baseMulOperator) MulTo(eOut, e0, e1 *Element) {
-	checkTernaryOperable(op.rank, len(op.mod), eOut, e0, e1)
+	isBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
 
 	switch {
 	case isEqualType(e0, e1, TypeScalar):
@@ -161,7 +161,7 @@ func (op *baseMulOperator) MulTo(eOut, e0, e1 *Element) {
 
 // MulAddTo computes eOut += e0 * e1.
 func (op *baseMulOperator) MulAddTo(eOut, e0, e1 *Element) {
-	checkTernaryOperable(op.rank, len(op.mod), eOut, e0, e1)
+	isBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
 
 	switch {
 	case isEqualType(e0, e1, TypeScalar):
@@ -211,7 +211,7 @@ func (op *baseMulOperator) MulAddTo(eOut, e0, e1 *Element) {
 
 // MulSubTo computes eOut -= e0 * e1.
 func (op *baseMulOperator) MulSubTo(eOut, e0, e1 *Element) {
-	checkTernaryOperable(op.rank, len(op.mod), eOut, e0, e1)
+	isBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
 
 	switch {
 	case isEqualType(e0, e1, TypeScalar):
@@ -372,7 +372,7 @@ func (op *anyCyclotomicMulOperator) Mul(e0, e1 *Element) *Element {
 // MulTo computes eOut = e0 * e1.
 // When e0, e1 are both polynomials, they must be in NTT form.
 func (op *anyCyclotomicMulOperator) MulTo(eOut, e0, e1 *Element) {
-	checkTernaryOperable(op.params.Rank(), len(op.mod), eOut, e0, e1)
+	isBinaryOperable(op.params.Rank(), len(op.mod), eOut, e0, e1)
 
 	switch {
 	case isEqualType(e0, e1, TypeScalar):
@@ -429,7 +429,7 @@ func (op *anyCyclotomicMulOperator) MulTo(eOut, e0, e1 *Element) {
 
 // MulAddTo computes eOut += e0 * e1.
 func (op *anyCyclotomicMulOperator) MulAddTo(eOut, e0, e1 *Element) {
-	checkTernaryOperable(op.params.Rank(), len(op.mod), eOut, e0, e1)
+	isBinaryOperable(op.params.Rank(), len(op.mod), eOut, e0, e1)
 
 	switch {
 	case isEqualType(e0, e1, TypeScalar):
@@ -487,7 +487,7 @@ func (op *anyCyclotomicMulOperator) MulAddTo(eOut, e0, e1 *Element) {
 
 // MulSubTo computes eOut -= e0 * e1.
 func (op *anyCyclotomicMulOperator) MulSubTo(eOut, e0, e1 *Element) {
-	checkTernaryOperable(op.params.Rank(), len(op.mod), eOut, e0, e1)
+	isBinaryOperable(op.params.Rank(), len(op.mod), eOut, e0, e1)
 
 	switch {
 	case isEqualType(e0, e1, TypeScalar):
@@ -667,7 +667,7 @@ func (op *reduceMulOperator) Mul(e0, e1 *Element) *Element {
 // MulTo computes eOut = e0 * e1.
 // When e0, e1 are both polynomials, they must be in NTT form.
 func (op *reduceMulOperator) MulTo(eOut, e0, e1 *Element) {
-	checkTernaryOperable(op.rank, len(op.mod), eOut, e0, e1)
+	isBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
 
 	switch {
 	case isEqualType(e0, e1, TypeScalar):
@@ -727,7 +727,7 @@ func (op *reduceMulOperator) MulTo(eOut, e0, e1 *Element) {
 
 // MulAddTo computes eOut += e0 * e1.
 func (op *reduceMulOperator) MulAddTo(eOut, e0, e1 *Element) {
-	checkTernaryOperable(op.rank, len(op.mod), eOut, e0, e1)
+	isBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
 
 	switch {
 	case isEqualType(e0, e1, TypeScalar):
@@ -789,7 +789,7 @@ func (op *reduceMulOperator) MulAddTo(eOut, e0, e1 *Element) {
 
 // MulSubTo computes eOut -= e0 * e1.
 func (op *reduceMulOperator) MulSubTo(eOut, e0, e1 *Element) {
-	checkTernaryOperable(op.rank, len(op.mod), eOut, e0, e1)
+	isBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
 
 	switch {
 	case isEqualType(e0, e1, TypeScalar):

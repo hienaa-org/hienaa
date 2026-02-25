@@ -2,19 +2,13 @@ package rlwe
 
 import (
 	"github.com/hienaa-org/hienaa/math/crt"
+	"github.com/hienaa-org/hienaa/math/vec"
 )
 
 type Element struct {
-	Value *crt.Element
-	// hasAux indicates whether Value has an auxiliary modulus.
-	// TODO: We should consider saving AuxModLen instead of HasAux.
-	hasAux bool
+	Value  *crt.Element
+	auxLen int
 }
-
-// TODO: By adding AuxLen, we should add/change the following:
-// - All functions currently accepting (modLen, hasAux) should accept (baseLen, auxLen)
-// - In `Copy`, `CopyFrom`, additional checks for AuxLen should be made
-// - We should remove `ModLen`, and add `BaseModLen`, `AuxModLen` and `FullModLen`.
 
 // NewScalar creates a new scalar [Element].
 func NewScalar(params Parameters, hasAux bool) *Element {
@@ -22,37 +16,31 @@ func NewScalar(params Parameters, hasAux bool) *Element {
 		panic("no auxiliary modulus")
 	}
 
-	if !hasAux {
-		return NewScalarCustom(len(params.baseMod), hasAux)
-	}
-	return NewScalarCustom(len(params.fullMod), hasAux)
-}
-
-// NewScalarCustom creates a new scalar [Element] with the given parameters.
-func NewScalarCustom(modLen int, hasAux bool) *Element {
-	return &Element{
-		Value:  crt.NewScalar(modLen),
-		hasAux: hasAux,
-	}
+	return NewElement(1, len(params.baseMod), len(params.auxMod), false)
 }
 
 // NewPoly creates a new polynomial [Element].
-func NewPoly(params Parameters, hasAux, isNTT bool) *Element {
+func NewPoly(params Parameters, hasAux bool, isNTT bool) *Element {
 	if hasAux && len(params.auxMod) == 0 {
 		panic("no auxiliary modulus")
 	}
 
-	if !hasAux {
-		return NewPolyCustom(params.RingParams().Rank(), len(params.baseMod), hasAux, isNTT)
-	}
-	return NewPolyCustom(params.RingParams().Rank(), len(params.fullMod), hasAux, isNTT)
+	return NewElement(params.RingParams().Rank(), len(params.baseMod), len(params.auxMod), isNTT)
 }
 
-// NewPolyCustom creates a new polynomial [Element] with the given parameters.
-func NewPolyCustom(rank, modLen int, hasAux, isNTT bool) *Element {
+// NewElement creates a new [Element] with the given parameters.
+func NewElement(rank, baseLen, auxLen int, isNTT bool) *Element {
 	return &Element{
-		Value:  crt.NewPolyCustom(rank, modLen, isNTT),
-		hasAux: hasAux,
+		Value:  crt.NewPolyCustom(rank, baseLen+auxLen, isNTT),
+		auxLen: auxLen,
+	}
+}
+
+// NewElementFrom creates a new [Element] from a [crt.Element].
+func NewElementFrom(value *crt.Element, auxLen int) *Element {
+	return &Element{
+		Value:  value,
+		auxLen: auxLen,
 	}
 }
 
@@ -61,19 +49,24 @@ func (e *Element) Rank() int {
 	return e.Value.Rank()
 }
 
-// ModLen returns the modulus length.
-func (e *Element) ModLen() int {
-	return e.Value.ModLen()
-}
-
 // IsNTT returns whether value is in NTT form.
 func (e *Element) IsNTT() bool {
 	return e.Value.IsNTT
 }
 
-// HasAuxModulus returns whether auxiliary modulus is used.
-func (e *Element) HasAuxModulus() bool {
-	return e.hasAux
+// FullModLen returns the full modulus length.
+func (e *Element) FullModLen() int {
+	return e.Value.ModLen()
+}
+
+// BaseModLen returns the base modulus length.
+func (e *Element) BaseModLen() int {
+	return e.Value.ModLen() - e.auxLen
+}
+
+// AuxModLen returns the auxiliary modulus length.
+func (e *Element) AuxModLen() int {
+	return e.auxLen
 }
 
 // Clear clears value.
@@ -82,16 +75,16 @@ func (e *Element) Clear() {
 }
 
 // WithModIdx returns a shallow copy with the given modulus indices.
-// HasAux is preserved.
 //
-// Panics when idx is out of range.
-//
-// TODO: This is not robust, as `idx` also spans auxillary modulus,
-// thus we don't know whether hasAux flag is valid.
-func (e *Element) WithModIdx(idx ...int) *Element {
+// Panics when baseLen or auxLen is larger than the current base or auxiliary modulus lengths.
+func (e *Element) WithModLen(baseLen, auxLen int) *Element {
+	if baseLen > e.BaseModLen() || auxLen > e.AuxModLen() {
+		panic("out of range")
+	}
+
 	return &Element{
-		Value:  e.Value.WithModIdx(idx...),
-		hasAux: e.hasAux,
+		Value:  e.Value.WithModIdx(vec.Range(e.auxLen-auxLen, e.auxLen+baseLen)...),
+		auxLen: auxLen,
 	}
 }
 
@@ -99,7 +92,7 @@ func (e *Element) WithModIdx(idx ...int) *Element {
 func (e *Element) Copy() *Element {
 	return &Element{
 		Value:  e.Value.Copy(),
-		hasAux: e.hasAux,
+		auxLen: e.auxLen,
 	}
 }
 
@@ -111,7 +104,7 @@ func (e *Element) CopyFrom(eIn *Element) {
 		panic("inconsistent input(s)")
 	}
 	e.Value.CopyFrom(eIn.Value)
-	e.hasAux = eIn.hasAux
+	e.auxLen = eIn.auxLen
 }
 
 // IsEqual checks if two values are equal.
@@ -119,7 +112,7 @@ func (e *Element) IsEqual(e0 *Element) bool {
 	if !e.IsConsistent(e0) {
 		return false
 	}
-	return e.Value.IsEqual(e0.Value) && e.hasAux == e0.hasAux
+	return e.Value.IsEqual(e0.Value) && e.auxLen == e0.auxLen
 }
 
 // IsConsistent checks if two values have the same shape.
@@ -132,12 +125,16 @@ type SecretKey Element
 
 // NewSecretKey creates a new [SecretKey].
 func NewSecretKey(params Parameters, hasAux bool) *SecretKey {
+	if hasAux && len(params.auxMod) == 0 {
+		panic("no auxiliary modulus")
+	}
+
 	return (*SecretKey)(NewPoly(params, hasAux, false))
 }
 
 // NewSecretKeyCustom creates a new [SecretKey] with the given parameters.
-func NewSecretKeyCustom(rank, modLen int, hasAux, isNTT bool) *SecretKey {
-	return (*SecretKey)(NewPolyCustom(rank, modLen, hasAux, isNTT))
+func NewSecretKeyCustom(rank, baseLen, auxLen int, isNTT bool) *SecretKey {
+	return (*SecretKey)(NewElement(rank, baseLen, auxLen, isNTT))
 }
 
 // Rank returns the rank.
@@ -145,19 +142,24 @@ func (sk *SecretKey) Rank() int {
 	return (*Element)(sk).Rank()
 }
 
-// ModLen returns the modulus length.
-func (sk *SecretKey) ModLen() int {
-	return (*Element)(sk).ModLen()
+// FullModLen returns the full modulus length.
+func (sk *SecretKey) FullModLen() int {
+	return (*Element)(sk).FullModLen()
+}
+
+// BaseModLen returns the base modulus length.
+func (sk *SecretKey) BaseModLen() int {
+	return (*Element)(sk).BaseModLen()
+}
+
+// AuxModLen returns the auxiliary modulus length.
+func (sk *SecretKey) AuxModLen() int {
+	return (*Element)(sk).AuxModLen()
 }
 
 // IsNTT returns whether value is in NTT form.
 func (sk *SecretKey) IsNTT() bool {
 	return (*Element)(sk).IsNTT()
-}
-
-// HasAuxModulus returns whether auxiliary modulus is used.
-func (sk *SecretKey) HasAuxModulus() bool {
-	return (*Element)(sk).HasAuxModulus()
 }
 
 // Clear clears value.
@@ -166,11 +168,10 @@ func (sk *SecretKey) Clear() {
 }
 
 // WithModIdx returns a shallow copy with the given modulus indices.
-// HasAux is preserved.
 //
-// Panics when idx is out of range.
-func (sk *SecretKey) WithModIdx(idx ...int) *SecretKey {
-	return (*SecretKey)((*Element)(sk).WithModIdx(idx...))
+// Panics when baseLen or auxLen is larger than the current base or auxiliary modulus lengths.
+func (sk *SecretKey) WithModLen(baseLen, auxLen int) *SecretKey {
+	return (*SecretKey)((*Element)(sk).WithModLen(baseLen, auxLen))
 }
 
 // Copy returns a copy.
@@ -207,16 +208,16 @@ func NewCiphertext(params Parameters, hasAux bool, isNTT bool) *Ciphertext {
 	}
 
 	if !hasAux {
-		return NewCiphertextCustom(params.RingParams().Rank(), len(params.baseMod), hasAux, isNTT)
+		return NewCiphertextCustom(params.RingParams().Rank(), len(params.baseMod), len(params.auxMod), isNTT)
 	}
-	return NewCiphertextCustom(params.RingParams().Rank(), len(params.fullMod), hasAux, isNTT)
+	return NewCiphertextCustom(params.RingParams().Rank(), len(params.fullMod), len(params.auxMod), isNTT)
 }
 
 // NewCiphertextCustom creates a new [Ciphertext] with the given parameters.
-func NewCiphertextCustom(rank, modLen int, hasAux, isNTT bool) *Ciphertext {
+func NewCiphertextCustom(rank, baseLen, auxLen int, isNTT bool) *Ciphertext {
 	return &Ciphertext{
-		Body: NewPolyCustom(rank, modLen, hasAux, isNTT),
-		Mask: NewPolyCustom(rank, modLen, hasAux, isNTT),
+		Body: NewElement(rank, baseLen, auxLen, isNTT),
+		Mask: NewElement(rank, baseLen, auxLen, isNTT),
 	}
 }
 
@@ -228,12 +229,28 @@ func (ct *Ciphertext) Rank() int {
 	return ct.Body.Rank()
 }
 
-// ModLen returns the modulus length.
-func (ct *Ciphertext) ModLen() int {
-	if ct.Body.ModLen() != ct.Mask.ModLen() {
+// FullModLen returns the full modulus length.
+func (ct *Ciphertext) FullModLen() int {
+	if ct.Body.FullModLen() != ct.Mask.FullModLen() {
 		panic("inconsistent modulus length")
 	}
-	return ct.Body.ModLen()
+	return ct.Body.FullModLen()
+}
+
+// BaseModLen returns the base modulus length.
+func (ct *Ciphertext) BaseModLen() int {
+	if ct.Body.BaseModLen() != ct.Mask.BaseModLen() {
+		panic("inconsistent modulus length")
+	}
+	return ct.Body.BaseModLen()
+}
+
+// AuxModLen returns the auxiliary modulus length.
+func (ct *Ciphertext) AuxModLen() int {
+	if ct.Body.AuxModLen() != ct.Mask.AuxModLen() {
+		panic("inconsistent modulus length")
+	}
+	return ct.Body.AuxModLen()
 }
 
 // IsNTT returns whether value is in NTT form.
@@ -244,28 +261,19 @@ func (ct *Ciphertext) IsNTT() bool {
 	return ct.Body.IsNTT()
 }
 
-// HasAuxModulus returns whether ct has an auxiliary modulus.
-func (ct *Ciphertext) HasAuxModulus() bool {
-	if ct.Body.HasAuxModulus() != ct.Mask.HasAuxModulus() {
-		panic("inconsistent auxiliary modulus")
-	}
-	return ct.Body.HasAuxModulus()
-}
-
 // Clear clears value.
 func (ct *Ciphertext) Clear() {
 	ct.Body.Clear()
 	ct.Mask.Clear()
 }
 
-// WithModIdx returns a shallow copy with the given modulus indices.
-// HasAux is preserved.
+// WithModLen returns a shallow copy with the given modulus lengths.
 //
-// Panics when idx is out of range.
-func (ct *Ciphertext) WithModIdx(idx ...int) *Ciphertext {
+// Panics when baseLen or auxLen is larger than the current base or auxiliary modulus lengths.
+func (ct *Ciphertext) WithModLen(baseLen, auxLen int) *Ciphertext {
 	return &Ciphertext{
-		Body: ct.Body.WithModIdx(idx...),
-		Mask: ct.Mask.WithModIdx(idx...),
+		Body: ct.Body.WithModLen(baseLen, auxLen),
+		Mask: ct.Mask.WithModLen(baseLen, auxLen),
 	}
 }
 
@@ -307,8 +315,8 @@ func NewPublicKey(params Parameters, hasAux bool, isNTT bool) *PublicKey {
 }
 
 // NewPublicKeyCustom creates a new [PublicKey] with the given parameters.
-func NewPublicKeyCustom(rank, modLen int, hasAux, isNTT bool) *PublicKey {
-	return (*PublicKey)(NewCiphertextCustom(rank, modLen, hasAux, isNTT))
+func NewPublicKeyCustom(rank, baseLen, auxLen int, isNTT bool) *PublicKey {
+	return (*PublicKey)(NewCiphertextCustom(rank, baseLen, auxLen, isNTT))
 }
 
 // Rank returns the rank.
@@ -316,14 +324,19 @@ func (pk *PublicKey) Rank() int {
 	return (*Ciphertext)(pk).Rank()
 }
 
-// ModLen returns the modulus length.
-func (pk *PublicKey) ModLen() int {
-	return (*Ciphertext)(pk).ModLen()
+// FullModLen returns the full modulus length.
+func (pk *PublicKey) FullModLen() int {
+	return (*Ciphertext)(pk).FullModLen()
 }
 
-// HasAux returns whether auxiliary modulus is used.
-func (pk *PublicKey) HasAux() bool {
-	return (*Ciphertext)(pk).HasAuxModulus()
+// BaseModLen returns the base modulus length.
+func (pk *PublicKey) BaseModLen() int {
+	return (*Ciphertext)(pk).BaseModLen()
+}
+
+// AuxModLen returns the auxiliary modulus length.
+func (pk *PublicKey) AuxModLen() int {
+	return (*Ciphertext)(pk).AuxModLen()
 }
 
 // Clear clears value.
@@ -331,12 +344,11 @@ func (pk *PublicKey) Clear() {
 	(*Ciphertext)(pk).Clear()
 }
 
-// WithModIdx returns a shallow copy with the given modulus indices.
-// HasAux is preserved.
+// WithModLen returns a shallow copy with the given modulus lengths.
 //
-// Panics when idx is out of range.
-func (pk *PublicKey) WithModIdx(idx ...int) *PublicKey {
-	return (*PublicKey)((*Ciphertext)(pk).WithModIdx(idx...))
+// Panics when baseLen or auxLen is larger than the current base or auxiliary modulus lengths.
+func (pk *PublicKey) WithModLen(baseLen, auxLen int) *PublicKey {
+	return (*PublicKey)((*Ciphertext)(pk).WithModLen(baseLen, auxLen))
 
 }
 
@@ -375,16 +387,16 @@ func NewVector(params Parameters, length int, hasAux, isNTT bool) *Vector {
 	}
 
 	if !hasAux {
-		return NewVectorCustom(params.RingParams().Rank(), len(params.baseMod), hasAux, length, isNTT)
+		return NewVectorCustom(params.RingParams().Rank(), len(params.baseMod), len(params.auxMod), length, isNTT)
 	}
-	return NewVectorCustom(params.RingParams().Rank(), len(params.fullMod), hasAux, length, isNTT)
+	return NewVectorCustom(params.RingParams().Rank(), len(params.fullMod), len(params.auxMod), length, isNTT)
 }
 
 // NewVectorCustom creates a new [Vector] with the given parameters.
-func NewVectorCustom(rank, modLen int, hasAux bool, length int, isNTT bool) *Vector {
+func NewVectorCustom(rank, baseLen, auxLen int, length int, isNTT bool) *Vector {
 	value := make([]*Element, length)
 	for i := range value {
-		value[i] = NewPolyCustom(rank, modLen, hasAux, isNTT)
+		value[i] = NewElement(rank, baseLen, auxLen, isNTT)
 	}
 
 	return &Vector{Value: value}
@@ -406,15 +418,37 @@ func (v *Vector) Rank() int {
 	return rank
 }
 
-// ModLen returns the modulus length of v.
-func (v *Vector) ModLen() int {
-	modLen := v.Value[0].ModLen()
+// FullModLen returns the full modulus length of v.
+func (v *Vector) FullModLen() int {
+	fullLen := v.Value[0].FullModLen()
 	for i := 1; i < v.Len(); i++ {
-		if modLen != v.Value[i].ModLen() {
+		if fullLen != v.Value[i].FullModLen() {
 			panic("inconsistent modulus length")
 		}
 	}
-	return modLen
+	return fullLen
+}
+
+// BaseModLen returns the base modulus length of v.
+func (v *Vector) BaseModLen() int {
+	baseLen := v.Value[0].BaseModLen()
+	for i := 1; i < v.Len(); i++ {
+		if baseLen != v.Value[i].BaseModLen() {
+			panic("inconsistent modulus length")
+		}
+	}
+	return baseLen
+}
+
+// AuxModLen returns the auxiliary modulus length of v.
+func (v *Vector) AuxModLen() int {
+	auxLen := v.Value[0].AuxModLen()
+	for i := 1; i < v.Len(); i++ {
+		if auxLen != v.Value[i].AuxModLen() {
+			panic("inconsistent modulus length")
+		}
+	}
+	return auxLen
 }
 
 // IsNTT returns whether value is in NTT form.
@@ -428,17 +462,6 @@ func (v *Vector) IsNTT() bool {
 	return isNTT
 }
 
-// HasAuxModulus returns whether auxiliary modulus is used.
-func (v *Vector) HasAuxModulus() bool {
-	hasAux := v.Value[0].HasAuxModulus()
-	for i := 1; i < v.Len(); i++ {
-		if v.Value[i].HasAuxModulus() != hasAux {
-			panic("inconsistent auxiliary modulus")
-		}
-	}
-	return hasAux
-}
-
 // Clear clears value.
 func (v *Vector) Clear() {
 	for _, p := range v.Value {
@@ -446,18 +469,29 @@ func (v *Vector) Clear() {
 	}
 }
 
-// WithModIdx returns a shallow copy with the given modulus indices.
-// HasAux is preserved.
+// Slice returns a shallow copy of the elements in the range idx.
 //
 // Panics when idx is out of range.
-func (v *Vector) WithLenModIdx(length int, idx ...int) *Vector {
-	if length < 1 || length > v.Len() {
-		panic("length out of range")
+func (v *Vector) Slice(idx ...int) *Vector {
+	length := len(idx)
+	value := make([]*Element, length)
+	for i := range value {
+		if idx[i] < 0 || idx[i] >= v.Len() {
+			panic("index out of range")
+		}
+		value[i] = v.Value[idx[i]]
 	}
 
-	value := make([]*Element, length)
-	for i := 0; i < length; i++ {
-		value[i] = v.Value[i].WithModIdx(idx...)
+	return &Vector{Value: value}
+}
+
+// WithModLen returns a shallow copy with the given length, base modulus length and auxiliary modulus length.
+//
+// Panics when length is out of range.
+func (v *Vector) WithModLen(baseLen, auxLen int) *Vector {
+	value := make([]*Element, v.Len())
+	for i := range value {
+		value[i] = v.Value[i].WithModLen(baseLen, auxLen)
 	}
 
 	return &Vector{Value: value}
@@ -521,14 +555,14 @@ type GadgetEncryption struct {
 
 // NewGadgetEncryption creates a new [GadgetEncryption].
 func NewGadgetEncryption(params Parameters, isNTT bool) *GadgetEncryption {
-	return NewGadgetEncryptionCustom(params.RingParams().Rank(), len(params.fullMod), params.HasAuxModulus(), params.GadgetLen(), isNTT)
+	return NewGadgetEncryptionCustom(params.RingParams().Rank(), len(params.baseMod), len(params.auxMod), params.GadgetLen(), isNTT)
 }
 
 // NewGadgetEncryptionCustom creates a new [GadgetEncryption] with the given parameters.
-func NewGadgetEncryptionCustom(rank, modLen int, hasAux bool, gadLen int, isNTT bool) *GadgetEncryption {
+func NewGadgetEncryptionCustom(rank, baseLen, auxLen int, gadLen int, isNTT bool) *GadgetEncryption {
 	value := make([]*Ciphertext, gadLen)
 	for i := range value {
-		value[i] = NewCiphertextCustom(rank, modLen, hasAux, isNTT)
+		value[i] = NewCiphertextCustom(rank, baseLen, auxLen, isNTT)
 	}
 	return &GadgetEncryption{Value: value}
 }
@@ -544,15 +578,37 @@ func (ct *GadgetEncryption) Rank() int {
 	return rank
 }
 
-// ModLen returns the modulus length.
-func (ct *GadgetEncryption) ModLen() int {
-	modLen := ct.Value[0].ModLen()
+// FullModLen returns the full modulus length.
+func (ct *GadgetEncryption) FullModLen() int {
+	fullLen := ct.Value[0].FullModLen()
 	for i := 1; i < len(ct.Value); i++ {
-		if modLen != ct.Value[i].ModLen() {
+		if fullLen != ct.Value[i].FullModLen() {
 			panic("inconsistent modulus length")
 		}
 	}
-	return modLen
+	return fullLen
+}
+
+// BaseModLen returns the base modulus length.
+func (ct *GadgetEncryption) BaseModLen() int {
+	baseLen := ct.Value[0].BaseModLen()
+	for i := 1; i < len(ct.Value); i++ {
+		if baseLen != ct.Value[i].BaseModLen() {
+			panic("inconsistent modulus length")
+		}
+	}
+	return baseLen
+}
+
+// AuxModLen returns the auxiliary modulus length.
+func (ct *GadgetEncryption) AuxModLen() int {
+	auxLen := ct.Value[0].AuxModLen()
+	for i := 1; i < len(ct.Value); i++ {
+		if auxLen != ct.Value[i].AuxModLen() {
+			panic("inconsistent modulus length")
+		}
+	}
+	return auxLen
 }
 
 // IsNTT returns whether value is in NTT form.
@@ -564,17 +620,6 @@ func (ct *GadgetEncryption) IsNTT() bool {
 		}
 	}
 	return isNTT
-}
-
-// HasAuxModulus returns whether auxiliary modulus is used.
-func (ct *GadgetEncryption) HasAuxModulus() bool {
-	hasAux := ct.Value[0].HasAuxModulus()
-	for i := 1; i < len(ct.Value); i++ {
-		if ct.Value[i].HasAuxModulus() != hasAux {
-			panic("inconsistent auxiliary modulus")
-		}
-	}
-	return hasAux
 }
 
 // GadgetLen returns the length of the gadget.
@@ -593,10 +638,10 @@ func (ct *GadgetEncryption) Clear() {
 // HasAux is preserved.
 //
 // Panics when idx is out of range.
-func (ct *GadgetEncryption) WithModIdx(idx ...int) *GadgetEncryption {
+func (ct *GadgetEncryption) WithModLen(baseLen, auxLen int) *GadgetEncryption {
 	value := make([]*Ciphertext, len(ct.Value))
-	for i := 0; i < len(ct.Value); i++ {
-		value[i] = ct.Value[i].WithModIdx(idx...)
+	for i := range value {
+		value[i] = ct.Value[i].WithModLen(baseLen, auxLen)
 	}
 	return &GadgetEncryption{Value: value}
 }
@@ -604,7 +649,7 @@ func (ct *GadgetEncryption) WithModIdx(idx ...int) *GadgetEncryption {
 // Copy returns a copy.
 func (ct *GadgetEncryption) Copy() *GadgetEncryption {
 	value := make([]*Ciphertext, len(ct.Value))
-	for i := 0; i < len(ct.Value); i++ {
+	for i := range value {
 		value[i] = ct.Value[i].Copy()
 	}
 	return &GadgetEncryption{Value: value}
@@ -617,7 +662,7 @@ func (ct *GadgetEncryption) CopyFrom(ctIn *GadgetEncryption) {
 	if !ct.IsConsistent(ctIn) {
 		panic("inconsistent input(s)")
 	}
-	for i := 0; i < len(ct.Value); i++ {
+	for i := range ct.Value {
 		ct.Value[i].CopyFrom(ctIn.Value[i])
 	}
 }
@@ -628,7 +673,7 @@ func (ct *GadgetEncryption) IsEqual(ct0 *GadgetEncryption) bool {
 		return false
 	}
 
-	for i := 0; i < len(ct.Value); i++ {
+	for i := range ct.Value {
 		if !ct.Value[i].IsEqual(ct0.Value[i]) {
 			return false
 		}
@@ -642,7 +687,7 @@ func (ct *GadgetEncryption) IsConsistent(ct0 *GadgetEncryption) bool {
 		return false
 	}
 
-	for i := 0; i < len(ct.Value); i++ {
+	for i := range ct.Value {
 		if !ct.Value[i].IsConsistent(ct0.Value[i]) {
 			return false
 		}
@@ -665,10 +710,10 @@ func NewRGSW(params Parameters, isNTT bool) *RGSW {
 }
 
 // NewRGSWCustom creates a new [RGSW] with the given parameters.
-func NewRGSWCustom(rank, modLen int, hasAux bool, gadLen int, isNTT bool) *RGSW {
+func NewRGSWCustom(rank, baseLen, auxLen int, gadLen int, isNTT bool) *RGSW {
 	return &RGSW{
-		Body: NewGadgetEncryptionCustom(rank, modLen, hasAux, gadLen, isNTT),
-		Mask: NewGadgetEncryptionCustom(rank, modLen, hasAux, gadLen, isNTT),
+		Body: NewGadgetEncryptionCustom(rank, baseLen, auxLen, gadLen, isNTT),
+		Mask: NewGadgetEncryptionCustom(rank, baseLen, auxLen, gadLen, isNTT),
 	}
 }
 
@@ -680,12 +725,28 @@ func (ct *RGSW) Rank() int {
 	return ct.Body.Rank()
 }
 
-// ModLen returns the modulus length.
-func (ct *RGSW) ModLen() int {
-	if ct.Body.ModLen() != ct.Mask.ModLen() {
+// FullModLen returns the full modulus length.
+func (ct *RGSW) FullModLen() int {
+	if ct.Body.FullModLen() != ct.Mask.FullModLen() {
 		panic("inconsistent modulus length")
 	}
-	return ct.Body.ModLen()
+	return ct.Body.FullModLen()
+}
+
+// BaseModLen returns the base modulus length.
+func (ct *RGSW) BaseModLen() int {
+	if ct.Body.BaseModLen() != ct.Mask.BaseModLen() {
+		panic("inconsistent modulus length")
+	}
+	return ct.Body.BaseModLen()
+}
+
+// AuxModLen returns the auxiliary modulus length.
+func (ct *RGSW) AuxModLen() int {
+	if ct.Body.AuxModLen() != ct.Mask.AuxModLen() {
+		panic("inconsistent modulus length")
+	}
+	return ct.Body.AuxModLen()
 }
 
 // IsNTT returns whether value is in NTT form.
@@ -694,14 +755,6 @@ func (ct *RGSW) IsNTT() bool {
 		panic("inconsistent NTT form")
 	}
 	return ct.Body.IsNTT()
-}
-
-// HasAuxModulus returns whether auxiliary modulus is used.
-func (ct *RGSW) HasAuxModulus() bool {
-	if ct.Body.HasAuxModulus() != ct.Mask.HasAuxModulus() {
-		panic("inconsistent auxiliary modulus")
-	}
-	return ct.Body.HasAuxModulus()
 }
 
 // GadgetLen returns the length of the gadget.
@@ -718,14 +771,13 @@ func (ct *RGSW) Clear() {
 	ct.Mask.Clear()
 }
 
-// WithModIdx returns a shallow copy with the given modulus indices.
-// HasAux is preserved.
+// WithModLen returns a shallow copy with the given modulus lengths.
 //
-// Panics when idx is out of range.
-func (ct *RGSW) WithModIdx(idx ...int) *RGSW {
+// Panics when baseLen or auxLen is larger than the current base or auxiliary modulus lengths.
+func (ct *RGSW) WithModLen(baseLen, auxLen int) *RGSW {
 	return &RGSW{
-		Body: ct.Body.WithModIdx(idx...),
-		Mask: ct.Mask.WithModIdx(idx...),
+		Body: ct.Body.WithModLen(baseLen, auxLen),
+		Mask: ct.Mask.WithModLen(baseLen, auxLen),
 	}
 }
 
@@ -756,16 +808,16 @@ func (ct *RGSW) IsConsistent(ct0 *RGSW) bool {
 	return ct.Body.IsConsistent(ct0.Body) && ct.Mask.IsConsistent(ct0.Mask)
 }
 
-// // RelinKey is a relinearisation key.
-// type RelinKey GadgetEncryption
+// RelinKey is a relinearisation key.
+type RelinKey GadgetEncryption
 
-// // KeySwitchKey is a key switch key.
-// type KeySwitchKey GadgetEncryption
+// KeySwitchKey is a key switch key.
+type KeySwitchKey GadgetEncryption
 
-// // AutomorphismKey is an automorphism key.
-// type AutomorphismKey struct {
-// 	// value is the gadget encryption.
-// 	Value []*Ciphertext
-// 	// idx is the automorphism index.
-// 	Idx int
-// }
+// AutomorphismKey is an automorphism key.
+type AutomorphismKey struct {
+	// value is the gadget encryption.
+	Value []*Ciphertext
+	// idx is the automorphism index.
+	Idx int
+}

@@ -180,6 +180,11 @@ func (p Parameters) RingParams() dft.RingParameters {
 	return p.crtOp.Params()
 }
 
+// Rank returns the rank of the ring.
+func (p Parameters) Rank() int {
+	return p.crtOp.Params().Rank()
+}
+
 // BaseModulus is the modulus for encryption.
 func (p Parameters) BaseModulus() []*num.Modulus {
 	return p.baseMod

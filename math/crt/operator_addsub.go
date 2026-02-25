@@ -50,7 +50,7 @@ func (op *baseAddSubOperator) Add(e0, e1 *Element) *Element {
 
 // AddTo computes eOut = e0 + e1.
 func (op *baseAddSubOperator) AddTo(eOut, e0, e1 *Element) {
-	checkTernaryOperable(op.rank, len(op.mod), eOut, e0, e1)
+	isBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
 
 	switch {
 	case isEqualType(e0, e1, TypeScalar):
@@ -85,7 +85,7 @@ func (op *baseAddSubOperator) Sub(e0, e1 *Element) *Element {
 
 // SubTo computes eOut = e0 - e1.
 func (op *baseAddSubOperator) SubTo(eOut, e0, e1 *Element) {
-	checkTernaryOperable(op.rank, len(op.mod), eOut, e0, e1)
+	isBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
 
 	switch {
 	case isEqualType(e0, e1, TypeScalar):
@@ -156,7 +156,7 @@ func (op *primeAutFixedAddSubOperator) Add(e0, e1 *Element) *Element {
 
 // AddTo computes eOut = e0 + e1.
 func (op *primeAutFixedAddSubOperator) AddTo(eOut, e0, e1 *Element) {
-	checkTernaryOperable(op.rank, len(op.mod), eOut, e0, e1)
+	isBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
 
 	switch {
 	case isEqualType(e0, e1, TypeScalar):
@@ -190,7 +190,7 @@ func (op *primeAutFixedAddSubOperator) Sub(e0, e1 *Element) *Element {
 
 // SubTo computes eOut = e0 - e1.
 func (op *primeAutFixedAddSubOperator) SubTo(eOut, e0, e1 *Element) {
-	checkTernaryOperable(op.rank, len(op.mod), eOut, e0, e1)
+	isBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
 
 	switch {
 	case isEqualType(e0, e1, TypeScalar):

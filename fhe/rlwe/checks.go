@@ -1,20 +1,18 @@
 package rlwe
 
 // checkShape panics if e is not consistent with given parameters.
-func checkShape(modLen int, hasAux bool, e *Element) {
-	if e.hasAux != hasAux {
-		panic("input(s) shape not consistent")
-	}
-
-	if len(e.Value.Coeffs) > modLen {
+func checkShape(baseLen, auxLen int, e *Element) {
+	if e.BaseModLen() != baseLen || e.AuxModLen() != auxLen {
 		panic("input(s) shape not consistent")
 	}
 }
 
 // checkOperable panics if eOut, e0, e1 is not operable.
-func checkOperable(modLen int, eOut *Element, e ...*Element) {
-	checkShape(modLen, eOut.hasAux, eOut)
+func checkOperable(eOut *Element, e ...*Element) {
+	baseLen := eOut.BaseModLen()
+	auxLen := eOut.AuxModLen()
+
 	for i := range e {
-		checkShape(modLen, eOut.hasAux, e[i])
+		checkShape(baseLen, auxLen, e[i])
 	}
 }
