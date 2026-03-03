@@ -181,6 +181,86 @@ func (op *PlainOperator) AsBig(e *Element) []*big.Int {
 	return crtOp.AsBig(e.Value)
 }
 
+// ModRaise raises e to the modulus with length l.
+func (op *PlainOperator) ModRaise(e *Element, l int, isNTT bool) *Element {
+	eOut := NewElement(e.Rank(), l, 0, isNTT)
+	op.ModRaiseTo(eOut, e, isNTT)
+	return eOut
+}
+
+// ModRaiseTo raises e to the modulus with length l and stores the result in eOut.
+func (op *PlainOperator) ModRaiseTo(eOut, e *Element, isNTT bool) {
+	if e.AuxModLen() > 0 || eOut.AuxModLen() > 0 {
+		panic("input(s) should not have auxiliary modulus")
+	} else if e.BaseModLen() > eOut.BaseModLen() {
+		panic("inconsistent output")
+	}
+
+	inLen := e.BaseModLen()
+	outLen := eOut.BaseModLen()
+
+	switch {
+	case inLen < outLen:
+		if e.IsNTT() && isNTT {
+			emb := crt.NewEmbedder(op.Params.baseMod[inLen:outLen], op.Params.baseMod[:inLen])
+
+			pNTT := op.pPool.Get().(*crt.Element)
+			defer op.pPool.Put(pNTT)
+			pNTT = pNTT.WithModIdx(vec.Range(0, inLen)...)
+
+			crtOpIn := op.crtOp.SubOperator(vec.Range(0, inLen)...)
+			crtOpDiff := op.crtOp.SubOperator(vec.Range(inLen, outLen)...)
+			crtOpIn.InvNTTTo(pNTT, e.Value)
+
+			eOutIn := &crt.Element{
+				Coeffs: eOut.Value.Coeffs[:inLen],
+				IsNTT:  false,
+			}
+			eOutDiff := &crt.Element{
+				Coeffs: eOut.Value.Coeffs[inLen:outLen],
+				IsNTT:  false,
+			}
+
+			eOutIn.CopyFrom(e.Value)
+			emb.EmbedTo(eOutDiff, pNTT)
+			crtOpDiff.FwdNTTTo(eOutDiff, eOutDiff)
+
+			eOut.Value.IsNTT = true
+		} else {
+			emb := crt.NewEmbedder(op.Params.baseMod[:outLen], op.Params.baseMod[:inLen])
+
+			if e.IsNTT() {
+				pNTT := op.pPool.Get().(*crt.Element)
+				defer op.pPool.Put(pNTT)
+				pNTTIn := pNTT.WithModIdx(vec.Range(0, inLen)...)
+
+				crtOpIn := op.crtOp.SubOperator(vec.Range(0, inLen)...)
+				crtOpIn.InvNTTTo(pNTTIn, e.Value)
+
+				emb.EmbedTo(eOut.Value, pNTTIn)
+				eOut.Value.IsNTT = false
+			} else {
+				emb.EmbedTo(eOut.Value, e.Value)
+				eOut.Value.IsNTT = false
+			}
+
+			if isNTT {
+				op.FwdNTTTo(eOut, eOut)
+			}
+		}
+
+	case inLen == outLen:
+		eOut.CopyFrom(e)
+		if isNTT && !eOut.Value.IsNTT {
+			op.FwdNTTTo(eOut, eOut)
+		} else if !isNTT && eOut.Value.IsNTT {
+			op.InvNTTTo(eOut, eOut)
+		}
+	}
+
+	eOut.auxLen = 0
+}
+
 // DivByAuxModulus returns round(e / AuxModulus).
 func (op *PlainOperator) DivByAuxModulus(e *Element, isNTT bool) *Element {
 	eOut := NewElement(e.Rank(), e.BaseModLen(), e.AuxModLen(), isNTT)
@@ -427,53 +507,53 @@ func (op *Operator) Decomposer() Decomposer {
 	return op.dcmp
 }
 
-// AddPlain returns ct + pt.
-func (op *Operator) AddPlain(ct *Ciphertext, pt *Element) *Ciphertext {
+// AddElement returns ct + pt.
+func (op *Operator) AddElement(ct *Ciphertext, pt *Element) *Ciphertext {
 	ctOut := NewCiphertextCustom(ct.Rank(), ct.BaseModLen(), ct.AuxModLen(), ct.IsNTT())
-	op.AddPlainTo(ctOut, ct, pt)
+	op.AddElementTo(ctOut, ct, pt)
 	return ctOut
 }
 
-// AddPlainTo computes ctOut = ct + pt.
-func (op *Operator) AddPlainTo(ctOut, ct *Ciphertext, pt *Element) {
+// AddElementTo computes ctOut = ct + pt.
+func (op *Operator) AddElementTo(ctOut, ct *Ciphertext, pt *Element) {
 	op.plainOp.AddTo(ctOut.Body, ct.Body, pt)
 	ctOut.Mask.CopyFrom(ct.Mask)
 }
 
-// SubPlain returns ct - pt.
-func (op *Operator) SubPlain(ct *Ciphertext, pt *Element) *Ciphertext {
+// SubElement returns ct - pt.
+func (op *Operator) SubElement(ct *Ciphertext, pt *Element) *Ciphertext {
 	ctOut := NewCiphertextCustom(ct.Rank(), ct.BaseModLen(), ct.AuxModLen(), ct.IsNTT())
-	op.SubPlainTo(ctOut, ct, pt)
+	op.SubElementTo(ctOut, ct, pt)
 	return ctOut
 }
 
-// SubPlainTo computes ctOut = ct - pt.
-func (op *Operator) SubPlainTo(ctOut, ct *Ciphertext, pt *Element) {
+// SubElementTo computes ctOut = ct - pt.
+func (op *Operator) SubElementTo(ctOut, ct *Ciphertext, pt *Element) {
 	op.plainOp.SubTo(ctOut.Body, ct.Body, pt)
 	ctOut.Mask.CopyFrom(ct.Mask)
 }
 
-// MulPlain returns ct * pt.
-func (op *Operator) MulPlain(ct *Ciphertext, pt *Element) *Ciphertext {
+// MulElement returns ct * pt.
+func (op *Operator) MulElement(ct *Ciphertext, pt *Element) *Ciphertext {
 	ctOut := NewCiphertextCustom(ct.Rank(), ct.BaseModLen(), ct.AuxModLen(), ct.IsNTT())
-	op.MulPlainTo(ctOut, ct, pt)
+	op.MulElementTo(ctOut, ct, pt)
 	return ctOut
 }
 
-// MulPlainTo computes ctOut = ct * pt.
-func (op *Operator) MulPlainTo(ctOut, ct *Ciphertext, pt *Element) {
+// MulElementTo computes ctOut = ct * pt.
+func (op *Operator) MulElementTo(ctOut, ct *Ciphertext, pt *Element) {
 	op.plainOp.MulTo(ctOut.Body, ct.Body, pt)
 	op.plainOp.MulTo(ctOut.Mask, ct.Mask, pt)
 }
 
-// MulAddPlainTo computes ctOut += ct * pt.
-func (op *Operator) MulAddPlainTo(ctOut, ct *Ciphertext, pt *Element) {
+// MulAddElementTo computes ctOut += ct * pt.
+func (op *Operator) MulAddElementTo(ctOut, ct *Ciphertext, pt *Element) {
 	op.plainOp.MulAddTo(ctOut.Body, ct.Body, pt)
 	op.plainOp.MulAddTo(ctOut.Mask, ct.Mask, pt)
 }
 
-// MulSubPlainTo computes ctOut -= ct * pt.
-func (op *Operator) MulSubPlainTo(ctOut, ct *Ciphertext, pt *Element) {
+// MulSubElementTo computes ctOut -= ct * pt.
+func (op *Operator) MulSubElementTo(ctOut, ct *Ciphertext, pt *Element) {
 	op.plainOp.MulSubTo(ctOut.Body, ct.Body, pt)
 	op.plainOp.MulSubTo(ctOut.Mask, ct.Mask, pt)
 }
@@ -543,6 +623,19 @@ func (op *Operator) InvNTT(ct *Ciphertext) *Ciphertext {
 func (op *Operator) InvNTTTo(ctOut, ct *Ciphertext) {
 	op.plainOp.InvNTTTo(ctOut.Body, ct.Body)
 	op.plainOp.InvNTTTo(ctOut.Mask, ct.Mask)
+}
+
+// ModRaise raises ct to the modulus with length l.
+func (op *Operator) ModRaise(ct *Ciphertext, l int, isNTT bool) *Ciphertext {
+	ctOut := NewCiphertextCustom(ct.Rank(), l, 0, ct.IsNTT())
+	op.ModRaiseTo(ctOut, ct, isNTT)
+	return ctOut
+}
+
+// ModRaiseTo raises ct to the modulus with length l and stores the result in ctOut.
+func (op *Operator) ModRaiseTo(ctOut, ct *Ciphertext, isNTT bool) {
+	op.plainOp.ModRaiseTo(ctOut.Body, ct.Body, isNTT)
+	op.plainOp.ModRaiseTo(ctOut.Mask, ct.Mask, isNTT)
 }
 
 // DivByAuxModulus returns round(ct / AuxModulus).

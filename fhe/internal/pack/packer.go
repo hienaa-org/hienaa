@@ -22,6 +22,12 @@ type IntPacker interface {
 	UnPack(vPack []uint64) []uint64
 	// UnPackTo unpacks vPack to v.
 	UnPackTo(v, vPack []uint64)
+	// Cube returns the form of the hypercube structure.
+	Cube() []int
+	// CubeGen returns the corresponding generator for the hypercube structure.
+	CubeGen() []uint64
+	// RotIdxToAutIdx converts a rotation index to an automorphism index.
+	RotIdxToAutIdx(idx []int) int
 }
 
 // NewIntPacker creates a new [IntPacker].
@@ -41,12 +47,17 @@ func NewIntPacker(params dft.RingParameters, mod *num.Modulus) IntPacker {
 
 			if isMod1 {
 				return newPow2CyclotomicMod1Packer(params, mod)
-			} else if len(primes) == 1 {
+			} else if primes[0] != 2 && len(primes) == 1 {
 				return newPow2CyclotomicMod3Packer(params, mod)
+			} else {
+				return newTrivialPacker(params, mod)
 			}
 
 		case dft.IsNTTFriendly(params, mod):
 			return newAnyCyclotomicPacker(params, mod)
+
+		default:
+			return newTrivialPacker(params, mod)
 		}
 
 	case dft.TypeAutFixed:

@@ -9,10 +9,18 @@ import (
 	"github.com/hienaa-org/hienaa/math/num"
 )
 
+const (
+	BOUND_128BIT = 12
+)
+
 // SamplerParameters is the parameters for [Sampler].
 type SamplerParameters interface {
 	// Sampler returns the [Sampler].
 	Sampler() Sampler
+	// Bound returns the inf-norm bound of the sampler.
+	Bound() *big.Float
+	// Variance returns the inf-norm bound of the variance of the sampler.
+	Variance() *big.Float
 }
 
 // UniformSamplerParameters is the parameters for [UniformSampler].
@@ -34,6 +42,35 @@ func (p UniformSamplerParameters) Sampler() Sampler {
 
 		boundMin: p.BoundMin,
 		boundMax: p.BoundMax,
+	}
+}
+
+// Bound returns the inf-norm bound of the sampler.
+func (p UniformSamplerParameters) Bound() *big.Float {
+	if p.BoundMin == nil || p.BoundMax == nil {
+		panic("bound min and max must be set")
+	} else {
+		if p.BoundMin.Cmp(p.BoundMax) > 0 {
+			return big.NewFloat(0).SetInt(p.BoundMin)
+		} else {
+			return big.NewFloat(0).SetInt(p.BoundMax)
+		}
+	}
+}
+
+// Variance returns the inf-norm bound of the variance of the sampler.
+func (p UniformSamplerParameters) Variance() *big.Float {
+	if p.BoundMin == nil || p.BoundMax == nil {
+		panic("bound min and max must be set")
+	} else {
+		numerator := big.NewInt(0).Sub(p.BoundMax, p.BoundMin)
+		numerator.Add(numerator, big.NewInt(1))
+		numerator.Mul(numerator, numerator)
+		numerator.Sub(numerator, big.NewInt(1))
+
+		variance := big.NewFloat(0).SetInt(numerator)
+		variance.Quo(variance, big.NewFloat(12))
+		return variance
 	}
 }
 
@@ -73,6 +110,20 @@ func (p TernarySamplerParameters) Sampler() Sampler {
 		neg: uint64(p.Negative * math.Exp2(63)),
 		hw:  p.HammingWeight,
 	}
+}
+
+// Bound returns the inf-norm bound of the sampler.
+func (p TernarySamplerParameters) Bound() *big.Float {
+	return big.NewFloat(1)
+}
+
+// Variance returns the inf-norm bound of the variance of the sampler.
+func (p TernarySamplerParameters) Variance() *big.Float {
+	if p.HammingWeight > 0 {
+		panic("hamming weight must be 0")
+	}
+
+	return big.NewFloat(p.Positive + p.Negative)
 }
 
 // RoundedGaussianSamplerParameters is the parameters for [RoundedGaussianSampler].
@@ -120,6 +171,39 @@ func (p RoundedGaussianSamplerParameters[T]) Sampler() Sampler {
 	}
 
 	panic("unsupported parameters")
+}
+
+// Bound returns the inf-norm bound of the sampler.
+func (p RoundedGaussianSamplerParameters[T]) Bound() *big.Float {
+	var center, stdDev *big.Float
+	switch any(p.StdDev).(type) {
+	case float64:
+		center = big.NewFloat(0).SetFloat64(any(p.Center).(float64))
+		stdDev = big.NewFloat(0).SetFloat64(any(p.StdDev).(float64))
+	case *big.Float:
+		center = big.NewFloat(0).Set(any(p.Center).(*big.Float))
+		stdDev = big.NewFloat(0).Set(any(p.StdDev).(*big.Float))
+	}
+	bound := big.NewFloat(0).Abs(center)
+	bound.Add(bound, big.NewFloat(0).Mul(stdDev, big.NewFloat(BOUND_128BIT)))
+
+	return bound
+}
+
+// Variance returns the inf-norm bound of the variance of the sampler.
+func (p RoundedGaussianSamplerParameters[T]) Variance() *big.Float {
+	var stdDev *big.Float
+	switch any(p.StdDev).(type) {
+	case float64:
+		stdDev = big.NewFloat(0).SetFloat64(any(p.StdDev).(float64))
+	case *big.Float:
+		stdDev = big.NewFloat(0).Set(any(p.StdDev).(*big.Float))
+	}
+
+	variance := big.NewFloat(0).Mul(stdDev, stdDev)
+	variance.Add(variance, big.NewFloat(0.5))
+
+	return variance
 }
 
 // Sampler is an interface for sampling polynomials.

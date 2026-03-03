@@ -169,6 +169,10 @@ func (gr *GaloisRing) ExpTo(xOut, x *Element, e uint64) {
 	xBuf := gr.pool.Get().(*Element)
 	defer gr.pool.Put(xBuf)
 
+	xOutBuf.Clear()
+	xOutBuf.poly.Coeffs[0][0] = 1
+	xBuf.CopyFrom(x)
+
 	for e > 0 {
 		if e&1 == 1 {
 			gr.MulTo(xOutBuf, xOutBuf, xBuf)

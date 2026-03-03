@@ -16,4 +16,10 @@ type Packer[P Plaintext, T num.Number] interface {
 	UnPack(pt P) []T
 	// UnPack unpacks pt to vOut.
 	UnPackTo(vOut []T, pt P)
+	// Cube returns the form of the hypercube structure.
+	Cube() []int
+	// CubeGen returns the corresponding generator for the hypercube structure.
+	CubeGen() []uint64
+	// RotIdxToAutIdx converts a rotation index to an automorphism index.
+	RotIdxToAutIdx(idx []int) int
 }

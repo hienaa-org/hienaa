@@ -16,7 +16,12 @@ func NewScalar(params Parameters, hasAux bool) *Element {
 		panic("no auxiliary modulus")
 	}
 
-	return NewElement(1, len(params.baseMod), len(params.auxMod), false)
+	auxLen := len(params.auxMod)
+	if !hasAux {
+		auxLen = 0
+	}
+
+	return NewElement(1, len(params.baseMod), auxLen, false)
 }
 
 // NewPoly creates a new polynomial [Element].
@@ -25,7 +30,12 @@ func NewPoly(params Parameters, hasAux bool, isNTT bool) *Element {
 		panic("no auxiliary modulus")
 	}
 
-	return NewElement(params.RingParams().Rank(), len(params.baseMod), len(params.auxMod), isNTT)
+	auxLen := len(params.auxMod)
+	if !hasAux {
+		auxLen = 0
+	}
+
+	return NewElement(params.RingParams().Rank(), len(params.baseMod), auxLen, isNTT)
 }
 
 // NewElement creates a new [Element] with the given parameters.
@@ -207,10 +217,12 @@ func NewCiphertext(params Parameters, hasAux bool, isNTT bool) *Ciphertext {
 		panic("no auxiliary modulus")
 	}
 
+	auxLen := len(params.auxMod)
 	if !hasAux {
-		return NewCiphertextCustom(params.RingParams().Rank(), len(params.baseMod), len(params.auxMod), isNTT)
+		auxLen = 0
 	}
-	return NewCiphertextCustom(params.RingParams().Rank(), len(params.fullMod), len(params.auxMod), isNTT)
+
+	return NewCiphertextCustom(params.RingParams().Rank(), len(params.baseMod), auxLen, isNTT)
 }
 
 // NewCiphertextCustom creates a new [Ciphertext] with the given parameters.
@@ -386,10 +398,12 @@ func NewVector(params Parameters, length int, hasAux, isNTT bool) *Vector {
 		panic("no auxiliary modulus")
 	}
 
+	auxLen := len(params.auxMod)
 	if !hasAux {
-		return NewVectorCustom(params.RingParams().Rank(), len(params.baseMod), len(params.auxMod), length, isNTT)
+		auxLen = 0
 	}
-	return NewVectorCustom(params.RingParams().Rank(), len(params.fullMod), len(params.auxMod), length, isNTT)
+
+	return NewVectorCustom(params.RingParams().Rank(), len(params.baseMod), auxLen, length, isNTT)
 }
 
 // NewVectorCustom creates a new [Vector] with the given parameters.

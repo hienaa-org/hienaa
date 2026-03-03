@@ -24,6 +24,13 @@ type pow2AutFixedMod1Packer struct {
 	// ntt is the transformer for NTT.
 	ntt dft.Transformer
 
+	// cube is the form of the hypercube structure.
+	cube []int
+	// cubeGen is the corresponding generator for the hypercube structure.
+	cubeGen []uint64
+
+	cycloOrdMod *num.Modulus
+
 	pool *sync.Pool
 }
 
@@ -47,6 +54,11 @@ func newPow2AutFixedMod1Packer(params dft.RingParameters, mod *num.Modulus) *pow
 
 		packLen: packLen,
 		ntt:     ntt,
+
+		cube:    []int{packLen},
+		cubeGen: []uint64{5},
+
+		cycloOrdMod: num.NewModulus(params.CycloOrder()),
 
 		pool: &sync.Pool{
 			New: func() any {
@@ -99,12 +111,13 @@ func (p *pow2AutFixedMod1Packer) PackTo(vPack, v []uint64) {
 		copy(vBuf[vLen*i:vLen*(i+1)], v)
 	}
 
-	pow5 := 1
+	invPow5 := 1
+	inv5 := int(num.Inv(5, p.cycloOrdMod))
 	mask := p.packLen<<2 - 1
 	revShiftBits := 64 - int(num.Log2(uint64(p.packLen))+1)
 	for i := 0; i < p.packLen; i++ {
-		idx := pow5 >> 1
-		if pow5 > p.packLen<<1 {
+		idx := invPow5 >> 1
+		if invPow5 > p.packLen<<1 {
 			idx = p.packLen<<1 - 1 - idx
 		}
 
@@ -114,7 +127,7 @@ func (p *pow2AutFixedMod1Packer) PackTo(vPack, v []uint64) {
 		}
 
 		vBufPow5[idxOut] = vBuf[i]
-		pow5 = (5 * pow5) & mask
+		invPow5 = (inv5 * invPow5) & mask
 	}
 
 	vec.MFormTo(vBufPow5, vBufPow5, p.mod)
@@ -157,12 +170,13 @@ func (p *pow2AutFixedMod1Packer) UnPackTo(v, vPack []uint64) {
 	p.ntt.ForwardTo(vBuf, vBuf)
 	vec.InvMFormTo(vBuf, vBuf, p.mod)
 
-	pow5 := 1
+	invPow5 := 1
+	inv5 := int(num.Inv(5, p.cycloOrdMod))
 	mask := p.packLen<<2 - 1
 	revShiftBits := 64 - int(num.Log2(uint64(p.packLen))+1)
 	for i := 0; i < p.packLen; i++ {
-		idx := pow5 >> 1
-		if pow5 > p.packLen<<1 {
+		idx := invPow5 >> 1
+		if invPow5 > p.packLen<<1 {
 			idx = p.packLen<<1 - 1 - idx
 		}
 
@@ -172,10 +186,28 @@ func (p *pow2AutFixedMod1Packer) UnPackTo(v, vPack []uint64) {
 		}
 
 		vBufPow5[i] = vBuf[idxIn]
-		pow5 = (5 * pow5) & mask
+		invPow5 = (inv5 * invPow5) & mask
 	}
 
 	copy(v, vBufPow5[:vLen])
+}
+
+// Cube returns the form of the hypercube structure.
+func (p *pow2AutFixedMod1Packer) Cube() []int {
+	return p.cube
+}
+
+// CubeGen returns the corresponding generator for the hypercube structure.
+func (p *pow2AutFixedMod1Packer) CubeGen() []uint64 {
+	return p.cubeGen
+}
+
+// RotIdxToAutIdx converts a rotation index to an automorphism index.
+func (p *pow2AutFixedMod1Packer) RotIdxToAutIdx(idx []int) int {
+	if len(idx) != 1 {
+		panic("input(s) shape not consistent")
+	}
+	return int(num.Exp(5, uint64(idx[0]), nil)) & (p.params.CycloOrder() - 1)
 }
 
 // pow2AutFixedMod3Packer is a packer for the power-of-two autfixed ring,
@@ -190,6 +222,11 @@ type pow2AutFixedMod3Packer struct {
 	nttRank int
 	// packIdx is the index mapping for the packing.
 	packIdx []int
+
+	// cube is the form of the hypercube structure.
+	cube []int
+	// cubeGen is the corresponding generator for the hypercube structure.
+	cubeGen []uint64
 
 	// tw is the twiddle factor for NTT.
 	tw []gnum.GaussianInt
@@ -242,7 +279,7 @@ func newPow2AutFixedMod3Packer(params dft.RingParameters, mod *num.Modulus) *pow
 	revShiftBits := 64 - int(num.Log2(uint64(nttRank))+1)
 	if nttRank == packLen {
 		for i := 0; i < packLen; i++ {
-			packIdx[i] = int(num.Exp(5, uint64(i), nil)) & mask
+			packIdx[i] = int(num.Exp(5, uint64(packLen<<1-i), nil)) & mask
 			if packIdx[i] > packLen<<1 {
 				packIdx[i] = mask - packIdx[i] + 1
 			}
@@ -255,7 +292,7 @@ func newPow2AutFixedMod3Packer(params dft.RingParameters, mod *num.Modulus) *pow
 		}
 	} else {
 		for i := 0; i < packLen; i++ {
-			idx1 := int(num.Exp(5, uint64(i), nil)) & mask
+			idx1 := int(num.Exp(5, uint64(packLen<<1-i), nil)) & mask
 			idx2 := (idx1 * int(primes[0])) & mask
 			idx3 := mask - idx1 + 1
 			idx4 := mask - idx2 + 1
@@ -305,6 +342,9 @@ func newPow2AutFixedMod3Packer(params dft.RingParameters, mod *num.Modulus) *pow
 		packLen: packLen,
 		nttRank: nttRank,
 		packIdx: packIdx,
+
+		cube:    []int{packLen},
+		cubeGen: []uint64{5},
 
 		tw:    tw,
 		twInv: twInv,
@@ -415,6 +455,24 @@ func (p *pow2AutFixedMod3Packer) UnPackTo(v, vPack []uint64) {
 	}
 }
 
+// Cube returns the form of the hypercube structure.
+func (p *pow2AutFixedMod3Packer) Cube() []int {
+	return p.cube
+}
+
+// CubeGen returns the corresponding generator for the hypercube structure.
+func (p *pow2AutFixedMod3Packer) CubeGen() []uint64 {
+	return p.cubeGen
+}
+
+// RotIdxToAutIdx converts a rotation index to an automorphism index.
+func (p *pow2AutFixedMod3Packer) RotIdxToAutIdx(idx []int) int {
+	if len(idx) != 1 {
+		panic("input(s) shape not consistent")
+	}
+	return int(num.Exp(5, uint64(idx[0]), nil)) & (p.params.CycloOrder() - 1)
+}
+
 // primeAutFixedPacker is a packer for prime autfixed ring.
 type primeAutFixedPacker struct {
 	params dft.RingParameters
@@ -423,10 +481,18 @@ type primeAutFixedPacker struct {
 	// packLen is the packing length.
 	packLen int
 
+	// cube is the form of the hypercube structure.
+	cube []int
+	// cubeGen is the corresponding generator for the hypercube structure.
+	cubeGen []uint64
+
 	// resol is the resolution of unity.
 	resol [][]uint64
 	// invResol is the inverse resolution of unity.
 	invResol [][]uint64
+
+	// cycloOrdMod is the cyclotomic order modulus.
+	cycloOrdMod *num.Modulus
 
 	// ambRank is the rank of the ambient NTT.
 	ambRank int
@@ -502,14 +568,21 @@ func newAutFixedPrimePacker(params dft.RingParameters, mod *num.Modulus) *primeA
 
 	embedder := crt.NewEmbedder([]*num.Modulus{mod}, ambMod)
 
+	cycloOrdMod := num.NewModulus(cycloOrd)
+
 	return &primeAutFixedPacker{
 		params: params,
 		mod:    mod,
 
 		packLen: packLen,
 
+		cube:    []int{packLen},
+		cubeGen: []uint64{num.Inv(num.Generators(cycloOrdMod)[0], cycloOrdMod)},
+
 		resol:    resol,
 		invResol: invResol,
+
+		cycloOrdMod: cycloOrdMod,
 
 		ambRank:  ambRank,
 		ambMod:   ambMod,
@@ -721,4 +794,22 @@ func (p *primeAutFixedPacker) UnPackTo(v, vPack []uint64) {
 	}
 
 	copy(v, vBuf[0][:len(v)])
+}
+
+// Cube returns the form of the hypercube structure.
+func (p *primeAutFixedPacker) Cube() []int {
+	return p.cube
+}
+
+// CubeGen returns the corresponding generator for the hypercube structure.
+func (p *primeAutFixedPacker) CubeGen() []uint64 {
+	return p.cubeGen
+}
+
+// RotIdxToAutIdx converts a rotation index to an automorphism index.
+func (p *primeAutFixedPacker) RotIdxToAutIdx(idx []int) int {
+	if len(idx) != 1 {
+		panic("input(s) shape not consistent")
+	}
+	return int(num.Exp(p.cubeGen[0], uint64(idx[0]), p.cycloOrdMod))
 }

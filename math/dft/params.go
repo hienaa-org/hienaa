@@ -25,12 +25,15 @@ const (
 
 // RingParameters contains the parameters for the ring.
 type RingParameters struct {
-	// CycloOrder is the order of the underlying cyclotomic polynomial.
+	// cycloOrder is the order of the underlying cyclotomic polynomial.
 	// 0 if the RingType is not [Cyclotomic] or [AutFixed].
 	cycloOrd int
 
-	// Rank is the number of coefficients of the polynomial in the ring.
+	// rank is the number of coefficients of the polynomial in the ring.
 	rank int
+
+	// expFactor is the expansion factor of the ring.
+	expFactor int
 
 	// ringType is the type of the ring.
 	ringType RingType
@@ -43,9 +46,10 @@ func NewCyclotomicParameters(cycloOrd int) RingParameters {
 	}
 
 	return RingParameters{
-		cycloOrd: cycloOrd,
-		rank:     int(num.Totient(uint64(cycloOrd))),
-		ringType: TypeCyclotomic,
+		cycloOrd:  cycloOrd,
+		rank:      int(num.Totient(uint64(cycloOrd))),
+		expFactor: cyclotomicExpFactor(cycloOrd),
+		ringType:  TypeCyclotomic,
 	}
 }
 
@@ -56,9 +60,10 @@ func NewCyclicParameters(rank int) RingParameters {
 	}
 
 	return RingParameters{
-		cycloOrd: 0,
-		rank:     rank,
-		ringType: TypeCyclic,
+		cycloOrd:  0,
+		rank:      rank,
+		expFactor: cyclicExpFactor(rank),
+		ringType:  TypeCyclic,
 	}
 }
 
@@ -82,9 +87,10 @@ func NewAutFixedParameters(cycloOrd, rank int) RingParameters {
 	}
 
 	return RingParameters{
-		cycloOrd: cycloOrd,
-		rank:     rank,
-		ringType: TypeAutFixed,
+		cycloOrd:  cycloOrd,
+		rank:      rank,
+		expFactor: autFixedExpFactor(cycloOrd, rank),
+		ringType:  TypeAutFixed,
 	}
 }
 
@@ -95,9 +101,10 @@ func NewOtherParameters(modPoly []int64) RingParameters {
 	}
 
 	return RingParameters{
-		cycloOrd: 0,
-		rank:     len(modPoly) - 1,
-		ringType: TypeOther,
+		cycloOrd:  0,
+		rank:      len(modPoly) - 1,
+		expFactor: otherExpFactor(modPoly),
+		ringType:  TypeOther,
 	}
 }
 
@@ -112,9 +119,82 @@ func (p RingParameters) Rank() int {
 	return p.rank
 }
 
+// ExpFactor is the expansion factor of the ring.
+func (p RingParameters) ExpFactor() int {
+	return p.expFactor
+}
+
 // RingType is the type of the ring.
 func (p RingParameters) RingType() RingType {
 	return p.ringType
+}
+
+// ExpFactor is the expansion factor of the ring.
+func cyclotomicExpFactor(cycloOrd int) int {
+	if num.IsPowerOfTwo(cycloOrd) {
+		return cycloOrd >> 1
+	} else {
+		primes, exps := num.Factor(cycloOrd)
+		if len(primes) == 1 {
+			return 2 * int(num.Exp(uint64(primes[0]), uint64(exps[0]-1), nil)) * int(primes[0]-1)
+		} else {
+			cycloPoly := CyclotomicPolynomial(cycloOrd)
+			tot := num.Totient(cycloOrd)
+			max := 0
+			for i := 0; i < 2*tot-cycloOrd; i++ {
+				sum := 0
+				for j := 0; j < cycloOrd-tot; j++ {
+					sum += int(math.Abs(float64(cycloPoly[j+i])))
+				}
+				if sum > max {
+					max = sum
+				}
+			}
+
+			return (max + 1) * tot
+		}
+	}
+}
+
+// cyclicExpFactor is the expansion factor of the cyclic ring.
+func cyclicExpFactor(rank int) int {
+	return rank
+}
+
+// autFixedExpFactor is the expansion factor of the autfixed ring.
+func autFixedExpFactor(cycloOrd, rank int) int {
+	// TODO: Can we reduce the expansion factor with respect to the rank?
+	if num.IsPowerOfTwo(cycloOrd) {
+		return cycloOrd >> 1
+	} else {
+		return 2*cycloOrd - 2
+	}
+}
+
+// otherExpFactor is the expansion factor of the arbitrary quotient ring.
+func otherExpFactor(modPoly []int64) int {
+	len := len(modPoly)
+	cBound := make([]int, 2*len-1)
+	for i := 0; i < len; i++ {
+		cBound[i] = i + 1
+		cBound[2*len-2-i] = i + 1
+	}
+
+	for i := len - 1; i >= 0; i-- {
+		for j := 0; j < len; j++ {
+			cBound[i+j] += int(math.Abs(float64(modPoly[j]))) * cBound[i+len-1]
+		}
+		cBound[i+len-1] = 0
+	}
+
+	max := 0
+	for i := 0; i < len; i++ {
+		if cBound[i] > max {
+			max = cBound[i]
+		}
+	}
+
+	return max
 }
 
 // cyclotomicGap finds the "gap" of the NTT-friendly modulus for cyclotomic rings.
@@ -367,8 +447,28 @@ func FindAmbientPrimes(params RingParameters, minBits float64) ([]*num.Modulus, 
 	}
 
 	start := (uint64(math.Floor(num.MaxModulus/float64(gap))))*gap + 1
+	if start > num.MaxModulus {
+		for start > num.MaxModulus {
+			start -= gap
+		}
+	}
+
 	bits := 0.0
 	primes := make([]*num.Modulus, 0)
+	for {
+		prime, err := num.NextPrime(start, gap)
+		if err != nil {
+			break
+		}
+		primes = append(primes, num.NewModulus(prime))
+		start = prime
+
+		bits += num.Log2(prime)
+		if bits > minBits {
+			return primes, nil
+		}
+	}
+
 	for {
 		prime, err := num.PrevPrime(start, gap)
 		if err != nil {
@@ -379,9 +479,7 @@ func FindAmbientPrimes(params RingParameters, minBits float64) ([]*num.Modulus, 
 
 		bits += num.Log2(prime)
 		if bits > minBits {
-			break
+			return primes, nil
 		}
 	}
-
-	return primes, nil
 }

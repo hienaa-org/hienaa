@@ -20,5 +20,5 @@ type Plaintext struct {
 // Ciphertext is a CKKS ciphertext.
 type Ciphertext struct {
 	Value *rlwe.Ciphertext
-	noise *big.Int
+	scFac *big.Float
 }

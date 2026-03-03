@@ -10,9 +10,9 @@ import (
 )
 
 // where the product of modulus and auxModulus is approximately 2^modulusBits and 2^auxModulusBits respectively.
-func FindNTTPrimes(params dft.RingParameters, modulusBits, auxModulusBits float64) ([]*num.Modulus, []*num.Modulus) {
-	modLen := int(math.Ceil(modulusBits / num.MaxModulusBits))
-	auxModLen := int(math.Ceil(auxModulusBits / num.MaxModulusBits))
+func FindNTTPrimes(params dft.RingParameters, baseModBits, auxModBits float64) ([]*num.Modulus, []*num.Modulus) {
+	modLen := int(math.Ceil(baseModBits / num.MaxModulusBits))
+	auxModLen := int(math.Ceil(auxModBits / num.MaxModulusBits))
 
 	var modulus, auxModulus []*num.Modulus
 	var bitlen float64
@@ -25,12 +25,12 @@ func FindNTTPrimes(params dft.RingParameters, modulusBits, auxModulusBits float6
 			panic(err)
 		}
 
-		start := (uint64(math.Round(math.Exp2(modulusBits/float64(modLen))))/gap)*gap + 1
+		start := (uint64(math.Round(math.Exp2(baseModBits/float64(modLen))))/gap)*gap + 1
 		prime, err := num.PrevPrime(start, gap)
 		if err != nil {
 			panic(err)
 		}
-		bitlen = modulusBits
+		bitlen = baseModBits
 		for i := 0; i < modLen-1; i++ {
 			modulus[i] = num.NewModulus(prime)
 			bitlen -= num.Log2(modulus[i].Value())
@@ -86,8 +86,8 @@ func FindNTTPrimes(params dft.RingParameters, modulusBits, auxModulusBits float6
 				panic(err)
 			}
 
-			bitlen = auxModulusBits
-			start := (uint64(math.Round(math.Exp2(auxModulusBits/float64(auxModLen))))/gap)*gap + 1
+			bitlen = auxModBits
+			start := (uint64(math.Round(math.Exp2(auxModBits/float64(auxModLen))))/gap)*gap + 1
 			prime := num.MustPrevPrime(start, gap)
 
 			cnt := 0

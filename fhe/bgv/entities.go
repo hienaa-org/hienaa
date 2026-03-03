@@ -20,5 +20,5 @@ type Plaintext struct {
 // Ciphertext is a BGV ciphertext.
 type Ciphertext struct {
 	Value *rlwe.Ciphertext
-	noise *big.Int
+	noise *big.Float
 }
