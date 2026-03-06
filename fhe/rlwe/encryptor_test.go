@@ -1,7 +1,6 @@
 package rlwe_test
 
 import (
-	"math"
 	"math/big"
 	"testing"
 
@@ -13,7 +12,7 @@ import (
 
 func checkBound(v []*big.Int, bound float64) bool {
 	viAbs := new(big.Int)
-	boundBig := big.NewInt(int64(math.Ceil(bound)))
+	boundBig, _ := big.NewFloat(bound).Int(nil)
 	for i := range v {
 		viAbs.Abs(v[i])
 		if viAbs.Cmp(boundBig) > 0 {

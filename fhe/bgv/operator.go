@@ -369,16 +369,16 @@ func (op *Operator) getMulModAmbLen(ct0, ct1 *Ciphertext, mulMod *big.Int) int {
 	}
 	mod1.Quo(mod1, scale1)
 
-	// reuse bigInt.
-	msgMod := scale0
-	tarMod := scale1
-	msgMod.SetUint64(op.msgMod.Value())
-
 	if mod0.Cmp(mod1) > 0 {
 		mulMod.Set(mod0)
 	} else {
 		mulMod.Set(mod1)
 	}
+
+	// reuse bigInt.
+	msgMod := scale0
+	tarMod := scale1
+	msgMod.SetUint64(op.msgMod.Value())
 	mulMod.Quo(mulMod, msgMod)
 	mulMod.Mul(mulMod, msgMod)
 	mulMod.Add(mulMod, modi.SetInt64(1))
