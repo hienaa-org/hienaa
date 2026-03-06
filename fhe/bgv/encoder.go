@@ -1,4 +1,4 @@
-package bfv
+package bgv
 
 import (
 	"github.com/hienaa-org/hienaa/fhe/internal/heint"

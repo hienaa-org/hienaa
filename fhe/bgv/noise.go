@@ -1,4 +1,4 @@
-package bfv
+package bgv
 
 import (
 	"github.com/hienaa-org/hienaa/fhe/internal/heint"
@@ -32,24 +32,22 @@ func NewNoiseEstimator(params rlwe.Parameters, msgMod *num.Modulus, estimType he
 	}
 }
 
-// TODO: consider the noise from encoding when the plaintext modulus does not divide the ciphertext modulus.
-
-// Encrypt returns the noise of the fresh ciphertext.
+// EncryptTo returns the noise of the fresh ciphertext.
 func (ne *NoiseEstimator) EncryptTo(cOut *Ciphertext) {
 	cOut.noise = ne.noise.Encrypt()
 }
 
-// ModSwitchTo switches the modulus of the ciphertext to the given length.
+// ModSwitchTo returns the noise of the modulus switched ciphertext.
 func (ne *NoiseEstimator) ModSwitchTo(cOut, ct *Ciphertext, l int) {
 	cOut.noise = ne.noise.ModSwitch(cOut.noise, ct.ModLen(), l)
 }
 
-// FwdNTTTo computes ctOut = FwdNTT(ct).
+// FwdNTTTo returns the noise of the forward NTT transformed ciphertext.
 func (ne *NoiseEstimator) FwdNTTTo(cOut, ct *Ciphertext) {
 	cOut.noise = ct.noise
 }
 
-// InvNTTTo computes ctOut = InvNTT(ct).
+// InvNTTTo returns the noise of the inverse NTT transformed ciphertext.
 func (ne *NoiseEstimator) InvNTTTo(cOut, ct *Ciphertext) {
 	cOut.noise = ct.noise
 }
@@ -89,41 +87,9 @@ func (ne *NoiseEstimator) SubElementTo(cOut, ct *Ciphertext, e *rlwe.Element) {
 	cOut.noise = ne.noise.SubElement(ct.noise, e)
 }
 
-// Mul returns the noise of the product of two ciphertexts.
-func (ne *NoiseEstimator) MulTo(ctOut, ct0, ct1 *Ciphertext) {
-	tarLen := min(ct0.ModLen(), ct1.ModLen())
+// MulTo returns the noise of the product of two ciphertexts.
+func (ne *NoiseEstimator) MulTo(cOut, ct0, ct1 *Ciphertext) {
 
-	noise0 := ne.noise.ModSwitch(ct0.noise, ct0.ModLen(), tarLen)
-	noise1 := ne.noise.ModSwitch(ct1.noise, ct1.ModLen(), tarLen)
-
-	// Given phases q/t*m + e + qI and q/t*m' + e' + qI' of lifted ciphertexts,
-	// the output noise is given by q/t*mm' + (me'+m'e) + t*(eI' + e'I) + t/q * ee' + e_rnd + keyswitching noise.
-
-	// e_rnd
-	keyExpFac := ne.noise.KeyExpansionFactor()
-	if ne.estimType == VarianceType {
-		ctOut.noise = (1 + keyExpFac + keyExpFac*keyExpFac) / 12
-	} else {
-		ctOut.noise = (1 + keyExpFac + keyExpFac*keyExpFac) / 2
-	}
-
-	// key-switching noise.
-	ctOut.noise += ne.noise.KeySwitch(ctOut.noise, tarLen)
-
-	// t/q * ee'
-	msgMod := float64(ne.msgMod.Value())
-	expFac := float64(ne.params.RingParams().ExpFactor())
-	baseMod := float64(1)
-	for i := 0; i < tarLen; i++ {
-		baseMod *= float64(ne.params.BaseModulus()[i].Value())
-	}
-	ctOut.noise += msgMod / baseMod * noise0 * noise1 * expFac
-
-	// t*(eI' + e'I)
-	ctOut.noise += msgMod * expFac * (noise0 + noise1) * ne.noise.RoundNoise()
-
-	// me' + m'e
-	ctOut.noise += msgMod / 2 * (noise0 + noise1) * expFac
 }
 
 // MulPlainTo returns the noise of the product of a ciphertext and a plaintext.
@@ -133,9 +99,6 @@ func (ne *NoiseEstimator) MulPlainTo(cOut, ct *Ciphertext, pt *Plaintext) {
 
 // MulElementTo returns the noise of the product of a ciphertext and an element.
 func (ne *NoiseEstimator) MulElementTo(cOut, ct *Ciphertext, e *rlwe.Element) {
-	// When we multiply a ciphertext and an element, we cannot compute the tight bound of the noise
-	// without expensive operations, such as basis embedding or inverse NTT.
-	// Therefore, we use the half of the message modulus as the noise bound.
 	cOut.noise = ne.noise.MulElement(ct.noise, e)
 }
 

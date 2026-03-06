@@ -672,6 +672,21 @@ func (op *Operator) ScaleTo(ctOut, ct *Ciphertext, l int, isNTT bool) {
 	op.plainOp.ScaleTo(ctOut.Mask, ct.Mask, l, isNTT)
 }
 
+// tensorTo tensors two ciphertexts in the ambient modulus into a vector.
+//
+// Input must be in NTT form, and output is in NTT form.
+func (op *Operator) TensorTo(vOut *Vector, ct0, ct1 *Ciphertext) {
+	if vOut.BaseModLen() != ct0.BaseModLen() || vOut.BaseModLen() != ct1.BaseModLen() || vOut.AuxModLen() != 0 {
+		panic("inconsistent input(s)")
+	}
+
+	pOp := op.plainOp
+	pOp.MulTo(vOut.Value[0], ct0.Body, ct1.Body)
+	pOp.MulTo(vOut.Value[1], ct0.Body, ct1.Mask)
+	pOp.MulAddTo(vOut.Value[1], ct0.Mask, ct1.Body)
+	pOp.MulTo(vOut.Value[2], ct0.Mask, ct1.Mask)
+}
+
 // HoistedGadgetProdLazy returns ctOut = p * ctGadEnc, where the decomposition of p is precomputed.
 // The modulus of the output includes the auxillary modulus if present.
 func (op *Operator) HoistedGadgetProdLazy(pDcmp *Vector, ctGadEnc *GadgetEncryption, isNTT bool) *Ciphertext {

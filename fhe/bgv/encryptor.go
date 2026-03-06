@@ -1,4 +1,4 @@
-package bfv
+package bgv
 
 import (
 	"github.com/hienaa-org/hienaa/fhe/internal/heint"
@@ -7,7 +7,6 @@ import (
 	"github.com/hienaa-org/hienaa/math/num"
 )
 
-// Encryptor encrypts/decrypts [*Ciphertext] and [*Plaintext].
 type Encryptor struct {
 	heintEnc *heint.Encryptor
 	noise    *NoiseEstimator
@@ -67,8 +66,8 @@ func (e *Encryptor) Encrypt(v *Plaintext, isNTT bool) *Ciphertext {
 }
 
 // EncryptCustom encrypts the message v with custom parameters.
-func (e *Encryptor) EncryptCustom(v *Plaintext, modLen int, isNTT bool) *Ciphertext {
-	ct := NewCiphertextCustom(e.Parameters().Rank(), modLen, isNTT)
+func (e *Encryptor) EncryptCustom(v *Plaintext, baseLen int, isNTT bool) *Ciphertext {
+	ct := NewCiphertextCustom(e.Parameters().Rank(), baseLen, isNTT)
 	e.EncryptTo(ct, v, isNTT)
 	return ct
 }
@@ -81,7 +80,7 @@ func (e *Encryptor) EncryptTo(ctOut *Ciphertext, v *Plaintext, isNTT bool) {
 
 // EncryptElement encrypts the element e.
 func (e *Encryptor) EncryptElement(eIn *rlwe.Element, isNTT bool) *Ciphertext {
-	ct := NewCiphertextCustom(e.Parameters().Rank(), eIn.BaseModLen(), isNTT)
+	ct := NewCiphertext(e.Parameters(), isNTT)
 	e.EncryptElementTo(ct, eIn, isNTT)
 	return ct
 }

@@ -18,9 +18,9 @@ type SamplerParameters interface {
 	// Sampler returns the [Sampler].
 	Sampler() Sampler
 	// Bound returns the inf-norm bound of the sampler.
-	Bound() *big.Float
+	Bound() float64
 	// Variance returns the inf-norm bound of the variance of the sampler.
-	Variance() *big.Float
+	Variance() float64
 }
 
 // UniformSamplerParameters is the parameters for [UniformSampler].
@@ -46,31 +46,29 @@ func (p UniformSamplerParameters) Sampler() Sampler {
 }
 
 // Bound returns the inf-norm bound of the sampler.
-func (p UniformSamplerParameters) Bound() *big.Float {
+func (p UniformSamplerParameters) Bound() float64 {
 	if p.BoundMin == nil || p.BoundMax == nil {
 		panic("bound min and max must be set")
 	} else {
 		if p.BoundMin.Cmp(p.BoundMax) > 0 {
-			return big.NewFloat(0).SetInt(p.BoundMin)
+			bMax, _ := p.BoundMax.Float64()
+			return bMax
 		} else {
-			return big.NewFloat(0).SetInt(p.BoundMax)
+			bMin, _ := p.BoundMin.Float64()
+			return bMin
 		}
 	}
 }
 
 // Variance returns the inf-norm bound of the variance of the sampler.
-func (p UniformSamplerParameters) Variance() *big.Float {
+func (p UniformSamplerParameters) Variance() float64 {
 	if p.BoundMin == nil || p.BoundMax == nil {
 		panic("bound min and max must be set")
 	} else {
-		numerator := big.NewInt(0).Sub(p.BoundMax, p.BoundMin)
-		numerator.Add(numerator, big.NewInt(1))
-		numerator.Mul(numerator, numerator)
-		numerator.Sub(numerator, big.NewInt(1))
+		bMax, _ := p.BoundMax.Float64()
+		bMin, _ := p.BoundMin.Float64()
 
-		variance := big.NewFloat(0).SetInt(numerator)
-		variance.Quo(variance, big.NewFloat(12))
-		return variance
+		return ((bMax-bMin+1)*(bMax-bMin+1) - 1) / 12
 	}
 }
 
@@ -113,17 +111,17 @@ func (p TernarySamplerParameters) Sampler() Sampler {
 }
 
 // Bound returns the inf-norm bound of the sampler.
-func (p TernarySamplerParameters) Bound() *big.Float {
-	return big.NewFloat(1)
+func (p TernarySamplerParameters) Bound() float64 {
+	return 1
 }
 
 // Variance returns the inf-norm bound of the variance of the sampler.
-func (p TernarySamplerParameters) Variance() *big.Float {
+func (p TernarySamplerParameters) Variance() float64 {
 	if p.HammingWeight > 0 {
 		panic("hamming weight must be 0")
 	}
 
-	return big.NewFloat(p.Positive + p.Negative)
+	return p.Positive + p.Negative
 }
 
 // RoundedGaussianSamplerParameters is the parameters for [RoundedGaussianSampler].
@@ -174,36 +172,31 @@ func (p RoundedGaussianSamplerParameters[T]) Sampler() Sampler {
 }
 
 // Bound returns the inf-norm bound of the sampler.
-func (p RoundedGaussianSamplerParameters[T]) Bound() *big.Float {
-	var center, stdDev *big.Float
+func (p RoundedGaussianSamplerParameters[T]) Bound() float64 {
+	var center, stdDev float64
 	switch any(p.StdDev).(type) {
 	case float64:
-		center = big.NewFloat(0).SetFloat64(any(p.Center).(float64))
-		stdDev = big.NewFloat(0).SetFloat64(any(p.StdDev).(float64))
+		center = any(p.Center).(float64)
+		stdDev = any(p.StdDev).(float64)
 	case *big.Float:
-		center = big.NewFloat(0).Set(any(p.Center).(*big.Float))
-		stdDev = big.NewFloat(0).Set(any(p.StdDev).(*big.Float))
+		center, _ = any(p.Center).(*big.Float).Float64()
+		stdDev, _ = any(p.StdDev).(*big.Float).Float64()
 	}
-	bound := big.NewFloat(0).Abs(center)
-	bound.Add(bound, big.NewFloat(0).Mul(stdDev, big.NewFloat(BOUND_128BIT)))
 
-	return bound
+	return center + stdDev*BOUND_128BIT
 }
 
 // Variance returns the inf-norm bound of the variance of the sampler.
-func (p RoundedGaussianSamplerParameters[T]) Variance() *big.Float {
-	var stdDev *big.Float
+func (p RoundedGaussianSamplerParameters[T]) Variance() float64 {
+	var stdDev float64
 	switch any(p.StdDev).(type) {
 	case float64:
-		stdDev = big.NewFloat(0).SetFloat64(any(p.StdDev).(float64))
+		stdDev = any(p.StdDev).(float64)
 	case *big.Float:
-		stdDev = big.NewFloat(0).Set(any(p.StdDev).(*big.Float))
+		stdDev, _ = any(p.StdDev).(*big.Float).Float64()
 	}
 
-	variance := big.NewFloat(0).Mul(stdDev, stdDev)
-	variance.Add(variance, big.NewFloat(0.5))
-
-	return variance
+	return stdDev*stdDev + 0.5
 }
 
 // Sampler is an interface for sampling polynomials.

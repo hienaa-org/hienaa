@@ -1,8 +1,6 @@
 package bfv
 
 import (
-	"math/big"
-
 	"github.com/hienaa-org/hienaa/fhe/rlwe"
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/num"
@@ -64,14 +62,14 @@ func (e *Plaintext) IsEqual(e0 *Plaintext) bool {
 // Ciphertext is a BFV ciphertext.
 type Ciphertext struct {
 	Value *rlwe.Ciphertext
-	noise *big.Float
+	noise float64
 }
 
 // NewCiphertext creates a new [Ciphertext].
-func NewCiphertext(params Parameters, isNTT bool) *Ciphertext {
+func NewCiphertext(params rlwe.Parameters, isNTT bool) *Ciphertext {
 	return &Ciphertext{
-		Value: rlwe.NewCiphertext(params.RLWEParams(), false, isNTT),
-		noise: new(big.Float),
+		Value: rlwe.NewCiphertext(params, false, isNTT),
+		noise: 0,
 	}
 }
 
@@ -79,13 +77,13 @@ func NewCiphertext(params Parameters, isNTT bool) *Ciphertext {
 func NewCiphertextCustom(rank, modLen int, isNTT bool) *Ciphertext {
 	return &Ciphertext{
 		Value: rlwe.NewCiphertextCustom(rank, modLen, 0, isNTT),
-		noise: new(big.Float),
+		noise: 0,
 	}
 }
 
 // Noise returns the noise of c.
-func (c *Ciphertext) Noise() *big.Float {
-	return new(big.Float).Set(c.noise)
+func (c *Ciphertext) Noise() float64 {
+	return c.noise
 }
 
 // Rank returns the rank.
@@ -106,14 +104,14 @@ func (c *Ciphertext) IsNTT() bool {
 // Clear clears value.
 func (c *Ciphertext) Clear() {
 	c.Value.Clear()
-	c.noise.SetFloat64(0)
+	c.noise = 0
 }
 
 // WithModLen returns a shallow copy with the given modulus lengths.
 func (c *Ciphertext) WithModLen(baseLen int) *Ciphertext {
 	return &Ciphertext{
 		Value: c.Value.WithModLen(baseLen, 0),
-		noise: new(big.Float).Set(c.noise),
+		noise: c.noise,
 	}
 }
 
@@ -121,22 +119,22 @@ func (c *Ciphertext) WithModLen(baseLen int) *Ciphertext {
 func (c *Ciphertext) Copy() *Ciphertext {
 	return &Ciphertext{
 		Value: c.Value.Copy(),
-		noise: new(big.Float).Set(c.noise),
+		noise: c.noise,
 	}
 }
 
 // CopyFrom copies the coefficients from cIn to c.
 func (c *Ciphertext) CopyFrom(cIn *Ciphertext) {
 	c.Value.CopyFrom(cIn.Value)
-	c.noise.Set(cIn.noise)
+	c.noise = cIn.noise
 }
 
 // IsEqual checks if two values are equal.
 func (c *Ciphertext) IsEqual(c0 *Ciphertext) bool {
-	return c.Value.IsEqual(c0.Value) && c.noise.Cmp(c0.noise) == 0
+	return c.Value.IsEqual(c0.Value) && c.noise == c0.noise
 }
 
 // IsConsistent checks if two values have the same shape.
 func (c *Ciphertext) IsConsistent(c0 *Ciphertext) bool {
-	return c.Value.IsConsistent(c0.Value) && c.noise.Cmp(c0.noise) == 0
+	return c.Value.IsConsistent(c0.Value) && c.noise == c0.noise
 }

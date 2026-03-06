@@ -410,12 +410,20 @@ func newAnyCyclotomicPacker(params dft.RingParameters, mod *num.Modulus) *anyCyc
 
 	cycloOrdMod := num.NewModulus(params.CycloOrder())
 	primes, exps := num.Factor(cycloOrdMod.Value())
-	cube := make([]int, len(primes))
 	cubeGen := num.GeneratorsWithFactors(cycloOrdMod, primes, exps)
-	for i := range cube {
-		pExp := num.Exp(primes[i], exps[i], nil)
-		cube[i] = int(pExp - pExp/primes[i])
-		cubeGen[i] = num.Inv(cubeGen[i], cycloOrdMod)
+	cube := make([]int, len(cubeGen))
+	if primes[0] == 2 && exps[0] == 1 {
+		for i := range cube {
+			pExp := num.Exp(primes[i+1], exps[i+1], nil)
+			cube[i] = int(pExp - pExp/primes[i])
+			cubeGen[i] = num.Inv(cubeGen[i], cycloOrdMod)
+		}
+	} else {
+		for i := range cube {
+			pExp := num.Exp(primes[i], exps[i], nil)
+			cube[i] = int(pExp - pExp/primes[i])
+			cubeGen[i] = num.Inv(cubeGen[i], cycloOrdMod)
+		}
 	}
 
 	return &anyCyclotomicPacker{

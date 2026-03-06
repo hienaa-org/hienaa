@@ -1,6 +1,7 @@
 package rlwe_test
 
 import (
+	"math"
 	"math/big"
 	"testing"
 
@@ -10,12 +11,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func checkBound(v []*big.Int, bound *big.Float) bool {
-	viAbs := new(big.Float)
+func checkBound(v []*big.Int, bound float64) bool {
+	viAbs := new(big.Int)
+	boundBig := big.NewInt(int64(math.Ceil(bound)))
 	for i := range v {
-		viAbs.SetInt(v[i])
-		viAbs.Abs(viAbs)
-		if viAbs.Cmp(bound) > 0 {
+		viAbs.Abs(v[i])
+		if viAbs.Cmp(boundBig) > 0 {
 			return false
 		}
 	}

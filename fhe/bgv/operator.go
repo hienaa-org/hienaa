@@ -1,4 +1,4 @@
-package bfv
+package bgv
 
 import (
 	"cmp"
@@ -16,7 +16,7 @@ import (
 
 // Operator evaluates operations over [*Ciphertext] and [*Plaintext].
 type Operator struct {
-	params rlwe.Parameters
+	Params rlwe.Parameters
 	msgMod *num.Modulus
 
 	intOp  *heint.Operator
@@ -34,25 +34,35 @@ type Operator struct {
 // NewOperator creates a new [Operator].
 func NewOperator(params rlwe.Parameters, msgMod *num.Modulus, estimType heint.EstimType) *Operator {
 	ringParams := params.RingParams()
+	baseMod := params.BaseModulus()
+
+	needModBig := big.NewInt(int64(msgMod.Value()))
+	modi := big.NewInt(int64(msgMod.Value()))
+	for _, mod := range baseMod {
+		modi.SetUint64(mod.Value())
+		needModBig.Mul(needModBig, modi)
+		needModBig.Mul(needModBig, modi.SetInt64(int64(ringParams.ExpFactor())))
+	}
+	needModBig.Mul(needModBig, modi.SetInt64(int64(ringParams.ExpFactor())))
+
 	extraBits := float64(0)
 	for _, mod := range params.BaseModulus() {
 		extraBits += num.Log2(mod.Value())
 	}
 	extraBits = extraBits + num.Log2(ringParams.ExpFactor())
 	extraLen := int(math.Ceil(extraBits / num.MaxModulusBits))
-	baseMod := params.BaseModulus()
 
 	var extraMod []*num.Modulus
-	var bitlen float64
+	var extraModBig *big.Int
 	for {
 		extraMod = make([]*num.Modulus, extraLen)
+		extraModBig = big.NewInt(1)
 
 		gap, err := dft.NTTPrimeGap(ringParams)
 		if err != nil {
 			panic(err)
 		}
 
-		bitlen = extraBits
 		start := (uint64(math.Floor(num.MaxModulus/float64(gap))))*gap + 1
 		if start > num.MaxModulus {
 			for start > num.MaxModulus {
@@ -77,12 +87,12 @@ func NewOperator(params rlwe.Parameters, msgMod *num.Modulus, estimType heint.Es
 				}
 			}
 			extraMod[cnt] = primemod
-			bitlen -= num.Log2(primemod.Value())
+			extraModBig.Mul(extraModBig, modi.SetUint64(primemod.Value()))
 			prime = num.MustPrevPrime(prime, gap)
 			cnt++
 		}
 
-		if bitlen > 0 {
+		if extraModBig.Cmp(needModBig) < 0 {
 			extraLen++
 		} else {
 			break
@@ -99,7 +109,7 @@ func NewOperator(params rlwe.Parameters, msgMod *num.Modulus, estimType heint.Es
 	}.Compile())
 
 	return &Operator{
-		params: params,
+		Params: params,
 		msgMod: msgMod,
 
 		intOp:  heint.NewOperator(params, msgMod),
@@ -133,7 +143,7 @@ func NewOperator(params rlwe.Parameters, msgMod *num.Modulus, estimType heint.Es
 
 // Parameters returns the parameters.
 func (op *Operator) Parameters() rlwe.Parameters {
-	return op.params
+	return op.Params
 }
 
 // AmbientOperator returns the ambient operator.
@@ -281,7 +291,11 @@ func (op *Operator) Mul(ct0, ct1 *Ciphertext, rlk *rlwe.RelinKey, isNTT bool) *C
 // MulTo computes ctOut = ct0 * ct1.
 func (op *Operator) MulTo(ctOut, ct0, ct1 *Ciphertext, rlk *rlwe.RelinKey, isNTT bool) {
 	tarLen := min(ct0.ModLen(), ct1.ModLen())
-	ambLen := op.getMulAmbLen(tarLen)
+
+	mulMod := op.bigPool.Get().(*big.Int)
+	defer op.bigPool.Put(mulMod)
+
+	ambLen := op.getMulModAmbLen(ct0, ct1, mulMod)
 
 	cAmb0 := op.ctPool.Get().(*Ciphertext)
 	cAmb1 := op.ctPool.Get().(*Ciphertext)
@@ -290,16 +304,10 @@ func (op *Operator) MulTo(ctOut, ct0, ct1 *Ciphertext, rlk *rlwe.RelinKey, isNTT
 
 	cAmb0 = cAmb0.WithModLen(ambLen)
 	cAmb1 = cAmb1.WithModLen(ambLen)
-	c0 := cAmb0.WithModLen(tarLen)
-	c1 := cAmb1.WithModLen(tarLen)
 
-	// Modulus switch to the target length.
-	op.ModSwitchTo(c0, ct0, tarLen, c0.IsNTT())
-	op.ModSwitchTo(c1, ct1, tarLen, c1.IsNTT())
-
-	// Lift to the ambient modulus.
-	op.ambOp.ModRaiseTo(cAmb0.Value, c0.Value, true)
-	op.ambOp.ModRaiseTo(cAmb1.Value, c1.Value, true)
+	// ScaleEmbed to the ambient modulus.
+	op.scaleEmbedToAmbTo(cAmb0, ct0, mulMod)
+	op.scaleEmbedToAmbTo(cAmb1, ct1, mulMod)
 
 	// Tensoring the ciphertexts.
 	vAmb := op.vPool.Get().(*rlwe.Vector)
@@ -309,8 +317,8 @@ func (op *Operator) MulTo(ctOut, ct0, ct1 *Ciphertext, rlk *rlwe.RelinKey, isNTT
 
 	op.ambOp.TensorTo(vAmb, cAmb0.Value, cAmb1.Value)
 
-	// Switch the modulus from ambient modulus to the target modulus.
-	op.divRoundTo(vBase, vAmb)
+	// ScaleEmbed to the target modulus.
+	op.scaleEmbedToTarTo(vBase, vAmb, mulMod)
 
 	// Relinearise the result.
 	op.rlweOp.RelinTo(ctOut.Value, vBase, rlk, isNTT)
@@ -319,60 +327,150 @@ func (op *Operator) MulTo(ctOut, ct0, ct1 *Ciphertext, rlk *rlwe.RelinKey, isNTT
 	op.noise.MulTo(ctOut, ct0, ct1)
 }
 
-// getMulAmbLen returns the number of ambient moduli required for tensoring.
-func (op *Operator) getMulAmbLen(tarLen int) int {
-	tarBits := float64(0)
-	for i := 0; i < tarLen; i++ {
-		tarBits += num.Log2(op.params.BaseModulus()[i].Value())
-	}
-	tarBits = 2*tarBits + num.Log2(op.params.RingParams().ExpFactor())
+// setMulMod sets the modulus for the multiplication.
+func (op *Operator) getMulModAmbLen(ct0, ct1 *Ciphertext, mulMod *big.Int) int {
+	scale0 := op.bigPool.Get().(*big.Int)
+	scale1 := op.bigPool.Get().(*big.Int)
+	defer op.bigPool.Put(scale0)
+	defer op.bigPool.Put(scale1)
 
-	ambModLen := 1
-	for {
-		tarBits -= num.Log2(op.ambOp.Params.FullModulus()[ambModLen-1].Value())
-		if tarBits <= 0 {
-			break
-		}
-		ambModLen += 1
+	noise := new(big.Float)
+	switch op.noise.estimType {
+	case heint.VarianceType:
+		noise.SetFloat64(math.Ceil(math.Sqrt(ct0.noise / op.noise.noise.RoundNoise())))
+		noise.Int(scale0)
+		noise.SetFloat64(math.Ceil(math.Sqrt(ct1.noise / op.noise.noise.RoundNoise())))
+		noise.Int(scale1)
+	case heint.WorstCaseType:
+		noise.SetFloat64(math.Ceil(ct0.noise / op.noise.noise.RoundNoise()))
+		noise.Int(scale0)
+		noise.SetFloat64(math.Ceil(ct1.noise / op.noise.noise.RoundNoise()))
+		noise.Int(scale1)
 	}
 
-	return ambModLen
+	mod0 := op.bigPool.Get().(*big.Int)
+	mod1 := op.bigPool.Get().(*big.Int)
+	modi := op.bigPool.Get().(*big.Int)
+	defer op.bigPool.Put(mod0)
+	defer op.bigPool.Put(mod1)
+	defer op.bigPool.Put(modi)
+
+	mod0.SetInt64(1)
+	for i := 0; i < ct0.ModLen(); i++ {
+		modi.SetUint64(op.Params.BaseModulus()[i].Value())
+		mod0.Mul(mod0, modi)
+	}
+	mod0.Quo(mod0, scale0)
+
+	mod1.SetInt64(1)
+	for i := 0; i < ct1.ModLen(); i++ {
+		modi.SetUint64(op.Params.BaseModulus()[i].Value())
+		mod1.Mul(mod1, modi)
+	}
+	mod1.Quo(mod1, scale1)
+
+	// reuse bigInt.
+	msgMod := scale0
+	tarMod := scale1
+	msgMod.SetUint64(op.msgMod.Value())
+
+	if mod0.Cmp(mod1) > 0 {
+		mulMod.Set(mod0)
+	} else {
+		mulMod.Set(mod1)
+	}
+	mulMod.Quo(mulMod, msgMod)
+	mulMod.Mul(mulMod, msgMod)
+	mulMod.Add(mulMod, modi.SetInt64(1))
+	tarMod.Mul(mulMod, mulMod)
+	tarMod.Mul(tarMod, modi.SetInt64(int64(op.Params.RingParams().ExpFactor())))
+
+	ambLen := 0
+	ambMod := mod0 // reuse bigInt.
+	ambMod.SetInt64(1)
+	for ambMod.Cmp(tarMod) < 0 {
+		ambLen += 1
+		modi.SetUint64(op.ambOp.Params.FullModulus()[ambLen-1].Value())
+		ambMod.Mul(ambMod, modi)
+	}
+
+	return ambLen
 }
 
-// divRoundTo divides a vector by the base modulus and rounds the result.
-//
-// Input must be in NTT form, and output is in coefficient form.
-func (op *Operator) divRoundTo(vOut *rlwe.Vector, vIn *rlwe.Vector) {
-	if vOut.AuxModLen() != 0 || vIn.AuxModLen() != 0 {
-		panic("input(s) must not have auxiliary modulus")
-	} else if vOut.Len() != 3 || vIn.Len() != 3 {
-		panic("input(s) must have 3 elements")
-	}
+// scaleEmbedForwardTo scales and embeds the ciphertext to the ambient modulus.
+func (op *Operator) scaleEmbedToAmbTo(ctOut *Ciphertext, ctIn *Ciphertext, mulMod *big.Int) {
+	inLen := ctIn.ModLen()
+	outLen := ctOut.ModLen()
 
-	baseLen := vOut.BaseModLen()
-	ambLen := vIn.BaseModLen()
-
-	baseMod := op.params.BaseModulus()[:baseLen]
-	ambMod := op.ambOp.Params.FullModulus()[:ambLen]
-
-	scale := big.NewRat(int64(op.msgMod.Value()), 1)
-
+	baseMod := op.bigPool.Get().(*big.Int)
 	modi := op.bigPool.Get().(*big.Int)
+	defer op.bigPool.Put(baseMod)
 	defer op.bigPool.Put(modi)
-	for i := 0; i < baseLen; i++ {
-		modi.SetUint64(baseMod[i].Value())
-		scale.Denom().Mul(scale.Denom(), modi)
+	baseMod.SetInt64(1)
+
+	for i := 0; i < inLen; i++ {
+		modi.SetUint64(op.Params.BaseModulus()[i].Value())
+		baseMod.Mul(baseMod, modi)
 	}
 
-	pAmb := op.ptPool.Get().(*rlwe.Element)
-	defer op.ptPool.Put(pAmb)
-	pAmb = pAmb.WithModLen(ambLen, 0)
+	inMod := op.Params.BaseModulus()[:inLen]
+	outMod := op.ambOp.Params.FullModulus()[:outLen]
+	scEmb := crt.NewScaleEmbedder(outMod, inMod, new(big.Rat).SetFrac(mulMod, baseMod))
 
-	opAmb := op.ambOp.PlainOperator()
-	scEmb := crt.NewScaleEmbedder(baseMod, ambMod, scale)
+	if ctIn.IsNTT() {
+		ctNTT := op.ctPool.Get().(*Ciphertext)
+		defer op.ctPool.Put(ctNTT)
+		ctNTT = ctNTT.WithModLen(inLen)
+
+		op.rlweOp.InvNTTTo(ctNTT.Value, ctIn.Value)
+
+		scEmb.ScaleEmbedTo(ctOut.Value.Body.Value, ctNTT.Value.Body.Value)
+		scEmb.ScaleEmbedTo(ctOut.Value.Mask.Value, ctNTT.Value.Mask.Value)
+	} else {
+		scEmb.ScaleEmbedTo(ctOut.Value.Body.Value, ctIn.Value.Body.Value)
+		scEmb.ScaleEmbedTo(ctOut.Value.Mask.Value, ctIn.Value.Mask.Value)
+	}
+
+	ctOut.Value.Body.Value.IsNTT = false
+	ctOut.Value.Mask.Value.IsNTT = false
+	op.ambOp.FwdNTTTo(ctOut.Value, ctOut.Value)
+}
+
+// scaleEmbedBackwardTo scales and embeds the ciphertext to the target modulus.
+func (op *Operator) scaleEmbedToTarTo(vBase *rlwe.Vector, vAmb *rlwe.Vector, mulMod *big.Int) {
+	inLen := vAmb.BaseModLen()
+	outLen := vBase.BaseModLen()
+
+	baseMod := op.bigPool.Get().(*big.Int)
+	modi := op.bigPool.Get().(*big.Int)
+	defer op.bigPool.Put(baseMod)
+	defer op.bigPool.Put(modi)
+	baseMod.SetInt64(1)
+	for i := 0; i < outLen; i++ {
+		modi.SetUint64(op.Params.BaseModulus()[i].Value())
+		baseMod.Mul(baseMod, modi)
+	}
+
+	inMod := op.ambOp.Params.BaseModulus()[:inLen]
+	outMod := op.Params.BaseModulus()[:outLen]
+	scEmb := crt.NewScaleEmbedder(outMod, inMod, new(big.Rat).SetFrac(baseMod, mulMod))
+
+	pNTT := op.ptPool.Get().(*rlwe.Element)
+	defer op.ptPool.Put(pNTT)
+	pNTT = pNTT.WithModLen(inLen, 0)
+
+	msgMod := &rlwe.Element{Value: crt.NewScalarFrom(op.msgMod.Value(), op.ambOp.Params.FullModulus()[:inLen])}
 	for i := 0; i < 3; i++ {
-		opAmb.InvNTTTo(pAmb, vIn.Value[i])
-		scEmb.ScaleEmbedTo(vOut.Value[i].Value, pAmb.Value)
+		if vAmb.Value[i].IsNTT() {
+			op.ambOp.PlainOperator().InvNTTTo(pNTT, vAmb.Value[i])
+			op.ambOp.PlainOperator().MulTo(pNTT, pNTT, msgMod)
+			scEmb.ScaleEmbedTo(vBase.Value[i].Value, pNTT.Value)
+		} else {
+			op.ambOp.PlainOperator().MulTo(pNTT, vAmb.Value[i], msgMod)
+		}
+		scEmb.ScaleEmbedTo(vBase.Value[i].Value, pNTT.Value)
+		vBase.Value[i].Value.IsNTT = false
+		op.rlweOp.PlainOperator().NegTo(vBase.Value[i], vBase.Value[i])
 	}
 }
 

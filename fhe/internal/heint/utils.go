@@ -1,4 +1,4 @@
-package bfv
+package heint
 
 import (
 	"math/big"

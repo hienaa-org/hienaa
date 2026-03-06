@@ -1,10 +1,10 @@
-package bfv_test
+package bgv_test
 
 import (
 	"math/rand"
 	"testing"
 
-	"github.com/hienaa-org/hienaa/fhe/bfv"
+	"github.com/hienaa-org/hienaa/fhe/bgv"
 	"github.com/hienaa-org/hienaa/fhe/rlwe"
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/csprng"
@@ -46,16 +46,16 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 		NoiseParams:     noiseParams,
 	}.Compile()
 
-	o := bfv.NewOperator(p, q, bfv.WorstCaseType)
-	enc := bfv.NewEncryptor(p, q, bfv.WorstCaseType)
-	ecd := bfv.NewEncoder(p, q)
-	pack := bfv.NewPacker(p, q)
+	o := bgv.NewOperator(p, q, bgv.WorstCaseType)
+	enc := bgv.NewEncryptor(p, q, bgv.WorstCaseType)
+	ecd := bgv.NewEncoder(p, q)
+	pack := bgv.NewPacker(p, q)
 
 	t.Run("Encrypt", func(t *testing.T) {
 		t.Run("Scalar", func(t *testing.T) {
 			msg := uint64(rand.Intn(int(q.Value())))
 
-			ct := enc.Encrypt(bfv.NewScalarFrom(msg, q), true)
+			ct := enc.Encrypt(bgv.NewScalarFrom(msg, q), true)
 			res := enc.Decrypt(ct)
 
 			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloOrder()) {
@@ -102,8 +102,8 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 			msg1 := uint64(rand.Intn(int(q.Value())))
 			msgRef := num.Add(msg0, msg1, q)
 
-			ct := enc.Encrypt(bfv.NewScalarFrom(msg0, q), true)
-			pt := bfv.NewScalarFrom(msg1, q)
+			ct := enc.Encrypt(bgv.NewScalarFrom(msg0, q), true)
+			pt := bgv.NewScalarFrom(msg1, q)
 
 			ctOut := o.AddPlain(ct, pt, true)
 			res := enc.Decrypt(ctOut)
@@ -142,8 +142,8 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 			msg1 := uint64(rand.Intn(int(q.Value())))
 			msgRef := num.Add(msg0, msg1, q)
 
-			el := ecd.Encode(bfv.NewScalarFrom(msg1, q), false, true)
-			ct := enc.Encrypt(bfv.NewScalarFrom(msg0, q), true)
+			el := ecd.Encode(bgv.NewScalarFrom(msg1, q), false, true)
+			ct := enc.Encrypt(bgv.NewScalarFrom(msg0, q), true)
 
 			ctOut := o.AddElement(ct, el, true)
 			res := enc.Decrypt(ctOut)
@@ -197,8 +197,8 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 			msg1 := uint64(rand.Intn(int(q.Value())))
 			msgRef := num.Sub(msg0, msg1, q)
 
-			ct := enc.Encrypt(bfv.NewScalarFrom(msg0, q), true)
-			pt := bfv.NewScalarFrom(msg1, q)
+			ct := enc.Encrypt(bgv.NewScalarFrom(msg0, q), true)
+			pt := bgv.NewScalarFrom(msg1, q)
 
 			ctOut := o.SubPlain(ct, pt, true)
 			res := enc.Decrypt(ctOut)
@@ -237,8 +237,8 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 			msg1 := uint64(rand.Intn(int(q.Value())))
 			msgRef := num.Sub(msg0, msg1, q)
 
-			el := ecd.Encode(bfv.NewScalarFrom(msg1, q), false, true)
-			ct := enc.Encrypt(bfv.NewScalarFrom(msg0, q), true)
+			el := ecd.Encode(bgv.NewScalarFrom(msg1, q), false, true)
+			ct := enc.Encrypt(bgv.NewScalarFrom(msg0, q), true)
 
 			ctOut := o.SubElement(ct, el, true)
 			res := enc.Decrypt(ctOut)
@@ -293,8 +293,8 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 			msg1 := uint64(rand.Intn(int(q.Value())))
 			msgRef := num.Mul(msg0, msg1, q)
 
-			ct := enc.Encrypt(bfv.NewScalarFrom(msg0, q), true)
-			pt := bfv.NewScalarFrom(msg1, q)
+			ct := enc.Encrypt(bgv.NewScalarFrom(msg0, q), true)
+			pt := bgv.NewScalarFrom(msg1, q)
 
 			ctOut := o.MulPlain(ct, pt, true)
 			res := enc.Decrypt(ctOut)
@@ -328,7 +328,7 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 	})
 }
 
-func TestBFV(t *testing.T) {
+func TestBGV(t *testing.T) {
 	t.Run("type=CyclotomicPow2Mod1", func(t *testing.T) {
 		N := 1 << int(rSrc.SampleN(10)+5)
 		rP := dft.NewCyclotomicParameters(N << 1)

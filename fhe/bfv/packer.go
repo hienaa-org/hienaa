@@ -2,24 +2,26 @@ package bfv
 
 import (
 	pack "github.com/hienaa-org/hienaa/fhe/internal/pack"
+	"github.com/hienaa-org/hienaa/fhe/rlwe"
+	"github.com/hienaa-org/hienaa/math/num"
 )
 
 // Packer packs a vector of uint64 into [*Plaintext].
 type Packer struct {
-	params Parameters
+	params rlwe.Parameters
 	packer pack.IntPacker
 }
 
 // NewPacker creates a new [Packer].
-func NewPacker(params Parameters) *Packer {
+func NewPacker(params rlwe.Parameters, msgMod *num.Modulus) *Packer {
 	return &Packer{
 		params: params,
-		packer: pack.NewIntPacker(params.RLWEParams().RingParams(), params.MessageModulus()),
+		packer: pack.NewIntPacker(params.RingParams(), msgMod),
 	}
 }
 
 // Params returns the parameters.
-func (p *Packer) Params() Parameters {
+func (p *Packer) Params() rlwe.Parameters {
 	return p.params
 }
 
@@ -32,7 +34,7 @@ func (p *Packer) PackLen() int {
 // Panics when the message length does not divide the packing length,
 // or when the output modulus length is larger than the number of moduli.
 func (p *Packer) Pack(v []uint64) *Plaintext {
-	ptOut := NewPoly(p.params.rlweParams.Rank())
+	ptOut := NewPoly(p.params.Rank())
 	p.PackTo(ptOut, v)
 	return ptOut
 }
@@ -43,7 +45,7 @@ func (p *Packer) Pack(v []uint64) *Plaintext {
 func (p *Packer) PackTo(ptOut *Plaintext, v []uint64) {
 	if p.PackLen()%len(v) != 0 {
 		panic("len(v) must divide PackLen")
-	} else if ptOut.Rank() != p.params.rlweParams.Rank() {
+	} else if ptOut.Rank() != p.params.Rank() {
 		panic("inconsistent input(s)")
 	}
 
@@ -66,7 +68,7 @@ func (p *Packer) UnPack(pt *Plaintext) []uint64 {
 func (p *Packer) UnPackTo(vOut []uint64, pt *Plaintext) {
 	if p.PackLen()%len(vOut) != 0 {
 		panic("len(vOut) must divide PackLen")
-	} else if pt.Rank() != p.params.rlweParams.Rank() {
+	} else if pt.Rank() != p.params.Rank() {
 		panic("inconsistent input(s)")
 	} else if pt.IsNTT {
 		panic("input must be in coefficient form")
