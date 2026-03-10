@@ -345,6 +345,8 @@ func (s *TernarySampler) SampleTo(eOut *Element, mod []*num.Modulus) {
 			}
 		}
 
+		eOut.IsNTT = false
+
 		return
 	}
 
