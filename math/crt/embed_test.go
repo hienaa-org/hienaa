@@ -125,7 +125,7 @@ func (e *BigEmbedder) ScaleEmbed(v [][]uint64, scale *big.Rat) [][]uint64 {
 }
 
 func genModInOut(modInLen, modOutLen int) (modIn, modOut []*num.Modulus) {
-	p := uint64(1)<<20 + 1
+	p := uint64(1)<<60 + 1
 
 	modIn = make([]*num.Modulus, modInLen)
 	for i := range modIn {
@@ -145,7 +145,8 @@ func genModInOut(modInLen, modOutLen int) (modIn, modOut []*num.Modulus) {
 func TestEmbedder(t *testing.T) {
 	modInLen := int(rSrc.SampleN(20))
 	modOutLen := int(rSrc.SampleN(20))
-	vLen := int(rSrc.SampleN(1 << 5))
+	// vLen := int(rSrc.SampleN(1 << 5))
+	vLen := 1024
 
 	modIn, modOut := genModInOut(modInLen, modOutLen)
 

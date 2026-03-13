@@ -94,7 +94,8 @@ func MulScalar(v []uint64, c uint64, q *num.Modulus) []uint64 {
 // If q is nil, then it returns x0 * x1.
 func MulScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	if q != nil {
-		mulScalarTo(vOut, v, c, q)
+		divHi, _ := q.Div()
+		SMulScalarTo(vOut, v, c, modops.SForm(c, q.Value(), divHi), q)
 		return
 	}
 	mulScalarWordTo(vOut, v, c)
@@ -104,7 +105,8 @@ func MulScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 // If q is nil, then it returns vOut += v * c.
 func MulAddScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	if q != nil {
-		mulAddScalarTo(vOut, v, c, q)
+		divHi, _ := q.Div()
+		SMulAddScalarTo(vOut, v, c, modops.SForm(c, q.Value(), divHi), q)
 		return
 	}
 	mulAddScalarWordTo(vOut, v, c)
@@ -114,10 +116,20 @@ func MulAddScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 // If q is nil, then it returns vOut -= v * c.
 func MulSubScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	if q != nil {
-		mulSubScalarTo(vOut, v, c, q)
+		divHi, _ := q.Div()
+		SMulSubScalarTo(vOut, v, c, modops.SForm(c, q.Value(), divHi), q)
 		return
 	}
 	mulSubScalarWordTo(vOut, v, c)
+}
+
+// SMulScalar returns v * c mod q using Shoup multiplication.
+//
+// Panics if q is nil.
+func SMulScalar(v []uint64, c, cS uint64, q *num.Modulus) []uint64 {
+	vOut := make([]uint64, len(v))
+	SMulScalarTo(vOut, v, c, cS, q)
+	return vOut
 }
 
 // MulScalarLazy returns v * c mod q using Shoup multiplication,
@@ -127,6 +139,43 @@ func MulSubScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 func MulScalarLazy(v []uint64, c uint64, q *num.Modulus) []uint64 {
 	vOut := make([]uint64, len(v))
 	MulScalarLazyTo(vOut, v, c, q)
+	return vOut
+}
+
+// MulScalarLazyTo computes vOut = c * v mod q using Shoup multiplication,
+// but the result is in [0, 2q).
+//
+// Panics if q is nil.
+func MulScalarLazyTo(vOut, v []uint64, c uint64, q *num.Modulus) {
+	divHi, _ := q.Div()
+	SMulScalarLazyTo(vOut, v, c, modops.SForm(c, q.Value(), divHi), q)
+}
+
+// MulAddScalarLazyTo computes vOut += c * v mod q using Shoup multiplication,
+// but the result is in [0, 3q).
+//
+// Panics if q is nil.
+func MulAddScalarLazyTo(vOut, v []uint64, c uint64, q *num.Modulus) {
+	divHi, _ := q.Div()
+	SMulAddScalarLazyTo(vOut, v, c, modops.SForm(c, q.Value(), divHi), q)
+}
+
+// MulSubScalarLazyTo computes vOut -= c * v mod q using Shoup multiplication,
+// but the result is in [0, 3q).
+//
+// Panics if q is nil.
+func MulSubScalarLazyTo(vOut, v []uint64, c uint64, q *num.Modulus) {
+	divHi, _ := q.Div()
+	SMulSubScalarLazyTo(vOut, v, c, modops.SForm(c, q.Value(), divHi), q)
+}
+
+// SMulScalarLazy returns v * c mod q using Shoup multiplication,
+// but the result is in [0, 2q).
+//
+// Panics if q is nil.
+func SMulScalarLazy(v []uint64, c, cS uint64, q *num.Modulus) []uint64 {
+	vOut := make([]uint64, len(v))
+	SMulScalarLazyTo(vOut, v, c, cS, q)
 	return vOut
 }
 
