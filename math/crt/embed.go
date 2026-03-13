@@ -177,7 +177,7 @@ func (emb *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 		qv := emb.modIn[0].Value()
 		halfQv := qv >> 1
 
-		vBuf := emb.u64Pool.Get().(*[8]uint64)
+		vBuf := emb.u64Pool.Get().(*[embedBatch]uint64)
 		defer emb.u64Pool.Put(vBuf)
 
 		r := unsafe.Pointer(unsafe.SliceData(v[0]))
@@ -334,26 +334,6 @@ func (emb *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 			}
 		}
 	}
-
-	// for k := M; k < len(v[0]); k++ {
-	// 	f128[0] = float128.Float128{}
-	// 	for i := 0; i < inLen; i++ {
-	// 		vBuf[i][0] = num.SMul(v[i][k], emb.compInv[i], emb.compInvS[i], emb.modIn[i])
-	// 		f128[0] = float128.Add(f128[0], float128.Mul(float128.FromInt64(int64(vBuf[i][0])), emb.inv128[i]))
-	// 	}
-	// 	i64[0] = float128.ToUint64(f128[0])
-
-	// 	for i := 0; i < outLen; i++ {
-	// 		if 0 <= emb.idx[i] && emb.idx[i] < inLen {
-	// 			vOut[i][k] = v[emb.idx[i]][k]
-	// 		} else {
-	// 			vOut[i][k] = num.SMul(i64[0], emb.negMod[i], emb.negModS[i], emb.modOut[i])
-	// 			for j := 0; j < inLen; j++ {
-	// 				vOut[i][k] = num.Add(vOut[i][k], num.SMul(vBuf[j][0], emb.comp[i][j], emb.compS[i][j], emb.modOut[i]), emb.modOut[i])
-	// 			}
-	// 		}
-	// 	}
-	// }
 }
 
 // ModulusIn returns the input modulus.
