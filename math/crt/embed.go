@@ -80,7 +80,6 @@ func NewEmbedder(modOut []*num.Modulus, modIn []*num.Modulus) *Embedder {
 	negMod := make([]uint64, len(modOut))
 	negModS := make([]uint64, len(modOut))
 	idx := make([]int, len(modOut))
-
 	for i := 0; i < len(modOut); i++ {
 		negMod[i] = modOut[i].Value() - 1
 		idx[i] = -1
@@ -167,9 +166,9 @@ func (emb *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 	M := (len(v[0]) >> logEmbedBatch) << logEmbedBatch
 	L := unsafe.Sizeof(uint64(0))
 
-	inLen, outLen := len(v), min(len(vOut), len(emb.modOut))
+	inLen, outLen := len(v), len(vOut)
 
-	if inLen != len(emb.modIn) {
+	if inLen != len(emb.modIn) || len(vOut) > len(emb.modOut) {
 		panic("input(s) not consistent")
 	}
 
