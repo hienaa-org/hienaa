@@ -17,13 +17,20 @@ const (
 	logEmbedBatch = 8
 )
 
-// Embedder embeds a polynomial into different modulus.
+var (
+	embed64Pool = sync.Pool{
+		New: func() any {
+			return new([embedBatch]uint64)
+		},
+	}
+)
+
+// ApproxEmbedder embeds a vector or polynomial into different modulus,
+// without removing the overflow term.
 // In other words, it computes
 //
-//	[p]_modIn -> [p]_modOut
-//
-// It uses HPS-like algorithm, so the computation is exact.
-type Embedder struct {
+//	[p]_modIn -> [p + modIn * I]_modOut
+type ApproxEmbedder struct {
 	// modIn is the input modulus.
 	modIn []*num.Modulus
 	// modOut is the output modulus.
@@ -39,21 +46,14 @@ type Embedder struct {
 	// compS is the Shoup form of comp.
 	compS [][]uint64
 
-	// negMod is the negative of the input modulus modulo the output modulus limb.
-	negMod []uint64
-	// negModS is the Shoup form of negMod.
-	negModS []uint64
-
 	// idx holds the index of the input modulus limb if it overlaps with the output modulus limb.
 	// For example, if modOut[i] = modIn[j], then idx[i] = j.
 	// -1 if the input modulus limb does not overlap with the output modulus limb.
 	idx []int
-
-	u64Pool *sync.Pool
 }
 
-// NewEmbedder creates a new [Embedder].
-func NewEmbedder(modOut []*num.Modulus, modIn []*num.Modulus) *Embedder {
+// NewApproxEmbedder creates a new [ApproxEmbedder].
+func NewApproxEmbedder(modOut []*num.Modulus, modIn []*num.Modulus) *ApproxEmbedder {
 	if !isCoprime(modIn) || !isCoprime(modOut) {
 		panic("modulus must be coprime")
 	}
@@ -103,7 +103,7 @@ func NewEmbedder(modOut []*num.Modulus, modIn []*num.Modulus) *Embedder {
 		negModS[i] = num.SForm(negMod[i], modOut[i])
 	}
 
-	return &Embedder{
+	return &ApproxEmbedder{
 		modIn:  modIn,
 		modOut: modOut,
 
@@ -113,22 +113,13 @@ func NewEmbedder(modOut []*num.Modulus, modIn []*num.Modulus) *Embedder {
 		comp:  comp,
 		compS: compS,
 
-		negMod:  negMod,
-		negModS: negModS,
-
 		idx: idx,
-
-		u64Pool: &sync.Pool{
-			New: func() any {
-				return &[embedBatch]uint64{}
-			},
-		},
 	}
 }
 
 // Embed returns the embedding of e to the output modulus.
 // If e.ModLen() < len(emb.modIn), it only embeds the first e.ModLen() elements.
-func (emb *Embedder) Embed(e *Element) *Element {
+func (emb *ApproxEmbedder) Embed(e *Element) *Element {
 	eOut := NewPoly(e.Rank(), e.ModLen())
 	emb.EmbedTo(eOut, e)
 	return eOut
@@ -137,7 +128,7 @@ func (emb *Embedder) Embed(e *Element) *Element {
 // EmbedTo embeds e to eOut.
 // If e.ModLen() < len(emb.modIn) or eOut.ModLen() < len(emb.modOut),
 // it only embeds the first emb.ModLen() elements to eOut.ModLen() elements.
-func (emb *Embedder) EmbedTo(eOut, e *Element) {
+func (emb *ApproxEmbedder) EmbedTo(eOut, e *Element) {
 	if e.Type() == TypePoly && e.IsNTT {
 		panic("input(s) must be in standard form")
 	} else if eOut.Rank() != e.Rank() {
@@ -150,7 +141,7 @@ func (emb *Embedder) EmbedTo(eOut, e *Element) {
 
 // EmbedVec returns the embedding of v to the output modulus.
 // If len(v) < len(emb.modIn), it only embeds the first len(v) elements.
-func (emb *Embedder) EmbedVec(v [][]uint64) [][]uint64 {
+func (emb *ApproxEmbedder) EmbedVec(v [][]uint64) [][]uint64 {
 	vOut := make([][]uint64, len(emb.modOut))
 	for i := 0; i < len(emb.modOut); i++ {
 		vOut[i] = make([]uint64, len(v[0]))
@@ -162,7 +153,7 @@ func (emb *Embedder) EmbedVec(v [][]uint64) [][]uint64 {
 // EmbedVecTo embeds v to vOut.
 // If len(vOut) < len(emb.modOut),
 // it only embeds to len(vOut) elements.
-func (emb *Embedder) EmbedVecTo(vOut, v [][]uint64) {
+func (emb *ApproxEmbedder) EmbedVecTo(vOut, v [][]uint64) {
 	M := (len(v[0]) >> logEmbedBatch) << logEmbedBatch
 	L := unsafe.Sizeof(uint64(0))
 
@@ -176,8 +167,8 @@ func (emb *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 		qv := emb.modIn[0].Value()
 		halfQv := qv >> 1
 
-		vBuf := emb.u64Pool.Get().(*[embedBatch]uint64)
-		defer emb.u64Pool.Put(vBuf)
+		vBuf := embed64Pool.Get().(*[embedBatch]uint64)
+		defer embed64Pool.Put(vBuf)
 
 		r := unsafe.Pointer(unsafe.SliceData(v[0]))
 
@@ -219,54 +210,17 @@ func (emb *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 		return
 	}
 
-	fHi := emb.u64Pool.Get().(*[embedBatch]uint64)
-	defer emb.u64Pool.Put(fHi)
-	fLo := emb.u64Pool.Get().(*[embedBatch]uint64)
-	defer emb.u64Pool.Put(fLo)
-
 	vBuf := make([]*[embedBatch]uint64, inLen)
 	for i := range vBuf {
-		vBuf[i] = emb.u64Pool.Get().(*[embedBatch]uint64)
-		defer emb.u64Pool.Put(vBuf[i])
+		vBuf[i] = embed64Pool.Get().(*[embedBatch]uint64)
+		defer embed64Pool.Put(vBuf[i])
 	}
 
 	for k := 0; k < M; k += embedBatch {
-		clear(fHi[:])
-		clear(fLo[:])
 		for i := 0; i < inLen; i++ {
 			r := unsafe.Pointer(unsafe.SliceData(v[i]))
 			w := (*[embedBatch]uint64)(unsafe.Add(r, uintptr(k)*L))
-			wBuf := vBuf[i]
-
-			compInv, compInvS := emb.compInv[i], emb.compInvS[i]
-			modIn := emb.modIn[i]
-			invHi, invLo := modIn.Div()
-
-			vec.SMulScalarTo(wBuf[:], w[:], compInv, compInvS, modIn)
-
-			for j := 0; j < embedBatch; j += 8 {
-				fHi[j+0], fLo[j+0] = f128Acc(wBuf[j+0], invHi, invLo, fHi[j+0], fLo[j+0])
-				fHi[j+1], fLo[j+1] = f128Acc(wBuf[j+1], invHi, invLo, fHi[j+1], fLo[j+1])
-				fHi[j+2], fLo[j+2] = f128Acc(wBuf[j+2], invHi, invLo, fHi[j+2], fLo[j+2])
-				fHi[j+3], fLo[j+3] = f128Acc(wBuf[j+3], invHi, invLo, fHi[j+3], fLo[j+3])
-
-				fHi[j+4], fLo[j+4] = f128Acc(wBuf[j+4], invHi, invLo, fHi[j+4], fLo[j+4])
-				fHi[j+5], fLo[j+5] = f128Acc(wBuf[j+5], invHi, invLo, fHi[j+5], fLo[j+5])
-				fHi[j+6], fLo[j+6] = f128Acc(wBuf[j+6], invHi, invLo, fHi[j+6], fLo[j+6])
-				fHi[j+7], fLo[j+7] = f128Acc(wBuf[j+7], invHi, invLo, fHi[j+7], fLo[j+7])
-			}
-		}
-
-		for j := 0; j < embedBatch; j += 8 {
-			fHi[j+0] += fLo[j+0] >> 63
-			fHi[j+1] += fLo[j+1] >> 63
-			fHi[j+2] += fLo[j+2] >> 63
-			fHi[j+3] += fLo[j+3] >> 63
-
-			fHi[j+4] += fLo[j+4] >> 63
-			fHi[j+5] += fLo[j+5] >> 63
-			fHi[j+6] += fLo[j+6] >> 63
-			fHi[j+7] += fLo[j+7] >> 63
+			copy(vBuf[i][:], w[:])
 		}
 
 		for i := 0; i < outLen; i++ {
@@ -276,11 +230,7 @@ func (emb *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 			if 0 <= emb.idx[i] && emb.idx[i] < inLen {
 				copy(wOut[:], v[emb.idx[i]][k:k+embedBatch])
 			} else {
-				negMod, negModS := emb.negMod[i], emb.negModS[i]
 				modOut := emb.modOut[i]
-
-				vec.SMulScalarTo(wOut[:], fHi[:], negMod, negModS, modOut)
-
 				comp, compS := emb.comp[i], emb.compS[i]
 				for j := 0; j < inLen; j++ {
 					wBuf := vBuf[j]
@@ -292,25 +242,8 @@ func (emb *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 		}
 	}
 
-	clear(fHi[:])
-	clear(fLo[:])
 	for i := 0; i < inLen; i++ {
-		w := v[i][M:]
-		wBuf := vBuf[i][:len(v[0])-M]
-
-		compInv, compInvS := emb.compInv[i], emb.compInvS[i]
-		modIn := emb.modIn[i]
-		invHi, invLo := modIn.Div()
-
-		vec.SMulScalarTo(wBuf[:], w[:], compInv, compInvS, modIn)
-
-		for j := 0; j < len(v[0])-M; j++ {
-			fHi[j], fLo[j] = f128Acc(wBuf[j], invHi, invLo, fHi[j], fLo[j])
-		}
-	}
-
-	for j := 0; j < len(v[0])-M; j++ {
-		fHi[j] += fLo[j] >> 63
+		copy(vBuf[i][:], v[i][M:])
 	}
 
 	for i := 0; i < outLen; i++ {
@@ -319,11 +252,7 @@ func (emb *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 		if 0 <= emb.idx[i] && emb.idx[i] < inLen {
 			copy(wOut, v[emb.idx[i]][M:])
 		} else {
-			negMod, negModS := emb.negMod[i], emb.negModS[i]
 			modOut := emb.modOut[i]
-
-			vec.SMulScalarTo(wOut, fHi[:len(v[0])-M], negMod, negModS, modOut)
-
 			comp, compS := emb.comp[i], emb.compS[i]
 			for j := 0; j < inLen; j++ {
 				wBuf := vBuf[j]
