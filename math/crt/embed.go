@@ -222,18 +222,18 @@ func (emb *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 
 	qLastHalf := emb.modIn[inLen-1].Value() >> 1
 	for k := 0; k < M; k += embedBatch {
-		for i := 0; i < outLen; i++ {
-			rOut := unsafe.Pointer(unsafe.SliceData(vOut[i]))
-			wOut := (*[embedBatch]uint64)(unsafe.Add(rOut, uintptr(k)*L))
-			if 0 <= emb.idx[i] && emb.idx[i] < inLen {
-				copy(wOut[:], v[emb.idx[i]][k:k+embedBatch])
-			}
-		}
-
 		for i := 0; i < inLen; i++ {
 			r := unsafe.Pointer(unsafe.SliceData(v[i]))
 			w := (*[embedBatch]uint64)(unsafe.Add(r, uintptr(k)*L))
 			copy(vBuf[i][:], w[:])
+		}
+
+		for i := 0; i < outLen; i++ {
+			rOut := unsafe.Pointer(unsafe.SliceData(vOut[i]))
+			wOut := (*[embedBatch]uint64)(unsafe.Add(rOut, uintptr(k)*L))
+			if 0 <= emb.idx[i] && emb.idx[i] < inLen {
+				copy(wOut[:], vBuf[emb.idx[i]][:])
+			}
 		}
 
 		for i := 0; i < inLen; i++ {
@@ -269,7 +269,7 @@ func (emb *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 			inModOut := emb.inModOut[i]
 			modOut := emb.modOut[i]
 
-			vec.SMulScalarTo(wOut[:], vBuf[0][:], base[0], baseS[0], modOut)
+			copy(wOut[:], vBuf[0][:])
 			for j := 1; j < inLen; j++ {
 				vec.SMulAddScalarTo(wOut[:], vBuf[j][:], base[j], baseS[j], modOut)
 			}
@@ -278,14 +278,14 @@ func (emb *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 		}
 	}
 
-	for i := 0; i < outLen; i++ {
-		if 0 <= emb.idx[i] && emb.idx[i] < inLen {
-			copy(vOut[i][:len(v[0])-M], v[emb.idx[i]][:len(v[0])-M])
-		}
+	for i := 0; i < inLen; i++ {
+		copy(vBuf[i][:len(v[0])-M], v[i][M:])
 	}
 
-	for i := 0; i < inLen; i++ {
-		copy(vBuf[i][:], v[i][M:])
+	for i := 0; i < outLen; i++ {
+		if 0 <= emb.idx[i] && emb.idx[i] < inLen {
+			copy(vOut[i][M:], v[emb.idx[i]][M:])
+		}
 	}
 
 	for i := 0; i < inLen; i++ {
@@ -683,7 +683,7 @@ func NewScaler(modOut []*num.Modulus, modIn []*num.Modulus) *Scaler {
 
 // Scale returns the scaled element of e.
 func (sc *Scaler) Scale(e *Element) *Element {
-	pOut := NewPoly(e.Rank(), e.ModLen())
+	pOut := NewPoly(e.Rank(), len(sc.modOut))
 	sc.ScaleTo(pOut, e)
 	return pOut
 }
