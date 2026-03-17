@@ -157,7 +157,10 @@ func (emb *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 	M := (len(v[0]) >> logEmbedBatch) << logEmbedBatch
 	L := unsafe.Sizeof(uint64(0))
 
-	inLen, outLen := len(v), min(len(vOut), len(emb.modOut))
+	inLen, outLen := len(v), len(vOut)
+	if inLen > len(emb.modIn) || len(vOut) > len(emb.modOut) {
+		panic("input(s) not consistent")
+	}
 
 	if inLen == 1 {
 		qv := emb.modIn[0].Value()
@@ -219,6 +222,14 @@ func (emb *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 
 	qLastHalf := emb.modIn[inLen-1].Value() >> 1
 	for k := 0; k < M; k += embedBatch {
+		for i := 0; i < outLen; i++ {
+			rOut := unsafe.Pointer(unsafe.SliceData(vOut[i]))
+			wOut := (*[embedBatch]uint64)(unsafe.Add(rOut, uintptr(k)*L))
+			if 0 <= emb.idx[i] && emb.idx[i] < inLen {
+				copy(wOut[:], v[emb.idx[i]][k:k+embedBatch])
+			}
+		}
+
 		for i := 0; i < inLen; i++ {
 			r := unsafe.Pointer(unsafe.SliceData(v[i]))
 			w := (*[embedBatch]uint64)(unsafe.Add(r, uintptr(k)*L))
@@ -247,22 +258,29 @@ func (emb *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 		}
 
 		for i := 0; i < outLen; i++ {
+			if 0 <= emb.idx[i] && emb.idx[i] < inLen {
+				continue
+			}
+
 			rOut := unsafe.Pointer(unsafe.SliceData(vOut[i]))
 			wOut := (*[embedBatch]uint64)(unsafe.Add(rOut, uintptr(k)*L))
-			if 0 <= emb.idx[i] && emb.idx[i] < inLen {
-				copy(wOut[:], vBuf[emb.idx[i]][:])
-			} else {
-				base, baseS := emb.base[i], emb.baseS[i]
-				inModOut := emb.inModOut[i]
-				modOut := emb.modOut[i]
 
-				vec.SMulScalarTo(wOut[:], vBuf[0][:], base[0], baseS[0], modOut)
-				for j := 1; j < inLen; j++ {
-					vec.SMulAddScalarTo(wOut[:], vBuf[j][:], base[j], baseS[j], modOut)
-				}
-				vec.MulScalarTo(vCorr[:], vBool[:], inModOut, nil)
-				vec.SubTo(wOut[:], wOut[:], vCorr[:], modOut)
+			base, baseS := emb.base[i], emb.baseS[i]
+			inModOut := emb.inModOut[i]
+			modOut := emb.modOut[i]
+
+			vec.SMulScalarTo(wOut[:], vBuf[0][:], base[0], baseS[0], modOut)
+			for j := 1; j < inLen; j++ {
+				vec.SMulAddScalarTo(wOut[:], vBuf[j][:], base[j], baseS[j], modOut)
 			}
+			vec.MulScalarTo(vCorr[:], vBool[:], inModOut, nil)
+			vec.SubTo(wOut[:], wOut[:], vCorr[:], modOut)
+		}
+	}
+
+	for i := 0; i < outLen; i++ {
+		if 0 <= emb.idx[i] && emb.idx[i] < inLen {
+			copy(vOut[i][:len(v[0])-M], v[emb.idx[i]][:len(v[0])-M])
 		}
 	}
 
@@ -284,21 +302,21 @@ func (emb *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 	}
 
 	for i := 0; i < outLen; i++ {
-		wOut := vOut[i][M:]
 		if 0 <= emb.idx[i] && emb.idx[i] < inLen {
-			copy(wOut[:], vBuf[emb.idx[i]][:len(v[0])-M])
-		} else {
-			base, baseS := emb.base[i], emb.baseS[i]
-			inModOut := emb.inModOut[i]
-			modOut := emb.modOut[i]
-
-			vec.SMulScalarTo(wOut[:], vBuf[0][:len(v[0])-M], base[0], baseS[0], modOut)
-			for j := 1; j < inLen; j++ {
-				vec.SMulAddScalarTo(wOut[:], vBuf[j][:len(v[0])-M], base[j], baseS[j], modOut)
-			}
-			vec.MulScalarTo(vCorr[:len(v[0])-M], vBool[:len(v[0])-M], inModOut, nil)
-			vec.SubTo(wOut[:], wOut[:], vCorr[:len(v[0])-M], modOut)
+			continue
 		}
+
+		wOut := vOut[i][M:]
+		base, baseS := emb.base[i], emb.baseS[i]
+		inModOut := emb.inModOut[i]
+		modOut := emb.modOut[i]
+
+		vec.SMulScalarTo(wOut[:], vBuf[0][:len(v[0])-M], base[0], baseS[0], modOut)
+		for j := 1; j < inLen; j++ {
+			vec.SMulAddScalarTo(wOut[:], vBuf[j][:len(v[0])-M], base[j], baseS[j], modOut)
+		}
+		vec.MulScalarTo(vCorr[:len(v[0])-M], vBool[:len(v[0])-M], inModOut, nil)
+		vec.SubTo(wOut[:], wOut[:], vCorr[:len(v[0])-M], modOut)
 	}
 }
 
