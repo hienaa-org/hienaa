@@ -269,7 +269,7 @@ func (emb *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 			inModOut := emb.inModOut[i]
 			modOut := emb.modOut[i]
 
-			copy(wOut[:], vBuf[0][:])
+			vec.SMulScalarTo(wOut[:], vBuf[0][:], base[0], baseS[0], modOut)
 			for j := 1; j < inLen; j++ {
 				vec.SMulAddScalarTo(wOut[:], vBuf[j][:], base[j], baseS[j], modOut)
 			}
