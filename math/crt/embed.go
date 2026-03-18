@@ -321,12 +321,12 @@ func (emb *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 }
 
 // ModulusIn returns the input modulus.
-func (emb *ApproxEmbedder) ModulusIn() []*num.Modulus {
+func (emb *Embedder) ModulusIn() []*num.Modulus {
 	return emb.modIn
 }
 
 // ModulusOut returns the output modulus.
-func (emb *ApproxEmbedder) ModulusOut() []*num.Modulus {
+func (emb *Embedder) ModulusOut() []*num.Modulus {
 	return emb.modOut
 }
 
@@ -570,12 +570,12 @@ func (emb *ApproxEmbedder) EmbedVecTo(vOut, v [][]uint64) {
 }
 
 // ModulusIn returns the input modulus.
-func (emb *Embedder) ModulusIn() []*num.Modulus {
+func (emb *ApproxEmbedder) ModulusIn() []*num.Modulus {
 	return emb.modIn
 }
 
 // ModulusOut returns the output modulus.
-func (emb *Embedder) ModulusOut() []*num.Modulus {
+func (emb *ApproxEmbedder) ModulusOut() []*num.Modulus {
 	return emb.modOut
 }
 
