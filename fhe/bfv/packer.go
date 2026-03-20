@@ -6,7 +6,7 @@ import (
 	"github.com/hienaa-org/hienaa/math/num"
 )
 
-// Packer packs a vector of uint64 into [*Plaintext].
+// Packer packs a vector of uint64 into [Plaintext].
 type Packer struct {
 	params rlwe.Parameters
 	packer pack.IntPacker
@@ -33,7 +33,7 @@ func (p *Packer) PackLen() int {
 // Pack packs v.
 // Panics when the message length does not divide the packing length,
 // or when the output modulus length is larger than the number of moduli.
-func (p *Packer) Pack(v []uint64) *Plaintext {
+func (p *Packer) Pack(v []uint64) Plaintext {
 	ptOut := NewPoly(p.params.Rank())
 	p.PackTo(ptOut, v)
 	return ptOut
@@ -42,21 +42,20 @@ func (p *Packer) Pack(v []uint64) *Plaintext {
 // PackTo packs v to ptOut.
 // Panics when the message length does not divide the packing length,
 // or when the output modulus length is larger than the number of moduli.
-func (p *Packer) PackTo(ptOut *Plaintext, v []uint64) {
+func (p *Packer) PackTo(ptOut Plaintext, v []uint64) {
 	if p.PackLen()%len(v) != 0 {
 		panic("len(v) must divide PackLen")
 	} else if ptOut.Rank() != p.params.Rank() {
 		panic("inconsistent input(s)")
 	}
 
-	p.packer.PackTo(ptOut.Coeffs[0], v)
-	ptOut.IsNTT = false
+	p.packer.PackTo(ptOut, v)
 }
 
 // UnPack unpacks pt.
 // Panics when the moduli length of the input plaintext is larger than the number of moduli,
 // or when the message length does not divide the packing length, or when the output modulus length is larger than the number of moduli.
-func (p *Packer) UnPack(pt *Plaintext) []uint64 {
+func (p *Packer) UnPack(pt Plaintext) []uint64 {
 	vOut := make([]uint64, p.packer.PackLen())
 	p.UnPackTo(vOut, pt)
 	return vOut
@@ -65,16 +64,14 @@ func (p *Packer) UnPack(pt *Plaintext) []uint64 {
 // UnPack unpacks pt to vOut.
 // Panics when the moduli length of the input plaintext is larger than the number of moduli,
 // or when the message length does not divide the packing length, or when the output modulus length is larger than the number of moduli.
-func (p *Packer) UnPackTo(vOut []uint64, pt *Plaintext) {
+func (p *Packer) UnPackTo(vOut []uint64, pt Plaintext) {
 	if p.PackLen()%len(vOut) != 0 {
 		panic("len(vOut) must divide PackLen")
 	} else if pt.Rank() != p.params.Rank() {
 		panic("inconsistent input(s)")
-	} else if pt.IsNTT {
-		panic("input must be in coefficient form")
 	}
 
-	p.packer.UnPackTo(vOut, pt.Coeffs[0])
+	p.packer.UnPackTo(vOut, pt)
 }
 
 // Cube returns the form of the hypercube structure.

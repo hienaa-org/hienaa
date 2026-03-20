@@ -13,9 +13,9 @@ import (
 	"github.com/hienaa-org/hienaa/math/vec"
 )
 
-// pow2AutFixedMod1Packer is a packer for the power-of-two autfixed ring,
+// pow2AutFixedMod1IntPacker is a packer for the power-of-two autfixed ring,
 // where the modulus is a multiple of prime powers that are 1 mod 4.
-type pow2AutFixedMod1Packer struct {
+type pow2AutFixedMod1IntPacker struct {
 	params dft.RingParameters
 	mod    *num.Modulus
 
@@ -34,8 +34,8 @@ type pow2AutFixedMod1Packer struct {
 	pool *sync.Pool
 }
 
-// newPow2AutFixedMod1Packer creates a new [pow2AutFixedMod1Packer].
-func newPow2AutFixedMod1Packer(params dft.RingParameters, mod *num.Modulus) *pow2AutFixedMod1Packer {
+// newPow2AutFixedMod1IntPacker creates a new [pow2AutFixedMod1IntPacker].
+func newPow2AutFixedMod1IntPacker(params dft.RingParameters, mod *num.Modulus) *pow2AutFixedMod1IntPacker {
 	primes, _ := num.Factor(mod.Value())
 	packLen := params.CycloOrder() >> 2
 	for i := range primes {
@@ -48,7 +48,7 @@ func newPow2AutFixedMod1Packer(params dft.RingParameters, mod *num.Modulus) *pow
 	nttParams := dft.NewAutFixedParameters(packLen<<2, packLen)
 	ntt := dft.NewTransformer(nttParams, mod)
 
-	return &pow2AutFixedMod1Packer{
+	return &pow2AutFixedMod1IntPacker{
 		params: params,
 		mod:    mod,
 
@@ -70,29 +70,29 @@ func newPow2AutFixedMod1Packer(params dft.RingParameters, mod *num.Modulus) *pow
 }
 
 // Params returns the ring parameters.
-func (p *pow2AutFixedMod1Packer) Params() dft.RingParameters {
+func (p *pow2AutFixedMod1IntPacker) Params() dft.RingParameters {
 	return p.params
 }
 
 // Modulus returns the modulus used for the packing/unpacking.
-func (p *pow2AutFixedMod1Packer) Modulus() *num.Modulus {
+func (p *pow2AutFixedMod1IntPacker) Modulus() *num.Modulus {
 	return p.mod
 }
 
 // PackLen returns the length of the packing/unpacking.
-func (p *pow2AutFixedMod1Packer) PackLen() int {
+func (p *pow2AutFixedMod1IntPacker) PackLen() int {
 	return p.packLen
 }
 
 // Pack returns the packing of v.
-func (p *pow2AutFixedMod1Packer) Pack(v []uint64) []uint64 {
+func (p *pow2AutFixedMod1IntPacker) Pack(v []uint64) []uint64 {
 	vPack := make([]uint64, p.params.Rank())
 	p.PackTo(vPack, v)
 	return vPack
 }
 
 // PackTo packs v to vPack.
-func (p *pow2AutFixedMod1Packer) PackTo(vPack, v []uint64) {
+func (p *pow2AutFixedMod1IntPacker) PackTo(vPack, v []uint64) {
 	if len(vPack) != p.params.Rank() || len(v) > p.packLen {
 		panic("input(s) shape not consistent")
 	}
@@ -141,14 +141,14 @@ func (p *pow2AutFixedMod1Packer) PackTo(vPack, v []uint64) {
 }
 
 // UnPack returns the unpacking of vPack.
-func (p *pow2AutFixedMod1Packer) UnPack(vPack []uint64) []uint64 {
+func (p *pow2AutFixedMod1IntPacker) UnPack(vPack []uint64) []uint64 {
 	v := make([]uint64, p.packLen)
 	p.UnPackTo(v, vPack)
 	return v
 }
 
 // UnPackTo unpacks vPack to v.
-func (p *pow2AutFixedMod1Packer) UnPackTo(v, vPack []uint64) {
+func (p *pow2AutFixedMod1IntPacker) UnPackTo(v, vPack []uint64) {
 	if len(v)%p.packLen != 0 || len(vPack) != p.params.Rank() {
 		panic("input(s) shape not consistent")
 	}
@@ -193,26 +193,26 @@ func (p *pow2AutFixedMod1Packer) UnPackTo(v, vPack []uint64) {
 }
 
 // Cube returns the form of the hypercube structure.
-func (p *pow2AutFixedMod1Packer) Cube() []int {
+func (p *pow2AutFixedMod1IntPacker) Cube() []int {
 	return p.cube
 }
 
 // CubeGen returns the corresponding generator for the hypercube structure.
-func (p *pow2AutFixedMod1Packer) CubeGen() []uint64 {
+func (p *pow2AutFixedMod1IntPacker) CubeGen() []uint64 {
 	return p.cubeGen
 }
 
 // RotIdxToAutIdx converts a rotation index to an automorphism index.
-func (p *pow2AutFixedMod1Packer) RotIdxToAutIdx(idx []int) int {
+func (p *pow2AutFixedMod1IntPacker) RotIdxToAutIdx(idx []int) int {
 	if len(idx) != 1 {
 		panic("input(s) shape not consistent")
 	}
 	return int(num.Exp(5, uint64(idx[0]), nil)) & (p.params.CycloOrder() - 1)
 }
 
-// pow2AutFixedMod3Packer is a packer for the power-of-two autfixed ring,
+// pow2AutFixedMod3IntPacker is a packer for the power-of-two autfixed ring,
 // where the modulus is a multiple of prime powers that are 3 mod 4.
-type pow2AutFixedMod3Packer struct {
+type pow2AutFixedMod3IntPacker struct {
 	params dft.RingParameters
 	mod    *num.Modulus
 
@@ -239,8 +239,8 @@ type pow2AutFixedMod3Packer struct {
 	pool *sync.Pool
 }
 
-// newPow2AutFixedMod3Packer creates a new [pow2AutFixedMod3Packer].
-func newPow2AutFixedMod3Packer(params dft.RingParameters, mod *num.Modulus) *pow2AutFixedMod3Packer {
+// newPow2AutFixedMod3IntPacker creates a new [pow2AutFixedMod3IntPacker].
+func newPow2AutFixedMod3IntPacker(params dft.RingParameters, mod *num.Modulus) *pow2AutFixedMod3IntPacker {
 	primes, _ := num.Factor(mod.Value())
 	packLen := params.CycloOrder() >> 2
 	logPackLen := bits.TrailingZeros64(primes[0]+1) - 1
@@ -335,7 +335,7 @@ func newPow2AutFixedMod3Packer(params dft.RingParameters, mod *num.Modulus) *pow
 		}
 	}
 
-	return &pow2AutFixedMod3Packer{
+	return &pow2AutFixedMod3IntPacker{
 		params: params,
 		mod:    mod,
 
@@ -361,29 +361,29 @@ func newPow2AutFixedMod3Packer(params dft.RingParameters, mod *num.Modulus) *pow
 }
 
 // Params returns the ring parameters.
-func (p *pow2AutFixedMod3Packer) Params() dft.RingParameters {
+func (p *pow2AutFixedMod3IntPacker) Params() dft.RingParameters {
 	return p.params
 }
 
 // Modulus returns the modulus used for the packing/unpacking.
-func (p *pow2AutFixedMod3Packer) Modulus() *num.Modulus {
+func (p *pow2AutFixedMod3IntPacker) Modulus() *num.Modulus {
 	return p.mod
 }
 
 // PackLen returns the length of the packing/unpacking.
-func (p *pow2AutFixedMod3Packer) PackLen() int {
+func (p *pow2AutFixedMod3IntPacker) PackLen() int {
 	return p.packLen
 }
 
 // Pack returns the packing of v.
-func (p *pow2AutFixedMod3Packer) Pack(v []uint64) []uint64 {
+func (p *pow2AutFixedMod3IntPacker) Pack(v []uint64) []uint64 {
 	vPack := make([]uint64, p.params.Rank())
 	p.PackTo(vPack, v)
 	return vPack
 }
 
 // PackTo packs v to vPack.
-func (p *pow2AutFixedMod3Packer) PackTo(vPack, v []uint64) {
+func (p *pow2AutFixedMod3IntPacker) PackTo(vPack, v []uint64) {
 	if len(vPack) != p.params.Rank() || len(v) > p.packLen {
 		panic("input(s) shape not consistent")
 	}
@@ -420,14 +420,14 @@ func (p *pow2AutFixedMod3Packer) PackTo(vPack, v []uint64) {
 }
 
 // UnPack returns the unpacking of vPack.
-func (p *pow2AutFixedMod3Packer) UnPack(vPack []uint64) []uint64 {
+func (p *pow2AutFixedMod3IntPacker) UnPack(vPack []uint64) []uint64 {
 	v := make([]uint64, p.packLen)
 	p.UnPackTo(v, vPack)
 	return v
 }
 
 // UnPackTo unpacks vPack to v.
-func (p *pow2AutFixedMod3Packer) UnPackTo(v, vPack []uint64) {
+func (p *pow2AutFixedMod3IntPacker) UnPackTo(v, vPack []uint64) {
 	if len(v)%p.packLen != 0 || len(vPack) != p.params.Rank() {
 		panic("input(s) shape not consistent")
 	}
@@ -456,25 +456,25 @@ func (p *pow2AutFixedMod3Packer) UnPackTo(v, vPack []uint64) {
 }
 
 // Cube returns the form of the hypercube structure.
-func (p *pow2AutFixedMod3Packer) Cube() []int {
+func (p *pow2AutFixedMod3IntPacker) Cube() []int {
 	return p.cube
 }
 
 // CubeGen returns the corresponding generator for the hypercube structure.
-func (p *pow2AutFixedMod3Packer) CubeGen() []uint64 {
+func (p *pow2AutFixedMod3IntPacker) CubeGen() []uint64 {
 	return p.cubeGen
 }
 
 // RotIdxToAutIdx converts a rotation index to an automorphism index.
-func (p *pow2AutFixedMod3Packer) RotIdxToAutIdx(idx []int) int {
+func (p *pow2AutFixedMod3IntPacker) RotIdxToAutIdx(idx []int) int {
 	if len(idx) != 1 {
 		panic("input(s) shape not consistent")
 	}
 	return int(num.Exp(5, uint64(idx[0]), nil)) & (p.params.CycloOrder() - 1)
 }
 
-// primeAutFixedPacker is a packer for prime autfixed ring.
-type primeAutFixedPacker struct {
+// primeAutFixedIntPacker is a packer for prime autfixed ring.
+type primeAutFixedIntPacker struct {
 	params dft.RingParameters
 	mod    *num.Modulus
 
@@ -506,17 +506,17 @@ type primeAutFixedPacker struct {
 	pool *sync.Pool
 }
 
-// newAutFixedPrimePacker creates a new [autFixedPacker].
-func newAutFixedPrimePacker(params dft.RingParameters, mod *num.Modulus) *primeAutFixedPacker {
+// newAutFixedPrimeIntPacker creates a new [primeAutFixedIntPacker].
+func newAutFixedPrimeIntPacker(params dft.RingParameters, mod *num.Modulus) *primeAutFixedIntPacker {
 	cycloOrd := params.CycloOrder()
 
 	// Compute the resolution of unity.
 	primes, exps := num.Factor(mod.Value())
 	if len(primes) != 1 {
-		panic("newAutFixedPacker: mod must be a prime power")
+		panic("mod must be a prime power")
 	}
 	prime, exp := primes[0], exps[0]
-	resolution := FindResolutionOfUnity(cycloOrd, prime, exp)
+	resolution := findResolutionOfUnity(cycloOrd, prime, exp)
 	invResolution := make([]uint64, len(resolution))
 	ord := num.Order(prime, num.NewModulus(cycloOrd))
 	if ord&1 == 1 {
@@ -570,7 +570,7 @@ func newAutFixedPrimePacker(params dft.RingParameters, mod *num.Modulus) *primeA
 
 	cycloOrdMod := num.NewModulus(cycloOrd)
 
-	return &primeAutFixedPacker{
+	return &primeAutFixedIntPacker{
 		params: params,
 		mod:    mod,
 
@@ -601,14 +601,14 @@ func newAutFixedPrimePacker(params dft.RingParameters, mod *num.Modulus) *primeA
 	}
 }
 
-// FindResolutionOfUnity finds the resolution of unity for the given cyclotomic order, prime, and exponent.
+// findResolutionOfUnity finds the resolution of unity for the given cyclotomic order, prime, and exponent.
 // The algorithm is from https://eprint.iacr.org/2024/2032.
-func FindResolutionOfUnity(cycloOrd int, prime uint64, exp uint64) []uint64 {
+func findResolutionOfUnity(cycloOrd int, prime uint64, exp uint64) []uint64 {
 	if !num.IsPrime(cycloOrd) {
-		panic("findResolutionOfUnity: cycloOrd must be a prime number")
+		panic("cycloOrd must be a prime number")
 	}
 	if !num.IsPrime(prime) {
-		panic("findResolutionOfUnity: prime must be a prime number")
+		panic("prime must be a prime number")
 	}
 
 	cycloOrdMod := num.NewModulus(cycloOrd)
@@ -706,29 +706,29 @@ func FindResolutionOfUnity(cycloOrd int, prime uint64, exp uint64) []uint64 {
 }
 
 // Params returns the ring parameters.
-func (p *primeAutFixedPacker) Params() dft.RingParameters {
+func (p *primeAutFixedIntPacker) Params() dft.RingParameters {
 	return p.params
 }
 
 // Modulus returns the modulus used for the packing/unpacking.
-func (p *primeAutFixedPacker) Modulus() *num.Modulus {
+func (p *primeAutFixedIntPacker) Modulus() *num.Modulus {
 	return p.mod
 }
 
 // PackLen returns the length of the packing/unpacking.
-func (p *primeAutFixedPacker) PackLen() int {
+func (p *primeAutFixedIntPacker) PackLen() int {
 	return p.packLen
 }
 
 // Pack returns the packing of v.
-func (p *primeAutFixedPacker) Pack(v []uint64) []uint64 {
+func (p *primeAutFixedIntPacker) Pack(v []uint64) []uint64 {
 	vPack := make([]uint64, p.params.Rank())
 	p.PackTo(vPack, v)
 	return vPack
 }
 
 // PackTo packs v to vPack.
-func (p *primeAutFixedPacker) PackTo(vPack, v []uint64) {
+func (p *primeAutFixedIntPacker) PackTo(vPack, v []uint64) {
 	if len(vPack) != p.params.Rank() || len(v) > p.packLen {
 		panic("input(s) shape not consistent")
 	}
@@ -761,14 +761,14 @@ func (p *primeAutFixedPacker) PackTo(vPack, v []uint64) {
 }
 
 // UnPack returns the unpacking of vPack.
-func (p *primeAutFixedPacker) UnPack(vPack []uint64) []uint64 {
+func (p *primeAutFixedIntPacker) UnPack(vPack []uint64) []uint64 {
 	v := make([]uint64, p.packLen)
 	p.UnPackTo(v, vPack)
 	return v
 }
 
 // UnPackTo unpacks vPack to v.
-func (p *primeAutFixedPacker) UnPackTo(v, vPack []uint64) {
+func (p *primeAutFixedIntPacker) UnPackTo(v, vPack []uint64) {
 	if len(v) != p.packLen || len(vPack) != p.params.Rank() {
 		panic("input(s) shape not consistent")
 	}
@@ -797,17 +797,17 @@ func (p *primeAutFixedPacker) UnPackTo(v, vPack []uint64) {
 }
 
 // Cube returns the form of the hypercube structure.
-func (p *primeAutFixedPacker) Cube() []int {
+func (p *primeAutFixedIntPacker) Cube() []int {
 	return p.cube
 }
 
 // CubeGen returns the corresponding generator for the hypercube structure.
-func (p *primeAutFixedPacker) CubeGen() []uint64 {
+func (p *primeAutFixedIntPacker) CubeGen() []uint64 {
 	return p.cubeGen
 }
 
 // RotIdxToAutIdx converts a rotation index to an automorphism index.
-func (p *primeAutFixedPacker) RotIdxToAutIdx(idx []int) int {
+func (p *primeAutFixedIntPacker) RotIdxToAutIdx(idx []int) int {
 	if len(idx) != 1 {
 		panic("input(s) shape not consistent")
 	}

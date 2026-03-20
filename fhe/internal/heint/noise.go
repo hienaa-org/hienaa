@@ -163,7 +163,7 @@ func (ne *NoiseEstimator) Add(noise0, noise1 float64, len0, len1 int) float64 {
 }
 
 // AddPlainTo returns the noise of the sum of a ciphertext and a plaintext.
-func (ne *NoiseEstimator) AddPlain(noise float64, pt *crt.Element) float64 {
+func (ne *NoiseEstimator) AddPlain(noise float64, pt []uint64) float64 {
 	return noise
 }
 
@@ -178,7 +178,7 @@ func (ne *NoiseEstimator) Sub(noise0, noise1 float64, len0, len1 int) float64 {
 }
 
 // SubPlainTo returns the noise of the difference of a ciphertext and a plaintext.
-func (ne *NoiseEstimator) SubPlain(noise float64, pt *crt.Element) float64 {
+func (ne *NoiseEstimator) SubPlain(noise float64, pt []uint64) float64 {
 	return noise
 }
 
@@ -188,19 +188,19 @@ func (ne *NoiseEstimator) SubElement(noise float64, e *rlwe.Element) float64 {
 }
 
 // MulPlainTo returns the noise of the product of a ciphertext and a plaintext.
-func (ne *NoiseEstimator) MulPlain(noise float64, pt *crt.Element) float64 {
+func (ne *NoiseEstimator) MulPlain(noise float64, pt []uint64) float64 {
 	// Compute the tight bound of the noise.
 	max := uint64(0)
 	halfMsgMod := ne.msgMod.Value() >> 1
-	for i := 0; i < pt.Rank(); i++ {
-		if pt.Coeffs[0][i] > halfMsgMod && pt.Coeffs[0][i]-halfMsgMod > max {
-			max = pt.Coeffs[0][i] - halfMsgMod
-		} else if pt.Coeffs[0][i] <= halfMsgMod && pt.Coeffs[0][i] > max {
-			max = pt.Coeffs[0][i]
+	for i := 0; i < len(pt); i++ {
+		if pt[i] > halfMsgMod && pt[i]-halfMsgMod > max {
+			max = pt[i] - halfMsgMod
+		} else if pt[i] <= halfMsgMod && pt[i] > max {
+			max = pt[i]
 		}
 	}
 
-	if pt.Rank() == 1 {
+	if len(pt) == 1 {
 		return noise * float64(max)
 	} else {
 		return noise * float64(max) * float64(ne.params.RingParams().ExpFactor())
@@ -212,7 +212,7 @@ func (ne *NoiseEstimator) MulElement(noise float64, e *rlwe.Element) float64 {
 	// When we multiply a ciphertext and an element, we cannot compute the tight bound of the noise
 	// without expensive operations, such as basis embedding or inverse NTT.
 	// Therefore, we use the half of the message modulus as the noise bound.
-	if e.Rank() == 1 {
+	if e.Type() == crt.TypeScalar {
 		return noise * float64(ne.msgMod.Value()) / 2
 	} else {
 		return noise * float64(ne.msgMod.Value()) / 2 * float64(ne.params.RingParams().ExpFactor())

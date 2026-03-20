@@ -3,7 +3,6 @@ package bgv
 import (
 	"github.com/hienaa-org/hienaa/fhe/internal/heint"
 	"github.com/hienaa-org/hienaa/fhe/rlwe"
-	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/num"
 )
 
@@ -59,22 +58,22 @@ func (e *Encryptor) NewRotationKey(idx []int) *rlwe.AutomorphismKey {
 }
 
 // Encrypt encrypts the message v.
-func (e *Encryptor) Encrypt(v *Plaintext, isNTT bool) *Ciphertext {
+func (e *Encryptor) Encrypt(v Plaintext, isNTT bool) *Ciphertext {
 	ct := NewCiphertext(e.Parameters(), isNTT)
 	e.EncryptTo(ct, v, isNTT)
 	return ct
 }
 
 // EncryptCustom encrypts the message v with custom parameters.
-func (e *Encryptor) EncryptCustom(v *Plaintext, baseLen int, isNTT bool) *Ciphertext {
+func (e *Encryptor) EncryptCustom(v Plaintext, baseLen int, isNTT bool) *Ciphertext {
 	ct := NewCiphertextCustom(e.Parameters().Rank(), baseLen, isNTT)
 	e.EncryptTo(ct, v, isNTT)
 	return ct
 }
 
 // EncryptTo encrypts the message v to ctOut.
-func (e *Encryptor) EncryptTo(ctOut *Ciphertext, v *Plaintext, isNTT bool) {
-	e.heintEnc.EncryptTo(ctOut.Value, (*crt.Element)(v), isNTT)
+func (e *Encryptor) EncryptTo(ctOut *Ciphertext, v Plaintext, isNTT bool) {
+	e.heintEnc.EncryptTo(ctOut.Value, v, isNTT)
 	e.noise.EncryptTo(ctOut)
 }
 
@@ -92,13 +91,13 @@ func (e *Encryptor) EncryptElementTo(ctOut *Ciphertext, eIn *rlwe.Element, isNTT
 }
 
 // Decrypt decrypts the ciphertext ct.
-func (e *Encryptor) Decrypt(ct *Ciphertext) *Plaintext {
-	return (*Plaintext)(e.heintEnc.Decrypt(ct.Value))
+func (e *Encryptor) Decrypt(ct *Ciphertext) Plaintext {
+	return e.heintEnc.Decrypt(ct.Value)
 }
 
 // DecryptTo decrypts the ciphertext ct to vOut.
-func (e *Encryptor) DecryptTo(vOut *Plaintext, ct *Ciphertext) {
-	e.heintEnc.DecryptTo((*crt.Element)(vOut), ct.Value)
+func (e *Encryptor) DecryptTo(vOut Plaintext, ct *Ciphertext) {
+	e.heintEnc.DecryptTo(vOut, ct.Value)
 }
 
 // Phase performs Phase(ct).

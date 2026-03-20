@@ -84,6 +84,11 @@ func (e *Element) Clear() {
 	e.Value.Clear()
 }
 
+// Type returns the type of e.
+func (e *Element) Type() crt.ElementType {
+	return e.Value.Type()
+}
+
 // WithModIdx returns a shallow copy with the given modulus indices.
 //
 // Panics when baseLen or auxLen is larger than the current base or auxiliary modulus lengths.

@@ -10,9 +10,9 @@ import (
 	"github.com/hienaa-org/hienaa/math/vec"
 )
 
-// pow2CyclotomicMod1Packer is a packer for the power-of-two cyclotomic ring,
+// pow2CyclotomicMod1IntPacker is a packer for the power-of-two cyclotomic ring,
 // where the modulus is a multiple of prime powers that are 1 mod 4.
-type pow2CyclotomicMod1Packer struct {
+type pow2CyclotomicMod1IntPacker struct {
 	params dft.RingParameters
 	mod    *num.Modulus
 
@@ -29,8 +29,8 @@ type pow2CyclotomicMod1Packer struct {
 	pool *sync.Pool
 }
 
-// newPow2CyclotomicMod1Packer creates a new [pow2CyclotomicMod1Packer].
-func newPow2CyclotomicMod1Packer(params dft.RingParameters, mod *num.Modulus) *pow2CyclotomicMod1Packer {
+// newPow2CyclotomicMod1IntPacker creates a new [pow2CyclotomicMod1IntPacker].
+func newPow2CyclotomicMod1IntPacker(params dft.RingParameters, mod *num.Modulus) *pow2CyclotomicMod1IntPacker {
 	primes, _ := num.Factor(mod.Value())
 	packLen := params.CycloOrder() >> 1
 	for i := range primes {
@@ -42,7 +42,7 @@ func newPow2CyclotomicMod1Packer(params dft.RingParameters, mod *num.Modulus) *p
 	nttParams := dft.NewCyclotomicParameters(packLen << 1)
 	ntt := dft.NewTransformer(nttParams, mod)
 
-	return &pow2CyclotomicMod1Packer{
+	return &pow2CyclotomicMod1IntPacker{
 		params: params,
 		mod:    mod,
 
@@ -62,29 +62,29 @@ func newPow2CyclotomicMod1Packer(params dft.RingParameters, mod *num.Modulus) *p
 }
 
 // Params returns the ring parameters.
-func (p *pow2CyclotomicMod1Packer) Params() dft.RingParameters {
+func (p *pow2CyclotomicMod1IntPacker) Params() dft.RingParameters {
 	return p.params
 }
 
 // Modulus returns the modulus used for the packing/unpacking.
-func (p *pow2CyclotomicMod1Packer) Modulus() *num.Modulus {
+func (p *pow2CyclotomicMod1IntPacker) Modulus() *num.Modulus {
 	return p.mod
 }
 
 // PackLen returns the length of the packing/unpacking.
-func (p *pow2CyclotomicMod1Packer) PackLen() int {
+func (p *pow2CyclotomicMod1IntPacker) PackLen() int {
 	return p.packLen
 }
 
 // Pack returns the packing of v.
-func (p *pow2CyclotomicMod1Packer) Pack(v []uint64) []uint64 {
+func (p *pow2CyclotomicMod1IntPacker) Pack(v []uint64) []uint64 {
 	vPack := make([]uint64, p.params.Rank())
 	p.PackTo(vPack, v)
 	return vPack
 }
 
 // PackTo packs v to vPack.
-func (p *pow2CyclotomicMod1Packer) PackTo(vPack, v []uint64) {
+func (p *pow2CyclotomicMod1IntPacker) PackTo(vPack, v []uint64) {
 	if len(vPack) != p.params.Rank() || len(v) > p.packLen {
 		panic("input(s) shape not consistent")
 	}
@@ -121,14 +121,14 @@ func (p *pow2CyclotomicMod1Packer) PackTo(vPack, v []uint64) {
 }
 
 // UnPack returns the unpacking of vPack.
-func (p *pow2CyclotomicMod1Packer) UnPack(vPack []uint64) []uint64 {
+func (p *pow2CyclotomicMod1IntPacker) UnPack(vPack []uint64) []uint64 {
 	v := make([]uint64, p.packLen)
 	p.UnPackTo(v, vPack)
 	return v
 }
 
 // UnPackTo unpacks vPack to v.
-func (p *pow2CyclotomicMod1Packer) UnPackTo(v, vPack []uint64) {
+func (p *pow2CyclotomicMod1IntPacker) UnPackTo(v, vPack []uint64) {
 	if len(v)%p.packLen != 0 || len(vPack) != p.params.Rank() {
 		panic("input(s) shape not consistent")
 	}
@@ -161,17 +161,17 @@ func (p *pow2CyclotomicMod1Packer) UnPackTo(v, vPack []uint64) {
 }
 
 // Cube returns the form of the hypercube structure.
-func (p *pow2CyclotomicMod1Packer) Cube() []int {
+func (p *pow2CyclotomicMod1IntPacker) Cube() []int {
 	return p.cube
 }
 
 // CubeGen returns the corresponding generator for the hypercube structure.
-func (p *pow2CyclotomicMod1Packer) CubeGen() []uint64 {
+func (p *pow2CyclotomicMod1IntPacker) CubeGen() []uint64 {
 	return p.cubeGen
 }
 
 // RotIdxToAutIdx converts a rotation index to an automorphism index.
-func (p *pow2CyclotomicMod1Packer) RotIdxToAutIdx(idx []int) int {
+func (p *pow2CyclotomicMod1IntPacker) RotIdxToAutIdx(idx []int) int {
 	switch {
 	case p.packLen == 1:
 		if len(idx) != 1 {
@@ -197,9 +197,9 @@ func (p *pow2CyclotomicMod1Packer) RotIdxToAutIdx(idx []int) int {
 	}
 }
 
-// pow2CyclotomicMod3Packer is a packer for the power-of-two cyclotomic ring,
+// pow2CyclotomicMod3IntPacker is a packer for the power-of-two cyclotomic ring,
 // where the modulus is a multiple of prime powers that are 3 mod 4.
-type pow2CyclotomicMod3Packer struct {
+type pow2CyclotomicMod3IntPacker struct {
 	params dft.RingParameters
 	mod    *num.Modulus
 
@@ -224,8 +224,8 @@ type pow2CyclotomicMod3Packer struct {
 	pool *sync.Pool
 }
 
-// newPow2CyclotomicMod3Packer creates a new [pow2CyclotomicMod3Packer].
-func newPow2CyclotomicMod3Packer(params dft.RingParameters, mod *num.Modulus) *pow2CyclotomicMod3Packer {
+// newPow2CyclotomicMod3IntPacker creates a new [pow2CyclotomicMod3Packer].
+func newPow2CyclotomicMod3IntPacker(params dft.RingParameters, mod *num.Modulus) *pow2CyclotomicMod3IntPacker {
 	primes, _ := num.Factor(mod.Value())
 	packLen := params.CycloOrder() >> 2
 	logPackLen := bits.TrailingZeros64(primes[0]+1) - 1
@@ -257,7 +257,7 @@ func newPow2CyclotomicMod3Packer(params dft.RingParameters, mod *num.Modulus) *p
 
 	rankInv := num.Inv(uint64(packLen<<1), mod)
 
-	return &pow2CyclotomicMod3Packer{
+	return &pow2CyclotomicMod3IntPacker{
 		params: params,
 		mod:    mod,
 
@@ -282,29 +282,29 @@ func newPow2CyclotomicMod3Packer(params dft.RingParameters, mod *num.Modulus) *p
 }
 
 // Params returns the ring parameters.
-func (p *pow2CyclotomicMod3Packer) Params() dft.RingParameters {
+func (p *pow2CyclotomicMod3IntPacker) Params() dft.RingParameters {
 	return p.params
 }
 
 // Modulus returns the modulus of the packer.
-func (p *pow2CyclotomicMod3Packer) Modulus() *num.Modulus {
+func (p *pow2CyclotomicMod3IntPacker) Modulus() *num.Modulus {
 	return p.mod
 }
 
 // PackLen returns the length of the packing/unpacking.
-func (p *pow2CyclotomicMod3Packer) PackLen() int {
+func (p *pow2CyclotomicMod3IntPacker) PackLen() int {
 	return p.packLen
 }
 
 // Pack returns the packing of v.
-func (p *pow2CyclotomicMod3Packer) Pack(v []uint64) []uint64 {
+func (p *pow2CyclotomicMod3IntPacker) Pack(v []uint64) []uint64 {
 	vPack := make([]uint64, p.params.Rank())
 	p.PackTo(vPack, v)
 	return vPack
 }
 
 // PackTo packs v to vPack.
-func (p *pow2CyclotomicMod3Packer) PackTo(vPack, v []uint64) {
+func (p *pow2CyclotomicMod3IntPacker) PackTo(vPack, v []uint64) {
 	if len(vPack) != p.params.Rank() || len(v) > p.packLen {
 		panic("input(s) shape not consistent")
 	}
@@ -334,14 +334,14 @@ func (p *pow2CyclotomicMod3Packer) PackTo(vPack, v []uint64) {
 }
 
 // UnPack returns the unpacking of vPack.
-func (p *pow2CyclotomicMod3Packer) UnPack(vPack []uint64) []uint64 {
+func (p *pow2CyclotomicMod3IntPacker) UnPack(vPack []uint64) []uint64 {
 	v := make([]uint64, p.packLen)
 	p.UnPackTo(v, vPack)
 	return v
 }
 
 // UnPackTo unpacks vPack to v.
-func (p *pow2CyclotomicMod3Packer) UnPackTo(v, vPack []uint64) {
+func (p *pow2CyclotomicMod3IntPacker) UnPackTo(v, vPack []uint64) {
 	if len(v)%p.packLen != 0 || len(vPack) != p.params.Rank() {
 		panic("input(s) shape not consistent")
 	}
@@ -366,26 +366,26 @@ func (p *pow2CyclotomicMod3Packer) UnPackTo(v, vPack []uint64) {
 }
 
 // Cube returns the form of the hypercube structure.
-func (p *pow2CyclotomicMod3Packer) Cube() []int {
+func (p *pow2CyclotomicMod3IntPacker) Cube() []int {
 	return p.cube
 }
 
 // CubeGen returns the corresponding generator for the hypercube structure.
-func (p *pow2CyclotomicMod3Packer) CubeGen() []uint64 {
+func (p *pow2CyclotomicMod3IntPacker) CubeGen() []uint64 {
 	return p.cubeGen
 }
 
 // RotIdxToAutIdx converts a rotation index to an automorphism index.
-func (p *pow2CyclotomicMod3Packer) RotIdxToAutIdx(idx []int) int {
+func (p *pow2CyclotomicMod3IntPacker) RotIdxToAutIdx(idx []int) int {
 	if len(idx) != 1 {
 		panic("input(s) shape not consistent")
 	}
 	return int(num.Exp(5, uint64(idx[0]), nil)) & (p.params.CycloOrder() - 1)
 }
 
-// anyCyclotomicPacker is a packer for arbitrary cyclotomic rings,
+// anyCyclotomicIntPacker is a packer for arbitrary cyclotomic rings,
 // where the modulus is NTT-friendly.
-type anyCyclotomicPacker struct {
+type anyCyclotomicIntPacker struct {
 	params dft.RingParameters
 	mod    *num.Modulus
 
@@ -403,8 +403,8 @@ type anyCyclotomicPacker struct {
 	cycloOrdMod *num.Modulus
 }
 
-// newAnyCyclotomicPacker creates a new [anyCyclotomicPacker].
-func newAnyCyclotomicPacker(params dft.RingParameters, mod *num.Modulus) *anyCyclotomicPacker {
+// newAnyCyclotomicIntPacker creates a new [anyCyclotomicIntPacker].
+func newAnyCyclotomicIntPacker(params dft.RingParameters, mod *num.Modulus) *anyCyclotomicIntPacker {
 	packLen := int(params.Rank())
 	ntt := dft.NewTransformer(params, mod)
 
@@ -426,7 +426,7 @@ func newAnyCyclotomicPacker(params dft.RingParameters, mod *num.Modulus) *anyCyc
 		}
 	}
 
-	return &anyCyclotomicPacker{
+	return &anyCyclotomicIntPacker{
 		params: params,
 		mod:    mod,
 
@@ -441,29 +441,29 @@ func newAnyCyclotomicPacker(params dft.RingParameters, mod *num.Modulus) *anyCyc
 }
 
 // Params returns the ring parameters.
-func (p *anyCyclotomicPacker) Params() dft.RingParameters {
+func (p *anyCyclotomicIntPacker) Params() dft.RingParameters {
 	return p.params
 }
 
 // Modulus returns the modulus used for the packing/unpacking.
-func (p *anyCyclotomicPacker) Modulus() *num.Modulus {
+func (p *anyCyclotomicIntPacker) Modulus() *num.Modulus {
 	return p.mod
 }
 
 // PackLen returns the length of the packing/unpacking.
-func (p *anyCyclotomicPacker) PackLen() int {
+func (p *anyCyclotomicIntPacker) PackLen() int {
 	return p.packLen
 }
 
 // Pack returns the packing of v.
-func (p *anyCyclotomicPacker) Pack(v []uint64) []uint64 {
+func (p *anyCyclotomicIntPacker) Pack(v []uint64) []uint64 {
 	vPack := make([]uint64, p.params.Rank())
 	p.PackTo(vPack, v)
 	return vPack
 }
 
 // PackTo packs v to vPack.
-func (p *anyCyclotomicPacker) PackTo(vPack, v []uint64) {
+func (p *anyCyclotomicIntPacker) PackTo(vPack, v []uint64) {
 	if len(vPack) != p.params.Rank() || len(v) != p.packLen {
 		panic("input(s) shape not consistent")
 	}
@@ -473,14 +473,14 @@ func (p *anyCyclotomicPacker) PackTo(vPack, v []uint64) {
 }
 
 // UnPack returns the unpacking of vPack.
-func (p *anyCyclotomicPacker) UnPack(v []uint64) []uint64 {
+func (p *anyCyclotomicIntPacker) UnPack(v []uint64) []uint64 {
 	vPack := make([]uint64, p.packLen)
 	p.UnPackTo(vPack, v)
 	return vPack
 }
 
 // UnPackTo unpacks vPack to v.
-func (p *anyCyclotomicPacker) UnPackTo(v, vPack []uint64) {
+func (p *anyCyclotomicIntPacker) UnPackTo(v, vPack []uint64) {
 	if len(v) != p.packLen || len(vPack) != p.params.Rank() {
 		panic("input(s) shape not consistent")
 	}
@@ -490,17 +490,17 @@ func (p *anyCyclotomicPacker) UnPackTo(v, vPack []uint64) {
 }
 
 // Cube returns the form of the hypercube structure.
-func (p *anyCyclotomicPacker) Cube() []int {
+func (p *anyCyclotomicIntPacker) Cube() []int {
 	return p.cube
 }
 
 // CubeGen returns the corresponding generator for the hypercube structure.
-func (p *anyCyclotomicPacker) CubeGen() []uint64 {
+func (p *anyCyclotomicIntPacker) CubeGen() []uint64 {
 	return p.cubeGen
 }
 
 // RotIdxToAutIdx converts a rotation index to an automorphism index.
-func (p *anyCyclotomicPacker) RotIdxToAutIdx(idx []int) int {
+func (p *anyCyclotomicIntPacker) RotIdxToAutIdx(idx []int) int {
 	if len(idx) != len(p.cubeGen) {
 		panic("input(s) shape not consistent")
 	}
@@ -511,9 +511,9 @@ func (p *anyCyclotomicPacker) RotIdxToAutIdx(idx []int) int {
 	return int(autIdx)
 }
 
-// trivialPacker is a packer for arbitrary cyclotomic rings,
+// trivialIntPacker is a packer for arbitrary cyclotomic rings,
 // where the modulus is not NTT-friendly.
-type trivialPacker struct {
+type trivialIntPacker struct {
 	params dft.RingParameters
 	mod    *num.Modulus
 
@@ -526,9 +526,9 @@ type trivialPacker struct {
 	cubeGen []uint64
 }
 
-// newTrivialPacker creates a new [trivialPacker].
-func newTrivialPacker(params dft.RingParameters, mod *num.Modulus) *trivialPacker {
-	return &trivialPacker{
+// newTrivialIntPacker creates a new [trivialIntPacker].
+func newTrivialIntPacker(params dft.RingParameters, mod *num.Modulus) *trivialIntPacker {
+	return &trivialIntPacker{
 		params: params,
 		mod:    mod,
 
@@ -540,29 +540,29 @@ func newTrivialPacker(params dft.RingParameters, mod *num.Modulus) *trivialPacke
 }
 
 // Params returns the ring parameters.
-func (p *trivialPacker) Params() dft.RingParameters {
+func (p *trivialIntPacker) Params() dft.RingParameters {
 	return p.params
 }
 
 // Modulus returns the modulus used for the packing/unpacking.
-func (p *trivialPacker) Modulus() *num.Modulus {
+func (p *trivialIntPacker) Modulus() *num.Modulus {
 	return p.mod
 }
 
 // PackLen returns the length of the packing/unpacking.
-func (p *trivialPacker) PackLen() int {
+func (p *trivialIntPacker) PackLen() int {
 	return p.packLen
 }
 
 // Pack returns the packing of v.
-func (p *trivialPacker) Pack(v []uint64) []uint64 {
+func (p *trivialIntPacker) Pack(v []uint64) []uint64 {
 	vPack := make([]uint64, p.params.Rank())
 	p.PackTo(vPack, v)
 	return vPack
 }
 
 // PackTo packs v to vPack.
-func (p *trivialPacker) PackTo(vPack, v []uint64) {
+func (p *trivialIntPacker) PackTo(vPack, v []uint64) {
 	if len(vPack) != p.params.Rank() || len(v) != p.packLen {
 		panic("input(s) shape not consistent")
 	}
@@ -572,14 +572,14 @@ func (p *trivialPacker) PackTo(vPack, v []uint64) {
 }
 
 // UnPack returns the unpacking of vPack.
-func (p *trivialPacker) UnPack(vPack []uint64) []uint64 {
+func (p *trivialIntPacker) UnPack(vPack []uint64) []uint64 {
 	v := make([]uint64, p.packLen)
 	p.UnPackTo(v, vPack)
 	return v
 }
 
 // UnPackTo unpacks vPack to v.
-func (p *trivialPacker) UnPackTo(v, vPack []uint64) {
+func (p *trivialIntPacker) UnPackTo(v, vPack []uint64) {
 	if len(v) != p.packLen || len(vPack) != p.params.Rank() {
 		panic("input(s) shape not consistent")
 	}
@@ -588,17 +588,17 @@ func (p *trivialPacker) UnPackTo(v, vPack []uint64) {
 }
 
 // Cube returns the form of the hypercube structure.
-func (p *trivialPacker) Cube() []int {
+func (p *trivialIntPacker) Cube() []int {
 	return p.cube
 }
 
 // CubeGen returns the corresponding generator for the hypercube structure.
-func (p *trivialPacker) CubeGen() []uint64 {
+func (p *trivialIntPacker) CubeGen() []uint64 {
 	return p.cubeGen
 }
 
 // RotIdxToAutIdx converts a rotation index to an automorphism index.
-func (p *trivialPacker) RotIdxToAutIdx(idx []int) int {
+func (p *trivialIntPacker) RotIdxToAutIdx(idx []int) int {
 	if len(idx) != 1 {
 		panic("input(s) shape not consistent")
 	}

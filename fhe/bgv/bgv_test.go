@@ -59,13 +59,13 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 			res := enc.Decrypt(ct)
 
 			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloOrder()) {
-				for i := range res.Coeffs[0] {
-					assert.Equal(t, msg, num.Neg(res.Coeffs[0][i], q))
+				for i := range res {
+					assert.Equal(t, msg, num.Neg(res[i], q))
 				}
 			} else {
-				assert.Equal(t, msg, res.Coeffs[0][0])
-				for i := 1; i < len(res.Coeffs[0]); i++ {
-					assert.Equal(t, uint64(0), res.Coeffs[0][i])
+				assert.Equal(t, msg, res[0])
+				for i := 1; i < len(res); i++ {
+					assert.Equal(t, uint64(0), res[i])
 				}
 			}
 		})
@@ -109,13 +109,13 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 			res := enc.Decrypt(ctOut)
 
 			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloOrder()) {
-				for i := range res.Coeffs[0] {
-					assert.Equal(t, msgRef, num.Neg(res.Coeffs[0][i], q))
+				for i := range res {
+					assert.Equal(t, msgRef, num.Neg(res[i], q))
 				}
 			} else {
-				assert.Equal(t, msgRef, res.Coeffs[0][0])
-				for i := 1; i < len(res.Coeffs[0]); i++ {
-					assert.Equal(t, uint64(0), res.Coeffs[0][i])
+				assert.Equal(t, msgRef, res[0])
+				for i := 1; i < len(res); i++ {
+					assert.Equal(t, uint64(0), res[i])
 				}
 			}
 		})
@@ -149,13 +149,13 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 			res := enc.Decrypt(ctOut)
 
 			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloOrder()) {
-				for i := range res.Coeffs[0] {
-					assert.Equal(t, msgRef, num.Neg(res.Coeffs[0][i], q))
+				for i := range res {
+					assert.Equal(t, msgRef, num.Neg(res[i], q))
 				}
 			} else {
-				assert.Equal(t, msgRef, res.Coeffs[0][0])
-				for i := 1; i < len(res.Coeffs[0]); i++ {
-					assert.Equal(t, uint64(0), res.Coeffs[0][i])
+				assert.Equal(t, msgRef, res[0])
+				for i := 1; i < len(res); i++ {
+					assert.Equal(t, uint64(0), res[i])
 				}
 			}
 		})
@@ -204,13 +204,13 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 			res := enc.Decrypt(ctOut)
 
 			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloOrder()) {
-				for i := range res.Coeffs[0] {
-					assert.Equal(t, msgRef, num.Neg(res.Coeffs[0][i], q))
+				for i := range res {
+					assert.Equal(t, msgRef, num.Neg(res[i], q))
 				}
 			} else {
-				assert.Equal(t, msgRef, res.Coeffs[0][0])
-				for i := 1; i < len(res.Coeffs[0]); i++ {
-					assert.Equal(t, uint64(0), res.Coeffs[0][i])
+				assert.Equal(t, msgRef, res[0])
+				for i := 1; i < len(res); i++ {
+					assert.Equal(t, uint64(0), res[i])
 				}
 			}
 		})
@@ -244,13 +244,13 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 			res := enc.Decrypt(ctOut)
 
 			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloOrder()) {
-				for i := range res.Coeffs[0] {
-					assert.Equal(t, msgRef, num.Neg(res.Coeffs[0][i], q))
+				for i := range res {
+					assert.Equal(t, msgRef, num.Neg(res[i], q))
 				}
 			} else {
-				assert.Equal(t, msgRef, res.Coeffs[0][0])
-				for i := 1; i < len(res.Coeffs[0]); i++ {
-					assert.Equal(t, uint64(0), res.Coeffs[0][i])
+				assert.Equal(t, msgRef, res[0])
+				for i := 1; i < len(res); i++ {
+					assert.Equal(t, uint64(0), res[i])
 				}
 			}
 		})
@@ -300,13 +300,13 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 			res := enc.Decrypt(ctOut)
 
 			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloOrder()) {
-				for i := range res.Coeffs[0] {
-					assert.Equal(t, msgRef, num.Neg(res.Coeffs[0][i], q))
+				for i := range res {
+					assert.Equal(t, msgRef, num.Neg(res[i], q))
 				}
 			} else {
-				assert.Equal(t, msgRef, res.Coeffs[0][0])
-				for i := 1; i < len(res.Coeffs[0]); i++ {
-					assert.Equal(t, uint64(0), res.Coeffs[0][i])
+				assert.Equal(t, msgRef, res[0])
+				for i := 1; i < len(res); i++ {
+					assert.Equal(t, uint64(0), res[i])
 				}
 			}
 		})

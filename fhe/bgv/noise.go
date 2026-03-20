@@ -5,7 +5,6 @@ import (
 
 	"github.com/hienaa-org/hienaa/fhe/internal/heint"
 	"github.com/hienaa-org/hienaa/fhe/rlwe"
-	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/num"
 )
 
@@ -65,8 +64,8 @@ func (ne *NoiseEstimator) AddTo(ctOut, ct0, ct1 *Ciphertext) {
 }
 
 // AddPlainTo returns the noise of the sum of a ciphertext and a plaintext.
-func (ne *NoiseEstimator) AddPlainTo(ctOut, ct *Ciphertext, pt *Plaintext) {
-	ctOut.noise = ne.noise.AddPlain(ct.noise, (*crt.Element)(pt))
+func (ne *NoiseEstimator) AddPlainTo(ctOut, ct *Ciphertext, pt Plaintext) {
+	ctOut.noise = ne.noise.AddPlain(ct.noise, pt)
 }
 
 // AddElementTo returns the noise of the sum of a ciphertext and an element.
@@ -80,8 +79,8 @@ func (ne *NoiseEstimator) SubTo(ctOut, ct0, ct1 *Ciphertext) {
 }
 
 // SubPlainTo returns the noise of the difference of a ciphertext and a plaintext.
-func (ne *NoiseEstimator) SubPlainTo(ctOut, ct *Ciphertext, pt *Plaintext) {
-	ctOut.noise = ne.noise.SubPlain(ct.noise, (*crt.Element)(pt))
+func (ne *NoiseEstimator) SubPlainTo(ctOut, ct *Ciphertext, pt Plaintext) {
+	ctOut.noise = ne.noise.SubPlain(ct.noise, pt)
 }
 
 // SubElementTo returns the noise of the difference of a ciphertext and an element.
@@ -145,8 +144,8 @@ func (ne *NoiseEstimator) MulTo(ctOut, ct0, ct1 *Ciphertext) {
 }
 
 // MulPlainTo returns the noise of the product of a ciphertext and a plaintext.
-func (ne *NoiseEstimator) MulPlainTo(ctOut, ct *Ciphertext, pt *Plaintext) {
-	ctOut.noise = ne.noise.MulPlain(ct.noise, (*crt.Element)(pt))
+func (ne *NoiseEstimator) MulPlainTo(ctOut, ct *Ciphertext, pt Plaintext) {
+	ctOut.noise = ne.noise.MulPlain(ct.noise, pt)
 }
 
 // MulElementTo returns the noise of the product of a ciphertext and an element.

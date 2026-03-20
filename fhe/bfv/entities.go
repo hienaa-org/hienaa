@@ -1,62 +1,65 @@
 package bfv
 
 import (
+	"slices"
+
 	"github.com/hienaa-org/hienaa/fhe/rlwe"
-	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
 )
 
 // Plaintext is a BFV plaintext embedded in ciphertext modulus.
-type Plaintext crt.Element
+type Plaintext []uint64
 
 // NewScalar creates a new [Plaintext] for a scalar.
-func NewScalar() *Plaintext {
-	return (*Plaintext)(crt.NewScalar(1))
+func NewScalar() Plaintext {
+	return make([]uint64, 1)
 }
 
 // NewScalarFrom creates a new [Plaintext] for a scalar from x.
-func NewScalarFrom(x uint64, msgMod *num.Modulus) *Plaintext {
+func NewScalarFrom(x uint64, msgMod *num.Modulus) Plaintext {
 	res := NewScalar()
-	res.Coeffs[0][0] = num.Reduce(x, msgMod)
+	res[0] = num.Reduce(x, msgMod)
 	return res
 }
 
 // NewPoly creates a new [Plaintext] for a polynomial.
-func NewPoly(rank int) *Plaintext {
-	return (*Plaintext)(crt.NewPolyCustom(rank, 1, false))
+func NewPoly(rank int) Plaintext {
+	return make([]uint64, rank)
 }
 
 // NewPolyFrom creates a new [Plaintext] for a polynomial from x.
-func NewPolyFrom(x []uint64, msgMod *num.Modulus) *Plaintext {
+func NewPolyFrom(x []uint64, msgMod *num.Modulus) Plaintext {
 	res := NewPoly(len(x))
-	vec.ReduceTo(res.Coeffs[0], x, msgMod)
+	vec.ReduceTo(res, x, msgMod)
 	return res
 }
 
 // Rank returns the rank.
-func (e *Plaintext) Rank() int {
-	return (*crt.Element)(e).Rank()
+func (e Plaintext) Rank() int {
+	return len(e)
 }
 
 // Clear clears value.
-func (e *Plaintext) Clear() {
-	(*crt.Element)(e).Clear()
+func (e Plaintext) Clear() {
+	clear(e)
 }
 
 // Copy returns a copy of e.
-func (e *Plaintext) Copy() *Plaintext {
-	return (*Plaintext)((*crt.Element)(e).Copy())
+func (e Plaintext) Copy() Plaintext {
+	res := make([]uint64, len(e))
+	copy(res, e)
+	return res
 }
 
 // CopyFrom copies the coefficients from eIn to e.
-func (e *Plaintext) CopyFrom(eIn *Plaintext) {
-	(*crt.Element)(e).CopyFrom((*crt.Element)(eIn))
+func (e Plaintext) CopyFrom(eIn Plaintext) {
+	copy(e, eIn)
 }
 
 // IsEqual checks if two values are equal.
-func (e *Plaintext) IsEqual(e0 *Plaintext) bool {
-	return (*crt.Element)(e).IsEqual((*crt.Element)(e0))
+func (e Plaintext) IsEqual(e0 Plaintext) bool {
+	return slices.Equal(e, e0)
 }
 
 // Ciphertext is a BFV ciphertext.

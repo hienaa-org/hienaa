@@ -1,8 +1,6 @@
 package heint
 
 import (
-	"sync"
-
 	"github.com/hienaa-org/hienaa/fhe/internal/pack"
 	"github.com/hienaa-org/hienaa/fhe/rlwe"
 	"github.com/hienaa-org/hienaa/math/crt"
@@ -22,8 +20,7 @@ type Encryptor struct {
 	scFacs []*rlwe.Element
 	scaler []*crt.Scaler
 
-	sPool  *sync.Pool
-	ptPool *sync.Pool
+	ePool *rlwe.ElementPool
 }
 
 // NewEncryptor creates a new [Encryptor].
@@ -58,16 +55,7 @@ func NewEncryptorWithKey(params rlwe.Parameters, msgMod *num.Modulus, skNTT *rlw
 		scFacs: scFacs,
 		scaler: scaler,
 
-		sPool: &sync.Pool{
-			New: func() any {
-				return rlwe.NewScalar(params, true)
-			},
-		},
-		ptPool: &sync.Pool{
-			New: func() any {
-				return rlwe.NewPoly(params, params.HasAuxModulus(), true)
-			},
-		},
+		ePool: rlwe.NewElementPool(params, true, true),
 	}
 }
 
@@ -103,39 +91,37 @@ func (e *Encryptor) NewRotationKey(idx []int) *rlwe.AutomorphismKey {
 }
 
 // Encrypt encrypts the message v.
-func (e *Encryptor) Encrypt(v *crt.Element, isNTT bool) *rlwe.Ciphertext {
+func (e *Encryptor) Encrypt(v []uint64, isNTT bool) *rlwe.Ciphertext {
 	ctOut := rlwe.NewCiphertext(e.params, false, isNTT)
 	e.EncryptTo(ctOut, v, isNTT)
 	return ctOut
 }
 
 // EncryptCustom encrypts the message v with custom parameters.
-func (e *Encryptor) EncryptCustom(v *crt.Element, baseLen int, isNTT bool) *rlwe.Ciphertext {
+func (e *Encryptor) EncryptCustom(v []uint64, baseLen int, isNTT bool) *rlwe.Ciphertext {
 	ctOut := rlwe.NewCiphertextCustom(e.params.Rank(), baseLen, 0, isNTT)
 	e.EncryptTo(ctOut, v, isNTT)
 	return ctOut
 }
 
 // EncryptTo encrypts the message v to ctOut.
-func (e *Encryptor) EncryptTo(ctOut *rlwe.Ciphertext, v *crt.Element, isNTT bool) {
+func (e *Encryptor) EncryptTo(ctOut *rlwe.Ciphertext, v []uint64, isNTT bool) {
 	if ctOut.AuxModLen() > 0 {
 		panic("auxiliary modulus length should be zero")
-	} else if v.ModLen() != 1 {
-		panic("message modulus length should be one")
 	}
 
 	baseLen := ctOut.BaseModLen()
-
 	var pt *rlwe.Element
-	if v.Rank() == 1 {
-		pt = e.sPool.Get().(*rlwe.Element)
-		defer e.sPool.Put(pt)
-		pt = pt.WithModLen(baseLen, 0)
-	} else {
-		pt = e.ptPool.Get().(*rlwe.Element)
-		defer e.ptPool.Put(pt)
-		pt = pt.WithModLen(baseLen, 0)
+	switch len(v) {
+	case 1:
+		pt = e.ePool.Get(crt.TypeScalar)
+	case ctOut.Rank():
+		pt = e.ePool.Get(crt.TypePoly)
+	default:
+		panic("invalid input length")
 	}
+	defer e.ePool.Put(pt)
+	pt = pt.WithModLen(baseLen, 0)
 
 	e.encoder.EncodeTo(pt, v, isNTT)
 	e.pOp.MulTo(pt, pt, e.scFacs[baseLen-1])
@@ -157,53 +143,45 @@ func (e *Encryptor) EncryptElementTo(ctOut *rlwe.Ciphertext, eIn *rlwe.Element, 
 
 	baseLen := eIn.BaseModLen()
 
-	var pt *rlwe.Element
-	if eIn.Rank() == 1 {
-		pt = e.sPool.Get().(*rlwe.Element)
-		defer e.sPool.Put(pt)
-		pt = pt.WithModLen(baseLen, 0)
-	} else {
-		pt = e.ptPool.Get().(*rlwe.Element)
-		defer e.ptPool.Put(pt)
-		pt = pt.WithModLen(baseLen, 0)
-	}
+	pt := e.ePool.Get(eIn.Type())
+	defer e.ePool.Put(pt)
+	pt = pt.WithModLen(baseLen, 0)
 
 	pt.CopyFrom(eIn)
-	e.pOp.MulTo((*rlwe.Element)(pt), (*rlwe.Element)(pt), e.scFacs[baseLen-1])
-	e.rlweEnc.EncryptTo(ctOut, (*rlwe.Element)(pt), isNTT)
+	e.pOp.MulTo(pt, pt, e.scFacs[baseLen-1])
+	e.rlweEnc.EncryptTo(ctOut, pt, isNTT)
 }
 
 // Decrypt decrypts the ciphertext ct.
-func (e *Encryptor) Decrypt(ct *rlwe.Ciphertext) *crt.Element {
-	vOut := crt.NewPoly(ct.Rank(), 1)
+func (e *Encryptor) Decrypt(ct *rlwe.Ciphertext) []uint64 {
+	vOut := make([]uint64, ct.Rank())
 	e.DecryptTo(vOut, ct)
 	return vOut
 }
 
 // DecryptTo decrypts the ciphertext ct to vOut.
-func (e *Encryptor) DecryptTo(vOut *crt.Element, ct *rlwe.Ciphertext) {
-	if vOut.Rank() > 1 && vOut.Rank() != ct.Rank() {
+func (e *Encryptor) DecryptTo(vOut []uint64, ct *rlwe.Ciphertext) {
+	if len(vOut) != 1 && len(vOut) != ct.Rank() {
 		panic("inconsistent output")
 	}
 
 	baseLen := ct.BaseModLen()
 
 	var pt *rlwe.Element
-	if vOut.Rank() == 1 {
-		pt = e.sPool.Get().(*rlwe.Element)
-		defer e.sPool.Put(pt)
-		pt = pt.WithModLen(baseLen, 0)
-	} else {
-		pt = e.ptPool.Get().(*rlwe.Element)
-		defer e.ptPool.Put(pt)
-		pt = pt.WithModLen(baseLen, 0)
+	switch len(vOut) {
+	case 1:
+		pt = e.ePool.Get(crt.TypeScalar)
+	case ct.Rank():
+		pt = e.ePool.Get(crt.TypePoly)
 	}
+	defer e.ePool.Put(pt)
+	pt = pt.WithModLen(baseLen, 0)
 	ptScale := pt.WithModLen(1, 0)
 
 	e.PhaseTo(pt, ct)
 
 	e.scaler[baseLen-1].ScaleTo(ptScale.Value, pt.Value)
-	vOut.CopyFrom(ptScale.Value)
+	copy(vOut, ptScale.Value.Coeffs[0][:len(vOut)])
 }
 
 // Phase performs Phase(ct).
@@ -231,17 +209,17 @@ func (e *Encryptor) NoiseTo(eOut *rlwe.Element, ct *rlwe.Ciphertext) {
 
 	baseLen := ct.BaseModLen()
 
-	pt := e.ptPool.Get().(*rlwe.Element)
-	vEcd := e.ptPool.Get().(*rlwe.Element)
-	defer e.ptPool.Put(pt)
-	defer e.ptPool.Put(vEcd)
+	pt := e.ePool.Get(crt.TypePoly)
+	vEcd := e.ePool.Get(crt.TypePoly)
+	defer e.ePool.Put(pt)
+	defer e.ePool.Put(vEcd)
 	pt = pt.WithModLen(baseLen, 0)
 	vEcd = vEcd.WithModLen(baseLen, 0)
 	v := vEcd.Value.WithModIdx(1)
 
 	e.PhaseTo(pt, ct)
 	e.scaler[baseLen-1].ScaleTo(v, pt.Value)
-	e.encoder.EncodeTo(vEcd, v, false)
+	e.encoder.EncodeTo(vEcd, v.Coeffs[0], false)
 	e.pOp.MulTo(vEcd, vEcd, e.scFacs[baseLen-1])
 	e.pOp.SubTo(eOut, pt, vEcd)
 }

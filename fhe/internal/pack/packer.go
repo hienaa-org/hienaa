@@ -46,18 +46,18 @@ func NewIntPacker(params dft.RingParameters, mod *num.Modulus) IntPacker {
 			}
 
 			if isMod1 {
-				return newPow2CyclotomicMod1Packer(params, mod)
+				return newPow2CyclotomicMod1IntPacker(params, mod)
 			} else if primes[0] != 2 && len(primes) == 1 {
-				return newPow2CyclotomicMod3Packer(params, mod)
+				return newPow2CyclotomicMod3IntPacker(params, mod)
 			} else {
-				return newTrivialPacker(params, mod)
+				return newTrivialIntPacker(params, mod)
 			}
 
 		case dft.IsNTTFriendly(params, mod):
-			return newAnyCyclotomicPacker(params, mod)
+			return newAnyCyclotomicIntPacker(params, mod)
 
 		default:
-			return newTrivialPacker(params, mod)
+			return newTrivialIntPacker(params, mod)
 		}
 
 	case dft.TypeAutFixed:
@@ -72,18 +72,59 @@ func NewIntPacker(params dft.RingParameters, mod *num.Modulus) IntPacker {
 				}
 			}
 			if isMod1 {
-				return newPow2AutFixedMod1Packer(params, mod)
+				return newPow2AutFixedMod1IntPacker(params, mod)
 			} else if len(primes) == 1 {
-				return newPow2AutFixedMod3Packer(params, mod)
+				return newPow2AutFixedMod3IntPacker(params, mod)
 			}
 
 		case num.IsPrime(params.CycloOrder()):
 			primes, _ := num.Factor(mod.Value())
 			if len(primes) == 1 {
-				return newAutFixedPrimePacker(params, mod)
+				return newAutFixedPrimeIntPacker(params, mod)
 			}
 		}
 	}
 
 	panic("NewPackerInt: unsupported ring type or parameters")
+}
+
+// TODO: Implement the real packing/unpacking algorithm.
+
+// RealPacker is the interface for packing/unpacking real numbers.
+type RealPacker interface {
+	// Params returns the ring parameters.
+	Params() dft.RingParameters
+	// PackLen returns the length of the packing/unpacking.
+	PackLen() int
+	// Pack returns the packing of v.
+	Pack(v []complex128) []float64
+	// PackTo packs v to vPack.
+	PackTo(vPack []float64, v []complex128)
+	// UnPack returns the unpacking of vPack.
+	UnPack(vPack []float64) []complex128
+	// UnPackTo unpacks vPack to v.
+	UnPackTo(v []complex128, vPack []float64)
+	// Cube returns the form of the hypercube structure.
+	Cube() []int
+	// CubeGen returns the corresponding generator for the hypercube structure.
+	CubeGen() []uint64
+	// RotIdxToAutIdx converts a rotation index to an automorphism index.
+	RotIdxToAutIdx(idx []int) int
+}
+
+// NewRealPacker creates a new [RealPacker].
+func NewRealPacker(params dft.RingParameters) RealPacker {
+	switch params.RingType() {
+	case dft.TypeCyclotomic:
+		switch {
+		case num.IsPowerOfTwo(params.CycloOrder()):
+			return newPow2CyclotomicRealPacker(params)
+
+		default:
+			return newTrivialRealPacker(params)
+		}
+
+	default:
+		panic("unsupported ring type or parameters")
+	}
 }

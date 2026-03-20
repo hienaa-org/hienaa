@@ -3,7 +3,6 @@ package bfv
 import (
 	"github.com/hienaa-org/hienaa/fhe/internal/heint"
 	"github.com/hienaa-org/hienaa/fhe/rlwe"
-	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/num"
 )
 
@@ -65,8 +64,8 @@ func (ne *NoiseEstimator) AddTo(cOut, ct0, ct1 *Ciphertext) {
 }
 
 // AddPlainTo returns the noise of the sum of a ciphertext and a plaintext.
-func (ne *NoiseEstimator) AddPlainTo(cOut, ct *Ciphertext, pt *Plaintext) {
-	cOut.noise = ne.noise.AddPlain(ct.noise, (*crt.Element)(pt))
+func (ne *NoiseEstimator) AddPlainTo(cOut, ct *Ciphertext, pt Plaintext) {
+	cOut.noise = ne.noise.AddPlain(ct.noise, pt)
 }
 
 // AddElementTo returns the noise of the sum of a ciphertext and an element.
@@ -80,8 +79,8 @@ func (ne *NoiseEstimator) SubTo(cOut, ct0, ct1 *Ciphertext) {
 }
 
 // SubPlainTo returns the noise of the difference of a ciphertext and a plaintext.
-func (ne *NoiseEstimator) SubPlainTo(cOut, ct *Ciphertext, pt *Plaintext) {
-	cOut.noise = ne.noise.SubPlain(ct.noise, (*crt.Element)(pt))
+func (ne *NoiseEstimator) SubPlainTo(cOut, ct *Ciphertext, pt Plaintext) {
+	cOut.noise = ne.noise.SubPlain(ct.noise, pt)
 }
 
 // SubElementTo returns the noise of the difference of a ciphertext and an element.
@@ -91,6 +90,8 @@ func (ne *NoiseEstimator) SubElementTo(cOut, ct *Ciphertext, e *rlwe.Element) {
 
 // Mul returns the noise of the product of two ciphertexts.
 func (ne *NoiseEstimator) MulTo(ctOut, ct0, ct1 *Ciphertext) {
+	// TODO: noise estimation for the improved BFV multiplication.
+
 	tarLen := min(ct0.ModLen(), ct1.ModLen())
 
 	noise0 := ne.noise.ModSwitch(ct0.noise, ct0.ModLen(), tarLen)
@@ -127,8 +128,8 @@ func (ne *NoiseEstimator) MulTo(ctOut, ct0, ct1 *Ciphertext) {
 }
 
 // MulPlainTo returns the noise of the product of a ciphertext and a plaintext.
-func (ne *NoiseEstimator) MulPlainTo(cOut, ct *Ciphertext, pt *Plaintext) {
-	cOut.noise = ne.noise.MulPlain(ct.noise, (*crt.Element)(pt))
+func (ne *NoiseEstimator) MulPlainTo(cOut, ct *Ciphertext, pt Plaintext) {
+	cOut.noise = ne.noise.MulPlain(ct.noise, pt)
 }
 
 // MulElementTo returns the noise of the product of a ciphertext and an element.

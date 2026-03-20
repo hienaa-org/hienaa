@@ -14,7 +14,7 @@ type SecretKey struct {
 
 // Plaintext is a CKKS plaintext embedded in ciphertext modulus.
 type Plaintext struct {
-	Value *crt.Element
+	Value []float64
 }
 
 // Ciphertext is a CKKS ciphertext.
