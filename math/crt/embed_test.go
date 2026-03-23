@@ -175,6 +175,34 @@ func TestScaler(t *testing.T) {
 	vOutRef := embBig.Scale(v)
 
 	assert.Equal(t, vOutRef, vOut)
+
+	t.Run("modIn|modOut", func(t *testing.T) {
+		modIn = modOut[:len(modOut)>>1]
+
+		embBig := NewBigEmbedder(modOut, modIn)
+		sc := crt.NewScaler(modOut, modIn)
+
+		v := randPoly(vLen, modIn).Coeffs
+
+		vOut := sc.ScaleVec(v)
+		vOutRef := embBig.Scale(v)
+
+		assert.Equal(t, vOutRef, vOut)
+	})
+
+	t.Run("modOut|modIn", func(t *testing.T) {
+		modOut = modIn[:len(modIn)>>1]
+
+		embBig := NewBigEmbedder(modOut, modIn)
+		sc := crt.NewScaler(modOut, modIn)
+
+		v := randPoly(vLen, modIn).Coeffs
+
+		vOut := sc.ScaleVec(v)
+		vOutRef := embBig.Scale(v)
+
+		assert.Equal(t, vOutRef, vOut)
+	})
 }
 
 // TODO: Fix with more high precision
