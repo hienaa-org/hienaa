@@ -76,21 +76,24 @@ func (p *pow2CyclotomicRealPacker) Pack(v []complex128) []float64 {
 	return vPack
 }
 
+// TODO: Optimise the algorithm. This algorithm is due to ia.cr/2018/1043.
+// If we have an efficient FFT implementation, we can directly use it.
 func (p *pow2CyclotomicRealPacker) PackTo(vPack []float64, v []complex128) {
-	if len(vPack) != p.packLen || p.packLen%len(v) != 0 {
+	if len(vPack) != p.params.Rank() || p.packLen%len(v) != 0 {
 		panic("input(s) shape not consistent")
 	}
 
-	buf := p.pool.Get().([]complex128)
-	defer p.pool.Put(buf)
+	bufPtr := p.pool.Get().(*[]complex128)
+	buf := *bufPtr
+	defer p.pool.Put(bufPtr)
 	buf = buf[:len(v)]
 	clear(buf)
 
 	for i := 0; i < len(v); i++ {
 		buf[i] = v[i] / complex(float64(len(v)), 0)
 	}
-	for idx := len(v); idx >= 1; idx >>= 1 {
-		for i := 0; i < idx; i++ {
+	for idx := int(num.Log2(len(v))); idx >= 1; idx-- {
+		for i := 0; i < len(v); i += (1 << idx) {
 			lenh, lenQ := (1<<idx)>>1, (1<<idx)<<2
 			gap := p.params.CycloOrder() / lenQ
 			for j := 0; j < lenh; j++ {
@@ -105,7 +108,7 @@ func (p *pow2CyclotomicRealPacker) PackTo(vPack []float64, v []complex128) {
 	clear(vPack)
 	for i := 0; i < len(v); i++ {
 		vPack[i*p.params.Rank()/len(v)/2] = real(buf[i])
-		vPack[(i+len(v))*p.params.Rank()/len(v)/2] = imag(buf[i+len(v)])
+		vPack[(i+len(v))*p.params.Rank()/len(v)/2] = imag(buf[i])
 	}
 }
 
@@ -120,15 +123,16 @@ func (p *pow2CyclotomicRealPacker) UnPackTo(v []complex128, vPack []float64) {
 		panic("input(s) shape not consistent")
 	}
 
-	buf := p.pool.Get().([]complex128)
-	defer p.pool.Put(buf)
+	bufPtr := p.pool.Get().(*[]complex128)
+	buf := *bufPtr
+	defer p.pool.Put(bufPtr)
 
 	for i := 0; i < len(buf); i++ {
 		buf[i] = complex(vPack[i], vPack[i+len(buf)])
 	}
 
 	vec.RadixReverseInPlace(buf, 2)
-	for idx := 1; idx < len(buf); idx <<= 1 {
+	for idx := 1; idx <= int(num.Log2(len(buf))); idx++ {
 		for i := 0; i < len(buf); i += (1 << idx) {
 			lenh, lenQ := (1<<idx)>>1, (1<<idx)<<2
 			gap := p.params.CycloOrder() / lenQ

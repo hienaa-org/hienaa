@@ -12,7 +12,7 @@ import (
 
 // Operator evaluates operations over [*Ciphertext] and [*Plaintext].
 type Operator struct {
-	Params rlwe.Parameters
+	params rlwe.Parameters
 	msgMod *num.Modulus
 
 	intOp  *heint.Operator
@@ -28,7 +28,7 @@ type Operator struct {
 // NewOperator creates a new [Operator].
 func NewOperator(params rlwe.Parameters, msgMod *num.Modulus, estimType heint.EstimType) *Operator {
 	return &Operator{
-		Params: params,
+		params: params,
 		msgMod: msgMod,
 
 		intOp:  heint.NewOperator(params, msgMod),
@@ -52,7 +52,47 @@ func NewOperator(params rlwe.Parameters, msgMod *num.Modulus, estimType heint.Es
 
 // Parameters returns the parameters.
 func (op *Operator) Parameters() rlwe.Parameters {
-	return op.Params
+	return op.params
+}
+
+// Rescale rescales the ciphertext to the target modulus.
+func (op *Operator) Rescale(ct *Ciphertext, isNTT bool) *Ciphertext {
+	ctOut := NewCiphertextCustom(ct.Rank(), ct.ModLen(), true)
+	op.RescaleTo(ctOut, ct, isNTT)
+	return ctOut
+}
+
+// RescaleTo rescales the ciphertext to the target modulus.
+func (op *Operator) RescaleTo(ctOut, ct *Ciphertext, isNTT bool) {
+	var scale float64
+	switch op.noise.estimType {
+	case heint.VarianceType:
+		scale = math.Sqrt(ct.noise / op.noise.noise.RoundNoise())
+	case heint.WorstCaseType:
+		scale = ct.noise / op.noise.noise.RoundNoise()
+	}
+
+	tarLen := ct.ModLen()
+	for tarLen > 0 {
+		divMod := float64(op.params.BaseModulus()[tarLen-1].Value())
+		if scale > divMod {
+			scale /= divMod
+		} else {
+			break
+		}
+	}
+	if tarLen == 0 {
+		panic("ciphertext noise is too large")
+	}
+
+	buf := op.ctPool.Get().(*Ciphertext)
+	defer op.ctPool.Put(buf)
+	buf = buf.WithModLen(tarLen)
+
+	op.rlweOp.ScaleTo(buf.Value, ct.Value, tarLen, isNTT)
+	ctOut.Value.Resize(tarLen, 0)
+	ctOut.Value.CopyFrom(buf.Value)
+	op.noise.RescaleTo(ctOut, ct)
 }
 
 // ModSwitch switches the modulus of the ciphertext to the given length.
@@ -64,6 +104,7 @@ func (op *Operator) ModSwitch(ct *Ciphertext, l int, isNTT bool) *Ciphertext {
 
 // ModSwitchTo switches the modulus of the ciphertext to the given length.
 func (op *Operator) ModSwitchTo(ctOut, ct *Ciphertext, l int, isNTT bool) {
+	ctOut.Value.Resize(l, 0)
 	op.rlweOp.ScaleTo(ctOut.Value, ct.Value, l, isNTT)
 	op.noise.ModSwitchTo(ctOut, ct, l)
 }
@@ -77,6 +118,7 @@ func (op *Operator) FwdNTT(ct *Ciphertext) *Ciphertext {
 
 // FwdNTTTo computes ctOut = FwdNTT(ct).
 func (op *Operator) FwdNTTTo(ctOut, ct *Ciphertext) {
+	ctOut.Value.Resize(ct.Value.BaseModLen(), 0)
 	op.rlweOp.FwdNTTTo(ctOut.Value, ct.Value)
 	op.noise.FwdNTTTo(ctOut, ct)
 }
@@ -90,6 +132,7 @@ func (op *Operator) InvNTT(ct *Ciphertext) *Ciphertext {
 
 // InvNTTTo computes ctOut = InvNTT(ct).
 func (op *Operator) InvNTTTo(ctOut, ct *Ciphertext) {
+	ctOut.Value.Resize(ct.Value.BaseModLen(), 0)
 	op.rlweOp.InvNTTTo(ctOut.Value, ct.Value)
 	op.noise.InvNTTTo(ctOut, ct)
 }
@@ -196,45 +239,52 @@ func (op *Operator) Mul(ct0, ct1 *Ciphertext, rlk *rlwe.RelinKey, isNTT bool) *C
 func (op *Operator) MulTo(ctOut, ct0, ct1 *Ciphertext, rlk *rlwe.RelinKey, isNTT bool) {
 	tarLen, auxIdx, auxMod := op.getAuxMod(ct0, ct1)
 
-	c0 := op.ctPool.Get().(*Ciphertext)
-	c1 := op.ctPool.Get().(*Ciphertext)
-	defer op.ctPool.Put(c0)
-	defer op.ctPool.Put(c1)
-	c0 = c0.WithModLen(tarLen)
-	c1 = c1.WithModLen(tarLen)
-
-	// scale to the multiplication modulus.
-	op.scaleToMulModTo(c0, ct0, auxIdx, auxMod)
-	op.scaleToMulModTo(c1, ct1, auxIdx, auxMod)
-
 	// Tensoring the ciphertexts.
 	v := op.vPool.Get().(*rlwe.Vector)
 	defer op.vPool.Put(v)
 	v = v.WithModLen(tarLen, 0)
 
-	op.tensorTo(v, c0, c1, auxIdx, auxMod)
-
-	// ScaleEmbed to the target modulus.
-	op.scaleFromMulModTo(v, v, auxIdx, auxMod, isNTT)
+	op.tensorTo(v, ct0, ct1, tarLen, auxIdx, auxMod, isNTT)
 
 	// Relinearise the result.
+	ctOut.Value.Resize(tarLen, 0)
 	op.rlweOp.RelinTo(ctOut.Value, v, rlk, isNTT)
 
 	// Estimate the noise.
 	op.noise.MulTo(ctOut, ct0, ct1)
+
+	// Rescale if needed.
+	op.RescaleTo(ctOut, ctOut, isNTT)
 }
 
 // setMulMod sets the modulus for the multiplication.
 func (op *Operator) getAuxMod(ct0, ct1 *Ciphertext) (int, int, *num.Modulus) {
-	// Force ct0 to have the smaller noise.
-	if ct0.ModLen() > ct1.ModLen() || (ct0.ModLen() == ct1.ModLen() && ct0.noise > ct1.noise) {
+	// Force ct0 to have the larger noise.
+	if ct0.ModLen() > ct1.ModLen() || (ct0.ModLen() == ct1.ModLen() && ct0.noise < ct1.noise) {
 		ct0, ct1 = ct1, ct0
 	}
 
-	tarLen := ct0.ModLen()
+	curLen := ct0.ModLen()
+	tarLen := curLen
+
+	var scale float64
+	switch op.noise.estimType {
+	case heint.VarianceType:
+		scale = math.Sqrt(ct0.noise / op.noise.noise.RoundNoise())
+	case heint.WorstCaseType:
+		scale = ct0.noise / op.noise.noise.RoundNoise()
+	}
+	for scale > math.Exp2(num.MaxModulusBits) && tarLen > 0 {
+		tarLen--
+		if tarLen == 0 {
+			panic("ciphertext noise is too large to perform multiplication")
+		}
+		scale /= float64(op.params.BaseModulus()[tarLen].Value())
+	}
+
 	auxIdx := 0
 	for auxIdx < tarLen-1 {
-		if num.GCD(op.Params.BaseModulus()[auxIdx].Value(), op.msgMod.Value()) != 1 {
+		if num.GCD(op.params.BaseModulus()[auxIdx].Value(), op.msgMod.Value()) != 1 {
 			break
 		}
 		auxIdx++
@@ -243,22 +293,21 @@ func (op *Operator) getAuxMod(ct0, ct1 *Ciphertext) (int, int, *num.Modulus) {
 	remInv := uint64(1)
 	for i := 0; i < tarLen; i++ {
 		if i != auxIdx {
-			remInv = num.Mul(remInv, op.Params.BaseModulus()[i].Value(), op.msgMod)
+			remInv = num.Mul(remInv, op.params.BaseModulus()[i].Value(), op.msgMod)
 		}
 	}
 	rem := num.Inv(remInv, op.msgMod)
 
-	// TODO: auxMod should be a coprime with the moduli.
-	var scale uint64
-	switch op.noise.estimType {
-	case heint.VarianceType:
-		scale = uint64(math.Ceil(math.Sqrt(ct0.noise / op.noise.noise.RoundNoise())))
-	case heint.WorstCaseType:
-		scale = uint64(math.Ceil(ct0.noise / op.noise.noise.RoundNoise()))
-	}
-	auxMod := uint64(math.Floor(float64(op.Params.BaseModulus()[auxIdx].Value())/float64(scale*op.msgMod.Value())))*scale*op.msgMod.Value() + rem
+	divMod := op.params.BaseModulus()[auxIdx].Value()
+	msgMod := op.msgMod.Value()
+	skip := uint64(math.Ceil(scale)) * msgMod
+	auxMod := uint64(math.Floor(float64(divMod)/float64(skip)))*skip + rem
 
-	return tarLen, auxIdx, num.NewModulus(auxMod)
+	if auxMod == 1 {
+		return tarLen - 1, tarLen - 1, nil
+	} else {
+		return tarLen, auxIdx, num.NewModulus(auxMod)
+	}
 }
 
 // scaleToMulModTo scales the ciphertext to the multiplication modulus.
@@ -267,12 +316,12 @@ func (op *Operator) scaleToMulModTo(ctOut *Ciphertext, ctIn *Ciphertext, auxIdx 
 	inLen := ctIn.ModLen()
 	outLen := ctOut.ModLen()
 
-	baseMod := op.Params.BaseModulus()
+	baseMod := op.params.BaseModulus()
 
 	inMod := baseMod[:inLen]
 	outMod := make([]*num.Modulus, outLen)
 	for i := 0; i < outLen; i++ {
-		if i == auxIdx {
+		if i == auxIdx && auxMod != nil {
 			outMod[i] = auxMod
 		} else {
 			outMod[i] = baseMod[i]
@@ -281,7 +330,7 @@ func (op *Operator) scaleToMulModTo(ctOut *Ciphertext, ctIn *Ciphertext, auxIdx 
 
 	// TODO: optimise later.
 	sc := crt.NewScaler(outMod, inMod)
-	opOut := crt.NewOperator(op.Params.RingParams(), outMod)
+	opOut := crt.NewOperator(op.params.RingParams(), outMod)
 	if ctIn.Value.IsNTT() {
 		ctBuf := op.ctPool.Get().(*Ciphertext)
 		defer op.ctPool.Put(ctBuf)
@@ -301,23 +350,34 @@ func (op *Operator) scaleToMulModTo(ctOut *Ciphertext, ctIn *Ciphertext, auxIdx 
 
 // TensorTo tensors two ciphertexts in the multiplication modulus into a vector.
 // Input and output are in the NTT form.
-func (op *Operator) tensorTo(v *rlwe.Vector, c0, c1 *Ciphertext, auxIdx int, auxMod *num.Modulus) {
+func (op *Operator) tensorTo(v *rlwe.Vector, ct0, ct1 *Ciphertext, tarLen int, auxIdx int, auxMod *num.Modulus, isNTT bool) {
+	c0 := op.ctPool.Get().(*Ciphertext)
+	c1 := op.ctPool.Get().(*Ciphertext)
+	defer op.ctPool.Put(c0)
+	defer op.ctPool.Put(c1)
+	c0 = c0.WithModLen(tarLen)
+	c1 = c1.WithModLen(tarLen)
+
+	// scale to the multiplication modulus.
+	op.scaleToMulModTo(c0, ct0, auxIdx, auxMod)
+	op.scaleToMulModTo(c1, ct1, auxIdx, auxMod)
+
 	if v.BaseModLen() != c0.ModLen() || v.BaseModLen() != c1.ModLen() {
 		panic("inconsistent input(s)")
 	}
 
 	// TODO: optimise later.
 	mulLen := c0.ModLen()
-	baseMod := op.Params.BaseModulus()
+	baseMod := op.params.BaseModulus()
 	mulMod := make([]*num.Modulus, mulLen)
 	for i := 0; i < mulLen; i++ {
-		if i == auxIdx {
+		if i == auxIdx && auxMod != nil {
 			mulMod[i] = auxMod
 		} else {
 			mulMod[i] = baseMod[i]
 		}
 	}
-	opAux := crt.NewOperator(op.Params.RingParams(), mulMod)
+	opAux := crt.NewOperator(op.params.RingParams(), mulMod)
 
 	msgMod := op.ePool.Get(crt.TypeScalar)
 	defer op.ePool.Put(msgMod)
@@ -334,6 +394,9 @@ func (op *Operator) tensorTo(v *rlwe.Vector, c0, c1 *Ciphertext, auxIdx int, aux
 	opAux.MulTo(v.Value[0].Value, v.Value[0].Value, msgMod.Value)
 	opAux.MulTo(v.Value[1].Value, v.Value[1].Value, msgMod.Value)
 	opAux.MulTo(v.Value[2].Value, v.Value[2].Value, msgMod.Value)
+
+	// ScaleEmbed to the target modulus.
+	op.scaleFromMulModTo(v, v, auxIdx, auxMod, isNTT)
 }
 
 // scaleFromMulModTo scales and embeds the ciphertext to the target modulus.
@@ -343,20 +406,20 @@ func (op *Operator) scaleFromMulModTo(vOut *rlwe.Vector, vIn *rlwe.Vector, auxId
 		panic("inconsistent input(s)")
 	}
 
-	baseMod := op.Params.BaseModulus()
+	baseMod := op.params.BaseModulus()
 
 	// TODO: optimise later.
 	modLen := vIn.BaseModLen()
 	inMod := make([]*num.Modulus, modLen)
 	for i := 0; i < modLen; i++ {
-		if i == auxIdx {
+		if i == auxIdx && auxMod != nil {
 			inMod[i] = auxMod
 		} else {
 			inMod[i] = baseMod[i]
 		}
 	}
 	outMod := baseMod[:modLen]
-	opAux := crt.NewOperator(op.Params.RingParams(), inMod)
+	opAux := crt.NewOperator(op.params.RingParams(), inMod)
 
 	sc := crt.NewScaler(outMod, inMod)
 
@@ -387,6 +450,7 @@ func (op *Operator) MulPlain(ct *Ciphertext, pt Plaintext, isNTT bool) *Cipherte
 func (op *Operator) MulPlainTo(ctOut, ct *Ciphertext, pt Plaintext, isNTT bool) {
 	op.intOp.MulPlainTo(ctOut.Value, ct.Value, pt, isNTT)
 	op.noise.MulPlainTo(ctOut, ct, pt)
+	op.RescaleTo(ctOut, ctOut, isNTT)
 }
 
 // MulElement computes ctOut = ct * e.
@@ -400,6 +464,7 @@ func (op *Operator) MulElement(ct *Ciphertext, e *rlwe.Element, isNTT bool) *Cip
 func (op *Operator) MulElementTo(ctOut, ct *Ciphertext, e *rlwe.Element, isNTT bool) {
 	op.intOp.MulElementTo(ctOut.Value, ct.Value, e, isNTT)
 	op.noise.MulElementTo(ctOut, ct, e)
+	op.RescaleTo(ctOut, ctOut, isNTT)
 }
 
 // KeySwitch performs a key switch and returns the result.
@@ -411,6 +476,7 @@ func (op *Operator) KeySwitch(ct *Ciphertext, ksk *rlwe.KeySwitchKey, isNTT bool
 
 // KeySwitchTo performs a key switch and stores the result in ctOut.
 func (op *Operator) KeySwitchTo(ctOut *Ciphertext, ct *Ciphertext, ksk *rlwe.KeySwitchKey, isNTT bool) {
+	ctOut.Value.Resize(ct.Value.BaseModLen(), 0)
 	op.rlweOp.KeySwitchTo(ctOut.Value, ct.Value, ksk, isNTT)
 	op.noise.KeySwitchTo(ctOut, ct)
 }
@@ -424,6 +490,7 @@ func (op *Operator) HoistedKeySwitch(decmp *rlwe.Vector, ct *Ciphertext, ksk *rl
 
 // HoistedKeySwitchTo performs a hoisted key switch and stores the result in ctOut.
 func (op *Operator) HoistedKeySwitchTo(ctOut *Ciphertext, decmp *rlwe.Vector, ct *Ciphertext, ksk *rlwe.KeySwitchKey, isNTT bool) {
+	ctOut.Value.Resize(ct.Value.BaseModLen(), 0)
 	op.rlweOp.HoistedKeySwitchTo(ctOut.Value, decmp, ct.Value, ksk, isNTT)
 	op.noise.KeySwitchTo(ctOut, ct)
 }
@@ -437,6 +504,7 @@ func (op *Operator) Rotate(ct *Ciphertext, atk *rlwe.AutomorphismKey, isNTT bool
 
 // RotateTo performs a rotation and stores the result in ctOut.
 func (op *Operator) RotateTo(ctOut *Ciphertext, ct *Ciphertext, rtk *rlwe.AutomorphismKey, isNTT bool) {
+	ctOut.Value.Resize(ct.Value.BaseModLen(), 0)
 	op.AutTo(ctOut, ct, rtk, isNTT)
 	op.noise.AutTo(ctOut, ct)
 }
@@ -450,6 +518,7 @@ func (op *Operator) Aut(ct *Ciphertext, atk *rlwe.AutomorphismKey, isNTT bool) *
 
 // AutTo performs an automorphism and stores the result in ctOut.
 func (op *Operator) AutTo(ctOut *Ciphertext, ct *Ciphertext, atk *rlwe.AutomorphismKey, isNTT bool) {
+	ctOut.Value.Resize(ct.Value.BaseModLen(), 0)
 	op.rlweOp.AutTo(ctOut.Value, ct.Value, atk, isNTT)
 	op.noise.AutTo(ctOut, ct)
 }
@@ -463,6 +532,7 @@ func (op *Operator) HoistedAut(decmp *rlwe.Vector, ct *Ciphertext, atk *rlwe.Aut
 
 // HoistedAutTo performs a hoisted automorphism and stores the result in ctOut.
 func (op *Operator) HoistedAutTo(ctOut *Ciphertext, decmp *rlwe.Vector, ct *Ciphertext, atk *rlwe.AutomorphismKey, isNTT bool) {
+	ctOut.Value.Resize(ct.Value.BaseModLen(), 0)
 	op.rlweOp.HoistedAutTo(ctOut.Value, decmp, ct.Value, atk, isNTT)
 	op.noise.AutTo(ctOut, ct)
 }
@@ -477,6 +547,7 @@ func (op *Operator) ExtProd(ct *Ciphertext, gsw *rlwe.RGSW, isNTT bool) *Ciphert
 
 // ExtProdTo performs an external product and stores the result in ctOut.
 func (op *Operator) ExtProdTo(ctOut *Ciphertext, ct *Ciphertext, gsw *rlwe.RGSW, isNTT bool) {
+	ctOut.Value.Resize(ct.Value.BaseModLen(), 0)
 	op.rlweOp.ExtProdTo(ctOut.Value, ct.Value, gsw, isNTT)
 }
 
@@ -489,5 +560,6 @@ func (op *Operator) HoistedExtProd(decmpBody *rlwe.Vector, decmpMask *rlwe.Vecto
 
 // HoistedExtProdTo performs a hoisted external product and stores the result in ctOut.
 func (op *Operator) HoistedExtProdTo(ctOut *Ciphertext, decmpBody *rlwe.Vector, decmpMask *rlwe.Vector, ct *Ciphertext, gsw *rlwe.RGSW, isNTT bool) {
+	ctOut.Value.Resize(ct.Value.BaseModLen(), 0)
 	op.rlweOp.HoistedExtProdTo(ctOut.Value, decmpBody, decmpMask, gsw, isNTT)
 }

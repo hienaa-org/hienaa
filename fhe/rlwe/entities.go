@@ -84,6 +84,39 @@ func (e *Element) Clear() {
 	e.Value.Clear()
 }
 
+// Resize resizes the element to the given length.
+func (e *Element) Resize(baseLen, auxLen int) {
+	switch {
+	case e.auxLen >= auxLen && e.BaseModLen() >= baseLen:
+		e.Value.Coeffs = e.Value.Coeffs[e.auxLen-auxLen : e.auxLen+baseLen]
+	case e.auxLen >= auxLen && e.BaseModLen() < baseLen:
+		extraBase := make([][]uint64, baseLen-e.BaseModLen())
+		for i := range extraBase {
+			extraBase[i] = make([]uint64, e.Value.Rank())
+		}
+		e.Value.Coeffs = append(e.Value.Coeffs, extraBase...)
+	case e.auxLen < auxLen && e.BaseModLen() >= baseLen:
+		extraAux := make([][]uint64, auxLen-e.auxLen)
+		for i := range extraAux {
+			extraAux[i] = make([]uint64, e.Value.Rank())
+		}
+		e.Value.Coeffs = append(extraAux, e.Value.Coeffs[e.auxLen-auxLen:e.auxLen+baseLen]...)
+	case e.auxLen < auxLen && e.BaseModLen() < baseLen:
+		extraAux := make([][]uint64, auxLen-e.auxLen)
+		for i := range extraAux {
+			extraAux[i] = make([]uint64, e.Value.Rank())
+		}
+		extraBase := make([][]uint64, baseLen-e.BaseModLen())
+		for i := range extraBase {
+			extraBase[i] = make([]uint64, e.Value.Rank())
+		}
+
+		e.Value.Coeffs = append(extraAux, extraBase...)
+		e.Value.Coeffs = append(e.Value.Coeffs, extraBase...)
+	}
+	e.auxLen = auxLen
+}
+
 // Type returns the type of e.
 func (e *Element) Type() crt.ElementType {
 	return e.Value.Type()
@@ -276,6 +309,12 @@ func (ct *Ciphertext) IsNTT() bool {
 		panic("inconsistent NTT form")
 	}
 	return ct.Body.IsNTT()
+}
+
+// Resize resizes the ciphertext to the given length.
+func (ct *Ciphertext) Resize(baseLen, auxLen int) {
+	ct.Body.Resize(baseLen, auxLen)
+	ct.Mask.Resize(baseLen, auxLen)
 }
 
 // Clear clears value.
@@ -479,6 +518,13 @@ func (v *Vector) IsNTT() bool {
 		}
 	}
 	return isNTT
+}
+
+// Resize resizes the vector to the given length.
+func (v *Vector) Resize(baseLen, auxLen int) {
+	for _, e := range v.Value {
+		e.Resize(baseLen, auxLen)
+	}
 }
 
 // Clear clears value.

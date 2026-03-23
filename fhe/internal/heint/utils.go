@@ -18,7 +18,7 @@ func computeScalingFactor(baseMod []*num.Modulus, msgMod *num.Modulus) []*rlwe.E
 	for i := range baseMod {
 		baseModBig.Mul(baseModBig, big.NewInt(int64(baseMod[i].Value())))
 		scFacBig.Quo(baseModBig, msgModBig)
-		scFacs[i] = rlwe.NewElementFrom(crt.NewScalarFrom(scFacBig, baseMod), 0)
+		scFacs[i] = rlwe.NewElementFrom(crt.NewScalarFrom(scFacBig, baseMod[:i+1]), 0)
 	}
 
 	return scFacs

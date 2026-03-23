@@ -133,6 +133,38 @@ func (op *Operator) Parameters() rlwe.Parameters {
 	return op.params
 }
 
+// Rescale rescales the ciphertext to the target modulus.
+func (op *Operator) Rescale(ct *Ciphertext, isNTT bool) *Ciphertext {
+	ctOut := NewCiphertextCustom(ct.Rank(), ct.ModLen(), true)
+	op.RescaleTo(ctOut, ct, isNTT)
+	return ctOut
+}
+
+// RescaleTo rescales the ciphertext to the target modulus.
+func (op *Operator) RescaleTo(ctOut, ct *Ciphertext, isNTT bool) {
+	var scale float64
+	switch op.noise.estimType {
+	case heint.VarianceType:
+		scale = math.Ceil(math.Sqrt(ct.noise / op.noise.noise.RoundNoise()))
+	case heint.WorstCaseType:
+		scale = math.Ceil(ct.noise / op.noise.noise.RoundNoise())
+	}
+
+	tarLen := ct.ModLen()
+	if float64(op.params.BaseModulus()[tarLen-1].Value()) < scale {
+		tarLen--
+	}
+
+	buf := op.ctPool.Get().(*Ciphertext)
+	defer op.ctPool.Put(buf)
+	buf = buf.WithModLen(tarLen)
+
+	op.rlweOp.ScaleTo(buf.Value, ct.Value, tarLen, isNTT)
+	ctOut.Value.Resize(tarLen, 0)
+	ctOut.CopyFrom(buf)
+	op.noise.RescaleTo(ctOut, ct)
+}
+
 // ModSwitch switches the modulus of the ciphertext to the given length.
 func (op *Operator) ModSwitch(ct *Ciphertext, l int, isNTT bool) *Ciphertext {
 	ctOut := NewCiphertextCustom(ct.Rank(), l, true)
@@ -142,6 +174,7 @@ func (op *Operator) ModSwitch(ct *Ciphertext, l int, isNTT bool) *Ciphertext {
 
 // ModSwitchTo switches the modulus of the ciphertext to the given length.
 func (op *Operator) ModSwitchTo(ctOut, ct *Ciphertext, l int, isNTT bool) {
+	ctOut.Value.Resize(l, 0)
 	op.rlweOp.ScaleTo(ctOut.Value, ct.Value, l, isNTT)
 	op.noise.ModSwitchTo(ctOut, ct, l)
 }
@@ -155,6 +188,7 @@ func (op *Operator) FwdNTT(ct *Ciphertext) *Ciphertext {
 
 // FwdNTTTo computes ctOut = FwdNTT(ct).
 func (op *Operator) FwdNTTTo(ctOut, ct *Ciphertext) {
+	ctOut.Value.Resize(ct.Value.BaseModLen(), 0)
 	op.rlweOp.FwdNTTTo(ctOut.Value, ct.Value)
 	op.noise.FwdNTTTo(ctOut, ct)
 }
@@ -168,6 +202,7 @@ func (op *Operator) InvNTT(ct *Ciphertext) *Ciphertext {
 
 // InvNTTTo computes ctOut = InvNTT(ct).
 func (op *Operator) InvNTTTo(ctOut, ct *Ciphertext) {
+	ctOut.Value.Resize(ct.Value.BaseModLen(), 0)
 	op.rlweOp.InvNTTTo(ctOut.Value, ct.Value)
 	op.noise.InvNTTTo(ctOut, ct)
 }
@@ -324,6 +359,7 @@ func (op *Operator) MulTo(ctOut, ct0, ct1 *Ciphertext, rlk *rlwe.RelinKey, isNTT
 	op.divRoundTo(vBase, vAmb, isNTT)
 
 	// Relinearise the result.
+	ctOut.Value.Resize(vBase.BaseModLen(), 0)
 	op.rlweOp.RelinTo(ctOut.Value, vBase, rlk, isNTT)
 
 	// Estimate the noise.

@@ -38,6 +38,11 @@ func (ne *NoiseEstimator) EncryptTo(cOut *Ciphertext) {
 	cOut.noise = ne.noise.Encrypt()
 }
 
+// RescaleTo rescales the noise of the ciphertext to the target modulus.
+func (ne *NoiseEstimator) RescaleTo(cOut, ct *Ciphertext) {
+	cOut.noise = ne.noise.RescaleTo(cOut.noise, ct.ModLen())
+}
+
 // ModSwitchTo switches the modulus of the ciphertext to the given length.
 func (ne *NoiseEstimator) ModSwitchTo(cOut, ct *Ciphertext, l int) {
 	cOut.noise = ne.noise.ModSwitch(cOut.noise, ct.ModLen(), l)

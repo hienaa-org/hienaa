@@ -117,6 +117,7 @@ func (op *Operator) Encoder() *Encoder {
 
 // NegTo computes ctOut = -ct.
 func (op *Operator) NegTo(ctOut, ct *rlwe.Ciphertext, isNTT bool) {
+	ctOut.Resize(ct.BaseModLen(), 0)
 	op.rlweOp.NegTo(ctOut, ct)
 	if isNTT && !ctOut.IsNTT() {
 		op.rlweOp.FwdNTTTo(ctOut, ctOut)
@@ -140,6 +141,7 @@ func (op *Operator) AddTo(ctOut, ct0, ct1 *rlwe.Ciphertext, isNTT bool) {
 	op.rlweOp.ScaleTo(c0, ct0, tarLen, isNTT)
 	op.rlweOp.ScaleTo(c1, ct1, tarLen, isNTT)
 
+	ctOut.Resize(tarLen, 0)
 	op.rlweOp.AddTo(ctOut, c0, c1)
 }
 
@@ -160,6 +162,7 @@ func (op *Operator) AddPlainTo(ctOut, ct *rlwe.Ciphertext, pt []uint64, isNTT bo
 
 	op.encoder.EncodeTo(e, pt, false)
 	pOp.MulTo(e, op.scFacs[ct.BaseModLen()-1], e)
+	ctOut.Resize(ct.BaseModLen(), 0)
 	if isNTT && !ct.IsNTT() {
 		rlweOp.AddElementTo(ctOut, ct, e)
 		rlweOp.FwdNTTTo(ctOut, ctOut)
@@ -188,6 +191,7 @@ func (op *Operator) AddElementTo(ctOut, ct *rlwe.Ciphertext, e *rlwe.Element, is
 
 	pOp.MulTo(eEcd, op.scFacs[ct.BaseModLen()-1], e)
 
+	ctOut.Resize(ct.BaseModLen(), 0)
 	if ct.IsNTT() == e.IsNTT() { // First add, then perform NTT/iNTT needed.
 		op.rlweOp.AddElementTo(ctOut, ct, eEcd)
 		if ct.IsNTT() && !isNTT {
@@ -227,6 +231,7 @@ func (op *Operator) SubTo(ctOut, ct0, ct1 *rlwe.Ciphertext, isNTT bool) {
 	op.rlweOp.ScaleTo(c0, ct0, tarLen, isNTT)
 	op.rlweOp.ScaleTo(c1, ct1, tarLen, isNTT)
 
+	ctOut.Resize(tarLen, 0)
 	op.rlweOp.SubTo(ctOut, c0, c1)
 }
 
@@ -246,6 +251,7 @@ func (op *Operator) SubPlainTo(ctOut, ct *rlwe.Ciphertext, pt []uint64, isNTT bo
 
 	op.encoder.EncodeTo(e, pt, false)
 	pOp.MulTo(e, op.scFacs[ct.BaseModLen()-1], e)
+	ctOut.Resize(ct.BaseModLen(), 0)
 	if isNTT && !ct.IsNTT() {
 		op.rlweOp.SubElementTo(ctOut, ct, e)
 		op.rlweOp.FwdNTTTo(ctOut, ctOut)
@@ -274,6 +280,7 @@ func (op *Operator) SubElementTo(ctOut, ct *rlwe.Ciphertext, e *rlwe.Element, is
 
 	pOp.MulTo(eEcd, op.scFacs[ct.BaseModLen()-1], e)
 
+	ctOut.Resize(ct.BaseModLen(), 0)
 	if ct.IsNTT() == e.IsNTT() { // First sub, then perform NTT/iNTT needed.
 		op.rlweOp.SubElementTo(ctOut, ct, eEcd)
 		if ct.IsNTT() && !isNTT {
@@ -311,6 +318,7 @@ func (op *Operator) MulPlainTo(ctOut, ct *rlwe.Ciphertext, pt []uint64, isNTT bo
 	e = e.WithModLen(ct.BaseModLen(), 0)
 
 	op.encoder.EncodeTo(e, pt, true)
+	ctOut.Resize(ct.BaseModLen(), 0)
 	if ct.IsNTT() {
 		op.rlweOp.MulElementTo(ctOut, ct, e)
 	} else {
@@ -330,6 +338,7 @@ func (op *Operator) MulElementTo(ctOut, ct *rlwe.Ciphertext, e *rlwe.Element, is
 	}
 
 	pOp := op.rlweOp.PlainOperator()
+	ctOut.Resize(ct.BaseModLen(), 0)
 	if e.Type() == crt.TypeScalar || (ct.IsNTT() && e.IsNTT()) {
 		op.rlweOp.MulElementTo(ctOut, ct, e)
 	} else {
