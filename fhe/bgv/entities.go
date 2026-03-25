@@ -110,6 +110,11 @@ func (c *Ciphertext) Clear() {
 	c.noise = 0
 }
 
+// Resize resizes the ciphertext to the given modulus length.
+func (c *Ciphertext) Resize(modLen int) {
+	c.Value.Resize(modLen, 0)
+}
+
 // WithModLen returns a shallow copy with the given modulus lengths.
 func (c *Ciphertext) WithModLen(baseLen int) *Ciphertext {
 	return &Ciphertext{

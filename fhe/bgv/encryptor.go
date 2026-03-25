@@ -7,115 +7,115 @@ import (
 )
 
 type Encryptor struct {
-	heintEnc *heint.Encryptor
-	noise    *NoiseEstimator
+	intEnc *heint.Encryptor
+	noise  *NoiseEstimator
 }
 
 // NewEncryptor creates a new [Encryptor].
 func NewEncryptor(params rlwe.Parameters, msgMod *num.Modulus, estimType heint.EstimType) *Encryptor {
 	return &Encryptor{
-		heintEnc: heint.NewEncryptor(params, msgMod),
-		noise:    NewNoiseEstimator(params, msgMod, estimType),
+		intEnc: heint.NewEncryptor(params, msgMod),
+		noise:  NewNoiseEstimator(params, msgMod, estimType),
 	}
 }
 
 // NewEncryptorWithKey creates a new [Encryptor] with a secret key.
 func NewEncryptorWithKey(params rlwe.Parameters, msgMod *num.Modulus, estimType heint.EstimType, skNTT *rlwe.SecretKey) *Encryptor {
 	return &Encryptor{
-		heintEnc: heint.NewEncryptorWithKey(params, msgMod, skNTT),
-		noise:    NewNoiseEstimator(params, msgMod, estimType),
+		intEnc: heint.NewEncryptorWithKey(params, msgMod, skNTT),
+		noise:  NewNoiseEstimator(params, msgMod, estimType),
 	}
 }
 
 // Parameters returns the parameters.
-func (e *Encryptor) Parameters() rlwe.Parameters {
-	return e.heintEnc.Parameters()
+func (enc *Encryptor) Parameters() rlwe.Parameters {
+	return enc.intEnc.Parameters()
 }
 
 // SecretKey returns the secret key.
-func (e *Encryptor) SecretKey() *rlwe.SecretKey {
-	return e.heintEnc.SecretKey()
+func (enc *Encryptor) SecretKey() *rlwe.SecretKey {
+	return enc.intEnc.SecretKey()
 }
 
 // NewRelinKey creates a new relinearisation key.
-func (e *Encryptor) NewRelinKey() *rlwe.RelinKey {
-	return e.heintEnc.NewRelinKey()
+func (enc *Encryptor) NewRelinKey() *rlwe.RelinKey {
+	return enc.intEnc.NewRelinKey()
 }
 
 // NewKeySwitchKey creates a new key switch key.
-func (e *Encryptor) NewKeySwitchKey(skNew *rlwe.SecretKey) *rlwe.KeySwitchKey {
-	return e.heintEnc.NewKeySwitchKey(skNew)
+func (enc *Encryptor) NewKeySwitchKey(skNew *rlwe.SecretKey) *rlwe.KeySwitchKey {
+	return enc.intEnc.NewKeySwitchKey(skNew)
 }
 
 // NewAutomorphismKey creates a new automorphism key.
-func (e *Encryptor) NewAutomorphismKey(idx int) *rlwe.AutomorphismKey {
-	return e.heintEnc.NewAutomorphismKey(idx)
+func (enc *Encryptor) NewAutomorphismKey(idx int) *rlwe.AutomorphismKey {
+	return enc.intEnc.NewAutomorphismKey(idx)
 }
 
 // NewRotationKey creates a new rotation key.
-func (e *Encryptor) NewRotationKey(idx []int) *rlwe.AutomorphismKey {
-	return e.heintEnc.NewRotationKey(idx)
+func (enc *Encryptor) NewRotationKey(idx []int) *rlwe.AutomorphismKey {
+	return enc.intEnc.NewRotationKey(idx)
 }
 
 // Encrypt encrypts the message v.
-func (e *Encryptor) Encrypt(v Plaintext, isNTT bool) *Ciphertext {
-	ct := NewCiphertext(e.Parameters(), isNTT)
-	e.EncryptTo(ct, v, isNTT)
+func (enc *Encryptor) Encrypt(v Plaintext, isNTT bool) *Ciphertext {
+	ct := NewCiphertext(enc.Parameters(), isNTT)
+	enc.EncryptTo(ct, v, isNTT)
 	return ct
 }
 
 // EncryptCustom encrypts the message v with custom parameters.
-func (e *Encryptor) EncryptCustom(v Plaintext, baseLen int, isNTT bool) *Ciphertext {
-	ct := NewCiphertextCustom(e.Parameters().Rank(), baseLen, isNTT)
-	e.EncryptTo(ct, v, isNTT)
+func (enc *Encryptor) EncryptCustom(v Plaintext, baseLen int, isNTT bool) *Ciphertext {
+	ct := NewCiphertextCustom(enc.Parameters().Rank(), baseLen, isNTT)
+	enc.EncryptTo(ct, v, isNTT)
 	return ct
 }
 
 // EncryptTo encrypts the message v to ctOut.
-func (e *Encryptor) EncryptTo(ctOut *Ciphertext, v Plaintext, isNTT bool) {
-	e.heintEnc.EncryptTo(ctOut.Value, v, isNTT)
-	e.noise.EncryptTo(ctOut)
+func (enc *Encryptor) EncryptTo(ctOut *Ciphertext, v Plaintext, isNTT bool) {
+	enc.intEnc.EncryptTo(ctOut.Value, v, isNTT)
+	enc.noise.EncryptTo(ctOut)
 }
 
 // EncryptElement encrypts the element e.
-func (e *Encryptor) EncryptElement(eIn *rlwe.Element, isNTT bool) *Ciphertext {
-	ct := NewCiphertext(e.Parameters(), isNTT)
-	e.EncryptElementTo(ct, eIn, isNTT)
+func (enc *Encryptor) EncryptElement(eIn *rlwe.Element, isNTT bool) *Ciphertext {
+	ct := NewCiphertext(enc.Parameters(), isNTT)
+	enc.EncryptElementTo(ct, eIn, isNTT)
 	return ct
 }
 
 // EncryptElementTo encrypts the element e to ctOut.
-func (e *Encryptor) EncryptElementTo(ctOut *Ciphertext, eIn *rlwe.Element, isNTT bool) {
-	e.heintEnc.EncryptElementTo(ctOut.Value, eIn, isNTT)
-	e.noise.EncryptTo(ctOut)
+func (enc *Encryptor) EncryptElementTo(ctOut *Ciphertext, eIn *rlwe.Element, isNTT bool) {
+	enc.intEnc.EncryptElementTo(ctOut.Value, eIn, isNTT)
+	enc.noise.EncryptTo(ctOut)
 }
 
 // Decrypt decrypts the ciphertext ct.
-func (e *Encryptor) Decrypt(ct *Ciphertext) Plaintext {
-	return e.heintEnc.Decrypt(ct.Value)
+func (enc *Encryptor) Decrypt(ct *Ciphertext) Plaintext {
+	return enc.intEnc.Decrypt(ct.Value)
 }
 
 // DecryptTo decrypts the ciphertext ct to vOut.
-func (e *Encryptor) DecryptTo(vOut Plaintext, ct *Ciphertext) {
-	e.heintEnc.DecryptTo(vOut, ct.Value)
+func (enc *Encryptor) DecryptTo(vOut Plaintext, ct *Ciphertext) {
+	enc.intEnc.DecryptTo(vOut, ct.Value)
 }
 
 // Phase performs Phase(ct).
-func (e *Encryptor) Phase(ct *Ciphertext) *rlwe.Element {
-	return e.heintEnc.Phase(ct.Value)
+func (enc *Encryptor) Phase(ct *Ciphertext) *rlwe.Element {
+	return enc.intEnc.Phase(ct.Value)
 }
 
 // PhaseTo performs Phase(ct) and stores the result in pt.
-func (e *Encryptor) PhaseTo(eOut *rlwe.Element, ct *Ciphertext) {
-	e.heintEnc.PhaseTo((*rlwe.Element)(eOut), ct.Value)
+func (enc *Encryptor) PhaseTo(eOut *rlwe.Element, ct *Ciphertext) {
+	enc.intEnc.PhaseTo((*rlwe.Element)(eOut), ct.Value)
 }
 
 // Noise returns the noise of the ciphertext.
-func (e *Encryptor) Noise(ct *Ciphertext) *rlwe.Element {
-	return e.heintEnc.Noise(ct.Value)
+func (enc *Encryptor) Noise(ct *Ciphertext) *rlwe.Element {
+	return enc.intEnc.Noise(ct.Value)
 }
 
 // NoiseTo stores the noise of the ciphertext in eOut.
-func (e *Encryptor) NoiseTo(eOut *rlwe.Element, ct *Ciphertext) {
-	e.heintEnc.NoiseTo(eOut, ct.Value)
+func (enc *Encryptor) NoiseTo(eOut *rlwe.Element, ct *Ciphertext) {
+	enc.intEnc.NoiseTo(eOut, ct.Value)
 }

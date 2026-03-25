@@ -12,13 +12,13 @@ type Encryptor struct {
 	params rlwe.Parameters
 	msgMod *num.Modulus
 
-	pOp     *rlwe.PlainOperator
-	rlweEnc *rlwe.Encryptor
-	packer  pack.IntPacker
-	encoder *Encoder
+	pOp  *rlwe.PlainOperator
+	enc  *rlwe.Encryptor
+	pack pack.IntPacker
+	ecd  *Encoder
 
 	scFacs []*rlwe.Element
-	scaler []*crt.Scaler
+	sc     []*crt.Scaler
 
 	ePool *rlwe.ElementPool
 }
@@ -47,13 +47,13 @@ func NewEncryptorWithKey(params rlwe.Parameters, msgMod *num.Modulus, skNTT *rlw
 		params: params,
 		msgMod: msgMod,
 
-		pOp:     rlwe.NewPlainOperator(params),
-		rlweEnc: rlwe.NewEncryptorWithKey(params, skNTT),
-		packer:  pack.NewIntPacker(params.RingParams(), msgMod),
-		encoder: NewEncoder(params, msgMod),
+		pOp:  rlwe.NewPlainOperator(params),
+		enc:  rlwe.NewEncryptorWithKey(params, skNTT),
+		pack: pack.NewIntPacker(params.RingParams(), msgMod),
+		ecd:  NewEncoder(params, msgMod),
 
 		scFacs: scFacs,
-		scaler: scaler,
+		sc:     scaler,
 
 		ePool: rlwe.NewElementPool(params, true, true),
 	}
@@ -66,28 +66,28 @@ func (e *Encryptor) Parameters() rlwe.Parameters {
 
 // SecretKey returns the secret key.
 func (e *Encryptor) SecretKey() *rlwe.SecretKey {
-	return e.rlweEnc.SecretKey()
+	return e.enc.SecretKey()
 }
 
 // NewRelinKey creates a new relinearisation key.
 func (e *Encryptor) NewRelinKey() *rlwe.RelinKey {
-	return e.rlweEnc.NewRelinKey()
+	return e.enc.NewRelinKey()
 }
 
 // NewKeySwitchKey creates a new key switch key.
 func (e *Encryptor) NewKeySwitchKey(skNew *rlwe.SecretKey) *rlwe.KeySwitchKey {
-	return e.rlweEnc.NewKeySwitchKey(skNew)
+	return e.enc.NewKeySwitchKey(skNew)
 }
 
 // NewAutomorphismKey creates a new automorphism key.
 func (e *Encryptor) NewAutomorphismKey(idx int) *rlwe.AutomorphismKey {
-	return e.rlweEnc.NewAutomorphismKey(idx)
+	return e.enc.NewAutomorphismKey(idx)
 }
 
 // NewRotationKey creates a new rotation key.
 func (e *Encryptor) NewRotationKey(idx []int) *rlwe.AutomorphismKey {
-	autIdx := e.packer.RotIdxToAutIdx(idx)
-	return e.rlweEnc.NewAutomorphismKey(autIdx)
+	autIdx := e.pack.RotIdxToAutIdx(idx)
+	return e.enc.NewAutomorphismKey(autIdx)
 }
 
 // Encrypt encrypts the message v.
@@ -123,9 +123,9 @@ func (e *Encryptor) EncryptTo(ctOut *rlwe.Ciphertext, v []uint64, isNTT bool) {
 	defer e.ePool.Put(pt)
 	pt = pt.WithModLen(baseLen, 0)
 
-	e.encoder.EncodeTo(pt, v, isNTT)
+	e.ecd.EncodeTo(pt, v, isNTT)
 	e.pOp.MulTo(pt, pt, e.scFacs[baseLen-1])
-	e.rlweEnc.EncryptTo(ctOut, pt, isNTT)
+	e.enc.EncryptTo(ctOut, pt, isNTT)
 }
 
 // EncryptElement encrypts the element e.
@@ -149,7 +149,7 @@ func (e *Encryptor) EncryptElementTo(ctOut *rlwe.Ciphertext, eIn *rlwe.Element, 
 
 	pt.CopyFrom(eIn)
 	e.pOp.MulTo(pt, pt, e.scFacs[baseLen-1])
-	e.rlweEnc.EncryptTo(ctOut, pt, isNTT)
+	e.enc.EncryptTo(ctOut, pt, isNTT)
 }
 
 // Decrypt decrypts the ciphertext ct.
@@ -180,18 +180,18 @@ func (e *Encryptor) DecryptTo(vOut []uint64, ct *rlwe.Ciphertext) {
 
 	e.PhaseTo(pt, ct)
 
-	e.scaler[baseLen-1].ScaleTo(ptScale.Value, pt.Value)
+	e.sc[baseLen-1].ScaleTo(ptScale.Value, pt.Value)
 	copy(vOut, ptScale.Value.Coeffs[0][:len(vOut)])
 }
 
 // Phase performs Phase(ct).
 func (e *Encryptor) Phase(ct *rlwe.Ciphertext) *rlwe.Element {
-	return e.rlweEnc.Phase(ct)
+	return e.enc.Phase(ct)
 }
 
 // PhaseTo performs Phase(ct) and stores the result in pt.
 func (e *Encryptor) PhaseTo(eOut *rlwe.Element, ct *rlwe.Ciphertext) {
-	e.rlweEnc.PhaseTo((*rlwe.Element)(eOut), ct)
+	e.enc.PhaseTo((*rlwe.Element)(eOut), ct)
 }
 
 // Noise returns the noise of the ciphertext.
@@ -218,8 +218,8 @@ func (e *Encryptor) NoiseTo(eOut *rlwe.Element, ct *rlwe.Ciphertext) {
 	v := vEcd.Value.WithModIdx(1)
 
 	e.PhaseTo(pt, ct)
-	e.scaler[baseLen-1].ScaleTo(v, pt.Value)
-	e.encoder.EncodeTo(vEcd, v.Coeffs[0], false)
+	e.sc[baseLen-1].ScaleTo(v, pt.Value)
+	e.ecd.EncodeTo(vEcd, v.Coeffs[0], false)
 	e.pOp.MulTo(vEcd, vEcd, e.scFacs[baseLen-1])
 	e.pOp.SubTo(eOut, pt, vEcd)
 }

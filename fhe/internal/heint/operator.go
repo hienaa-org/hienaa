@@ -17,9 +17,9 @@ type Operator struct {
 	params rlwe.Parameters
 	msgMod *num.Modulus
 
-	rlweOp  *rlwe.Operator
-	encoder *Encoder
-	scFacs  []*rlwe.Element
+	rlweOp *rlwe.Operator
+	ecd    *Encoder
+	scFacs []*rlwe.Element
 
 	ePool  *rlwe.ElementPool
 	ctPool *sync.Pool
@@ -92,9 +92,9 @@ func NewOperator(params rlwe.Parameters, msgMod *num.Modulus) *Operator {
 		params: params,
 		msgMod: msgMod,
 
-		rlweOp:  rlweOp,
-		encoder: encoder,
-		scFacs:  computeScalingFactor(params.BaseModulus(), msgMod),
+		rlweOp: rlweOp,
+		ecd:    encoder,
+		scFacs: computeScalingFactor(params.BaseModulus(), msgMod),
 
 		ePool: rlwe.NewElementPool(params, true, true),
 		ctPool: &sync.Pool{
@@ -112,7 +112,7 @@ func (op *Operator) Parameters() rlwe.Parameters {
 
 // Encoder returns the encoder.
 func (op *Operator) Encoder() *Encoder {
-	return op.encoder
+	return op.ecd
 }
 
 // NegTo computes ctOut = -ct.
@@ -160,7 +160,7 @@ func (op *Operator) AddPlainTo(ctOut, ct *rlwe.Ciphertext, pt []uint64, isNTT bo
 	defer op.ePool.Put(e)
 	e = e.WithModLen(ct.BaseModLen(), 0)
 
-	op.encoder.EncodeTo(e, pt, false)
+	op.ecd.EncodeTo(e, pt, false)
 	pOp.MulTo(e, op.scFacs[ct.BaseModLen()-1], e)
 	ctOut.Resize(ct.BaseModLen(), 0)
 	if isNTT && !ct.IsNTT() {
@@ -249,7 +249,7 @@ func (op *Operator) SubPlainTo(ctOut, ct *rlwe.Ciphertext, pt []uint64, isNTT bo
 	defer op.ePool.Put(e)
 	e = e.WithModLen(ct.BaseModLen(), 0)
 
-	op.encoder.EncodeTo(e, pt, false)
+	op.ecd.EncodeTo(e, pt, false)
 	pOp.MulTo(e, op.scFacs[ct.BaseModLen()-1], e)
 	ctOut.Resize(ct.BaseModLen(), 0)
 	if isNTT && !ct.IsNTT() {
@@ -317,7 +317,7 @@ func (op *Operator) MulPlainTo(ctOut, ct *rlwe.Ciphertext, pt []uint64, isNTT bo
 	defer op.ePool.Put(e)
 	e = e.WithModLen(ct.BaseModLen(), 0)
 
-	op.encoder.EncodeTo(e, pt, true)
+	op.ecd.EncodeTo(e, pt, true)
 	ctOut.Resize(ct.BaseModLen(), 0)
 	if ct.IsNTT() {
 		op.rlweOp.MulElementTo(ctOut, ct, e)

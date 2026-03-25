@@ -8,37 +8,37 @@ import (
 
 // Encoder encodes/decodes [*crt.Element] into/from [Plaintext].
 type Encoder struct {
-	encoder *heint.Encoder
+	intEcd *heint.Encoder
 }
 
 // NewEncoder creates a new [Encoder].
 func NewEncoder(params rlwe.Parameters, msgMod *num.Modulus) *Encoder {
 	return &Encoder{
-		encoder: heint.NewEncoder(params, msgMod),
+		intEcd: heint.NewEncoder(params, msgMod),
 	}
 }
 
 // Encode encodes a [Plaintext] into a [*rlwe.Element].
-func (enc *Encoder) Encode(eIn Plaintext, hasAux, isNTT bool) *rlwe.Element {
-	return enc.encoder.Encode(eIn, hasAux, isNTT)
+func (ecd *Encoder) Encode(eIn Plaintext, hasAux, isNTT bool) *rlwe.Element {
+	return ecd.intEcd.Encode(eIn, hasAux, isNTT)
 }
 
 // EncodeCustom encodes a [Plaintext] into a [*rlwe.Element] with custom parameters.
-func (enc *Encoder) EncodeCustom(eIn Plaintext, baseLen, auxLen int, isNTT bool) *rlwe.Element {
-	return enc.encoder.EncodeCustom(eIn, baseLen, auxLen, isNTT)
+func (ecd *Encoder) EncodeCustom(eIn Plaintext, baseLen, auxLen int, isNTT bool) *rlwe.Element {
+	return ecd.intEcd.EncodeCustom(eIn, baseLen, auxLen, isNTT)
 }
 
 // EncodeTo encodes a [Plaintext] into a [*rlwe.Element].
-func (enc *Encoder) EncodeTo(eOut *rlwe.Element, eIn Plaintext, isNTT bool) {
-	enc.encoder.EncodeTo(eOut, eIn, isNTT)
+func (ecd *Encoder) EncodeTo(eOut *rlwe.Element, eIn Plaintext, isNTT bool) {
+	ecd.intEcd.EncodeTo(eOut, eIn, isNTT)
 }
 
 // Decode decodes a [*rlwe.Element] into a [Plaintext].
-func (enc *Encoder) Decode(e *rlwe.Element) Plaintext {
-	return enc.encoder.Decode(e)
+func (ecd *Encoder) Decode(e *rlwe.Element) Plaintext {
+	return ecd.intEcd.Decode(e)
 }
 
 // DecodeTo decodes a [*rlwe.Element] into a [Plaintext].
-func (enc *Encoder) DecodeTo(eOut Plaintext, e *rlwe.Element) {
-	enc.encoder.DecodeTo(eOut, e)
+func (ecd *Encoder) DecodeTo(eOut Plaintext, e *rlwe.Element) {
+	ecd.intEcd.DecodeTo(eOut, e)
 }

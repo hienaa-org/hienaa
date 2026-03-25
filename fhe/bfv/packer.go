@@ -9,14 +9,14 @@ import (
 // Packer packs a vector of uint64 into [Plaintext].
 type Packer struct {
 	params rlwe.Parameters
-	packer pack.IntPacker
+	pack   pack.IntPacker
 }
 
 // NewPacker creates a new [Packer].
 func NewPacker(params rlwe.Parameters, msgMod *num.Modulus) *Packer {
 	return &Packer{
 		params: params,
-		packer: pack.NewIntPacker(params.RingParams(), msgMod),
+		pack:   pack.NewIntPacker(params.RingParams(), msgMod),
 	}
 }
 
@@ -27,7 +27,7 @@ func (p *Packer) Params() rlwe.Parameters {
 
 // PackLen returns the length of packable vector.
 func (p *Packer) PackLen() int {
-	return p.packer.PackLen()
+	return p.pack.PackLen()
 }
 
 // Pack packs v.
@@ -49,14 +49,14 @@ func (p *Packer) PackTo(ptOut Plaintext, v []uint64) {
 		panic("inconsistent input(s)")
 	}
 
-	p.packer.PackTo(ptOut, v)
+	p.pack.PackTo(ptOut, v)
 }
 
 // UnPack unpacks pt.
 // Panics when the moduli length of the input plaintext is larger than the number of moduli,
 // or when the message length does not divide the packing length, or when the output modulus length is larger than the number of moduli.
 func (p *Packer) UnPack(pt Plaintext) []uint64 {
-	vOut := make([]uint64, p.packer.PackLen())
+	vOut := make([]uint64, p.pack.PackLen())
 	p.UnPackTo(vOut, pt)
 	return vOut
 }
@@ -71,20 +71,20 @@ func (p *Packer) UnPackTo(vOut []uint64, pt Plaintext) {
 		panic("inconsistent input(s)")
 	}
 
-	p.packer.UnPackTo(vOut, pt)
+	p.pack.UnPackTo(vOut, pt)
 }
 
 // Cube returns the form of the hypercube structure.
 func (p *Packer) Cube() []int {
-	return p.packer.Cube()
+	return p.pack.Cube()
 }
 
 // CubeGen returns the corresponding generator for the hypercube structure.
 func (p *Packer) CubeGen() []uint64 {
-	return p.packer.CubeGen()
+	return p.pack.CubeGen()
 }
 
 // RotIdxToAutIdx converts a rotation index to an automorphism index.
 func (p *Packer) RotIdxToAutIdx(idx []int) int {
-	return p.packer.RotIdxToAutIdx(idx)
+	return p.pack.RotIdxToAutIdx(idx)
 }

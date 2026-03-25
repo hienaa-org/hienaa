@@ -55,16 +55,37 @@ func (p *Polynomial) Coeffs() map[int]Plaintext {
 // Evaluate evaluates the polynomial at the given ciphertext.
 func (op *Operator) Evaluate(p *Polynomial, ct *Ciphertext, rlk *rlwe.RelinKey, isNTT bool) *Ciphertext {
 	// Compute the basis for babystep.
+	basis := op.computeBasis(p, ct, rlk)
+
+	// Evaluate the polynomial.
+	deg := p.Degree()
+	maxLevel := int(math.Ceil(num.Log2(deg + 1)))
+	maxDeg := (1 << maxLevel) - 1
+	ctOut := op.evalRecurse(0, maxDeg, p, basis, rlk)
+
+	// Inverse NTT if needed.
+	if !isNTT {
+		op.InvNTTTo(ctOut, ctOut)
+	}
+
+	// clean up the basis.
+	for _, ct := range basis {
+		op.ctPool.Put(ct)
+	}
+
+	return ctOut
+}
+
+func (op *Operator) computeBasis(p *Polynomial, ct *Ciphertext, rlk *rlwe.RelinKey) map[int]*Ciphertext {
 	basis := make(map[int]*Ciphertext)
 	deg := p.Degree()
 	maxLevel := int(math.Ceil(num.Log2(deg + 1)))
 	maxDeg := (1 << maxLevel) - 1
-	babyLevel := int(math.Ceil(float64(maxLevel) / 2))
+	babyLevel := (maxLevel + 1) / 2
 	babyDeg := 1 << babyLevel
 
 	// Compute the power-of-two monomials.
 	basis[1] = op.ctPool.Get().(*Ciphertext)
-	defer op.ctPool.Put(basis[1])
 	basis[1] = basis[1].WithModLen(ct.ModLen())
 	if ct.IsNTT() {
 		basis[1].CopyFrom(ct)
@@ -74,7 +95,6 @@ func (op *Operator) Evaluate(p *Polynomial, ct *Ciphertext, rlk *rlwe.RelinKey, 
 
 	for i := 1; i < maxLevel; i++ {
 		basis[1<<i] = op.ctPool.Get().(*Ciphertext)
-		defer op.ctPool.Put(basis[1<<i])
 		op.MulTo(basis[1<<i], basis[1<<(i-1)], basis[1<<(i-1)], rlk, true)
 	}
 
@@ -87,43 +107,34 @@ func (op *Operator) Evaluate(p *Polynomial, ct *Ciphertext, rlk *rlwe.RelinKey, 
 			// Check if (1<<i+j)-th basis is needed in the babystep generation.
 			for idx := i + 1; idx < babyLevel; idx++ {
 				_, checkIdx := p.coeffs[1<<idx+1<<i+j]
-				check = check && checkIdx
+				check = check || checkIdx
 			}
 
 			// Check if (1<<i+j)-th basis is needed in the final evaluation.
 			for idx := 0; idx < maxDeg/babyDeg-1; idx++ {
 				_, checkIdx := p.coeffs[idx*babyDeg+j]
-				check = check && checkIdx
+				check = check || checkIdx
 			}
 
 			// If the monomial is needed, compute the monomial.
 			if check {
 				basis[1<<i+j] = op.ctPool.Get().(*Ciphertext)
-				defer op.ctPool.Put(basis[1<<i+j])
 				op.MulTo(basis[1<<i+j], basis[1<<i], basis[j], rlk, true)
 			}
 		}
 	}
 
-	// Evaluate the polynomial.
-	ctOut := op.evalRecurse(0, maxDeg, p, basis, rlk)
-
-	// Inverse NTT if needed.
-	if !isNTT {
-		op.InvNTTTo(ctOut, ctOut)
-	}
-
-	return ctOut
+	return basis
 }
 
+// TODO: Change to an in-place algorithm.
 // TODO: Optimise later using lazy relin BSGS algorithm.
-// evalRecurseTo evaluates the polynomial at the given ciphertext recursively.
 func (op *Operator) evalRecurse(lo, hi int, p *Polynomial, basis map[int]*Ciphertext, rlk *rlwe.RelinKey) *Ciphertext {
 	// Hyperparameters.
 	deg := p.Degree()
 	maxLevel := int(math.Ceil(num.Log2(deg + 1)))
 	maxDeg := (1 << maxLevel) - 1
-	babyLevel := int(math.Ceil(float64(maxLevel) / 2))
+	babyLevel := (maxLevel + 1) / 2
 	babyDeg := 1 << babyLevel
 	ctLen := basis[1].ModLen()
 
@@ -136,8 +147,8 @@ func (op *Operator) evalRecurse(lo, hi int, p *Polynomial, basis map[int]*Cipher
 	// Corner case (Does anybody really want to evaluate a constant polynomial?).
 	if curDeg == 1 {
 		ctOut := NewCiphertextCustom(op.params.Rank(), ctLen, true)
-		if _, check := p.coeffs[lo]; check {
-			op.AddPlainTo(ctOut, ctOut, p.coeffs[lo], false)
+		if val, check := p.coeffs[lo]; check {
+			op.AddPlainTo(ctOut, ctOut, val, false)
 		}
 		return ctOut
 	}
@@ -152,7 +163,7 @@ func (op *Operator) evalRecurse(lo, hi int, p *Polynomial, basis map[int]*Cipher
 			return nil
 		}
 
-		ctOut := NewCiphertextCustom(op.params.Rank(), ctLen, true)
+		var ctOut *Ciphertext
 		if hi == maxDeg {
 			// Babystep computation, at the highest degree.
 			// We need to perform BSGS to the smallest degree to minimise the level consumption.
@@ -163,35 +174,47 @@ func (op *Operator) evalRecurse(lo, hi int, p *Polynomial, basis map[int]*Cipher
 					continue
 				}
 
-				if i == 0 {
-					op.MulPlainTo(ctOut, basis[1], p.coeffs[maxDeg-babyDeg+1], true)
-				} else {
-					if _, check := p.coeffs[maxDeg-babyDeg+1]; check {
-						op.AddPlainTo(ctOut, ctOut, p.coeffs[maxDeg-babyDeg+1], true)
+				if val, check := p.coeffs[maxDeg-babyDeg+1]; check {
+					if ctOut == nil {
+						ctOut = NewCiphertextCustom(op.params.Rank(), ctLen, true)
 					}
 
-					for j := 1; j < min(halfBabyDeg, deg+babyDeg-maxDeg); j++ {
-						if _, check := p.coeffs[maxDeg-babyDeg+j+1]; check {
-							continue
+					op.AddPlainTo(ctOut, ctOut, val, true)
+				}
+
+				for j := 1; j < min(halfBabyDeg, deg+babyDeg-maxDeg); j++ {
+					if val, check := p.coeffs[maxDeg-babyDeg+j+1]; check {
+						if ctOut == nil {
+							ctOut = NewCiphertextCustom(op.params.Rank(), ctLen, true)
 						}
 
-						op.MulPlainTo(tmpCt, basis[j], p.coeffs[maxDeg-babyDeg+j+1], true)
+						op.MulPlainTo(tmpCt, basis[j], val, true)
 						op.AddTo(ctOut, ctOut, tmpCt, true)
 					}
 				}
 
 				if i < babyLevel {
-					op.MulTo(ctOut, ctOut, basis[1<<i], rlk, true)
+					if ctOut != nil {
+						op.MulTo(ctOut, ctOut, basis[1<<i], rlk, true)
+					}
 				}
 			}
 		} else {
 			// Babystep computation.
-			if _, check := p.coeffs[lo]; check {
-				op.AddPlainTo(ctOut, ctOut, p.coeffs[lo], true)
+			if val, check := p.coeffs[lo]; check {
+				if ctOut == nil {
+					ctOut = NewCiphertextCustom(op.params.Rank(), ctLen, true)
+				}
+
+				op.AddPlainTo(ctOut, ctOut, val, true)
 			}
-			for i := 1; i < min(babyDeg, deg-lo+1); i++ {
-				if _, check := p.coeffs[lo+i]; check {
-					op.MulPlainTo(tmpCt, basis[i], p.coeffs[lo+i], true)
+			for i := 1; i <= min(babyDeg, deg-lo+1); i++ {
+				if val, check := p.coeffs[lo+i]; check {
+					if ctOut == nil {
+						ctOut = NewCiphertextCustom(op.params.Rank(), ctLen, true)
+					}
+
+					op.MulPlainTo(tmpCt, basis[i], val, true)
 					op.AddTo(ctOut, ctOut, tmpCt, true)
 				}
 			}
@@ -206,14 +229,16 @@ func (op *Operator) evalRecurse(lo, hi int, p *Polynomial, basis map[int]*Cipher
 		hi_res := op.evalRecurse(lo+halfDeg, hi, p, basis, rlk)
 
 		if hi_res == nil {
-			if lo_res == nil {
-				return nil
-			}
+			return lo_res
 		} else {
-			op.MulTo(tmpCt, hi_res, basis[halfDeg], rlk, true)
-			op.AddTo(lo_res, lo_res, tmpCt, true)
+			if lo_res == nil {
+				op.MulTo(hi_res, hi_res, basis[halfDeg], rlk, true)
+				return hi_res
+			} else {
+				op.MulTo(tmpCt, hi_res, basis[halfDeg], rlk, true)
+				op.AddTo(lo_res, lo_res, tmpCt, true)
+				return lo_res
+			}
 		}
-
-		return lo_res
 	}
 }

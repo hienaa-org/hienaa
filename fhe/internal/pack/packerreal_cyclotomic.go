@@ -9,7 +9,8 @@ import (
 	"github.com/hienaa-org/hienaa/math/vec"
 )
 
-type pow2CyclotomicRealPacker struct {
+// pow2CyclotomicComplexPacker is a packer for the power-of-two cyclotomic ring.
+type pow2CyclotomicComplexPacker struct {
 	params dft.RingParameters
 
 	// packLen is the packing length.
@@ -28,8 +29,8 @@ type pow2CyclotomicRealPacker struct {
 	pool *sync.Pool
 }
 
-// newPow2CyclotomicRealPacker creates a new [pow2CyclotomicRealPacker].
-func newPow2CyclotomicRealPacker(params dft.RingParameters) *pow2CyclotomicRealPacker {
+// newPow2CyclotomicComplexPacker creates a new [pow2CyclotomicComplexPacker].
+func newPow2CyclotomicComplexPacker(params dft.RingParameters) *pow2CyclotomicComplexPacker {
 	roots := make([]complex128, params.CycloOrder())
 	for i := 0; i < params.CycloOrder(); i++ {
 		cos := math.Cos(2 * math.Pi * float64(i) / float64(params.CycloOrder()))
@@ -42,7 +43,7 @@ func newPow2CyclotomicRealPacker(params dft.RingParameters) *pow2CyclotomicRealP
 		group[i] = int(num.Exp(uint64(5), uint64(i), nil)) & (params.CycloOrder() - 1)
 	}
 
-	return &pow2CyclotomicRealPacker{
+	return &pow2CyclotomicComplexPacker{
 		params: params,
 
 		packLen: params.Rank() >> 1,
@@ -62,15 +63,15 @@ func newPow2CyclotomicRealPacker(params dft.RingParameters) *pow2CyclotomicRealP
 	}
 }
 
-func (p *pow2CyclotomicRealPacker) Params() dft.RingParameters {
+func (p *pow2CyclotomicComplexPacker) Params() dft.RingParameters {
 	return p.params
 }
 
-func (p *pow2CyclotomicRealPacker) PackLen() int {
+func (p *pow2CyclotomicComplexPacker) PackLen() int {
 	return p.packLen
 }
 
-func (p *pow2CyclotomicRealPacker) Pack(v []complex128) []float64 {
+func (p *pow2CyclotomicComplexPacker) Pack(v []complex128) []float64 {
 	vPack := make([]float64, p.params.Rank())
 	p.PackTo(vPack, v)
 	return vPack
@@ -78,7 +79,7 @@ func (p *pow2CyclotomicRealPacker) Pack(v []complex128) []float64 {
 
 // TODO: Optimise the algorithm. This algorithm is due to ia.cr/2018/1043.
 // If we have an efficient FFT implementation, we can directly use it.
-func (p *pow2CyclotomicRealPacker) PackTo(vPack []float64, v []complex128) {
+func (p *pow2CyclotomicComplexPacker) PackTo(vPack []float64, v []complex128) {
 	if len(vPack) != p.params.Rank() || p.packLen%len(v) != 0 {
 		panic("input(s) shape not consistent")
 	}
@@ -112,13 +113,13 @@ func (p *pow2CyclotomicRealPacker) PackTo(vPack []float64, v []complex128) {
 	}
 }
 
-func (p *pow2CyclotomicRealPacker) UnPack(vPack []float64) []complex128 {
+func (p *pow2CyclotomicComplexPacker) UnPack(vPack []float64) []complex128 {
 	v := make([]complex128, p.packLen)
 	p.UnPackTo(v, vPack)
 	return v
 }
 
-func (p *pow2CyclotomicRealPacker) UnPackTo(v []complex128, vPack []float64) {
+func (p *pow2CyclotomicComplexPacker) UnPackTo(v []complex128, vPack []float64) {
 	if p.packLen%len(v) != 0 || len(vPack) != p.params.Rank() {
 		panic("input(s) shape not consistent")
 	}
@@ -146,22 +147,22 @@ func (p *pow2CyclotomicRealPacker) UnPackTo(v []complex128, vPack []float64) {
 	copy(v, buf[:len(v)])
 }
 
-func (p *pow2CyclotomicRealPacker) Cube() []int {
+func (p *pow2CyclotomicComplexPacker) Cube() []int {
 	return p.cube
 }
 
-func (p *pow2CyclotomicRealPacker) CubeGen() []uint64 {
+func (p *pow2CyclotomicComplexPacker) CubeGen() []uint64 {
 	return p.cubeGen
 }
 
-func (p *pow2CyclotomicRealPacker) RotIdxToAutIdx(idx []int) int {
+func (p *pow2CyclotomicComplexPacker) RotIdxToAutIdx(idx []int) int {
 	if len(idx) != 1 {
 		panic("input(s) shape not consistent")
 	}
 	return int(num.Exp(5, uint64(idx[0]), nil)) & (p.params.CycloOrder() - 1)
 }
 
-type trivialRealPacker struct {
+type trivialComplexPacker struct {
 	params dft.RingParameters
 
 	packLen int
@@ -170,8 +171,8 @@ type trivialRealPacker struct {
 	cubeGen []uint64
 }
 
-func newTrivialRealPacker(params dft.RingParameters) *trivialRealPacker {
-	return &trivialRealPacker{
+func newTrivialComplexPacker(params dft.RingParameters) *trivialComplexPacker {
+	return &trivialComplexPacker{
 		params: params,
 
 		packLen: 1,
@@ -181,21 +182,21 @@ func newTrivialRealPacker(params dft.RingParameters) *trivialRealPacker {
 	}
 }
 
-func (p *trivialRealPacker) Params() dft.RingParameters {
+func (p *trivialComplexPacker) Params() dft.RingParameters {
 	return p.params
 }
 
-func (p *trivialRealPacker) PackLen() int {
+func (p *trivialComplexPacker) PackLen() int {
 	return p.packLen
 }
 
-func (p *trivialRealPacker) Pack(v []complex128) []float64 {
+func (p *trivialComplexPacker) Pack(v []complex128) []float64 {
 	vPack := make([]float64, p.params.Rank())
 	p.PackTo(vPack, v)
 	return vPack
 }
 
-func (p *trivialRealPacker) PackTo(vPack []float64, v []complex128) {
+func (p *trivialComplexPacker) PackTo(vPack []float64, v []complex128) {
 	if len(vPack) != p.params.Rank() || len(v) != p.packLen {
 		panic("input(s) shape not consistent")
 	} else if imag(v[0]) != 0 {
@@ -206,13 +207,13 @@ func (p *trivialRealPacker) PackTo(vPack []float64, v []complex128) {
 	vPack[0] = real(v[0])
 }
 
-func (p *trivialRealPacker) UnPack(vPack []float64) []complex128 {
+func (p *trivialComplexPacker) UnPack(vPack []float64) []complex128 {
 	v := make([]complex128, p.packLen)
 	p.UnPackTo(v, vPack)
 	return v
 }
 
-func (p *trivialRealPacker) UnPackTo(v []complex128, vPack []float64) {
+func (p *trivialComplexPacker) UnPackTo(v []complex128, vPack []float64) {
 	if len(v) != p.packLen || len(vPack) != p.params.Rank() {
 		panic("input(s) shape not consistent")
 	}
@@ -220,14 +221,14 @@ func (p *trivialRealPacker) UnPackTo(v []complex128, vPack []float64) {
 	v[0] = complex(vPack[0], 0)
 }
 
-func (p *trivialRealPacker) Cube() []int {
+func (p *trivialComplexPacker) Cube() []int {
 	return p.cube
 }
 
-func (p *trivialRealPacker) CubeGen() []uint64 {
+func (p *trivialComplexPacker) CubeGen() []uint64 {
 	return p.cubeGen
 }
 
-func (p *trivialRealPacker) RotIdxToAutIdx(idx []int) int {
+func (p *trivialComplexPacker) RotIdxToAutIdx(idx []int) int {
 	return 1
 }

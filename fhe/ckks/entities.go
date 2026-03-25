@@ -6,58 +6,78 @@ import (
 	"github.com/hienaa-org/hienaa/fhe/rlwe"
 )
 
+// ValueType indicates whether the plaintext is real or integer.
+type ValueType int
+
+const (
+	TypeReal ValueType = iota
+	TypeInt
+)
+
 // Plaintext is a CKKS plaintext.
-type Plaintext []float64
+type Plaintext struct {
+	Value     []float64
+	valueType ValueType
+}
 
 // NewScalar creates a new [Plaintext] for a scalar.
-func NewScalar() Plaintext {
-	return make([]float64, 1)
+func NewScalar(vType ValueType) *Plaintext {
+	return &Plaintext{
+		Value:     make([]float64, 1),
+		valueType: vType,
+	}
 }
 
 // NewScalarFrom creates a new [Plaintext] for a scalar from x.
-func NewScalarFrom(x float64) Plaintext {
-	res := NewScalar()
-	res[0] = x
+func NewScalarFrom(x float64, vType ValueType) *Plaintext {
+	res := NewScalar(vType)
+	res.Value[0] = x
 	return res
 }
 
 // NewPoly creates a new [Plaintext] for a polynomial.
-func NewPoly(rank int) Plaintext {
-	return make([]float64, rank)
+func NewPoly(rank int, vType ValueType) *Plaintext {
+	return &Plaintext{
+		Value:     make([]float64, rank),
+		valueType: vType,
+	}
 }
 
 // NewPolyFrom creates a new [Plaintext] for a polynomial from x.
-func NewPolyFrom(x []float64) Plaintext {
-	res := NewPoly(len(x))
-	copy(res, x)
+func NewPolyFrom(x []float64, vType ValueType) *Plaintext {
+	res := NewPoly(len(x), vType)
+	copy(res.Value, x)
 	return res
 }
 
 // Rank returns the rank.
 func (e Plaintext) Rank() int {
-	return len(e)
+	return len(e.Value)
 }
 
 // Clear clears value.
 func (e Plaintext) Clear() {
-	clear(e)
+	clear(e.Value)
 }
 
 // Copy returns a copy of e.
-func (e Plaintext) Copy() Plaintext {
-	res := make([]float64, len(e))
-	copy(res, e)
-	return res
+func (e Plaintext) Copy() *Plaintext {
+	res := make([]float64, len(e.Value))
+	copy(res, e.Value)
+	return &Plaintext{
+		Value:     res,
+		valueType: e.valueType,
+	}
 }
 
 // CopyFrom copies the coefficients from eIn to e.
-func (e Plaintext) CopyFrom(eIn Plaintext) {
-	copy(e, eIn)
+func (e Plaintext) CopyFrom(eIn *Plaintext) {
+	copy(e.Value, eIn.Value)
 }
 
 // IsEqual checks if two values are equal.
-func (e Plaintext) IsEqual(e0 Plaintext) bool {
-	return slices.Equal(e, e0)
+func (e Plaintext) IsEqual(e0 *Plaintext) bool {
+	return slices.Equal(e.Value, e0.Value) && e.valueType == e0.valueType
 }
 
 // Ciphertext is a CKKS ciphertext.
@@ -82,9 +102,14 @@ func NewCiphertextCustom(rank, modLen int, isNTT bool) *Ciphertext {
 	}
 }
 
-// ScFac returns the scaling factor.
-func (c *Ciphertext) ScFac() float64 {
+// ScalingFactor returns the scaling factor.
+func (c *Ciphertext) ScalingFactor() float64 {
 	return c.scFac
+}
+
+// SetScalingFactor sets the scaling factor.
+func (c *Ciphertext) SetScalingFactor(scFac float64) {
+	c.scFac = scFac
 }
 
 // Rank returns the rank.
@@ -106,6 +131,11 @@ func (c *Ciphertext) IsNTT() bool {
 func (c *Ciphertext) Clear() {
 	c.Value.Clear()
 	c.scFac = 0
+}
+
+// Resize resizes the ciphertext to the given modulus length.
+func (c *Ciphertext) Resize(modLen int) {
+	c.Value.Resize(modLen, 0)
 }
 
 // WithModLen returns a shallow copy with the given modulus lengths.

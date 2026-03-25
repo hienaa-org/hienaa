@@ -88,10 +88,40 @@ func NewIntPacker(params dft.RingParameters, mod *num.Modulus) IntPacker {
 	panic("NewPackerInt: unsupported ring type or parameters")
 }
 
-// TODO: Implement the real packing/unpacking algorithm.
+// TODO: Implement the real/complex packing/unpacking algorithm.
 
 // RealPacker is the interface for packing/unpacking real numbers.
 type RealPacker interface {
+	// Params returns the ring parameters.
+	Params() dft.RingParameters
+	// PackLen returns the length of the packing/unpacking.
+	PackLen() int
+	// Pack returns the packing of v.
+	Pack(v []float64) []float64
+	// PackTo packs v to vPack.
+	PackTo(vPack []float64, v []float64)
+	// UnPack returns the unpacking of vPack.
+	UnPack(vPack []float64) []float64
+	// UnPackTo unpacks vPack to v.
+	UnPackTo(v []float64, vPack []float64)
+	// Cube returns the form of the hypercube structure.
+	Cube() []int
+	// CubeGen returns the corresponding generator for the hypercube structure.
+	CubeGen() []uint64
+	// RotIdxToAutIdx converts a rotation index to an automorphism index.
+	RotIdxToAutIdx(idx []int) int
+}
+
+// NewRealPacker creates a new [RealPacker].
+func NewRealPacker(params dft.RingParameters) RealPacker {
+	switch params.RingType() {
+	default:
+		panic("unsupported ring type or parameters")
+	}
+}
+
+// ComplexPacker is the interface for packing/unpacking real numbers.
+type ComplexPacker interface {
 	// Params returns the ring parameters.
 	Params() dft.RingParameters
 	// PackLen returns the length of the packing/unpacking.
@@ -112,16 +142,16 @@ type RealPacker interface {
 	RotIdxToAutIdx(idx []int) int
 }
 
-// NewRealPacker creates a new [RealPacker].
-func NewRealPacker(params dft.RingParameters) RealPacker {
+// NewComplexPacker creates a new [ComplexPacker].
+func NewComplexPacker(params dft.RingParameters) ComplexPacker {
 	switch params.RingType() {
 	case dft.TypeCyclotomic:
 		switch {
 		case num.IsPowerOfTwo(params.CycloOrder()):
-			return newPow2CyclotomicRealPacker(params)
+			return newPow2CyclotomicComplexPacker(params)
 
 		default:
-			return newTrivialRealPacker(params)
+			return newTrivialComplexPacker(params)
 		}
 
 	default:

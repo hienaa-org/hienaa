@@ -55,6 +55,10 @@ func (op *Operator) Parameters() rlwe.Parameters {
 	return op.params
 }
 
+func (op *Operator) Encoder() *heint.Encoder {
+	return op.intOp.Encoder()
+}
+
 // Rescale rescales the ciphertext to the target modulus.
 func (op *Operator) Rescale(ct *Ciphertext, isNTT bool) *Ciphertext {
 	ctOut := NewCiphertextCustom(ct.Rank(), ct.ModLen(), true)
@@ -257,7 +261,7 @@ func (op *Operator) MulTo(ctOut, ct0, ct1 *Ciphertext, rlk *rlwe.RelinKey, isNTT
 	op.RescaleTo(ctOut, ctOut, isNTT)
 }
 
-// setMulMod sets the modulus for the multiplication.
+// getAuxMod gets the auxiliary modulus for the multiplication.
 func (op *Operator) getAuxMod(ct0, ct1 *Ciphertext) (int, int, *num.Modulus) {
 	// Force ct0 to have the larger noise.
 	if ct0.ModLen() > ct1.ModLen() || (ct0.ModLen() == ct1.ModLen() && ct0.noise < ct1.noise) {
@@ -360,7 +364,11 @@ func (op *Operator) tensorTo(v *rlwe.Vector, ct0, ct1 *Ciphertext, tarLen int, a
 
 	// scale to the multiplication modulus.
 	op.scaleToMulModTo(c0, ct0, auxIdx, auxMod)
-	op.scaleToMulModTo(c1, ct1, auxIdx, auxMod)
+	if ct0 == ct1 {
+		c1 = c0
+	} else {
+		op.scaleToMulModTo(c1, ct1, auxIdx, auxMod)
+	}
 
 	if v.BaseModLen() != c0.ModLen() || v.BaseModLen() != c1.ModLen() {
 		panic("inconsistent input(s)")
