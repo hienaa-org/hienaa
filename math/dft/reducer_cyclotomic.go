@@ -74,7 +74,7 @@ func newCyclotomicReducer(params RingParameters, mod *num.Modulus) *cyclotomicRe
 		dividend[redDeg] = 1
 
 		cycloPoly = make([]uint64, degNext)
-		vec.ReduceTo(cycloPoly[:params.rank+1], CyclotomicPolynomial(params.cycloOrd), mod)
+		vec.ReduceTo(cycloPoly[:params.rank+1], params.modPoly, mod)
 
 		divPoly = quotient(dividend, cycloPoly[:params.rank+1], mod)
 		divPoly = append(divPoly, make([]uint64, diffDegNext-len(divPoly))...)
@@ -210,66 +210,89 @@ func (r *cyclotomicReducer) reduceTo(pOut, p []uint64) {
 
 // CyclotomicPolynomial computes the cyclotomic polynomial of the given cyclotomic order.
 func CyclotomicPolynomial(cycloOrd int) []int64 {
-	primes, _ := num.Factor(cycloOrd)
-
-	var isEven bool
-	if primes[0] == 2 {
-		isEven = true
-		primes = primes[1:]
-	} else {
-		isEven = false
+	switch {
+	case cycloOrd <= 0:
+		panic("cycloOrd must be positive")
+	case cycloOrd == 1:
+		return []int64{-1, 1}
+	case num.IsPowerOfTwo(cycloOrd):
+		cycloPoly := make([]int64, cycloOrd>>1+1)
+		cycloPoly[0] = 1
+		cycloPoly[cycloOrd>>1] = 1
+		return cycloPoly
+	case num.IsPrime(cycloOrd):
+		cycloPoly := make([]int64, cycloOrd)
+		for i := range cycloPoly {
+			cycloPoly[i] = 1
+		}
+		return cycloPoly
 	}
 
-	pOut := make([]int64, cycloOrd+1)
-	pBuf0 := make([]int64, cycloOrd+1)
-	pBuf1 := make([]int64, cycloOrd+1)
-	pOut[0], pOut[1] = -1, 1
+	primes, exps := num.Factor(cycloOrd)
+	phi := num.TotientWithFactors(cycloOrd, primes, exps)
 
-	skip := int(cycloOrd)
+	var twoExp int
+	if primes[0] == 2 {
+		twoExp = exps[0]
+		primes = primes[1:]
+		exps = exps[1:]
+	}
 
-	currDeg, prevDeg := 1, 1
-	for _, prime := range primes {
-		copy(pBuf0, pOut)
-		clear(pBuf1)
-		clear(pOut)
+	cycloOrdSqFree := 1
+	phiSqFree := 1
+	for i := range primes {
+		cycloOrdSqFree *= primes[i]
+		phiSqFree *= primes[i] - 1
+	}
 
-		for i := 0; i <= prevDeg; i++ {
-			pBuf1[i*prime] = pBuf0[i]
+	mobius := make([]int, cycloOrdSqFree+1)
+	mobius[1] = 1
+	for i := 1; i <= cycloOrdSqFree; i++ {
+		j := 2 * i
+		for j <= cycloOrdSqFree {
+			mobius[j] -= mobius[i]
+			j += i
 		}
+	}
 
-		currDeg = prevDeg*prime - prevDeg
-
-		for i := 0; i <= (prime-1)*prevDeg; i++ {
-			if pBuf1[prevDeg*prime-i] != 0 {
-				pOut[currDeg-i] = pBuf1[prevDeg*prime-i] / pBuf0[prevDeg]
-
-				for j := 0; j <= prevDeg; j++ {
-					pBuf1[prevDeg*prime-i-j] -= pBuf0[prevDeg-j] * pOut[currDeg-i]
-				}
+	degSqFree := phiSqFree / 2
+	cycloPolySqFree := make([]int64, phiSqFree+1)
+	cycloPolySqFree[0] = 1
+	for d := 1; d < cycloOrdSqFree; d++ {
+		if cycloOrdSqFree%d != 0 {
+			continue
+		}
+		if mobius[cycloOrdSqFree/d] == 1 {
+			for i := degSqFree; i >= d; i-- {
+				cycloPolySqFree[i] -= cycloPolySqFree[i-d]
+			}
+		} else {
+			for i := d; i <= degSqFree; i++ {
+				cycloPolySqFree[i] += cycloPolySqFree[i-d]
 			}
 		}
-
-		prevDeg = currDeg
-		skip /= prime
 	}
 
-	if isEven {
-		for i := 1; i <= prevDeg; i += 2 {
-			pOut[i] = -pOut[i]
+	for i := degSqFree + 1; i <= phiSqFree; i++ {
+		cycloPolySqFree[i] = cycloPolySqFree[phiSqFree-i]
+	}
+
+	gap := (cycloOrd / cycloOrdSqFree) >> twoExp
+	if twoExp >= 1 {
+		gap <<= twoExp - 1
+	}
+	cycloPoly := make([]int64, phi+1)
+	for i := 0; i <= phiSqFree; i++ {
+		cycloPoly[i*gap] = cycloPolySqFree[i]
+	}
+
+	if twoExp >= 1 {
+		for i := 1 << (twoExp - 1); i <= phi; i += 1 << twoExp {
+			cycloPoly[i] = -cycloPoly[i]
 		}
-
-		skip >>= 1
 	}
 
-	if skip > 1 {
-		copy(pBuf0, pOut)
-		clear(pOut)
-		for i := 0; i <= prevDeg; i++ {
-			pOut[i*skip] = pBuf0[i]
-		}
-	}
-
-	return pOut[:num.Totient(cycloOrd)+1]
+	return cycloPoly
 }
 
 // quotient computes the quotient of two polynomials modulo a modulus.

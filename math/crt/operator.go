@@ -20,8 +20,6 @@ type Operator interface {
 	Params() dft.RingParameters
 	// Modulus returns the modulus.
 	Modulus() []*num.Modulus
-	// ModulusPoly returns the quotient polynomial of the ring.
-	ModulusPoly() []int64
 
 	// NewPoly creates a new polynomial [Element] in Standard form.
 	NewPoly() *Element
@@ -66,11 +64,10 @@ func NewOperator(params dft.RingParameters, mod []*num.Modulus) Operator {
 
 	switch params.RingType() {
 	case dft.TypeCyclotomic:
-		modPoly := dft.CyclotomicPolynomial(params.CycloOrder())
 		switch {
 		case num.IsPowerOfTwo(params.CycloOrder()):
 			return &pow2CyclotomicOperator{
-				baseOperator:              newBaseOperator(params, mod, modPoly),
+				baseOperator:              newBaseOperator(params, mod),
 				baseAddSubOperator:        newBaseAddSubOperator(params, mod),
 				baseMulOperator:           newBaseMulOperator(params, mod),
 				pow2CyclotomicAutOperator: newPow2CyclotomicAutOperator(params, mod),
@@ -78,7 +75,7 @@ func NewOperator(params dft.RingParameters, mod []*num.Modulus) Operator {
 		default:
 			reducer := NewCyclotomicReducer(params, mod)
 			return &anyCyclotomicOperator{
-				baseOperator:             newBaseOperator(params, mod, modPoly),
+				baseOperator:             newBaseOperator(params, mod),
 				baseAddSubOperator:       newBaseAddSubOperator(params, mod),
 				anyCyclotomicMulOperator: newAnyCyclotomicMulOperator(params, mod, reducer),
 				anyCyclotomicAutOperator: newAnyCyclotomicAutOperator(params, mod, reducer),
@@ -86,27 +83,25 @@ func NewOperator(params dft.RingParameters, mod []*num.Modulus) Operator {
 		}
 
 	case dft.TypeCyclic:
-		modPoly := make([]int64, params.Rank()+1)
 		return &pow235CyclicOperator{
-			baseOperator:       newBaseOperator(params, mod, modPoly),
+			baseOperator:       newBaseOperator(params, mod),
 			baseAddSubOperator: newBaseAddSubOperator(params, mod),
 			baseMulOperator:    newBaseMulOperator(params, mod),
 			noAutOperator:      noAutOperator{},
 		}
 
 	case dft.TypeAutFixed:
-		modPoly := dft.CyclotomicPolynomial(params.CycloOrder())
 		switch {
 		case num.IsPowerOfTwo(params.CycloOrder()):
 			return &pow2AutFixedOperator{
-				baseOperator:            newBaseOperator(params, mod, modPoly),
+				baseOperator:            newBaseOperator(params, mod),
 				baseAddSubOperator:      newBaseAddSubOperator(params, mod),
 				baseMulOperator:         newBaseMulOperator(params, mod),
 				pow2AutFixedAutOperator: newPow2AutFixedAutOperator(params, mod),
 			}
 		case num.IsPrime(params.CycloOrder()):
 			return &primeAutFixedOperator{
-				baseOperator:                newBaseOperator(params, mod, modPoly),
+				baseOperator:                newBaseOperator(params, mod),
 				primeAutFixedAddSubOperator: newPrimeAutFixedAddSubOperator(params, mod),
 				baseMulOperator:             newBaseMulOperator(params, mod),
 				primeAutFixedAutOperator:    newPrimeAutFixedAutOperator(params, mod),
@@ -124,7 +119,7 @@ func NewOperatorWithModPoly(mod []*num.Modulus, modPoly []int64) Operator {
 	reducer := NewReducer(num.NextProdPower(2*len(modPoly)-1, []int{2}), mod, modPoly)
 
 	return &anyOperator{
-		baseOperator:       newBaseOperator(params, mod, modPoly),
+		baseOperator:       newBaseOperator(params, mod),
 		baseAddSubOperator: newBaseAddSubOperator(params, mod),
 		reduceMulOperator:  newReduceMulOperator(mod, modPoly, reducer),
 		noAutOperator:      noAutOperator{},

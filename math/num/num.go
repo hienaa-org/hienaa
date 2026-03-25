@@ -6,12 +6,11 @@ import (
 	"math/bits"
 )
 
-// absUint64 returns the absolute value of x in uint64.
-func absUint64[T Integer](x T) uint64 {
+func Abs[T Integer](x T) T {
 	if x < 0 {
-		return uint64(-x)
+		return T(-x)
 	}
-	return uint64(x)
+	return T(x)
 }
 
 // IsPowerOfTwo returns whether x is a power of two.
@@ -30,7 +29,7 @@ func Log2[T Real](x T) float64 {
 
 // GCD returns the greatest common divisor of x0 and x1.
 func GCD[T Integer](x0, x1 T) T {
-	return T(gcdUint64(absUint64(x0), absUint64(x1)))
+	return T(gcdUint64(uint64(Abs(x0)), uint64(Abs(x1))))
 }
 
 // gcdUint64 returns the greatest common divisor of x0 and x1.

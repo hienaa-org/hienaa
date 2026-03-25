@@ -28,15 +28,14 @@ type RingParameters struct {
 	// cycloOrder is the order of the underlying cyclotomic polynomial.
 	// 0 if the RingType is not [Cyclotomic] or [AutFixed].
 	cycloOrd int
-
 	// rank is the number of coefficients of the polynomial in the ring.
 	rank int
-
-	// expFactor is the expansion factor of the ring.
-	expFactor int
-
+	// expFac is the expansion factor of the ring.
+	expFac int
 	// ringType is the type of the ring.
 	ringType RingType
+	// modPoly is the modulus polynomial of the ring.
+	modPoly []int64
 }
 
 // NewCyclotomicParameters creates a new [RingParameters] for a cyclotomic ring.
@@ -45,11 +44,14 @@ func NewCyclotomicParameters(cycloOrd int) RingParameters {
 		panic("cycloOrd must be positive")
 	}
 
+	cycloPoly := CyclotomicPolynomial(cycloOrd)
+
 	return RingParameters{
-		cycloOrd:  cycloOrd,
-		rank:      int(num.Totient(uint64(cycloOrd))),
-		expFactor: cyclotomicExpFactor(cycloOrd),
-		ringType:  TypeCyclotomic,
+		cycloOrd: cycloOrd,
+		rank:     len(cycloPoly) - 1,
+		expFac:   cyclotomicExpFac(cycloOrd, cycloPoly),
+		ringType: TypeCyclotomic,
+		modPoly:  cycloPoly,
 	}
 }
 
@@ -59,11 +61,16 @@ func NewCyclicParameters(rank int) RingParameters {
 		panic("rank must be positive")
 	}
 
+	modPoly := make([]int64, rank+1)
+	modPoly[0] = -1
+	modPoly[rank] = 1
+
 	return RingParameters{
-		cycloOrd:  0,
-		rank:      rank,
-		expFactor: cyclicExpFactor(rank),
-		ringType:  TypeCyclic,
+		cycloOrd: 0,
+		rank:     rank,
+		expFac:   cyclicExpFac(rank),
+		ringType: TypeCyclic,
+		modPoly:  modPoly,
 	}
 }
 
@@ -87,10 +94,11 @@ func NewAutFixedParameters(cycloOrd, rank int) RingParameters {
 	}
 
 	return RingParameters{
-		cycloOrd:  cycloOrd,
-		rank:      rank,
-		expFactor: autFixedExpFactor(cycloOrd, rank),
-		ringType:  TypeAutFixed,
+		cycloOrd: cycloOrd,
+		rank:     rank,
+		expFac:   autFixedExpFac(cycloOrd),
+		ringType: TypeAutFixed,
+		modPoly:  CyclotomicPolynomial(cycloOrd),
 	}
 }
 
@@ -101,10 +109,10 @@ func NewOtherParameters(modPoly []int64) RingParameters {
 	}
 
 	return RingParameters{
-		cycloOrd:  0,
-		rank:      len(modPoly) - 1,
-		expFactor: otherExpFactor(modPoly),
-		ringType:  TypeOther,
+		cycloOrd: 0,
+		rank:     len(modPoly) - 1,
+		expFac:   otherExpFac(modPoly),
+		ringType: TypeOther,
 	}
 }
 
@@ -121,7 +129,12 @@ func (p RingParameters) Rank() int {
 
 // ExpFactor is the expansion factor of the ring.
 func (p RingParameters) ExpFactor() int {
-	return p.expFactor
+	return p.expFac
+}
+
+// ModulusPoly returns the modulus polynomial of the ring.
+func (p RingParameters) ModulusPoly() []int64 {
+	return p.modPoly
 }
 
 // RingType is the type of the ring.
@@ -129,66 +142,65 @@ func (p RingParameters) RingType() RingType {
 	return p.ringType
 }
 
-// ExpFactor is the expansion factor of the ring.
-func cyclotomicExpFactor(cycloOrd int) int {
+// cyclotomicExpFac computes the expansion factor for cyclotomic ring.
+func cyclotomicExpFac(cycloOrd int, cycloPoly []int64) int {
 	if num.IsPowerOfTwo(cycloOrd) {
 		return cycloOrd >> 1
-	} else {
-		primes, exps := num.Factor(cycloOrd)
-		if len(primes) == 1 {
-			return 2 * int(num.Exp(uint64(primes[0]), uint64(exps[0]-1), nil)) * int(primes[0]-1)
-		} else {
-			cycloPoly := CyclotomicPolynomial(cycloOrd)
-			tot := num.Totient(cycloOrd)
-			max := 0
-			for i := 0; i < 2*tot-cycloOrd; i++ {
-				sum := 0
-				for j := 0; j < cycloOrd-tot; j++ {
-					sum += int(math.Abs(float64(cycloPoly[j+i])))
-				}
-				if sum > max {
-					max = sum
-				}
-			}
+	}
 
-			return (max + 1) * tot
+	rank := len(cycloPoly) - 1
+	primes, _ := num.Factor(cycloOrd)
+	if len(primes) == 1 {
+		return 2 * rank
+	}
+
+	var max int
+	for i := 0; i < 2*rank-cycloOrd; i++ {
+		var sum int
+		for j := 0; j < cycloOrd-rank; j++ {
+			sum += num.Abs(int(cycloPoly[j+i]))
+		}
+		if sum > max {
+			max = sum
 		}
 	}
+
+	return (max + 1) * rank
 }
 
-// cyclicExpFactor is the expansion factor of the cyclic ring.
-func cyclicExpFactor(rank int) int {
+// cyclicExpFac computes the expansion factor of the cyclic ring.
+func cyclicExpFac(rank int) int {
 	return rank
 }
 
-// autFixedExpFactor is the expansion factor of the autfixed ring.
-func autFixedExpFactor(cycloOrd, rank int) int {
-	// TODO: Can we reduce the expansion factor with respect to the rank?
+// autFixedExpFac computes the expansion factor of the autfixed ring.
+func autFixedExpFac(cycloOrd int) int {
+	// TODO: Can we reduce the factor with respect to the rank?
 	if num.IsPowerOfTwo(cycloOrd) {
 		return cycloOrd >> 1
-	} else {
-		return 2*cycloOrd - 2
 	}
+
+	return 2*cycloOrd - 2
 }
 
-// otherExpFactor is the expansion factor of the arbitrary quotient ring.
-func otherExpFactor(modPoly []int64) int {
-	len := len(modPoly)
-	cBound := make([]int, 2*len-1)
-	for i := 0; i < len; i++ {
+// otherExpFac is the expansion factor of the arbitrary quotient ring.
+func otherExpFac(modPoly []int64) int {
+	deg := len(modPoly)
+	cBound := make([]int, 2*deg-1)
+	for i := 0; i < deg; i++ {
 		cBound[i] = i + 1
-		cBound[2*len-2-i] = i + 1
+		cBound[2*deg-2-i] = i + 1
 	}
 
-	for i := len - 1; i >= 0; i-- {
-		for j := 0; j < len; j++ {
-			cBound[i+j] += int(math.Abs(float64(modPoly[j]))) * cBound[i+len-1]
+	for i := deg - 1; i >= 0; i-- {
+		for j := 0; j < deg; j++ {
+			cBound[i+j] += int(num.Abs(modPoly[j])) * cBound[i+deg-1]
 		}
-		cBound[i+len-1] = 0
+		cBound[i+deg-1] = 0
 	}
 
 	max := 0
-	for i := 0; i < len; i++ {
+	for i := 0; i < deg; i++ {
 		if cBound[i] > max {
 			max = cBound[i]
 		}

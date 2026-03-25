@@ -10,16 +10,15 @@ import (
 
 // baseOperator is the base operator for all rings.
 type baseOperator struct {
-	params  dft.RingParameters
-	mod     []*num.Modulus
-	modPoly []int64
+	params dft.RingParameters
+	mod    []*num.Modulus
 
 	isNTTFriendly []bool
 	ntt           []dft.Transformer
 }
 
 // newBaseOperator creates a new [baseOperator].
-func newBaseOperator(params dft.RingParameters, mod []*num.Modulus, modPoly []int64) baseOperator {
+func newBaseOperator(params dft.RingParameters, mod []*num.Modulus) baseOperator {
 	isNTTFriendly := make([]bool, len(mod))
 	ntt := make([]dft.Transformer, len(mod))
 	for i := range mod {
@@ -30,9 +29,8 @@ func newBaseOperator(params dft.RingParameters, mod []*num.Modulus, modPoly []in
 	}
 
 	return baseOperator{
-		params:  params,
-		mod:     mod,
-		modPoly: modPoly,
+		params: params,
+		mod:    mod,
 
 		isNTTFriendly: isNTTFriendly,
 		ntt:           ntt,
@@ -47,11 +45,6 @@ func (op *baseOperator) Params() dft.RingParameters {
 // Modulus returns the modulus.
 func (op *baseOperator) Modulus() []*num.Modulus {
 	return op.mod
-}
-
-// ModulusPoly returns the quotient polynomial of the ring.
-func (op *baseOperator) ModulusPoly() []int64 {
-	return op.modPoly
 }
 
 // NewPoly creates a new polynomial element.
@@ -208,9 +201,8 @@ func (op *baseOperator) subOperator(idx ...int) baseOperator {
 	}
 
 	return baseOperator{
-		params:  op.params,
-		mod:     modCopy,
-		modPoly: op.modPoly,
+		params: op.params,
+		mod:    modCopy,
 
 		isNTTFriendly: isNTTFriendlyCopy,
 		ntt:           nttCopy,

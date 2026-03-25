@@ -315,7 +315,7 @@ func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *Cyclot
 			}
 		}
 
-		cycloPolySigned := dft.CyclotomicPolynomial(cycloOrd)
+		cycloPolySigned := params.ModulusPoly()
 		dividend := NewPoly(redDeg+1, 1)
 		dividend.Coeffs[0][redDeg] = 1
 
