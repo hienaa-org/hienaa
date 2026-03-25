@@ -81,17 +81,12 @@ func expandAutFixedPoly(params dft.RingParameters, p []uint64, q *num.Modulus) [
 	return pFull
 }
 
-func testOperator(t *testing.T, params dft.RingParameters, modPoly []int64) {
-	var op crt.Operator
-	var q []*num.Modulus
+func testOperator(t *testing.T, params dft.RingParameters) {
+	q := []*num.Modulus{num.NewModulus(num.MustNextPrime(1<<40, 1))}
 	if params.RingType() != dft.TypeOther {
-		q = dft.MustFindPrevNTTPrimes(params, 40, 1)
-		q = append(q, num.NewModulus(num.MustNextPrime(q[0].Value(), 2)))
-		op = crt.NewOperator(params, q)
-	} else {
-		q = []*num.Modulus{num.NewModulus(num.MustNextPrime(1<<40, 1))}
-		op = crt.NewOperatorWithModPoly(q, modPoly)
+		q = append(q, dft.MustFindPrevNTTPrimes(params, 40, 1)[0])
 	}
+	op := crt.NewOperator(params, q)
 
 	p0 := randPoly(params.Rank(), q)
 	p1 := randPoly(params.Rank(), q)
@@ -111,7 +106,7 @@ func testOperator(t *testing.T, params dft.RingParameters, modPoly []int64) {
 		}
 	case dft.TypeOther:
 		for i := range q {
-			pMod[i] = vec.Reduce(modPoly, q[i])
+			pMod[i] = vec.Reduce(params.ModulusPoly(), q[i])
 		}
 	}
 
@@ -186,13 +181,13 @@ func TestCyclotomicOperator(t *testing.T) {
 	t.Run("type=Pow2", func(t *testing.T) {
 		N := 1 << 10
 
-		testOperator(t, dft.NewCyclotomicParameters(N<<1), nil)
+		testOperator(t, dft.NewCyclotomicParameters(N<<1))
 	})
 
 	t.Run("type=Any", func(t *testing.T) {
 		M := int(rSrc.SampleN(1 << 10))
 
-		testOperator(t, dft.NewCyclotomicParameters(M), nil)
+		testOperator(t, dft.NewCyclotomicParameters(M))
 	})
 }
 
@@ -200,7 +195,7 @@ func TestCyclicOperator(t *testing.T) {
 	t.Run("type=Pow235", func(t *testing.T) {
 		N := num.NextProdPower(int(rSrc.SampleN(1<<10)), []int{2, 3, 5})
 
-		testOperator(t, dft.NewCyclicParameters(N), nil)
+		testOperator(t, dft.NewCyclicParameters(N))
 	})
 
 	t.Run("type=Any", func(t *testing.T) {
@@ -212,7 +207,7 @@ func TestCyclicOperator(t *testing.T) {
 			}
 		}
 
-		testOperator(t, dft.NewCyclicParameters(N), nil)
+		testOperator(t, dft.NewCyclicParameters(N))
 	})
 }
 
@@ -220,7 +215,7 @@ func TestAutFixedOperator(t *testing.T) {
 	t.Run("type=Pow2", func(t *testing.T) {
 		N := 1 << 10
 
-		testOperator(t, dft.NewAutFixedParameters(N<<2, N), nil)
+		testOperator(t, dft.NewAutFixedParameters(N<<2, N))
 	})
 
 	t.Run("type=Prime", func(t *testing.T) {
@@ -235,20 +230,19 @@ func TestAutFixedOperator(t *testing.T) {
 		}
 		N := (M - 1) / fold
 
-		testOperator(t, dft.NewAutFixedParameters(M, N), nil)
+		testOperator(t, dft.NewAutFixedParameters(M, N))
 	})
 }
 
 func TestAnyOperator(t *testing.T) {
 	t.Run("type=Any", func(t *testing.T) {
 		N := 1 << 10
-		modPolySigned := randTernaryPoly(N + 1)
 
-		testOperator(t, dft.NewOtherParameters(modPolySigned), modPolySigned)
+		testOperator(t, dft.NewOtherParameters(randTernaryPoly(N+1)))
 	})
 }
 
-func benchmarkOperator(b *testing.B, params dft.RingParameters, modPoly []int64) {
+func benchmarkOperator(b *testing.B, params dft.RingParameters) {
 	var modTypes []string
 	if params.RingType() != dft.TypeOther {
 		modTypes = []string{"NTT", "Any"}
@@ -275,12 +269,7 @@ func benchmarkOperator(b *testing.B, params dft.RingParameters, modPoly []int64)
 		}
 
 		b.Run(fmt.Sprintf("Mod=%v", modType), func(b *testing.B) {
-			var op crt.Operator
-			if params.RingType() != dft.TypeOther {
-				op = crt.NewOperator(params, q)
-			} else {
-				op = crt.NewOperatorWithModPoly(q, modPoly)
-			}
+			op := crt.NewOperator(params, q)
 
 			p0 := randPoly(params.Rank(), q)
 			p1 := randPoly(params.Rank(), q)
@@ -369,7 +358,7 @@ func BenchmarkCyclotomicOperator(b *testing.B) {
 		for _, logN := range benchLogN {
 			N := 1 << logN
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
-				benchmarkOperator(b, dft.NewCyclotomicParameters(N<<1), nil)
+				benchmarkOperator(b, dft.NewCyclotomicParameters(N<<1))
 			})
 		}
 	})
@@ -382,7 +371,7 @@ func BenchmarkCyclotomicOperator(b *testing.B) {
 			M := m0 * m1
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
-				benchmarkOperator(b, dft.NewCyclotomicParameters(M), nil)
+				benchmarkOperator(b, dft.NewCyclotomicParameters(M))
 			})
 		}
 	})
@@ -393,7 +382,7 @@ func BenchmarkCyclicOperator(b *testing.B) {
 		for _, logN := range benchLogN {
 			N := 1 << logN
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
-				benchmarkOperator(b, dft.NewCyclicParameters(N), nil)
+				benchmarkOperator(b, dft.NewCyclicParameters(N))
 			})
 		}
 	})
@@ -406,7 +395,7 @@ func BenchmarkCyclicOperator(b *testing.B) {
 			M := m0 * m1
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
-				benchmarkOperator(b, dft.NewCyclicParameters(M), nil)
+				benchmarkOperator(b, dft.NewCyclicParameters(M))
 			})
 		}
 	})
@@ -417,7 +406,7 @@ func BenchmarkAutFixedOperator(b *testing.B) {
 		for _, logN := range benchLogN {
 			N := 1 << logN
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
-				benchmarkOperator(b, dft.NewAutFixedParameters(N<<2, N), nil)
+				benchmarkOperator(b, dft.NewAutFixedParameters(N<<2, N))
 			})
 		}
 	})
@@ -428,7 +417,7 @@ func BenchmarkAutFixedOperator(b *testing.B) {
 			M := num.MustNextPrime(1, N)
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
-				benchmarkOperator(b, dft.NewAutFixedParameters(M, N), nil)
+				benchmarkOperator(b, dft.NewAutFixedParameters(M, N))
 			})
 		}
 	})
@@ -437,10 +426,9 @@ func BenchmarkAutFixedOperator(b *testing.B) {
 func BenchmarkAnyOperator(b *testing.B) {
 	for _, logN := range benchLogN {
 		N := 1 << logN
-		modPoly := randTernaryPoly(N + 1)
 
 		b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
-			benchmarkOperator(b, dft.NewOtherParameters(modPoly), modPoly)
+			benchmarkOperator(b, dft.NewOtherParameters(randTernaryPoly(N+1)))
 		})
 	}
 }

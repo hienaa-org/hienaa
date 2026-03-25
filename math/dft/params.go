@@ -113,6 +113,7 @@ func NewOtherParameters(modPoly []int64) RingParameters {
 		rank:     len(modPoly) - 1,
 		expFac:   otherExpFac(modPoly),
 		ringType: TypeOther,
+		modPoly:  modPoly,
 	}
 }
 

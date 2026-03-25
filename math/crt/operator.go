@@ -107,23 +107,20 @@ func NewOperator(params dft.RingParameters, mod []*num.Modulus) Operator {
 				primeAutFixedAutOperator:    newPrimeAutFixedAutOperator(params, mod),
 			}
 		}
+
+	case dft.TypeOther:
+		modPoly := params.ModulusPoly()
+		reducer := NewReducer(num.NextProdPower(2*len(modPoly)-1, []int{2}), mod, modPoly)
+
+		return &anyOperator{
+			baseOperator:       newBaseOperator(params, mod),
+			baseAddSubOperator: newBaseAddSubOperator(params, mod),
+			reduceMulOperator:  newReduceMulOperator(mod, modPoly, reducer),
+			noAutOperator:      noAutOperator{},
+		}
 	}
 
 	panic("unsupported parameters")
-}
-
-// NewOperatorWithModPoly creates a new [Operator] with a given modulus polynomial.
-func NewOperatorWithModPoly(mod []*num.Modulus, modPoly []int64) Operator {
-	params := dft.NewOtherParameters(modPoly)
-
-	reducer := NewReducer(num.NextProdPower(2*len(modPoly)-1, []int{2}), mod, modPoly)
-
-	return &anyOperator{
-		baseOperator:       newBaseOperator(params, mod),
-		baseAddSubOperator: newBaseAddSubOperator(params, mod),
-		reduceMulOperator:  newReduceMulOperator(mod, modPoly, reducer),
-		noAutOperator:      noAutOperator{},
-	}
 }
 
 // pow2CyclotomicOperator is a [Operator] for power-of-two cyclotomic ring.

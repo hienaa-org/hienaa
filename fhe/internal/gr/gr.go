@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/hienaa-org/hienaa/math/crt"
+	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
 )
 
@@ -55,7 +56,7 @@ func NewGaloisRingCustom(modulus uint64, modPoly []int64) *GaloisRing {
 	invExp := new(big.Int).Sub(ord, big.NewInt(1))
 
 	return &GaloisRing{
-		op:     crt.NewOperatorWithModPoly([]*num.Modulus{num.NewModulus(modulus)}, modPoly),
+		op:     crt.NewOperator(dft.NewOtherParameters(modPoly), []*num.Modulus{num.NewModulus(modulus)}),
 		ord:    ord,
 		invExp: invExp,
 
