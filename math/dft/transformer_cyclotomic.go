@@ -23,6 +23,8 @@ type pow2CyclotomicTransformer struct {
 
 	// rankInv is the modular inverse of the rank.
 	rankInv uint64
+	// rankInvS is the Shoup form of rankInv.
+	rankInvS uint64
 }
 
 // newPow2CyclotomicTransformer creates a new [pow2CyclotomicTransformer].
@@ -51,7 +53,8 @@ func newPow2CyclotomicTransformer(params RingParameters, mod *num.Modulus) *pow2
 		twInv:  twInv,
 		twInvS: vec.SForm(twInv, mod),
 
-		rankInv: rankInv,
+		rankInv:  rankInv,
+		rankInvS: num.SForm(rankInv, mod),
 	}
 }
 
@@ -70,7 +73,7 @@ func (ntt *pow2CyclotomicTransformer) InverseTo(v, vNTT []uint64) {
 
 	copy(v, vNTT)
 	inttInPlacePow2(v, ntt.twInv, ntt.twInvS, ntt.mod.Value())
-	vec.MulScalarTo(v, v, ntt.rankInv, ntt.mod)
+	vec.SMulScalarTo(v, v, ntt.rankInv, ntt.rankInvS, ntt.mod)
 }
 
 // Params returns the ring parameters.

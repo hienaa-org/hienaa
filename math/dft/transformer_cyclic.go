@@ -91,6 +91,8 @@ type pow235CyclicTransformer struct {
 
 	// rankInv is the modular inverse of the rank.
 	rankInv uint64
+	// rankInvS is the Shoup form of rankInv.
+	rankInvS uint64
 
 	// idx is the CRT mapping index.
 	// Empty if the mapping is not needed, or in other words, rank is a prime power.
@@ -167,7 +169,8 @@ func newCyclicPow235Transformer(params RingParameters, mod *num.Modulus) *pow235
 		root:  rootExp,
 		rootS: rootExpS,
 
-		rankInv: rankInv,
+		rankInv:  rankInv,
+		rankInvS: num.SForm(rankInv, mod),
 
 		idx: idx,
 
@@ -245,7 +248,7 @@ func (ntt *pow235CyclicTransformer) InverseTo(v, vNTT []uint64) {
 		copy(v, vBuf)
 	}
 
-	vec.MulScalarTo(v, v, ntt.rankInv, ntt.mod)
+	vec.SMulScalarTo(v, v, ntt.rankInv, ntt.rankInvS, ntt.mod)
 }
 
 // Params returns the ring parameters.

@@ -15,11 +15,11 @@ func nttInPlacePow2(coeffs, tw, twS []uint64, q uint64) {
 
 // butterflyPow2 returns the Harvey butterfly.
 func butterflyPow2(u, v, w, wS, q, twoQ uint64) (uint64, uint64) {
+	quo, _ := bits.Mul64(v, wS)
+	t := v*w - quo*q
 	if u >= twoQ {
 		u -= twoQ
 	}
-	quo, _ := bits.Mul64(v, wS)
-	t := v*w - quo*q
 	return u + t, u - t + twoQ
 }
 
