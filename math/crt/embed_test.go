@@ -204,28 +204,3 @@ func TestScaler(t *testing.T) {
 		assert.Equal(t, vOutRef, vOut)
 	})
 }
-
-// TODO: Fix with more high precision
-// func TestScaleEmbedder(t *testing.T) {
-// 	modInLen := int(rSrc.SampleN(20)) + 1
-// 	modOutLen := int(rSrc.SampleN(20)) + 1
-// 	vLen := int(rSrc.SampleN(1 << 10))
-
-// 	modIn, modOut := genModInOut(modInLen, modOutLen)
-
-// 	embBig := NewBigEmbedder(modOut, modIn)
-
-// 	rSrc := rand.New(rand.NewSource(0))
-// 	scale := big.NewRat(1, 1)
-// 	scale.Num().Rand(rSrc, embBig.modOutProd)
-// 	scale.Denom().Rand(rSrc, embBig.modInProd)
-
-// 	scEmb := crt.NewScaleEmbedder(modOut, modIn, scale)
-
-// 	v := randPoly(vLen, modIn).Coeffs
-
-// 	vOut := scEmb.ScaleEmbedVec(v)
-// 	vOutRef := embBig.ScaleEmbed(v, scale)
-
-// 	assert.Equal(t, vOutRef, vOut)
-// }
