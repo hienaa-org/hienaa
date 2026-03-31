@@ -19,6 +19,8 @@ type autOperator interface {
 	// AutTo computes eOut = aut(e, idx).
 	// Panics when the automorphism index is invalid.
 	AutTo(eOut, e *Element, idx int)
+
+	subOperator(idx ...int) autOperator
 }
 
 // pow2CyclotomicAutOperator is a [autOperator] for power-of-two cyclotomic ring.
@@ -31,13 +33,13 @@ type pow2CyclotomicAutOperator struct {
 }
 
 // newPow2CyclotomicAutOperator creates a new [pow2CyclotomicAutOperator].
-func newPow2CyclotomicAutOperator(params dft.RingParameters, mod []*num.Modulus) pow2CyclotomicAutOperator {
+func newPow2CyclotomicAutOperator(params dft.RingParameters, mod []*num.Modulus) *pow2CyclotomicAutOperator {
 	isNTTFriendly := make([]bool, len(mod))
 	for i := range mod {
 		isNTTFriendly[i] = dft.IsNTTFriendly(params, mod[i])
 	}
 
-	return pow2CyclotomicAutOperator{
+	return &pow2CyclotomicAutOperator{
 		params:        params,
 		mod:           mod,
 		isNTTFriendly: isNTTFriendly,
@@ -119,7 +121,7 @@ func (op *pow2CyclotomicAutOperator) AutTo(eOut, e *Element, idx int) {
 	}
 }
 
-func (op *pow2CyclotomicAutOperator) subOperator(idx ...int) pow2CyclotomicAutOperator {
+func (op *pow2CyclotomicAutOperator) subOperator(idx ...int) autOperator {
 	modCopy := make([]*num.Modulus, len(idx))
 	isNTTFriendlyCopy := make([]bool, len(idx))
 	for i := range idx {
@@ -127,7 +129,7 @@ func (op *pow2CyclotomicAutOperator) subOperator(idx ...int) pow2CyclotomicAutOp
 		isNTTFriendlyCopy[i] = op.isNTTFriendly[idx[i]]
 	}
 
-	return pow2CyclotomicAutOperator{
+	return &pow2CyclotomicAutOperator{
 		params:        op.params,
 		mod:           modCopy,
 		isNTTFriendly: isNTTFriendlyCopy,
@@ -156,7 +158,7 @@ type anyCyclotomicAutOperator struct {
 }
 
 // newAnyCyclotomicAutOperator creates a new [anyCyclotomicAutOperator].
-func newAnyCyclotomicAutOperator(params dft.RingParameters, mod []*num.Modulus, reducer *CyclotomicReducer) anyCyclotomicAutOperator {
+func newAnyCyclotomicAutOperator(params dft.RingParameters, mod []*num.Modulus, reducer *CyclotomicReducer) *anyCyclotomicAutOperator {
 	isNTTFriendly := make([]bool, len(mod))
 	for i := range isNTTFriendly {
 		isNTTFriendly[i] = dft.IsNTTFriendly(params, mod[i])
@@ -201,7 +203,7 @@ func newAnyCyclotomicAutOperator(params dft.RingParameters, mod []*num.Modulus, 
 		}
 	}
 
-	return anyCyclotomicAutOperator{
+	return &anyCyclotomicAutOperator{
 		params:        params,
 		cycloOrdMod:   num.NewModulus(params.CycloOrder()),
 		mod:           mod,
@@ -312,7 +314,7 @@ func (op *anyCyclotomicAutOperator) AutTo(eOut, e *Element, idx int) {
 	}
 }
 
-func (op *anyCyclotomicAutOperator) subOperator(idx ...int) anyCyclotomicAutOperator {
+func (op *anyCyclotomicAutOperator) subOperator(idx ...int) autOperator {
 	modCopy := make([]*num.Modulus, len(idx))
 	isNTTFriendlyCopy := make([]bool, len(idx))
 	for i := range idx {
@@ -320,7 +322,7 @@ func (op *anyCyclotomicAutOperator) subOperator(idx ...int) anyCyclotomicAutOper
 		isNTTFriendlyCopy[i] = op.isNTTFriendly[idx[i]]
 	}
 
-	return anyCyclotomicAutOperator{
+	return &anyCyclotomicAutOperator{
 		params:        op.params,
 		cycloOrdMod:   op.cycloOrdMod,
 		mod:           modCopy,
@@ -346,13 +348,13 @@ type pow2AutFixedAutOperator struct {
 }
 
 // newPow2AutFixedAutOperator creates a new [pow2AutFixedAutOperator].
-func newPow2AutFixedAutOperator(params dft.RingParameters, mod []*num.Modulus) pow2AutFixedAutOperator {
+func newPow2AutFixedAutOperator(params dft.RingParameters, mod []*num.Modulus) *pow2AutFixedAutOperator {
 	isNTTFriendly := make([]bool, len(mod))
 	for i := range mod {
 		isNTTFriendly[i] = dft.IsNTTFriendly(params, mod[i])
 	}
 
-	return pow2AutFixedAutOperator{
+	return &pow2AutFixedAutOperator{
 		params:        params,
 		mod:           mod,
 		isNTTFriendly: isNTTFriendly,
@@ -445,7 +447,7 @@ func (op *pow2AutFixedAutOperator) AutTo(eOut, e *Element, idx int) {
 	}
 }
 
-func (op *pow2AutFixedAutOperator) subOperator(idx ...int) pow2AutFixedAutOperator {
+func (op *pow2AutFixedAutOperator) subOperator(idx ...int) autOperator {
 	modCopy := make([]*num.Modulus, len(idx))
 	isNTTFriendlyCopy := make([]bool, len(idx))
 	for i := range idx {
@@ -453,7 +455,7 @@ func (op *pow2AutFixedAutOperator) subOperator(idx ...int) pow2AutFixedAutOperat
 		isNTTFriendlyCopy[i] = op.isNTTFriendly[idx[i]]
 	}
 
-	return pow2AutFixedAutOperator{
+	return &pow2AutFixedAutOperator{
 		params:        op.params,
 		mod:           modCopy,
 		isNTTFriendly: isNTTFriendlyCopy,
@@ -477,7 +479,7 @@ type primeAutFixedAutOperator struct {
 }
 
 // newPrimeAutFixedAutOperator creates a new [primeAutFixedAutOperator].
-func newPrimeAutFixedAutOperator(params dft.RingParameters, mod []*num.Modulus) primeAutFixedAutOperator {
+func newPrimeAutFixedAutOperator(params dft.RingParameters, mod []*num.Modulus) *primeAutFixedAutOperator {
 	isNTTFriendly := make([]bool, len(mod))
 	for i := range mod {
 		isNTTFriendly[i] = dft.IsNTTFriendly(params, mod[i])
@@ -496,7 +498,7 @@ func newPrimeAutFixedAutOperator(params dft.RingParameters, mod []*num.Modulus) 
 		rootPowInv[i] = num.Mul(rootPowInv[i-1], rootInv, cycloOrdMod)
 	}
 
-	return primeAutFixedAutOperator{
+	return &primeAutFixedAutOperator{
 		params:        params,
 		mod:           mod,
 		isNTTFriendly: isNTTFriendly,
@@ -570,7 +572,7 @@ func (op *primeAutFixedAutOperator) AutTo(eOut, e *Element, idx int) {
 	}
 }
 
-func (op *primeAutFixedAutOperator) subOperator(idx ...int) primeAutFixedAutOperator {
+func (op *primeAutFixedAutOperator) subOperator(idx ...int) autOperator {
 	modCopy := make([]*num.Modulus, len(idx))
 	isNTTFriendlyCopy := make([]bool, len(idx))
 	for i := range idx {
@@ -578,7 +580,7 @@ func (op *primeAutFixedAutOperator) subOperator(idx ...int) primeAutFixedAutOper
 		isNTTFriendlyCopy[i] = op.isNTTFriendly[idx[i]]
 	}
 
-	return primeAutFixedAutOperator{
+	return &primeAutFixedAutOperator{
 		params:        op.params,
 		mod:           modCopy,
 		isNTTFriendly: isNTTFriendlyCopy,
@@ -594,18 +596,22 @@ func (op *primeAutFixedAutOperator) subOperator(idx ...int) primeAutFixedAutOper
 type noAutOperator struct{}
 
 // CanAut returns whether the given automorphism index is valid.
-func (op *noAutOperator) CanAut(idx int) bool {
+func (op noAutOperator) CanAut(idx int) bool {
 	return false
 }
 
 // Aut returns aut(e, idx).
 // Panics when the automorphism index is invalid.
-func (op *noAutOperator) Aut(e *Element, idx int) *Element {
+func (op noAutOperator) Aut(e *Element, idx int) *Element {
 	panic("automorphism not supported")
 }
 
 // AutTo computes eOut = aut(e, idx).
 // Panics when the automorphism index is invalid.
-func (op *noAutOperator) AutTo(eOut, e *Element, idx int) {
+func (op noAutOperator) AutTo(eOut, e *Element, idx int) {
 	panic("automorphism not supported")
+}
+
+func (op noAutOperator) subOperator(idx ...int) autOperator {
+	return op
 }

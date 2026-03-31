@@ -22,6 +22,8 @@ type mulOperator interface {
 	// MulSubTo computes eOut -= e0 * e1.
 	// When e0, e1 are both polynomials, they must be in NTT form.
 	MulSubTo(eOut, e0, e1 *Element)
+
+	subOperator(idx ...int) mulOperator
 }
 
 // baseMulOperator is a [mulOperator] for rings that do not require reduction after
@@ -40,7 +42,7 @@ type baseMulOperator struct {
 }
 
 // newBaseMulOperator creates a new [baseMulOperator].
-func newBaseMulOperator(params dft.RingParameters, mod []*num.Modulus) baseMulOperator {
+func newBaseMulOperator(params dft.RingParameters, mod []*num.Modulus) *baseMulOperator {
 	maxBits := make([]float64, len(mod))
 	for i := range mod {
 		if dft.IsNTTFriendly(params, mod[i]) {
@@ -84,7 +86,7 @@ func newBaseMulOperator(params dft.RingParameters, mod []*num.Modulus) baseMulOp
 		embedder[i] = NewEmbedder([]*num.Modulus{mod[i]}, ambMod[:ambModLen[i]])
 	}
 
-	return baseMulOperator{
+	return &baseMulOperator{
 		rank: params.Rank(),
 		mod:  mod,
 
@@ -259,7 +261,7 @@ func (op *baseMulOperator) MulSubTo(eOut, e0, e1 *Element) {
 	}
 }
 
-func (op *baseMulOperator) subOperator(idx ...int) baseMulOperator {
+func (op *baseMulOperator) subOperator(idx ...int) mulOperator {
 	modCopy := make([]*num.Modulus, len(idx))
 	ambModLenCopy := make([]int, len(idx))
 	for i := range idx {
@@ -274,7 +276,7 @@ func (op *baseMulOperator) subOperator(idx ...int) baseMulOperator {
 
 	maxAmbModLen := vec.Max(ambModLenCopy)
 
-	return baseMulOperator{
+	return &baseMulOperator{
 		rank: op.rank,
 		mod:  modCopy,
 
@@ -303,7 +305,7 @@ type anyCyclotomicMulOperator struct {
 }
 
 // newAnyCyclotomicMulOperator creates a new [anyCyclotomicMulOperator].
-func newAnyCyclotomicMulOperator(params dft.RingParameters, mod []*num.Modulus, reducer *CyclotomicReducer) anyCyclotomicMulOperator {
+func newAnyCyclotomicMulOperator(params dft.RingParameters, mod []*num.Modulus, reducer *CyclotomicReducer) *anyCyclotomicMulOperator {
 	maxBits := make([]float64, len(mod))
 	for i := range mod {
 		if dft.IsNTTFriendly(params, mod[i]) {
@@ -342,7 +344,7 @@ func newAnyCyclotomicMulOperator(params dft.RingParameters, mod []*num.Modulus, 
 		embedder[i] = NewEmbedder([]*num.Modulus{mod[i]}, ambMod[:ambModLen[i]])
 	}
 
-	return anyCyclotomicMulOperator{
+	return &anyCyclotomicMulOperator{
 		params: params,
 		mod:    mod,
 
@@ -543,7 +545,7 @@ func (op *anyCyclotomicMulOperator) MulSubTo(eOut, e0, e1 *Element) {
 	}
 }
 
-func (op *anyCyclotomicMulOperator) subOperator(idx ...int) anyCyclotomicMulOperator {
+func (op *anyCyclotomicMulOperator) subOperator(idx ...int) mulOperator {
 	modCopy := make([]*num.Modulus, len(idx))
 	ambModLenCopy := make([]int, len(idx))
 	for i := range idx {
@@ -558,7 +560,7 @@ func (op *anyCyclotomicMulOperator) subOperator(idx ...int) anyCyclotomicMulOper
 		embedderCopy[i] = op.embedder[idx[i]]
 	}
 
-	return anyCyclotomicMulOperator{
+	return &anyCyclotomicMulOperator{
 		params: op.params,
 		mod:    modCopy,
 
@@ -592,7 +594,7 @@ type reduceMulOperator struct {
 }
 
 // newReduceMulOperator creates a new [reduceMulOperator].
-func newReduceMulOperator(mod []*num.Modulus, modPoly []int64, reducer *Reducer) reduceMulOperator {
+func newReduceMulOperator(mod []*num.Modulus, modPoly []int64, reducer *Reducer) *reduceMulOperator {
 	ambParams := dft.NewCyclicParameters(num.NextProdPower(2*len(modPoly)-1, []int{2}))
 
 	maxBits := make([]float64, len(mod))
@@ -634,7 +636,7 @@ func newReduceMulOperator(mod []*num.Modulus, modPoly []int64, reducer *Reducer)
 		embedder[i] = NewEmbedder([]*num.Modulus{mod[i]}, ambMod[:ambModLen[i]])
 	}
 
-	return reduceMulOperator{
+	return &reduceMulOperator{
 		rank:    len(modPoly) - 1,
 		ambRank: ambParams.Rank(),
 		mod:     mod,
@@ -849,7 +851,7 @@ func (op *reduceMulOperator) MulSubTo(eOut, e0, e1 *Element) {
 	}
 }
 
-func (op *reduceMulOperator) subOperator(idx ...int) reduceMulOperator {
+func (op *reduceMulOperator) subOperator(idx ...int) mulOperator {
 	modCopy := make([]*num.Modulus, len(idx))
 	nttCopy := make([]dft.Transformer, len(idx))
 	ambModLenCopy := make([]int, len(idx))
@@ -866,7 +868,7 @@ func (op *reduceMulOperator) subOperator(idx ...int) reduceMulOperator {
 		embedderCopy[i] = op.embedder[idx[i]]
 	}
 
-	return reduceMulOperator{
+	return &reduceMulOperator{
 		rank:    op.rank,
 		ambRank: op.ambRank,
 		mod:     modCopy,

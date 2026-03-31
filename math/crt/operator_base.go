@@ -18,7 +18,7 @@ type baseOperator struct {
 }
 
 // newBaseOperator creates a new [baseOperator].
-func newBaseOperator(params dft.RingParameters, mod []*num.Modulus) baseOperator {
+func newBaseOperator(params dft.RingParameters, mod []*num.Modulus) *baseOperator {
 	isNTTFriendly := make([]bool, len(mod))
 	ntt := make([]dft.Transformer, len(mod))
 	for i := range mod {
@@ -28,7 +28,7 @@ func newBaseOperator(params dft.RingParameters, mod []*num.Modulus) baseOperator
 		}
 	}
 
-	return baseOperator{
+	return &baseOperator{
 		params: params,
 		mod:    mod,
 
@@ -190,7 +190,7 @@ func (op *baseOperator) AsBig(e *Element) []*big.Int {
 	return pBig
 }
 
-func (op *baseOperator) subOperator(idx ...int) baseOperator {
+func (op *baseOperator) subOperator(idx ...int) *baseOperator {
 	modCopy := make([]*num.Modulus, len(idx))
 	isNTTFriendlyCopy := make([]bool, len(idx))
 	nttCopy := make([]dft.Transformer, len(idx))
@@ -200,7 +200,7 @@ func (op *baseOperator) subOperator(idx ...int) baseOperator {
 		nttCopy[i] = op.ntt[idx[i]]
 	}
 
-	return baseOperator{
+	return &baseOperator{
 		params: op.params,
 		mod:    modCopy,
 

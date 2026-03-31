@@ -154,7 +154,7 @@ func (p ParametersLiteral) Compile() Parameters {
 // Parameters is read-only parameters for the BGV scheme.
 type Parameters struct {
 	// crtOp is an underlying [crt.Operator].
-	crtOp crt.Operator
+	crtOp *crt.Operator
 	// fullMod is the full modulus chain.
 	fullMod []*num.Modulus
 	// BaseModulus is the Modulus for encryption.
@@ -171,7 +171,7 @@ type Parameters struct {
 }
 
 // Operator is the underlying [crt.Operator].
-func (p Parameters) Operator() crt.Operator {
+func (p Parameters) Operator() *crt.Operator {
 	return p.crtOp
 }
 

@@ -17,6 +17,8 @@ type addSubOperator interface {
 	Sub(e0, e1 *Element) *Element
 	// SubTo computes eOut = e0 - e1.
 	SubTo(eOut, e0, e1 *Element)
+
+	subOperator(idx ...int) addSubOperator
 }
 
 // baseAddSubOperator is a [addSubOperator] for every ring
@@ -28,13 +30,13 @@ type baseAddSubOperator struct {
 }
 
 // newBaseAddSubOperator creates a new [baseAddSubOperator].
-func newBaseAddSubOperator(params dft.RingParameters, mod []*num.Modulus) baseAddSubOperator {
+func newBaseAddSubOperator(params dft.RingParameters, mod []*num.Modulus) *baseAddSubOperator {
 	isNTTFriendly := make([]bool, len(mod))
 	for i := range mod {
 		isNTTFriendly[i] = dft.IsNTTFriendly(params, mod[i])
 	}
 
-	return baseAddSubOperator{
+	return &baseAddSubOperator{
 		rank:          params.Rank(),
 		mod:           mod,
 		isNTTFriendly: isNTTFriendly,
@@ -111,7 +113,7 @@ func (op *baseAddSubOperator) SubTo(eOut, e0, e1 *Element) {
 	}
 }
 
-func (op *baseAddSubOperator) subOperator(idx ...int) baseAddSubOperator {
+func (op *baseAddSubOperator) subOperator(idx ...int) addSubOperator {
 	modCopy := make([]*num.Modulus, len(idx))
 	isNTTFriendlyCopy := make([]bool, len(idx))
 	for i := range idx {
@@ -119,7 +121,7 @@ func (op *baseAddSubOperator) subOperator(idx ...int) baseAddSubOperator {
 		isNTTFriendlyCopy[i] = op.isNTTFriendly[idx[i]]
 	}
 
-	return baseAddSubOperator{
+	return &baseAddSubOperator{
 		rank:          op.rank,
 		mod:           modCopy,
 		isNTTFriendly: isNTTFriendlyCopy,
@@ -134,13 +136,13 @@ type primeAutFixedAddSubOperator struct {
 }
 
 // newPrimeAutFixedAddSubOperator creates a new [primeAutFixedAddSubOperator].
-func newPrimeAutFixedAddSubOperator(params dft.RingParameters, mod []*num.Modulus) primeAutFixedAddSubOperator {
+func newPrimeAutFixedAddSubOperator(params dft.RingParameters, mod []*num.Modulus) *primeAutFixedAddSubOperator {
 	isNTTFriendly := make([]bool, len(mod))
 	for i := range mod {
 		isNTTFriendly[i] = dft.IsNTTFriendly(params, mod[i])
 	}
 
-	return primeAutFixedAddSubOperator{
+	return &primeAutFixedAddSubOperator{
 		rank:          params.Rank(),
 		mod:           mod,
 		isNTTFriendly: isNTTFriendly,
@@ -215,7 +217,7 @@ func (op *primeAutFixedAddSubOperator) SubTo(eOut, e0, e1 *Element) {
 	}
 }
 
-func (op *primeAutFixedAddSubOperator) subOperator(idx ...int) primeAutFixedAddSubOperator {
+func (op *primeAutFixedAddSubOperator) subOperator(idx ...int) addSubOperator {
 	modCopy := make([]*num.Modulus, len(idx))
 	isNTTFriendlyCopy := make([]bool, len(idx))
 	for i := range idx {
@@ -223,7 +225,7 @@ func (op *primeAutFixedAddSubOperator) subOperator(idx ...int) primeAutFixedAddS
 		isNTTFriendlyCopy[i] = op.isNTTFriendly[idx[i]]
 	}
 
-	return primeAutFixedAddSubOperator{
+	return &primeAutFixedAddSubOperator{
 		rank:          op.rank,
 		mod:           modCopy,
 		isNTTFriendly: isNTTFriendlyCopy,

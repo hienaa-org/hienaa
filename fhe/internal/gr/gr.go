@@ -12,7 +12,7 @@ import (
 
 // GaloisRing represents a galois ring as [*crt.Operator].
 type GaloisRing struct {
-	op crt.Operator
+	op *crt.Operator
 	// ord is the order of the multiplicative group of the Galois ring.
 	// Equals prime^((exp-1)*rank) * (prime^rank - 1).
 	ord *big.Int

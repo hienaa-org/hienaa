@@ -14,7 +14,7 @@ type Encryptor struct {
 	sk *SecretKey
 
 	plainOp *PlainOperator
-	crtOp   crt.Operator
+	crtOp   *crt.Operator
 	dcmp    Decomposer
 
 	uSampler   crt.Sampler

@@ -12,7 +12,7 @@ import (
 // PlainOperator evaluates operations over [*Element].
 type PlainOperator struct {
 	Params Parameters
-	crtOp  crt.Operator
+	crtOp  *crt.Operator
 
 	pPool *sync.Pool
 }
@@ -154,7 +154,7 @@ func (op *PlainOperator) AutTo(eOut, e *Element, idx int) {
 }
 
 // subCRTOperator returns a [crt.Operator] for modulus up to given modulus length.
-func (op *PlainOperator) subCRTOperator(baseLen, auxLen int) crt.Operator {
+func (op *PlainOperator) subCRTOperator(baseLen, auxLen int) *crt.Operator {
 	var idx []int
 
 	paramAuxLen := len(op.Params.auxMod)
