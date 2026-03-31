@@ -16,7 +16,7 @@ var (
 // IsPrime checks of x is prime.
 // Any x <= 1 are not considered prime.
 func IsPrime[T Integer](x T) bool {
-	return (x >= 1) && isPrimeUint64(uint64(Abs((x))))
+	return (x > 1) && isPrimeUint64(uint64(Abs((x))))
 }
 
 // isPrime checks of x is prime.
