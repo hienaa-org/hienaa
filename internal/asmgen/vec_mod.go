@@ -288,18 +288,16 @@ func VecAddSubToAVX512(opType OpType, isWordOp bool) {
 	case OpAdd:
 		VPADDQ(x1, x0, xOut)
 		if !isWordOp {
-			subQ, subQMask := ZMM(), K()
-			VPCMPUQ(Imm(0o5), q, xOut, subQMask)
-			VMOVAPD_Z(q, subQMask, subQ)
-			VPSUBQ(subQ, xOut, xOut)
+			xSubQ := ZMM()
+			VPSUBQ(q, xOut, xSubQ)
+			VPMINUQ(xSubQ, xOut, xOut)
 		}
 	case OpSub:
 		VPSUBQ(x1, x0, xOut)
 		if !isWordOp {
-			subQ, subQMask := ZMM(), K()
-			VPCMPUQ(Imm(0o5), q, xOut, subQMask)
-			VMOVAPD_Z(q, subQMask, subQ)
-			VPADDQ(subQ, xOut, xOut)
+			xAddQ := ZMM()
+			VPADDQ(q, xOut, xAddQ)
+			VPMINUQ(xAddQ, xOut, xOut)
 		}
 	}
 
@@ -399,18 +397,16 @@ func VecAddSubScalarToAVX512(opType OpType, isWordOp bool) {
 	case OpAdd:
 		VPADDQ(c, x, xOut)
 		if !isWordOp {
-			subQ, subQMask := ZMM(), K()
-			VPCMPUQ(Imm(0o5), q, xOut, subQMask)
-			VMOVAPD_Z(q, subQMask, subQ)
-			VPSUBQ(subQ, xOut, xOut)
+			xSubQ := ZMM()
+			VPSUBQ(q, xOut, xSubQ)
+			VPMINUQ(xSubQ, xOut, xOut)
 		}
 	case OpSub:
 		VPSUBQ(c, x, xOut)
 		if !isWordOp {
-			subQ, subQMask := ZMM(), K()
-			VPCMPUQ(Imm(0o5), q, xOut, subQMask)
-			VMOVAPD_Z(q, subQMask, subQ)
-			VPADDQ(subQ, xOut, xOut)
+			xAddQ := ZMM()
+			VPADDQ(q, xOut, xAddQ)
+			VPMINUQ(xAddQ, xOut, xOut)
 		}
 	}
 
@@ -674,10 +670,9 @@ func VecMFormToAVX512() {
 	VPMULLQ(xM, q, xOutM)
 	VPSUBQ(xOutM, zero, xOutM)
 
-	subQ, subQMask := ZMM(), K()
-	VPCMPUQ(Imm(0o5), q, xOutM, subQMask)
-	VMOVAPD_Z(q, subQMask, subQ)
-	VPSUBQ(subQ, xOutM, xOutM)
+	xSubQ := ZMM()
+	VPSUBQ(q, xOutM, xSubQ)
+	VPMINUQ(xSubQ, xOutM, xOutM)
 
 	VMOVDQU64(xOutM, Mem{Base: vOut, Index: i, Scale: 8})
 
@@ -763,10 +758,9 @@ func VecInvMFormToAVX512() {
 	Mul64HiAVX512(xMInv, xMInvHi, q, qHi, maskLo, xOut)
 	VPSUBQ(xOut, q, xOut)
 
-	subQ, subQMask := ZMM(), K()
-	VPCMPUQ(Imm(0o5), q, xOut, subQMask)
-	VMOVAPD_Z(q, subQMask, subQ)
-	VPSUBQ(subQ, xOut, xOut)
+	xSubQ := ZMM()
+	VPSUBQ(q, xOut, xSubQ)
+	VPMINUQ(xSubQ, xOut, xOut)
 
 	VMOVDQU64(xOut, Mem{Base: vOut, Index: i, Scale: 8})
 
@@ -1049,10 +1043,9 @@ func VecMulScalarToAVX512(opType OpType, isLazy bool) {
 	VPSUBQ(quo, xMul, xMul)
 
 	if !isLazy {
-		subQ, subQMask := ZMM(), K()
-		VPCMPUQ(Imm(0o5), q, xMul, subQMask)
-		VMOVAPD_Z(q, subQMask, subQ)
-		VPSUBQ(subQ, xMul, xMul)
+		xSubQ := ZMM()
+		VPSUBQ(q, xMul, xSubQ)
+		VPMINUQ(xSubQ, xMul, xMul)
 	}
 
 	switch opType {
@@ -1062,19 +1055,17 @@ func VecMulScalarToAVX512(opType OpType, isLazy bool) {
 		VMOVDQU64(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
 		VPADDQ(xMul, xOut, xOut)
 		if !isLazy {
-			subQ, subQMask := ZMM(), K()
-			VPCMPUQ(Imm(0o5), q, xOut, subQMask)
-			VMOVAPD_Z(q, subQMask, subQ)
-			VPSUBQ(subQ, xOut, xOut)
+			xSubQ := ZMM()
+			VPSUBQ(q, xOut, xSubQ)
+			VPMINUQ(xSubQ, xOut, xOut)
 		}
 	case OpSub:
 		VMOVDQU64(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
 		if !isLazy {
 			VPSUBQ(xMul, xOut, xOut)
-			subQ, subQMask := ZMM(), K()
-			VPCMPUQ(Imm(0o5), q, xOut, subQMask)
-			VMOVAPD_Z(q, subQMask, subQ)
-			VPADDQ(subQ, xOut, xOut)
+			xAddQ := ZMM()
+			VPADDQ(q, xOut, xAddQ)
+			VPMINUQ(xAddQ, xOut, xOut)
 		} else {
 			VPADDQ(xMul, xOut, xOut)
 		}
@@ -1225,10 +1216,9 @@ func VecMMulScalarToAVX512(opType OpType, isLazy bool) {
 	VPADDQ(q, xMul, xMul)
 
 	if !isLazy {
-		subQ, subQMask := ZMM(), K()
-		VPCMPUQ(Imm(0o5), q, xMul, subQMask)
-		VMOVAPD_Z(q, subQMask, subQ)
-		VPSUBQ(subQ, xMul, xMul)
+		xSubQ := ZMM()
+		VPSUBQ(q, xMul, xSubQ)
+		VPMINUQ(xSubQ, xMul, xMul)
 	}
 
 	switch opType {
@@ -1238,19 +1228,17 @@ func VecMMulScalarToAVX512(opType OpType, isLazy bool) {
 		VMOVDQU64(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
 		VPADDQ(xMul, xOut, xOut)
 		if !isLazy {
-			subQ, subQMask := ZMM(), K()
-			VPCMPUQ(Imm(0o5), q, xOut, subQMask)
-			VMOVAPD_Z(q, subQMask, subQ)
-			VPSUBQ(subQ, xOut, xOut)
+			xSubQ := ZMM()
+			VPSUBQ(q, xOut, xSubQ)
+			VPMINUQ(xSubQ, xOut, xOut)
 		}
 	case OpSub:
 		VMOVDQU64(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
 		if !isLazy {
 			VPSUBQ(xMul, xOut, xOut)
-			subQ, subQMask := ZMM(), K()
-			VPCMPUQ(Imm(0o5), q, xOut, subQMask)
-			VMOVAPD_Z(q, subQMask, subQ)
-			VPADDQ(subQ, xOut, xOut)
+			xAddQ := ZMM()
+			VPADDQ(q, xOut, xAddQ)
+			VPMINUQ(xAddQ, xOut, xOut)
 		} else {
 			VPADDQ(xMul, xOut, xOut)
 		}
@@ -1583,10 +1571,9 @@ func VecMMulToAVX512(opType OpType, isLazy bool) {
 	VPADDQ(q, xMul, xMul)
 
 	if !isLazy {
-		subQ, subQMask := ZMM(), K()
-		VPCMPUQ(Imm(0o5), q, xMul, subQMask)
-		VMOVAPD_Z(q, subQMask, subQ)
-		VPSUBQ(subQ, xMul, xMul)
+		xSubQ := ZMM()
+		VPSUBQ(q, xMul, xSubQ)
+		VPMINUQ(xSubQ, xMul, xMul)
 	}
 
 	switch opType {
@@ -1596,19 +1583,17 @@ func VecMMulToAVX512(opType OpType, isLazy bool) {
 		VMOVDQU64(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
 		VPADDQ(xMul, xOut, xOut)
 		if !isLazy {
-			subQ, subQMask := ZMM(), K()
-			VPCMPUQ(Imm(0o5), q, xOut, subQMask)
-			VMOVAPD_Z(q, subQMask, subQ)
-			VPSUBQ(subQ, xOut, xOut)
+			xSubQ := ZMM()
+			VPSUBQ(q, xOut, xSubQ)
+			VPMINUQ(xSubQ, xOut, xOut)
 		}
 	case OpSub:
 		VMOVDQU64(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
 		if !isLazy {
 			VPSUBQ(xMul, xOut, xOut)
-			subQ, subQMask := ZMM(), K()
-			VPCMPUQ(Imm(0o5), q, xOut, subQMask)
-			VMOVAPD_Z(q, subQMask, subQ)
-			VPADDQ(subQ, xOut, xOut)
+			xAddQ := ZMM()
+			VPADDQ(q, xOut, xAddQ)
+			VPMINUQ(xAddQ, xOut, xOut)
 		} else {
 			VPADDQ(xMul, xOut, xOut)
 		}
@@ -1764,10 +1749,9 @@ func VecSMulToAVX512(opType OpType, isLazy bool) {
 	VPSUBQ(quo, xMul, xMul)
 
 	if !isLazy {
-		subQ, subQMask := ZMM(), K()
-		VPCMPUQ(Imm(0o5), q, xMul, subQMask)
-		VMOVAPD_Z(q, subQMask, subQ)
-		VPSUBQ(subQ, xMul, xMul)
+		xSubQ := ZMM()
+		VPSUBQ(q, xMul, xSubQ)
+		VPMINUQ(xSubQ, xMul, xMul)
 	}
 
 	switch opType {
@@ -1777,19 +1761,17 @@ func VecSMulToAVX512(opType OpType, isLazy bool) {
 		VMOVDQU64(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
 		VPADDQ(xMul, xOut, xOut)
 		if !isLazy {
-			subQ, subQMask := ZMM(), K()
-			VPCMPUQ(Imm(0o5), q, xOut, subQMask)
-			VMOVAPD_Z(q, subQMask, subQ)
-			VPSUBQ(subQ, xOut, xOut)
+			xSubQ := ZMM()
+			VPSUBQ(q, xOut, xSubQ)
+			VPMINUQ(xSubQ, xOut, xOut)
 		}
 	case OpSub:
 		VMOVDQU64(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
 		if !isLazy {
 			VPSUBQ(xMul, xOut, xOut)
-			subQ, subQMask := ZMM(), K()
-			VPCMPUQ(Imm(0o5), q, xOut, subQMask)
-			VMOVAPD_Z(q, subQMask, subQ)
-			VPADDQ(subQ, xOut, xOut)
+			xAddQ := ZMM()
+			VPADDQ(q, xOut, xAddQ)
+			VPMINUQ(xAddQ, xOut, xOut)
 		} else {
 			VPADDQ(xMul, xOut, xOut)
 		}

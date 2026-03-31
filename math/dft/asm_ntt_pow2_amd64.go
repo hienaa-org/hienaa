@@ -15,9 +15,6 @@ func fwdNTTInPlacePow2Unroll(coeffs, tw, twS []uint64, q uint64) {
 	case cpu.X86.HasAVX2 && cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasAVX512VL && cpu.X86.HasBMI2:
 		fwdNTTInPlacePow2UnrollAVX512(coeffs, tw, twS, q)
 		return
-	case cpu.X86.HasAVX && cpu.X86.HasAVX2 && cpu.X86.HasBMI2:
-		fwdNTTInPlacePow2UnrollAVX2(coeffs, tw, twS, q)
-		return
 	}
 
 	twoQ := q << 1
@@ -36,15 +33,15 @@ func fwdNTTInPlacePow2Unroll(coeffs, tw, twS []uint64, q uint64) {
 		c0 := (*[8]uint64)(unsafe.Add(v, uintptr(j)*L))
 		c1 := (*[8]uint64)(unsafe.Add(v, uintptr(j+t)*L))
 
-		c0[0], c1[0] = butterflyPow2(c0[0], c1[0], w, wS, q, twoQ)
-		c0[1], c1[1] = butterflyPow2(c0[1], c1[1], w, wS, q, twoQ)
-		c0[2], c1[2] = butterflyPow2(c0[2], c1[2], w, wS, q, twoQ)
-		c0[3], c1[3] = butterflyPow2(c0[3], c1[3], w, wS, q, twoQ)
+		c0[0], c1[0] = fwdButterflyPow2(c0[0], c1[0], w, wS, q, twoQ)
+		c0[1], c1[1] = fwdButterflyPow2(c0[1], c1[1], w, wS, q, twoQ)
+		c0[2], c1[2] = fwdButterflyPow2(c0[2], c1[2], w, wS, q, twoQ)
+		c0[3], c1[3] = fwdButterflyPow2(c0[3], c1[3], w, wS, q, twoQ)
 
-		c0[4], c1[4] = butterflyPow2(c0[4], c1[4], w, wS, q, twoQ)
-		c0[5], c1[5] = butterflyPow2(c0[5], c1[5], w, wS, q, twoQ)
-		c0[6], c1[6] = butterflyPow2(c0[6], c1[6], w, wS, q, twoQ)
-		c0[7], c1[7] = butterflyPow2(c0[7], c1[7], w, wS, q, twoQ)
+		c0[4], c1[4] = fwdButterflyPow2(c0[4], c1[4], w, wS, q, twoQ)
+		c0[5], c1[5] = fwdButterflyPow2(c0[5], c1[5], w, wS, q, twoQ)
+		c0[6], c1[6] = fwdButterflyPow2(c0[6], c1[6], w, wS, q, twoQ)
+		c0[7], c1[7] = fwdButterflyPow2(c0[7], c1[7], w, wS, q, twoQ)
 	}
 
 	for m := 2; m <= N/16; m <<= 1 {
@@ -60,15 +57,15 @@ func fwdNTTInPlacePow2Unroll(coeffs, tw, twS []uint64, q uint64) {
 				c0 := (*[8]uint64)(unsafe.Add(v, uintptr(j)*L))
 				c1 := (*[8]uint64)(unsafe.Add(v, uintptr(j+t)*L))
 
-				c0[0], c1[0] = butterflyPow2(c0[0], c1[0], w, wS, q, twoQ)
-				c0[1], c1[1] = butterflyPow2(c0[1], c1[1], w, wS, q, twoQ)
-				c0[2], c1[2] = butterflyPow2(c0[2], c1[2], w, wS, q, twoQ)
-				c0[3], c1[3] = butterflyPow2(c0[3], c1[3], w, wS, q, twoQ)
+				c0[0], c1[0] = fwdButterflyPow2(c0[0], c1[0], w, wS, q, twoQ)
+				c0[1], c1[1] = fwdButterflyPow2(c0[1], c1[1], w, wS, q, twoQ)
+				c0[2], c1[2] = fwdButterflyPow2(c0[2], c1[2], w, wS, q, twoQ)
+				c0[3], c1[3] = fwdButterflyPow2(c0[3], c1[3], w, wS, q, twoQ)
 
-				c0[4], c1[4] = butterflyPow2(c0[4], c1[4], w, wS, q, twoQ)
-				c0[5], c1[5] = butterflyPow2(c0[5], c1[5], w, wS, q, twoQ)
-				c0[6], c1[6] = butterflyPow2(c0[6], c1[6], w, wS, q, twoQ)
-				c0[7], c1[7] = butterflyPow2(c0[7], c1[7], w, wS, q, twoQ)
+				c0[4], c1[4] = fwdButterflyPow2(c0[4], c1[4], w, wS, q, twoQ)
+				c0[5], c1[5] = fwdButterflyPow2(c0[5], c1[5], w, wS, q, twoQ)
+				c0[6], c1[6] = fwdButterflyPow2(c0[6], c1[6], w, wS, q, twoQ)
+				c0[7], c1[7] = fwdButterflyPow2(c0[7], c1[7], w, wS, q, twoQ)
 			}
 		}
 	}
@@ -79,10 +76,10 @@ func fwdNTTInPlacePow2Unroll(coeffs, tw, twS []uint64, q uint64) {
 		w := *(*uint64)(unsafe.Add(r, uintptr(i+N/8)*L))
 		wS := *(*uint64)(unsafe.Add(rS, uintptr(i+N/8)*L))
 
-		c[0], c[4] = butterflyPow2(c[0], c[4], w, wS, q, twoQ)
-		c[1], c[5] = butterflyPow2(c[1], c[5], w, wS, q, twoQ)
-		c[2], c[6] = butterflyPow2(c[2], c[6], w, wS, q, twoQ)
-		c[3], c[7] = butterflyPow2(c[3], c[7], w, wS, q, twoQ)
+		c[0], c[4] = fwdButterflyPow2(c[0], c[4], w, wS, q, twoQ)
+		c[1], c[5] = fwdButterflyPow2(c[1], c[5], w, wS, q, twoQ)
+		c[2], c[6] = fwdButterflyPow2(c[2], c[6], w, wS, q, twoQ)
+		c[3], c[7] = fwdButterflyPow2(c[3], c[7], w, wS, q, twoQ)
 	}
 
 	// t = 2, m = N / 4
@@ -91,11 +88,11 @@ func fwdNTTInPlacePow2Unroll(coeffs, tw, twS []uint64, q uint64) {
 		w := (*[2]uint64)(unsafe.Add(r, uintptr(i+N/4)*L))
 		wS := (*[2]uint64)(unsafe.Add(rS, uintptr(i+N/4)*L))
 
-		c[0], c[2] = butterflyPow2(c[0], c[2], w[0], wS[0], q, twoQ)
-		c[1], c[3] = butterflyPow2(c[1], c[3], w[0], wS[0], q, twoQ)
+		c[0], c[2] = fwdButterflyPow2(c[0], c[2], w[0], wS[0], q, twoQ)
+		c[1], c[3] = fwdButterflyPow2(c[1], c[3], w[0], wS[0], q, twoQ)
 
-		c[4], c[6] = butterflyPow2(c[4], c[6], w[1], wS[1], q, twoQ)
-		c[5], c[7] = butterflyPow2(c[5], c[7], w[1], wS[1], q, twoQ)
+		c[4], c[6] = fwdButterflyPow2(c[4], c[6], w[1], wS[1], q, twoQ)
+		c[5], c[7] = fwdButterflyPow2(c[5], c[7], w[1], wS[1], q, twoQ)
 	}
 
 	// t = 1, m = N / 2
@@ -104,10 +101,10 @@ func fwdNTTInPlacePow2Unroll(coeffs, tw, twS []uint64, q uint64) {
 		w := (*[8]uint64)(unsafe.Add(r, uintptr(i+N/2)*L))
 		wS := (*[8]uint64)(unsafe.Add(rS, uintptr(i+N/2)*L))
 
-		c[0], c[1] = butterflyPow2(c[0], c[1], w[0], wS[0], q, twoQ)
-		c[2], c[3] = butterflyPow2(c[2], c[3], w[1], wS[1], q, twoQ)
-		c[4], c[5] = butterflyPow2(c[4], c[5], w[2], wS[2], q, twoQ)
-		c[6], c[7] = butterflyPow2(c[6], c[7], w[3], wS[3], q, twoQ)
+		c[0], c[1] = fwdButterflyPow2(c[0], c[1], w[0], wS[0], q, twoQ)
+		c[2], c[3] = fwdButterflyPow2(c[2], c[3], w[1], wS[1], q, twoQ)
+		c[4], c[5] = fwdButterflyPow2(c[4], c[5], w[2], wS[2], q, twoQ)
+		c[6], c[7] = fwdButterflyPow2(c[6], c[7], w[3], wS[3], q, twoQ)
 	}
 }
 
@@ -117,9 +114,6 @@ func invNTTInPlacePow2Unroll(coeffs, twInv, twInvS []uint64, q uint64) {
 	switch {
 	case cpu.X86.HasAVX2 && cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasAVX512VL && cpu.X86.HasBMI2:
 		invNTTInPlacePow2UnrollAVX512(coeffs, twInv, twInvS, q)
-		return
-	case cpu.X86.HasAVX && cpu.X86.HasAVX2 && cpu.X86.HasBMI2:
-		invNTTInPlacePow2UnrollAVX2(coeffs, twInv, twInvS, q)
 		return
 	}
 

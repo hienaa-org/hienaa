@@ -13,8 +13,8 @@ func nttInPlacePow2(coeffs, tw, twS []uint64, q uint64) {
 	fwdNTTInPlacePow2Unroll(coeffs, tw, twS, q)
 }
 
-// butterflyPow2 returns the Harvey butterfly.
-func butterflyPow2(u, v, w, wS, q, twoQ uint64) (uint64, uint64) {
+// fwdButterflyPow2 returns the Harvey butterfly.
+func fwdButterflyPow2(u, v, w, wS, q, twoQ uint64) (uint64, uint64) {
 	quo, _ := bits.Mul64(v, wS)
 	t := v*w - quo*q
 	if u >= twoQ {
@@ -36,7 +36,7 @@ func nttInPlacePow2Ref(coeffs, tw, twS []uint64, q uint64) {
 			j2 := j1 + t
 			w, wS := tw[m+i], twS[m+i]
 			for j := j1; j < j2; j++ {
-				coeffs[j], coeffs[j+t] = butterflyPow2(coeffs[j], coeffs[j+t], w, wS, q, twoQ)
+				coeffs[j], coeffs[j+t] = fwdButterflyPow2(coeffs[j], coeffs[j+t], w, wS, q, twoQ)
 			}
 		}
 	}
