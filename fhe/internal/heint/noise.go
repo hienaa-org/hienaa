@@ -31,7 +31,7 @@ type NoiseEstimator struct {
 // NewNoiseEstimator creates a new [NoiseEstimator].
 func NewNoiseEstimator(params rlwe.Parameters, msgMod *num.Modulus, estimType EstimType) *NoiseEstimator {
 	// Compute the expansion factor of the noise.
-	keyExpFac := float64(params.RingParams().ExpFactor())
+	keyExpFac := float64(params.RingParams().ExpandFactor())
 	switch keyType := params.SecretKeyParams().(type) {
 	case crt.TernarySamplerParameters:
 		// TODO: Currently we simply use the expansion factor of a ternary vector with Hamming weight
@@ -228,7 +228,7 @@ func (ne *NoiseEstimator) MulPlain(noise float64, pt []uint64) float64 {
 	if len(pt) == 1 {
 		return noise * float64(max)
 	} else {
-		return noise * float64(max) * float64(ne.params.RingParams().ExpFactor())
+		return noise * float64(max) * float64(ne.params.RingParams().ExpandFactor())
 	}
 }
 
@@ -240,7 +240,7 @@ func (ne *NoiseEstimator) MulElement(noise float64, e *rlwe.Element) float64 {
 	if e.Type() == crt.TypeScalar {
 		return noise * float64(ne.msgMod.Value()) / 2
 	} else {
-		return noise * float64(ne.msgMod.Value()) / 2 * float64(ne.params.RingParams().ExpFactor())
+		return noise * float64(ne.msgMod.Value()) / 2 * float64(ne.params.RingParams().ExpandFactor())
 	}
 }
 
@@ -257,7 +257,7 @@ func (ne *NoiseEstimator) GadgetProd(modLen int) float64 {
 		panic("unsupported noise estimation type")
 	}
 
-	res *= float64(ne.params.RingParams().ExpFactor()) * ne.dcmpBound * float64(ne.dcmp.DecomposeLen(modLen))
+	res *= float64(ne.params.RingParams().ExpandFactor()) * ne.dcmpBound * float64(ne.dcmp.DecomposeLen(modLen))
 
 	if ne.params.HasAuxModulus() {
 		auxLen := ne.dcmp.AuxModLen(modLen)

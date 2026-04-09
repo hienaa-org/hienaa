@@ -128,8 +128,8 @@ func (p RingParameters) Rank() int {
 	return p.rank
 }
 
-// ExpFactor is the expansion factor of the ring.
-func (p RingParameters) ExpFactor() int {
+// ExpandFactor is the expansion factor of the ring.
+func (p RingParameters) ExpandFactor() int {
 	return p.expFac
 }
 

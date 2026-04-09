@@ -597,31 +597,38 @@ type reduceMulOperator struct {
 func newReduceMulOperator(mod []*num.Modulus, modPoly []int64, reducer *Reducer) *reduceMulOperator {
 	ambParams := dft.NewCyclicParameters(num.NextProdPower(2*len(modPoly)-1, []int{2}))
 
-	maxBits := make([]float64, len(mod))
 	ntt := make([]dft.Transformer, len(mod))
+	needAmbMod := false
+	ambModLen := make([]int, len(mod))
 	for i := range mod {
 		if dft.IsNTTFriendly(ambParams, mod[i]) {
 			ntt[i] = dft.NewTransformer(ambParams, mod[i])
 			continue
 		}
-		maxBits[i] = num.Log2(ambParams.Rank()) + 2*num.Log2(mod[i].Value())
+		needAmbMod = true
+		ambModLen[i] = 1
 	}
 
-	ambMod := dft.MustFindAmbientPrimes(ambParams, vec.Max(maxBits))
-	ambNTT := make([]dft.Transformer, len(ambMod))
-	for i := range ambMod {
-		ambNTT[i] = dft.NewTransformer(ambParams, ambMod[i])
+	var ambMod []*num.Modulus
+	var ambNTT []dft.Transformer
+	if needAmbMod {
+		ambMod = dft.MustFindAmbientPrimes(ambParams, num.Log2(ambParams.ExpandFactor())+2*num.MaxModulusBits)
+		ambNTT = make([]dft.Transformer, len(ambMod))
+		for i := range ambMod {
+			ambNTT[i] = dft.NewTransformer(ambParams, ambMod[i])
+		}
 	}
 
-	ambModLen := make([]int, len(mod))
 	for i := range mod {
-		if maxBits[i] == 0 {
+		if ambModLen[i] == 0 {
 			continue
 		}
-		currBits := 0.0
+
+		ambBits := num.Log2(ambParams.ExpandFactor()) + 2*num.Log2(mod[i].Value())
+		bits := 0.0
 		for j := range ambMod {
-			currBits += num.Log2(ambMod[j].Value())
-			if currBits >= maxBits[i] {
+			bits += num.Log2(ambMod[j].Value())
+			if bits >= ambBits {
 				ambModLen[i] = j + 1
 				break
 			}

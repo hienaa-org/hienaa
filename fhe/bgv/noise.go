@@ -132,7 +132,7 @@ func (ne *NoiseEstimator) MulTo(ctOut, ct0, ct1 *Ciphertext) {
 		noise0 := ct0.noise/(divMod/auxMod)/(divMod/auxMod) + ne.noise.RoundNoise()
 		noise1 := ct1.noise/(divMod/auxMod)/(divMod/auxMod) + ne.noise.RoundNoise()
 		msgMod := float64(ne.msgMod.Value())
-		expFac := float64(ne.params.RingParams().ExpFactor())
+		expFac := float64(ne.params.RingParams().ExpandFactor())
 
 		mulNoise := noise0 * noise1 * msgMod * msgMod * expFac
 		ctOut.noise = mulNoise*(divMod/auxMod)*(divMod/auxMod) + ne.noise.RoundNoise()
@@ -140,7 +140,7 @@ func (ne *NoiseEstimator) MulTo(ctOut, ct0, ct1 *Ciphertext) {
 		noise0 := ct0.noise/(divMod/auxMod) + ne.noise.RoundNoise()
 		noise1 := ct1.noise/(divMod/auxMod) + ne.noise.RoundNoise()
 		msgMod := float64(ne.msgMod.Value())
-		expFac := float64(ne.params.RingParams().ExpFactor())
+		expFac := float64(ne.params.RingParams().ExpandFactor())
 
 		mulNoise := noise0 * noise1 * msgMod * expFac
 		ctOut.noise = mulNoise*(divMod/auxMod) + ne.noise.RoundNoise()

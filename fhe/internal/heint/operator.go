@@ -34,7 +34,7 @@ func NewOperator(params rlwe.Parameters, msgMod *num.Modulus) *Operator {
 	for _, mod := range params.BaseModulus() {
 		extraBits += num.Log2(mod.Value())
 	}
-	extraBits = extraBits + num.Log2(ringParams.ExpFactor())
+	extraBits = extraBits + num.Log2(ringParams.ExpandFactor())
 	extraLen := int(math.Ceil(extraBits / num.MaxModulusBits))
 	baseMod := params.BaseModulus()
 

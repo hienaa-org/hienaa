@@ -118,7 +118,7 @@ func (ne *NoiseEstimator) MulTo(ctOut, ct0, ct1 *Ciphertext) {
 
 	// t/q * ee'
 	msgMod := float64(ne.msgMod.Value())
-	expFac := float64(ne.params.RingParams().ExpFactor())
+	expFac := float64(ne.params.RingParams().ExpandFactor())
 	baseMod := float64(1)
 	for i := 0; i < tarLen; i++ {
 		baseMod *= float64(ne.params.BaseModulus()[i].Value())

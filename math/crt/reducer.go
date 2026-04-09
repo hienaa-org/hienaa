@@ -272,33 +272,39 @@ func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *Cyclot
 		diffDegNextParams := dft.NewCyclicParameters(diffDegNext)
 		degNextParams := dft.NewCyclicParameters(degNext)
 
-		maxBits := make([]float64, len(mod))
+		needAmbMod := false
+		ambModLen = make([]int, len(mod))
 		for i := range mod {
 			if dft.IsNTTFriendly(diffDegNextParams, mod[i]) && dft.IsNTTFriendly(degNextParams, mod[i]) {
 				continue
 			}
-			maxBits[i] = float64(num.Log2(max(diffDegNext, degNext)) + 2*num.Log2(mod[i].Value()))
+			needAmbMod = true
+			ambModLen[i] = 1
 		}
 
-		ambMod = dft.MustFindAmbientPrimes(params, vec.Max(maxBits))
-		diffDegNextAmbNTT = make([]dft.Transformer, len(ambMod))
-		degNextAmbNTT = make([]dft.Transformer, len(ambMod))
-		for i := range ambMod {
-			diffDegNextAmbNTT[i] = dft.NewTransformer(diffDegNextParams, ambMod[i])
-			degNextAmbNTT[i] = dft.NewTransformer(degNextParams, ambMod[i])
-		}
-
-		ambModLen = make([]int, len(mod))
-		for i := range mod {
-			if maxBits[i] == 0 {
-				continue
+		if needAmbMod {
+			ambExpFacBits := num.Log2(max(diffDegNextParams.ExpandFactor(), degNextParams.ExpandFactor()))
+			ambMod = dft.MustFindAmbientPrimes(params, ambExpFacBits+2*num.MaxModulusBits)
+			diffDegNextAmbNTT = make([]dft.Transformer, len(ambMod))
+			degNextAmbNTT = make([]dft.Transformer, len(ambMod))
+			for i := range ambMod {
+				diffDegNextAmbNTT[i] = dft.NewTransformer(diffDegNextParams, ambMod[i])
+				degNextAmbNTT[i] = dft.NewTransformer(degNextParams, ambMod[i])
 			}
-			currBits := 0.0
-			for j := range ambMod {
-				currBits += num.Log2(ambMod[j].Value())
-				if currBits >= maxBits[i] {
-					ambModLen[i] = j + 1
-					break
+
+			for i := range mod {
+				if ambModLen[i] == 0 {
+					continue
+				}
+
+				ambBits := ambExpFacBits + 2*num.Log2(mod[i].Value())
+				bits := 0.0
+				for j := range ambMod {
+					bits += num.Log2(ambMod[j].Value())
+					if bits >= ambBits {
+						ambModLen[i] = j + 1
+						break
+					}
 				}
 			}
 		}
@@ -684,35 +690,41 @@ func NewReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *Reducer {
 	diffDegNextParams := dft.NewCyclicParameters(diffDegNext)
 	degNextParams := dft.NewCyclicParameters(degNext)
 
-	ambParams := dft.NewCyclicParameters(2 * max(diffDegNext, degNext))
-
-	maxBits := make([]float64, len(mod))
+	needAmbMod := false
+	ambModLen := make([]int, len(mod))
 	for i := range mod {
 		if dft.IsNTTFriendly(diffDegNextParams, mod[i]) && dft.IsNTTFriendly(degNextParams, mod[i]) {
 			continue
 		}
-		maxBits[i] = float64(num.Log2(max(diffDegNext, degNext)) + 2*num.Log2(mod[i].Value()))
+		needAmbMod = true
+		ambModLen[i] = 1
 	}
 
-	ambMod := dft.MustFindAmbientPrimes(ambParams, vec.Max(maxBits))
-	diffDegNextAmbNTT := make([]dft.Transformer, len(ambMod))
-	degNextAmbNTT := make([]dft.Transformer, len(ambMod))
-	for i := range ambMod {
-		diffDegNextAmbNTT[i] = dft.NewTransformer(diffDegNextParams, ambMod[i])
-		degNextAmbNTT[i] = dft.NewTransformer(degNextParams, ambMod[i])
-	}
-
-	ambModLen := make([]int, len(mod))
-	for i := range mod {
-		if maxBits[i] == 0 {
-			continue
+	var ambMod []*num.Modulus
+	var diffDegNextAmbNTT, degNextAmbNTT []dft.Transformer
+	if needAmbMod {
+		ambParams := dft.NewCyclicParameters(2 * max(diffDegNext, degNext))
+		ambMod = dft.MustFindAmbientPrimes(ambParams, num.Log2(ambParams.ExpandFactor())+2*num.MaxModulusBits)
+		diffDegNextAmbNTT = make([]dft.Transformer, len(ambMod))
+		degNextAmbNTT = make([]dft.Transformer, len(ambMod))
+		for i := range ambMod {
+			diffDegNextAmbNTT[i] = dft.NewTransformer(diffDegNextParams, ambMod[i])
+			degNextAmbNTT[i] = dft.NewTransformer(degNextParams, ambMod[i])
 		}
-		currBits := 0.0
-		for j := range ambMod {
-			currBits += num.Log2(ambMod[j].Value())
-			if currBits >= maxBits[i] {
-				ambModLen[i] = j + 1
-				break
+
+		for i := range mod {
+			if ambModLen[i] == 0 {
+				continue
+			}
+
+			ambBits := num.Log2(ambParams.ExpandFactor()) + 2*num.Log2(mod[i].Value())
+			bits := 0.0
+			for j := range ambMod {
+				bits += num.Log2(ambMod[j].Value())
+				if bits >= ambBits {
+					ambModLen[i] = j + 1
+					break
+				}
 			}
 		}
 	}

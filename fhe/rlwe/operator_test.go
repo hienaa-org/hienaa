@@ -207,7 +207,7 @@ func testOperator(t *testing.T, rP dft.RingParameters) {
 			pOut := e.Phase(cOut)
 			diff := pOp.Sub(pOut, pRef)
 
-			noiseBound := p.NoiseParams().Bound() * float64(rP.ExpFactor())
+			noiseBound := p.NoiseParams().Bound() * float64(rP.ExpandFactor())
 			assert.True(t, checkBound(pOp.AsBig(diff), noiseBound))
 		})
 	})
@@ -266,7 +266,7 @@ func testOperator(t *testing.T, rP dft.RingParameters) {
 			pOut := e.Phase(c1)
 			diff := pOp.Sub(pOut, pRef)
 
-			noiseBound := p.NoiseParams().Bound() * float64(rP.ExpFactor()+1)
+			noiseBound := p.NoiseParams().Bound() * float64(rP.ExpandFactor()+1)
 			assert.True(t, checkBound(pOp.AsBig(diff), noiseBound))
 		})
 	})
@@ -288,7 +288,7 @@ func testOperator(t *testing.T, rP dft.RingParameters) {
 		diff := pOp.Sub(pOut, ptRef)
 
 		// Assume that the auxiliary modulus is large enough.
-		noiseBound := float64(rP.ExpFactor()) + 1
+		noiseBound := float64(rP.ExpandFactor()) + 1
 		assert.True(t, checkBound(pOp.AsBig(diff), noiseBound))
 	})
 
@@ -310,7 +310,7 @@ func testOperator(t *testing.T, rP dft.RingParameters) {
 			pOut := e.Phase(cOut)
 			diff := pOp.Sub(pOut, ptRef)
 
-			noiseBound := float64(rP.ExpFactor()) + 1
+			noiseBound := float64(rP.ExpandFactor()) + 1
 			assert.True(t, checkBound(pOp.AsBig(diff), noiseBound))
 		})
 
@@ -387,7 +387,7 @@ func testOperator(t *testing.T, rP dft.RingParameters) {
 		pOut := e.Phase(cOut)
 		diff := pOp.Sub(pOut, ptRef)
 
-		noiseBound := float64(rP.ExpFactor() + 1)
+		noiseBound := float64(rP.ExpandFactor() + 1)
 		assert.True(t, checkBound(pOp.AsBig(diff), noiseBound))
 	})
 
@@ -409,7 +409,7 @@ func testOperator(t *testing.T, rP dft.RingParameters) {
 		cOut := o.Relin(vec, rlk, false)
 		pOut := e.Phase(cOut)
 
-		noiseBound := p.NoiseParams().Bound()*p.NoiseParams().Bound()*float64(rP.ExpFactor()) + float64(rP.ExpFactor()) + 1
+		noiseBound := p.NoiseParams().Bound()*p.NoiseParams().Bound()*float64(rP.ExpandFactor()) + float64(rP.ExpandFactor()) + 1
 		assert.True(t, checkBound(pOp.AsBig(pOut), noiseBound))
 	})
 
@@ -425,7 +425,7 @@ func testOperator(t *testing.T, rP dft.RingParameters) {
 		cOut := o.KeySwitch(c, ksk, true)
 		pOut := e.Phase(cOut)
 
-		noiseBound := float64(rP.ExpFactor() + 1)
+		noiseBound := float64(rP.ExpandFactor() + 1)
 		assert.True(t, checkBound(pOp.AsBig(pOut), noiseBound))
 	})
 
@@ -451,7 +451,7 @@ func testOperator(t *testing.T, rP dft.RingParameters) {
 		pOut := e.Phase(cOut)
 		diff := pOp.Sub(pOut, pRef)
 
-		noiseBound := float64(rP.ExpFactor() + 1)
+		noiseBound := float64(rP.ExpandFactor() + 1)
 		assert.True(t, checkBound(pOp.AsBig(diff), noiseBound))
 	})
 
@@ -483,7 +483,7 @@ func testOperator(t *testing.T, rP dft.RingParameters) {
 		pOut := e.Phase(cOut)
 		diff := pOp.Sub(pOut, pRef)
 
-		noiseBound := p.NoiseParams().Bound() * float64(rP.ExpFactor()+1)
+		noiseBound := p.NoiseParams().Bound() * float64(rP.ExpandFactor()+1)
 		assert.True(t, checkBound(pOp.AsBig(diff), noiseBound))
 	})
 }
