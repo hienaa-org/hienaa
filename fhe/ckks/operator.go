@@ -2,9 +2,9 @@ package ckks
 
 import (
 	"math/big"
-	"sync"
 
 	"github.com/hienaa-org/hienaa/fhe/rlwe"
+	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/num"
 )
@@ -17,12 +17,12 @@ type Operator struct {
 	rlweOp *rlwe.Operator
 	ecd    *Encoder
 
-	fPool   *sync.Pool
-	intPool *sync.Pool
+	fPool   *pool.Pool[*big.Float]
+	intPool *pool.Pool[*big.Int]
 
 	ePool  *rlwe.ElementPool
-	ctPool *sync.Pool
-	vPool  *sync.Pool
+	ctPool *pool.Pool[*Ciphertext]
+	vPool  *pool.Pool[*rlwe.Vector]
 }
 
 func NewOperator(params rlwe.Parameters, scFac float64) *Operator {
@@ -33,27 +33,19 @@ func NewOperator(params rlwe.Parameters, scFac float64) *Operator {
 		rlweOp: rlwe.NewOperator(params),
 		ecd:    NewEncoder(params),
 
-		fPool: &sync.Pool{
-			New: func() any {
-				return big.NewFloat(0).SetPrec(52 + 52 + 64)
-			},
-		},
-		intPool: &sync.Pool{
-			New: func() any {
-				return new(big.Int)
-			},
-		},
+		fPool: pool.NewPool(func() *big.Float {
+			return big.NewFloat(0).SetPrec(52 + 52 + 64)
+		}),
+		intPool: pool.NewPool(func() *big.Int {
+			return new(big.Int)
+		}),
 		ePool: rlwe.NewElementPool(params, true, true),
-		ctPool: &sync.Pool{
-			New: func() any {
-				return NewCiphertext(params, true)
-			},
-		},
-		vPool: &sync.Pool{
-			New: func() any {
-				return rlwe.NewVector(params, 3, false, true)
-			},
-		},
+		ctPool: pool.NewPool(func() *Ciphertext {
+			return NewCiphertext(params, true)
+		}),
+		vPool: pool.NewPool(func() *rlwe.Vector {
+			return rlwe.NewVector(params, 3, false, true)
+		}),
 	}
 }
 
@@ -76,10 +68,10 @@ func (op *Operator) Rescale(ct *Ciphertext, isNTT bool) *Ciphertext {
 
 // RescaleTo rescales the ciphertext to the target modulus.
 func (op *Operator) RescaleTo(ctOut, ct *Ciphertext, isNTT bool) {
-	resScFac := op.fPool.Get().(*big.Float)
-	tmpFloat := op.fPool.Get().(*big.Float)
-	divMod := op.fPool.Get().(*big.Float)
-	scFac := op.fPool.Get().(*big.Float)
+	resScFac := op.fPool.Get()
+	tmpFloat := op.fPool.Get()
+	divMod := op.fPool.Get()
+	scFac := op.fPool.Get()
 	defer op.fPool.Put(resScFac)
 	defer op.fPool.Put(tmpFloat)
 	defer op.fPool.Put(divMod)
@@ -101,7 +93,7 @@ func (op *Operator) RescaleTo(ctOut, ct *Ciphertext, isNTT bool) {
 		panic("cannot rescale ciphertext")
 	}
 
-	buf := op.ctPool.Get().(*Ciphertext)
+	buf := op.ctPool.Get()
 	defer op.ctPool.Put(buf)
 	buf = buf.WithModLen(tarLen)
 
@@ -173,10 +165,10 @@ func (op *Operator) AddTo(ctOut, ct0, ct1 *Ciphertext, isNTT bool) {
 	curLen := ct1.ModLen()
 
 	// Find 'diff', which needs to be multiplied to ct1 to make the scaling factors equal.
-	diffFloat := op.fPool.Get().(*big.Float)
-	tmpFloat := op.fPool.Get().(*big.Float)
-	diffRound := op.intPool.Get().(*big.Int)
-	tmpInt := op.intPool.Get().(*big.Int)
+	diffFloat := op.fPool.Get()
+	tmpFloat := op.fPool.Get()
+	diffRound := op.intPool.Get()
+	tmpInt := op.intPool.Get()
 	defer op.fPool.Put(diffFloat)
 	defer op.fPool.Put(tmpFloat)
 	defer op.intPool.Put(diffRound)
@@ -202,8 +194,8 @@ func (op *Operator) AddTo(ctOut, ct0, ct1 *Ciphertext, isNTT bool) {
 	}
 
 	// multiply diff to ct1 and scale to the target modulus.
-	c0 := op.ctPool.Get().(*Ciphertext)
-	c1 := op.ctPool.Get().(*Ciphertext)
+	c0 := op.ctPool.Get()
+	c1 := op.ctPool.Get()
 	defer op.ctPool.Put(c0)
 	defer op.ctPool.Put(c1)
 	c0 = c0.WithModLen(tarLen)
@@ -329,10 +321,10 @@ func (op *Operator) SubTo(ctOut, ct0, ct1 *Ciphertext, isNTT bool) {
 	curLen := ct1.ModLen()
 
 	// Find 'diff', which needs to be multiplied to ct1 to make the scaling factors equal.
-	diffFloat := op.fPool.Get().(*big.Float)
-	tmpFloat := op.fPool.Get().(*big.Float)
-	diffRound := op.intPool.Get().(*big.Int)
-	tmpInt := op.intPool.Get().(*big.Int)
+	diffFloat := op.fPool.Get()
+	tmpFloat := op.fPool.Get()
+	diffRound := op.intPool.Get()
+	tmpInt := op.intPool.Get()
 	defer op.fPool.Put(diffFloat)
 	defer op.fPool.Put(tmpFloat)
 	defer op.intPool.Put(diffRound)
@@ -358,8 +350,8 @@ func (op *Operator) SubTo(ctOut, ct0, ct1 *Ciphertext, isNTT bool) {
 	}
 
 	// multiply diff to ct1 and scale to the target modulus.
-	c0 := op.ctPool.Get().(*Ciphertext)
-	c1 := op.ctPool.Get().(*Ciphertext)
+	c0 := op.ctPool.Get()
+	c1 := op.ctPool.Get()
 	defer op.ctPool.Put(c0)
 	defer op.ctPool.Put(c1)
 	c0 = c0.WithModLen(tarLen)
@@ -480,7 +472,7 @@ func (op *Operator) MulTo(ctOut, ct0, ct1 *Ciphertext, rlk *rlwe.RelinKey, isNTT
 	tarLen, auxMod := op.getAuxMod(ct0, ct1)
 
 	// Tensoring the ciphertexts.
-	v := op.vPool.Get().(*rlwe.Vector)
+	v := op.vPool.Get()
 	defer op.vPool.Put(v)
 	v = v.WithModLen(tarLen, 0)
 
@@ -506,10 +498,10 @@ func (op *Operator) getAuxMod(ct0, ct1 *Ciphertext) (int, *num.Modulus) {
 	tarLen := curLen
 
 	// compute the difference.
-	diffFloat := op.fPool.Get().(*big.Float)
-	tmpFloat := op.fPool.Get().(*big.Float)
-	diffRound := op.intPool.Get().(*big.Int)
-	tmpInt := op.intPool.Get().(*big.Int)
+	diffFloat := op.fPool.Get()
+	tmpFloat := op.fPool.Get()
+	diffRound := op.intPool.Get()
+	tmpInt := op.intPool.Get()
 	defer op.fPool.Put(diffFloat)
 	defer op.fPool.Put(tmpFloat)
 	defer op.intPool.Put(diffRound)
@@ -562,10 +554,10 @@ func (op *Operator) scaleToMulModTo(ctOut *Ciphertext, ctIn *Ciphertext, auxMod 
 	}
 
 	// Find 'diff', which needs to be multiplied to ctIn to make the scaling factors equal.
-	diffFloat := op.fPool.Get().(*big.Float)
-	tmpFloat := op.fPool.Get().(*big.Float)
-	diffRound := op.intPool.Get().(*big.Int)
-	tmpInt := op.intPool.Get().(*big.Int)
+	diffFloat := op.fPool.Get()
+	tmpFloat := op.fPool.Get()
+	diffRound := op.intPool.Get()
+	tmpInt := op.intPool.Get()
 	defer op.fPool.Put(diffFloat)
 	defer op.fPool.Put(tmpFloat)
 	defer op.intPool.Put(diffRound)
@@ -593,7 +585,7 @@ func (op *Operator) scaleToMulModTo(ctOut *Ciphertext, ctIn *Ciphertext, auxMod 
 	}
 
 	// TODO: optimise later.
-	ctBuf := op.ctPool.Get().(*Ciphertext)
+	ctBuf := op.ctPool.Get()
 	defer op.ctPool.Put(ctBuf)
 	ctBuf = ctBuf.WithModLen(inLen)
 
@@ -611,7 +603,7 @@ func (op *Operator) scaleToMulModTo(ctOut *Ciphertext, ctIn *Ciphertext, auxMod 
 	opOut.FwdNTTTo(ctOut.Value.Mask.Value, ctOut.Value.Mask.Value)
 
 	// Set output scaling factor.
-	scale := op.fPool.Get().(*big.Float)
+	scale := op.fPool.Get()
 	defer op.fPool.Put(scale)
 
 	scale.SetInt(diffRound)
@@ -630,7 +622,7 @@ func (op *Operator) scaleToMulModTo(ctOut *Ciphertext, ctIn *Ciphertext, auxMod 
 // Input and output are in the NTT form.
 func (op *Operator) tensorTo(v *rlwe.Vector, ct0, ct1 *Ciphertext, tarLen int, auxMod *num.Modulus, isNTT bool) float64 {
 	var c0, c1 *Ciphertext
-	c0 = op.ctPool.Get().(*Ciphertext)
+	c0 = op.ctPool.Get()
 	defer op.ctPool.Put(c0)
 	c0 = c0.WithModLen(tarLen)
 
@@ -639,7 +631,7 @@ func (op *Operator) tensorTo(v *rlwe.Vector, ct0, ct1 *Ciphertext, tarLen int, a
 	if ct0 == ct1 {
 		c1 = c0
 	} else {
-		c1 = op.ctPool.Get().(*Ciphertext)
+		c1 = op.ctPool.Get()
 		defer op.ctPool.Put(c1)
 		c1 = c1.WithModLen(tarLen)
 

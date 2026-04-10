@@ -1,8 +1,7 @@
 package polyutils
 
 import (
-	"sync"
-
+	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
 )
@@ -30,7 +29,7 @@ type Interpolater struct {
 	p   int
 	r   int
 	pr  *num.Modulus
-	buf *sync.Pool
+	buf *pool.Pool[[]uint64]
 }
 
 func NewInterpolater(p, r int) *Interpolater {
@@ -38,11 +37,9 @@ func NewInterpolater(p, r int) *Interpolater {
 		p:  p,
 		r:  r,
 		pr: num.NewModulus(num.Exp(uint64(p), uint64(r), nil)),
-		buf: &sync.Pool{
-			New: func() any {
-				return make([]uint64, mu(p, r))
-			},
-		},
+		buf: pool.NewPool(func() []uint64 {
+			return make([]uint64, mu(p, r))
+		}),
 	}
 }
 
@@ -56,8 +53,8 @@ func (it *Interpolater) finiteDiffTo(res, x, y []uint64) {
 		panic("inconsistent input length")
 	}
 
-	tmp1 := it.buf.Get().([]uint64)
-	tmp2 := it.buf.Get().([]uint64)
+	tmp1 := it.buf.Get()
+	tmp2 := it.buf.Get()
 	defer it.buf.Put(tmp1)
 	defer it.buf.Put(tmp2)
 	tmp1 = tmp1[:inLen]
@@ -97,7 +94,7 @@ func (it *Interpolater) Interpolate(x, y []uint64) []uint64 {
 	}
 
 	inLen := len(x)
-	diff := it.buf.Get().([]uint64)
+	diff := it.buf.Get()
 	defer it.buf.Put(diff)
 	diff = diff[:inLen]
 
@@ -105,7 +102,7 @@ func (it *Interpolater) Interpolate(x, y []uint64) []uint64 {
 
 	res := make([]uint64, inLen)
 
-	basis := it.buf.Get().([]uint64)
+	basis := it.buf.Get()
 	defer it.buf.Put(basis)
 	basis = basis[:inLen]
 	clear(basis)
@@ -132,8 +129,8 @@ func (it *Interpolater) DigitExtractPoly(i int) []uint64 {
 	case 2:
 		deg := i + 2
 
-		x := it.buf.Get().([]uint64)
-		y := it.buf.Get().([]uint64)
+		x := it.buf.Get()
+		y := it.buf.Get()
 		defer it.buf.Put(x)
 		defer it.buf.Put(y)
 		x = x[:deg]
@@ -152,8 +149,8 @@ func (it *Interpolater) DigitExtractPoly(i int) []uint64 {
 	default:
 		deg := (it.p-1)*(i-1) + 2
 
-		x := it.buf.Get().([]uint64)
-		y := it.buf.Get().([]uint64)
+		x := it.buf.Get()
+		y := it.buf.Get()
 		defer it.buf.Put(x)
 		defer it.buf.Put(y)
 		x = x[:deg]

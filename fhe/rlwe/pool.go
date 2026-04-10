@@ -1,30 +1,25 @@
 package rlwe
 
 import (
-	"sync"
-
+	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/crt"
 )
 
-// ElementPool is a thin wrapper around [sync.Pool] with [rlwe.Element].
+// ElementPool is a thin wrapper around [pool.Pool] with [rlwe.Element].
 type ElementPool struct {
-	pPool *sync.Pool
-	sPool *sync.Pool
+	pPool *pool.Pool[*Element]
+	sPool *pool.Pool[*Element]
 }
 
 // NewElementPool creates a new [ElementPool].
 func NewElementPool(params Parameters, hasAux, isNTT bool) *ElementPool {
 	return &ElementPool{
-		pPool: &sync.Pool{
-			New: func() any {
-				return NewPoly(params, hasAux, isNTT)
-			},
-		},
-		sPool: &sync.Pool{
-			New: func() any {
-				return NewScalar(params, hasAux)
-			},
-		},
+		pPool: pool.NewPool(func() *Element {
+			return NewPoly(params, hasAux, isNTT)
+		}),
+		sPool: pool.NewPool(func() *Element {
+			return NewScalar(params, hasAux)
+		}),
 	}
 }
 
@@ -32,9 +27,9 @@ func NewElementPool(params Parameters, hasAux, isNTT bool) *ElementPool {
 func (p *ElementPool) Get(eType crt.ElementType) *Element {
 	switch eType {
 	case crt.TypeScalar:
-		return p.sPool.Get().(*Element)
+		return p.sPool.Get()
 	case crt.TypePoly:
-		return p.pPool.Get().(*Element)
+		return p.pPool.Get()
 	}
 	return nil
 }

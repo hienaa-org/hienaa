@@ -3,8 +3,8 @@ package gr
 
 import (
 	"math/big"
-	"sync"
 
+	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
@@ -20,7 +20,7 @@ type GaloisRing struct {
 	// Equals ord - 1.
 	invExp *big.Int
 
-	pool *sync.Pool
+	pool *pool.Pool[*Element]
 }
 
 // NewGaloisRing creates a new [GaloisRing].
@@ -60,11 +60,9 @@ func NewGaloisRingCustom(modulus uint64, modPoly []int64) *GaloisRing {
 		ord:    ord,
 		invExp: invExp,
 
-		pool: &sync.Pool{
-			New: func() any {
-				return &Element{poly: crt.NewNTTPoly(rank, 1)}
-			},
-		},
+		pool: pool.NewPool(func() *Element {
+			return &Element{poly: crt.NewNTTPoly(rank, 1)}
+		}),
 	}
 }
 
@@ -164,10 +162,10 @@ func (gr *GaloisRing) Exp(x *Element, e uint64) *Element {
 
 // ExpTo computes xOut = x^e.
 func (gr *GaloisRing) ExpTo(xOut, x *Element, e uint64) {
-	xOutBuf := gr.pool.Get().(*Element)
+	xOutBuf := gr.pool.Get()
 	defer gr.pool.Put(xOutBuf)
 
-	xBuf := gr.pool.Get().(*Element)
+	xBuf := gr.pool.Get()
 	defer gr.pool.Put(xBuf)
 
 	xOutBuf.Clear()
@@ -195,10 +193,10 @@ func (gr *GaloisRing) ExpBig(xOut, x *Element, e *big.Int) *Element {
 func (gr *GaloisRing) ExpBigTo(xOut, x *Element, e *big.Int) {
 	exp := new(big.Int).Set(e)
 
-	xBuf := gr.pool.Get().(*Element)
+	xBuf := gr.pool.Get()
 	defer gr.pool.Put(xBuf)
 
-	xOutBuf := gr.pool.Get().(*Element)
+	xOutBuf := gr.pool.Get()
 	defer gr.pool.Put(xOutBuf)
 
 	xOutBuf.Clear()

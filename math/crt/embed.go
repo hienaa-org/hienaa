@@ -1,9 +1,9 @@
 package crt
 
 import (
-	"sync"
 	"unsafe"
 
+	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
 )
@@ -16,11 +16,9 @@ const (
 )
 
 var (
-	embed64Pool = sync.Pool{
-		New: func() any {
-			return new([embedBatch]uint64)
-		},
-	}
+	embed64Pool = pool.NewPool(func() *[embedBatch]uint64 {
+		return new([embedBatch]uint64)
+	})
 )
 
 // embedToModOut returns sign(x) mod qOut for x in [0, qIn).
@@ -172,7 +170,7 @@ func (emb *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 		qv := emb.modIn[0].Value()
 		halfQv := qv >> 1
 
-		vBuf := embed64Pool.Get().(*[embedBatch]uint64)
+		vBuf := embed64Pool.Get()
 		defer embed64Pool.Put(vBuf)
 
 		r := unsafe.Pointer(unsafe.SliceData(v[0]))
@@ -219,13 +217,13 @@ func (emb *Embedder) EmbedVecTo(vOut, v [][]uint64) {
 
 	vBuf := make([]*[embedBatch]uint64, inLen)
 	for i := range vBuf {
-		vBuf[i] = embed64Pool.Get().(*[embedBatch]uint64)
+		vBuf[i] = embed64Pool.Get()
 		defer embed64Pool.Put(vBuf[i])
 	}
 
-	vBool := embed64Pool.Get().(*[embedBatch]uint64)
+	vBool := embed64Pool.Get()
 	defer embed64Pool.Put(vBool)
-	vCorr := embed64Pool.Get().(*[embedBatch]uint64)
+	vCorr := embed64Pool.Get()
 	defer embed64Pool.Put(vCorr)
 
 	qLastHalf := emb.modIn[inLen-1].Value() >> 1
@@ -481,7 +479,7 @@ func (emb *ApproxEmbedder) EmbedVecTo(vOut, v [][]uint64) {
 		qv := emb.modIn[0].Value()
 		halfQv := qv >> 1
 
-		vBuf := embed64Pool.Get().(*[embedBatch]uint64)
+		vBuf := embed64Pool.Get()
 		defer embed64Pool.Put(vBuf)
 
 		r := unsafe.Pointer(unsafe.SliceData(v[0]))
@@ -526,7 +524,7 @@ func (emb *ApproxEmbedder) EmbedVecTo(vOut, v [][]uint64) {
 
 	vBuf := make([]*[embedBatch]uint64, inLen)
 	for i := range vBuf {
-		vBuf[i] = embed64Pool.Get().(*[embedBatch]uint64)
+		vBuf[i] = embed64Pool.Get()
 		defer embed64Pool.Put(vBuf[i])
 	}
 
@@ -824,7 +822,7 @@ func (sc *Scaler) ScaleVecTo(vOut, v [][]uint64) {
 	if len(sc.modIn) == sc.modGCDLen {
 		vBuf := make([]*[embedBatch]uint64, inLen)
 		for i := range vBuf {
-			vBuf[i] = embed64Pool.Get().(*[embedBatch]uint64)
+			vBuf[i] = embed64Pool.Get()
 			defer embed64Pool.Put(vBuf[i])
 		}
 
@@ -875,18 +873,18 @@ func (sc *Scaler) ScaleVecTo(vOut, v [][]uint64) {
 
 	vMul := make([]*[embedBatch]uint64, gcdLen)
 	for i := range vMul {
-		vMul[i] = embed64Pool.Get().(*[embedBatch]uint64)
+		vMul[i] = embed64Pool.Get()
 		defer embed64Pool.Put(vMul[i])
 	}
 	vBuf := make([]*[embedBatch]uint64, inLen-gcdLen)
 	for i := range vBuf {
-		vBuf[i] = embed64Pool.Get().(*[embedBatch]uint64)
+		vBuf[i] = embed64Pool.Get()
 		defer embed64Pool.Put(vBuf[i])
 	}
 
-	vBool := embed64Pool.Get().(*[embedBatch]uint64)
+	vBool := embed64Pool.Get()
 	defer embed64Pool.Put(vBool)
-	vCorr := embed64Pool.Get().(*[embedBatch]uint64)
+	vCorr := embed64Pool.Get()
 	defer embed64Pool.Put(vCorr)
 
 	var qLast uint64

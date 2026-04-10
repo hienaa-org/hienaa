@@ -85,7 +85,7 @@ func (op *Operator) computeBasis(p *Polynomial, ct *Ciphertext, rlk *rlwe.RelinK
 	babyDeg := 1 << babyLevel
 
 	// Compute the power-of-two monomials.
-	basis[1] = op.ctPool.Get().(*Ciphertext)
+	basis[1] = op.ctPool.Get()
 	basis[1] = basis[1].WithModLen(ct.ModLen())
 	if ct.IsNTT() {
 		basis[1].CopyFrom(ct)
@@ -94,7 +94,7 @@ func (op *Operator) computeBasis(p *Polynomial, ct *Ciphertext, rlk *rlwe.RelinK
 	}
 
 	for i := 1; i < maxLevel; i++ {
-		basis[1<<i] = op.ctPool.Get().(*Ciphertext)
+		basis[1<<i] = op.ctPool.Get()
 		op.MulTo(basis[1<<i], basis[1<<(i-1)], basis[1<<(i-1)], rlk, true)
 	}
 
@@ -118,7 +118,7 @@ func (op *Operator) computeBasis(p *Polynomial, ct *Ciphertext, rlk *rlwe.RelinK
 
 			// If the monomial is needed, compute the monomial.
 			if check {
-				basis[1<<i+j] = op.ctPool.Get().(*Ciphertext)
+				basis[1<<i+j] = op.ctPool.Get()
 				op.MulTo(basis[1<<i+j], basis[1<<i], basis[j], rlk, true)
 			}
 		}
@@ -154,7 +154,7 @@ func (op *Operator) evalRecurse(lo, hi int, p *Polynomial, basis map[int]*Cipher
 	}
 
 	// Temporary variables.
-	tmpCt := op.ctPool.Get().(*Ciphertext)
+	tmpCt := op.ctPool.Get()
 	defer op.ctPool.Put(tmpCt)
 	tmpCt = tmpCt.WithModLen(ctLen)
 

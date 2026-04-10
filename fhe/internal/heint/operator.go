@@ -4,9 +4,9 @@ import (
 	"cmp"
 	"math"
 	"slices"
-	"sync"
 
 	"github.com/hienaa-org/hienaa/fhe/rlwe"
+	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
@@ -22,7 +22,7 @@ type Operator struct {
 	scFacs []*rlwe.Element
 
 	ePool  *rlwe.ElementPool
-	ctPool *sync.Pool
+	ctPool *pool.Pool[*rlwe.Ciphertext]
 }
 
 // NewOperator creates a new [Operator].
@@ -97,11 +97,9 @@ func NewOperator(params rlwe.Parameters, msgMod *num.Modulus) *Operator {
 		scFacs: computeScalingFactor(params.BaseModulus(), msgMod),
 
 		ePool: rlwe.NewElementPool(params, true, true),
-		ctPool: &sync.Pool{
-			New: func() any {
-				return rlwe.NewCiphertextCustom(params.Rank(), len(ambBaseMod), 0, true)
-			},
-		},
+		ctPool: pool.NewPool(func() *rlwe.Ciphertext {
+			return rlwe.NewCiphertextCustom(params.Rank(), len(ambBaseMod), 0, true)
+		}),
 	}
 }
 
@@ -130,8 +128,8 @@ func (op *Operator) NegTo(ctOut, ct *rlwe.Ciphertext, isNTT bool) {
 func (op *Operator) AddTo(ctOut, ct0, ct1 *rlwe.Ciphertext, isNTT bool) {
 	tarLen := min(ct0.BaseModLen(), ct1.BaseModLen())
 
-	c0 := op.ctPool.Get().(*rlwe.Ciphertext)
-	c1 := op.ctPool.Get().(*rlwe.Ciphertext)
+	c0 := op.ctPool.Get()
+	c1 := op.ctPool.Get()
 	defer op.ctPool.Put(c0)
 	defer op.ctPool.Put(c1)
 
@@ -220,8 +218,8 @@ func (op *Operator) AddElementTo(ctOut, ct *rlwe.Ciphertext, e *rlwe.Element, is
 func (op *Operator) SubTo(ctOut, ct0, ct1 *rlwe.Ciphertext, isNTT bool) {
 	tarLen := min(ct0.BaseModLen(), ct1.BaseModLen())
 
-	c0 := op.ctPool.Get().(*rlwe.Ciphertext)
-	c1 := op.ctPool.Get().(*rlwe.Ciphertext)
+	c0 := op.ctPool.Get()
+	c1 := op.ctPool.Get()
 	defer op.ctPool.Put(c0)
 	defer op.ctPool.Put(c1)
 

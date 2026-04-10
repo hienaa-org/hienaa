@@ -2,10 +2,10 @@ package bgv
 
 import (
 	"math"
-	"sync"
 
 	"github.com/hienaa-org/hienaa/fhe/internal/heint"
 	"github.com/hienaa-org/hienaa/fhe/rlwe"
+	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/num"
 )
@@ -21,8 +21,8 @@ type Operator struct {
 	noise *NoiseEstimator
 
 	ePool  *rlwe.ElementPool
-	ctPool *sync.Pool
-	vPool  *sync.Pool
+	ctPool *pool.Pool[*Ciphertext]
+	vPool  *pool.Pool[*rlwe.Vector]
 }
 
 // NewOperator creates a new [Operator].
@@ -37,16 +37,12 @@ func NewOperator(params rlwe.Parameters, msgMod *num.Modulus, estimType heint.Es
 		noise: NewNoiseEstimator(params, msgMod, estimType),
 
 		ePool: rlwe.NewElementPool(params, false, true),
-		ctPool: &sync.Pool{
-			New: func() any {
-				return NewCiphertext(params, true)
-			},
-		},
-		vPool: &sync.Pool{
-			New: func() any {
-				return rlwe.NewVector(params, 3, false, true)
-			},
-		},
+		ctPool: pool.NewPool(func() *Ciphertext {
+			return NewCiphertext(params, true)
+		}),
+		vPool: pool.NewPool(func() *rlwe.Vector {
+			return rlwe.NewVector(params, 3, false, true)
+		}),
 	}
 }
 
@@ -89,7 +85,7 @@ func (op *Operator) RescaleTo(ctOut, ct *Ciphertext, isNTT bool) {
 		panic("ciphertext noise is too large")
 	}
 
-	buf := op.ctPool.Get().(*Ciphertext)
+	buf := op.ctPool.Get()
 	defer op.ctPool.Put(buf)
 	buf = buf.WithModLen(tarLen)
 
@@ -244,7 +240,7 @@ func (op *Operator) MulTo(ctOut, ct0, ct1 *Ciphertext, rlk *rlwe.RelinKey, isNTT
 	tarLen, auxIdx, auxMod := op.getAuxMod(ct0, ct1)
 
 	// Tensoring the ciphertexts.
-	v := op.vPool.Get().(*rlwe.Vector)
+	v := op.vPool.Get()
 	defer op.vPool.Put(v)
 	v = v.WithModLen(tarLen, 0)
 
@@ -336,7 +332,7 @@ func (op *Operator) scaleToMulModTo(ctOut *Ciphertext, ctIn *Ciphertext, auxIdx 
 	sc := crt.NewScaler(outMod, inMod)
 	opOut := crt.NewOperator(op.params.RingParams(), outMod)
 	if ctIn.Value.IsNTT() {
-		ctBuf := op.ctPool.Get().(*Ciphertext)
+		ctBuf := op.ctPool.Get()
 		defer op.ctPool.Put(ctBuf)
 		ctBuf = ctBuf.WithModLen(inLen)
 
@@ -355,8 +351,8 @@ func (op *Operator) scaleToMulModTo(ctOut *Ciphertext, ctIn *Ciphertext, auxIdx 
 // TensorTo tensors two ciphertexts in the multiplication modulus into a vector.
 // Input and output are in the NTT form.
 func (op *Operator) tensorTo(v *rlwe.Vector, ct0, ct1 *Ciphertext, tarLen int, auxIdx int, auxMod *num.Modulus, isNTT bool) {
-	c0 := op.ctPool.Get().(*Ciphertext)
-	c1 := op.ctPool.Get().(*Ciphertext)
+	c0 := op.ctPool.Get()
+	c1 := op.ctPool.Get()
 	defer op.ctPool.Put(c0)
 	defer op.ctPool.Put(c1)
 	c0 = c0.WithModLen(tarLen)

@@ -2,8 +2,8 @@ package dft
 
 import (
 	"slices"
-	"sync"
 
+	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
 )
@@ -98,7 +98,7 @@ type pow235CyclicTransformer struct {
 	// Empty if the mapping is not needed, or in other words, rank is a prime power.
 	idx []int
 
-	pool *sync.Pool
+	pool *pool.Pool[*[]uint64]
 }
 
 // newCyclicPow235Transformer creates a new [cyclicNativeTransformer].
@@ -174,19 +174,17 @@ func newCyclicPow235Transformer(params RingParameters, mod *num.Modulus) *pow235
 
 		idx: idx,
 
-		pool: &sync.Pool{
-			New: func() any {
-				v := make([]uint64, params.rank)
-				return &v
-			},
-		},
+		pool: pool.NewPool(func() *[]uint64 {
+			v := make([]uint64, params.rank)
+			return &v
+		}),
 	}
 }
 
 // ForwardTo transforms the uint64 vector to NTT form.
 func (ntt *pow235CyclicTransformer) ForwardTo(vNTT, v []uint64) {
 	if len(ntt.idx) > 0 {
-		vBufPtr := ntt.pool.Get().(*[]uint64)
+		vBufPtr := ntt.pool.Get()
 		vBuf := *vBufPtr
 		defer ntt.pool.Put(vBufPtr)
 
@@ -238,7 +236,7 @@ func (ntt *pow235CyclicTransformer) InverseTo(v, vNTT []uint64) {
 	}
 
 	if len(ntt.idx) > 0 {
-		vBufPtr := ntt.pool.Get().(*[]uint64)
+		vBufPtr := ntt.pool.Get()
 		vBuf := *vBufPtr
 		defer ntt.pool.Put(vBufPtr)
 
@@ -285,7 +283,7 @@ type anyCyclicTransformer struct {
 	// chirpInv is the inverse chirp factor for Bluestein NTT.
 	chirpInv []uint64
 
-	pool *sync.Pool
+	pool *pool.Pool[*[]uint64]
 }
 
 // newAnyCyclicTransformer creates a new [anyCyclicTransformer].
@@ -339,18 +337,16 @@ func newAnyCyclicTransformer(params RingParameters, mod *num.Modulus) *anyCyclic
 		chirpMS:  vec.SForm(chirpM, mod),
 		chirpInv: chirpInv,
 
-		pool: &sync.Pool{
-			New: func() any {
-				v := make([]uint64, ambRank)
-				return &v
-			},
-		},
+		pool: pool.NewPool(func() *[]uint64 {
+			v := make([]uint64, ambRank)
+			return &v
+		}),
 	}
 }
 
 // ForwardTo transforms the uint64 vector to NTT form.
 func (ntt *anyCyclicTransformer) ForwardTo(vNTT, v []uint64) {
-	vBufPtr := ntt.pool.Get().(*[]uint64)
+	vBufPtr := ntt.pool.Get()
 	vBuf := *vBufPtr
 	defer ntt.pool.Put(vBufPtr)
 
@@ -368,7 +364,7 @@ func (ntt *anyCyclicTransformer) ForwardTo(vNTT, v []uint64) {
 
 // InverseTo transforms the uint64 vector to Standard form.
 func (ntt *anyCyclicTransformer) InverseTo(v, vNTT []uint64) {
-	vBufPtr := ntt.pool.Get().(*[]uint64)
+	vBufPtr := ntt.pool.Get()
 	vBuf := *vBufPtr
 	defer ntt.pool.Put(vBufPtr)
 

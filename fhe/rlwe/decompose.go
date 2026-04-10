@@ -3,8 +3,8 @@ package rlwe
 import (
 	"math"
 	"math/big"
-	"sync"
 
+	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
@@ -161,7 +161,7 @@ type digitDecomposer struct {
 	digitEmbedder []*crt.Embedder
 	modEmbedder   *crt.Embedder
 
-	pool *sync.Pool
+	pool *pool.Pool[*Element]
 }
 
 // newDigitDecomposer creates a new [digitDecomposer].
@@ -200,11 +200,9 @@ func newDigitDecomposer(params Parameters) Decomposer {
 		digitEmbedder: digitEmbedder,
 		modEmbedder:   modEmbedder,
 
-		pool: &sync.Pool{
-			New: func() any {
-				return NewPoly(params, false, false)
-			},
-		},
+		pool: pool.NewPool(func() *Element {
+			return NewPoly(params, false, false)
+		}),
 	}
 }
 
@@ -259,7 +257,7 @@ func (d *digitDecomposer) DecomposeTo(pOut *Vector, p *Element) {
 		panic("output not consistent")
 	}
 
-	pBuf := d.pool.Get().(*Element)
+	pBuf := d.pool.Get()
 	defer d.pool.Put(pBuf)
 
 	pBuf = pBuf.WithModLen(baseLen, 0)

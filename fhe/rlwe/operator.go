@@ -2,8 +2,8 @@ package rlwe
 
 import (
 	"math/big"
-	"sync"
 
+	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
@@ -14,7 +14,7 @@ type PlainOperator struct {
 	Params Parameters
 	crtOp  *crt.Operator
 
-	pPool *sync.Pool
+	pPool *pool.Pool[*crt.Element]
 }
 
 // NewPlainOperator creates a new [PlainOperator].
@@ -23,11 +23,9 @@ func NewPlainOperator(params Parameters) *PlainOperator {
 		Params: params,
 		crtOp:  params.crtOp,
 
-		pPool: &sync.Pool{
-			New: func() any {
-				return crt.NewPoly(params.Rank(), len(params.fullMod))
-			},
-		},
+		pPool: pool.NewPool(func() *crt.Element {
+			return crt.NewPoly(params.Rank(), len(params.fullMod))
+		}),
 	}
 }
 
@@ -204,7 +202,7 @@ func (op *PlainOperator) ModRaiseTo(eOut, e *Element, isNTT bool) {
 		if e.IsNTT() && isNTT {
 			emb := crt.NewEmbedder(op.Params.baseMod[inLen:outLen], op.Params.baseMod[:inLen])
 
-			pNTT := op.pPool.Get().(*crt.Element)
+			pNTT := op.pPool.Get()
 			defer op.pPool.Put(pNTT)
 			pNTT = pNTT.WithModIdx(vec.Range(0, inLen)...)
 
@@ -230,7 +228,7 @@ func (op *PlainOperator) ModRaiseTo(eOut, e *Element, isNTT bool) {
 			emb := crt.NewEmbedder(op.Params.baseMod[:outLen], op.Params.baseMod[:inLen])
 
 			if e.IsNTT() {
-				pNTT := op.pPool.Get().(*crt.Element)
+				pNTT := op.pPool.Get()
 				defer op.pPool.Put(pNTT)
 				pNTTIn := pNTT.WithModIdx(vec.Range(0, inLen)...)
 
@@ -295,7 +293,7 @@ func (op *PlainOperator) DivByAuxModulusTo(eOut, e *Element, isNTT bool) {
 		}
 	}
 
-	pDiv := op.pPool.Get().(*crt.Element)
+	pDiv := op.pPool.Get()
 	defer op.pPool.Put(pDiv)
 	pDivBase := pDiv.WithModIdx(vec.Range(auxLen, auxLen+baseLen)...)
 	pDivAux := pDiv.WithModIdx(vec.Range(0, auxLen)...)
@@ -367,7 +365,7 @@ func (op *PlainOperator) ScaleTo(eOut, e *Element, l int, isNTT bool) {
 		opOut := op.crtOp.SubOperator(vec.Range(auxLen, auxLen+outLen)...)
 		opScale := op.crtOp.SubOperator(vec.Range(auxLen+outLen, auxLen+inLen)...)
 
-		p := op.pPool.Get().(*crt.Element)
+		p := op.pPool.Get()
 		defer op.pPool.Put(p)
 
 		pIn := p.WithModIdx(vec.Range(0, inLen)...)
@@ -466,9 +464,9 @@ type Operator struct {
 	plainOp *PlainOperator
 	dcmp    Decomposer
 
-	pPool    *sync.Pool
-	ctPool   *sync.Pool
-	dcmpPool *sync.Pool
+	pPool    *pool.Pool[*Element]
+	ctPool   *pool.Pool[*Ciphertext]
+	dcmpPool *pool.Pool[*Vector]
 }
 
 // NewOperator creates a new [Operator].
@@ -479,21 +477,15 @@ func NewOperator(params Parameters) *Operator {
 		plainOp: NewPlainOperator(params),
 		dcmp:    NewDecomposer(params),
 
-		pPool: &sync.Pool{
-			New: func() any {
-				return NewElement(params.Rank(), len(params.baseMod), len(params.auxMod), true)
-			},
-		},
-		ctPool: &sync.Pool{
-			New: func() any {
-				return NewCiphertext(params, params.HasAuxModulus(), true)
-			},
-		},
-		dcmpPool: &sync.Pool{
-			New: func() any {
-				return NewVector(params, params.GadgetLen(), params.HasAuxModulus(), false)
-			},
-		},
+		pPool: pool.NewPool(func() *Element {
+			return NewElement(params.Rank(), len(params.baseMod), len(params.auxMod), true)
+		}),
+		ctPool: pool.NewPool(func() *Ciphertext {
+			return NewCiphertext(params, params.HasAuxModulus(), true)
+		}),
+		dcmpPool: pool.NewPool(func() *Vector {
+			return NewVector(params, params.GadgetLen(), params.HasAuxModulus(), false)
+		}),
 	}
 }
 
@@ -707,7 +699,7 @@ func (op *Operator) HoistedGadgetProdLazyTo(ctOut *Ciphertext, pDcmp *Vector, ct
 		panic("inconsistent input(s)")
 	}
 
-	ctBuf := op.ctPool.Get().(*Ciphertext)
+	ctBuf := op.ctPool.Get()
 	defer op.ctPool.Put(ctBuf)
 
 	ctBuf = ctBuf.WithModLen(baseLen, auxLen)
@@ -735,7 +727,7 @@ func (op *Operator) HoistedGadgetProd(pDcmp *Vector, ctGadEnc *GadgetEncryption,
 
 // HoistedGadgetProdTo computes ctOut = p * ctGadEnc, where the decomposition of p is precomputed.
 func (op *Operator) HoistedGadgetProdTo(ctOut *Ciphertext, pDcmp *Vector, ctGadEnc *GadgetEncryption, isNTT bool) {
-	ctOutAux := op.ctPool.Get().(*Ciphertext)
+	ctOutAux := op.ctPool.Get()
 	defer op.ctPool.Put(ctOutAux)
 	ctOutAux = ctOutAux.WithModLen(pDcmp.BaseModLen(), pDcmp.AuxModLen())
 
@@ -771,7 +763,7 @@ func (op *Operator) GadgetProdLazyTo(ctOut *Ciphertext, p *Element, ctGadEnc *Ga
 
 	baseLen, auxLen := p.BaseModLen(), op.dcmp.AuxModLen(p.BaseModLen())
 
-	pInvNTT := op.pPool.Get().(*Element)
+	pInvNTT := op.pPool.Get()
 	defer op.pPool.Put(pInvNTT)
 	pInvNTT = pInvNTT.WithModLen(baseLen, 0)
 	if p.Value.IsNTT {
@@ -780,7 +772,7 @@ func (op *Operator) GadgetProdLazyTo(ctOut *Ciphertext, p *Element, ctGadEnc *Ga
 		pInvNTT.CopyFrom(p)
 	}
 
-	pDcmp := op.dcmpPool.Get().(*Vector)
+	pDcmp := op.dcmpPool.Get()
 	defer op.dcmpPool.Put(pDcmp)
 	pDcmp = pDcmp.Slice(vec.Range(0, op.dcmp.DecomposeLen(baseLen))...).WithModLen(baseLen, auxLen)
 	op.dcmp.DecomposeTo(pDcmp, pInvNTT)
@@ -809,7 +801,7 @@ func (op *Operator) GadgetProdTo(ctOut *Ciphertext, p *Element, ctGadEnc *Gadget
 
 	baseLen, auxLen := p.BaseModLen(), op.dcmp.AuxModLen(p.BaseModLen())
 
-	pInvNTT := op.pPool.Get().(*Element)
+	pInvNTT := op.pPool.Get()
 	defer op.pPool.Put(pInvNTT)
 	pInvNTT = pInvNTT.WithModLen(baseLen, 0)
 	if p.Value.IsNTT {
@@ -818,7 +810,7 @@ func (op *Operator) GadgetProdTo(ctOut *Ciphertext, p *Element, ctGadEnc *Gadget
 		pInvNTT.CopyFrom(p)
 	}
 
-	pDcmp := op.dcmpPool.Get().(*Vector)
+	pDcmp := op.dcmpPool.Get()
 	defer op.dcmpPool.Put(pDcmp)
 	pDcmp = pDcmp.Slice(vec.Range(0, op.dcmp.DecomposeLen(baseLen))...).WithModLen(baseLen, auxLen)
 	op.dcmp.DecomposeTo(pDcmp, pInvNTT)
@@ -849,7 +841,7 @@ func (op *Operator) RelinTo(cOut *Ciphertext, cIn *Vector, rlk *RelinKey, isNTT 
 	baseLen := cIn.BaseModLen()
 	pOp := op.plainOp
 
-	pNTT := op.pPool.Get().(*Element)
+	pNTT := op.pPool.Get()
 	defer op.pPool.Put(pNTT)
 	pNTT = pNTT.WithModLen(baseLen, 0)
 
@@ -897,7 +889,7 @@ func (op *Operator) KeySwitchTo(cOut *Ciphertext, cIn *Ciphertext, ksk *KeySwitc
 	auxLen := op.dcmp.AuxModLen(baseLen)
 	dcmpLen := op.dcmp.DecomposeLen(baseLen)
 
-	pNTT := op.pPool.Get().(*Element)
+	pNTT := op.pPool.Get()
 	defer op.pPool.Put(pNTT)
 	pNTT = pNTT.WithModLen(baseLen, 0)
 
@@ -907,7 +899,7 @@ func (op *Operator) KeySwitchTo(cOut *Ciphertext, cIn *Ciphertext, ksk *KeySwitc
 		pNTT.CopyFrom(cIn.Mask)
 	}
 
-	pDcmp := op.dcmpPool.Get().(*Vector)
+	pDcmp := op.dcmpPool.Get()
 	defer op.dcmpPool.Put(pDcmp)
 	pDcmp = pDcmp.Slice(vec.Range(0, dcmpLen)...).WithModLen(baseLen, auxLen)
 
@@ -934,7 +926,7 @@ func (op *Operator) HoistedKeySwitchTo(cOut *Ciphertext, decmp *Vector, cIn *Cip
 
 	pOp := op.plainOp
 
-	pNTT := op.pPool.Get().(*Element)
+	pNTT := op.pPool.Get()
 	defer op.pPool.Put(pNTT)
 	pNTT = pNTT.WithModLen(cIn.BaseModLen(), 0)
 
@@ -1002,7 +994,7 @@ func (op *Operator) ExtProdTo(cOut *Ciphertext, cIn *Ciphertext, gsw *RGSW, isNT
 		panic("Ciphertext must not have auxiliary modulus.")
 	}
 
-	ctExt := op.ctPool.Get().(*Ciphertext)
+	ctExt := op.ctPool.Get()
 	defer op.ctPool.Put(ctExt)
 	ctExt = ctExt.WithModLen(cIn.BaseModLen(), 0)
 
@@ -1018,7 +1010,7 @@ func (op *Operator) ExtProdLazyTo(cOut *Ciphertext, cIn *Ciphertext, gsw *RGSW, 
 		panic("Ciphertext must not have auxiliary modulus.")
 	}
 
-	ctExt := op.ctPool.Get().(*Ciphertext)
+	ctExt := op.ctPool.Get()
 	defer op.ctPool.Put(ctExt)
 	ctExt = ctExt.WithModLen(cIn.BaseModLen(), op.dcmp.AuxModLen(cIn.BaseModLen()))
 
@@ -1030,7 +1022,7 @@ func (op *Operator) ExtProdLazyTo(cOut *Ciphertext, cIn *Ciphertext, gsw *RGSW, 
 
 // HoistedExtProdTo performs a hoisted external product and stores the result in cOut.
 func (op *Operator) HoistedExtProdTo(cOut *Ciphertext, decmpBody *Vector, decmpMask *Vector, gsw *RGSW, isNTT bool) {
-	ctExt := op.ctPool.Get().(*Ciphertext)
+	ctExt := op.ctPool.Get()
 	defer op.ctPool.Put(ctExt)
 	ctExt = ctExt.WithModLen(decmpBody.BaseModLen(), 0)
 
@@ -1042,7 +1034,7 @@ func (op *Operator) HoistedExtProdTo(cOut *Ciphertext, decmpBody *Vector, decmpM
 
 // HoistedExtProdLazyTo performs a hoisted external product and stores the result in cOut.
 func (op *Operator) HoistedExtProdLazyTo(cOut *Ciphertext, decmpBody *Vector, decmpMask *Vector, gsw *RGSW, isNTT bool) {
-	ctExt := op.ctPool.Get().(*Ciphertext)
+	ctExt := op.ctPool.Get()
 	defer op.ctPool.Put(ctExt)
 	ctExt = ctExt.WithModLen(decmpBody.BaseModLen(), op.dcmp.AuxModLen(decmpBody.BaseModLen()))
 

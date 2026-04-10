@@ -1,8 +1,7 @@
 package crt
 
 import (
-	"sync"
-
+	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
@@ -20,7 +19,7 @@ type LongDivReducer struct {
 	// modPoly is the polynomial we target to reduce to.
 	modPoly [][]uint64
 
-	pool *sync.Pool
+	pool *pool.Pool[*[]uint64]
 }
 
 // NewLongDivReducer creates a new [LongDivReducer].
@@ -43,18 +42,16 @@ func NewLongDivReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *LongDi
 		maxRank: maxRank,
 		modPoly: modPolyRed,
 
-		pool: &sync.Pool{
-			New: func() any {
-				v := make([]uint64, max(maxRank, maxRank-len(modPoly)+1))
-				return &v
-			},
-		},
+		pool: pool.NewPool(func() *[]uint64 {
+			v := make([]uint64, max(maxRank, maxRank-len(modPoly)+1))
+			return &v
+		}),
 	}
 }
 
 // quoRemTo computes quotient and remainder of p to pQuo, pRem with the idx-th modulus.
 func (r *LongDivReducer) quoRemTo(pQuo, pRem, p []uint64, idx int) {
-	pInPtr := r.pool.Get().(*[]uint64)
+	pInPtr := r.pool.Get()
 	pIn := (*pInPtr)[:r.maxRank]
 	defer r.pool.Put(pInPtr)
 
@@ -100,7 +97,7 @@ func (r *LongDivReducer) ReduceTo(pOut, p *Element) {
 		panic("input(s) not consistent")
 	}
 
-	pQuoPtr := r.pool.Get().(*[]uint64)
+	pQuoPtr := r.pool.Get()
 	pQuo := (*pQuoPtr)[:r.maxRank-len(r.modPoly[0])+1]
 	defer r.pool.Put(pQuoPtr)
 
@@ -130,7 +127,7 @@ func (r *LongDivReducer) QuotientTo(pOut, p *Element) {
 		panic("input(s) not consistent")
 	}
 
-	pRemPtr := r.pool.Get().(*[]uint64)
+	pRemPtr := r.pool.Get()
 	pRem := (*pRemPtr)[:r.params.Rank()]
 	defer r.pool.Put(pRemPtr)
 
@@ -237,7 +234,7 @@ type CyclotomicReducer struct {
 	// Precisely, it is floor(X^d_qs/\Phi_m(X)) modulo the modulus, where d_qs is the degree of the quotient polynomial Q_sp.
 	divPoly [][][]uint64
 
-	pool *sync.Pool
+	pool *pool.Pool[*[][]uint64]
 }
 
 // NewCyclotomicReducer creates a new [CyclotomicReducer].
@@ -390,15 +387,13 @@ func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *Cyclot
 		cycloPoly: cycloPoly,
 		divPoly:   divPoly,
 
-		pool: &sync.Pool{
-			New: func() any {
-				p := make([][]uint64, max(1, vec.Max(ambModLen)))
-				for i := range p {
-					p[i] = make([]uint64, max(cycloOrd, diffDegNext, degNext))
-				}
-				return &p
-			},
-		},
+		pool: pool.NewPool(func() *[][]uint64 {
+			p := make([][]uint64, max(1, vec.Max(ambModLen)))
+			for i := range p {
+				p[i] = make([]uint64, max(cycloOrd, diffDegNext, degNext))
+			}
+			return &p
+		}),
 	}
 }
 
@@ -406,7 +401,7 @@ func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *Cyclot
 func (r *CyclotomicReducer) reduceTo(pOut, p []uint64, idx int) {
 	cycloOrd, rank := r.params.CycloOrder(), r.params.Rank()
 
-	pInPtr := r.pool.Get().(*[][]uint64)
+	pInPtr := r.pool.Get()
 	pIn := (*pInPtr)[0][:cycloOrd]
 	defer r.pool.Put(pInPtr)
 
@@ -441,7 +436,7 @@ func (r *CyclotomicReducer) reduceTo(pOut, p []uint64, idx int) {
 	}
 
 	if !r.isTrivial {
-		pQuoPtr := r.pool.Get().(*[][]uint64)
+		pQuoPtr := r.pool.Get()
 		pQuo := *pQuoPtr
 		for i := range pQuo {
 			pQuo[i] = pQuo[i][:r.diffDegNext]
@@ -470,7 +465,7 @@ func (r *CyclotomicReducer) reduceTo(pOut, p []uint64, idx int) {
 			r.embedder[idx].EmbedVecTo(pQuo[:1], pQuo[:r.ambModLen[idx]])
 		}
 
-		pRemPtr := r.pool.Get().(*[][]uint64)
+		pRemPtr := r.pool.Get()
 		pRem := *pRemPtr
 		for i := range pRem {
 			pRem[i] = pRem[i][:r.degNext]
@@ -670,7 +665,7 @@ type Reducer struct {
 	// Precisely, it is floor(X^d_qs/modPoly(X)) modulo the modulus, where d_qs is the degree of the quotient polynomial Q_sp.
 	divPoly [][][]uint64
 
-	pool *sync.Pool
+	pool *pool.Pool[*[][]uint64]
 }
 
 // NewReducer creates a new [Reducer].
@@ -807,15 +802,13 @@ func NewReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *Reducer {
 		modPoly: modPolyRed,
 		divPoly: divPoly,
 
-		pool: &sync.Pool{
-			New: func() any {
-				p := make([][]uint64, max(1, vec.Max(ambModLen)))
-				for i := range p {
-					p[i] = make([]uint64, max(maxRank, diffDegNext, degNext))
-				}
-				return &p
-			},
-		},
+		pool: pool.NewPool(func() *[][]uint64 {
+			p := make([][]uint64, max(1, vec.Max(ambModLen)))
+			for i := range p {
+				p[i] = make([]uint64, max(maxRank, diffDegNext, degNext))
+			}
+			return &p
+		}),
 	}
 }
 
@@ -823,13 +816,13 @@ func NewReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *Reducer {
 func (r *Reducer) reduceTo(pOut, p []uint64, idx int) {
 	rank := r.params.Rank()
 
-	pInPtr := r.pool.Get().(*[][]uint64)
+	pInPtr := r.pool.Get()
 	pIn := (*pInPtr)[0][:r.maxRank]
 	defer r.pool.Put(pInPtr)
 
 	copy(pIn, p)
 
-	pQuoPtr := r.pool.Get().(*[][]uint64)
+	pQuoPtr := r.pool.Get()
 	pQuo := *pQuoPtr
 	for i := range pQuo {
 		pQuo[i] = pQuo[i][:r.diffDegNext]
@@ -858,7 +851,7 @@ func (r *Reducer) reduceTo(pOut, p []uint64, idx int) {
 		r.embedder[idx].EmbedVecTo(pQuo[:1], pQuo[:r.ambModLen[idx]])
 	}
 
-	pRemPtr := r.pool.Get().(*[][]uint64)
+	pRemPtr := r.pool.Get()
 	pRem := *pRemPtr
 	for i := range pRem {
 		pRem[i] = pRem[i][:r.degNext]

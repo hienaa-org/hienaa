@@ -1,8 +1,7 @@
 package dft
 
 import (
-	"sync"
-
+	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
 )
@@ -97,7 +96,7 @@ type anyCyclotomicTransformer struct {
 	// idx is the CRT mapping index.
 	idx []int
 
-	pool *sync.Pool
+	pool *pool.Pool[*[]uint64]
 }
 
 // newAnyCyclotomicTransformer creates a new [anyCyclotomicTransformer].
@@ -189,12 +188,10 @@ func newAnyCyclotomicTransformer(params RingParameters, mod *num.Modulus) *anyCy
 
 		idx: idx,
 
-		pool: &sync.Pool{
-			New: func() any {
-				v := make([]uint64, params.cycloOrd)
-				return &v
-			},
-		},
+		pool: pool.NewPool(func() *[]uint64 {
+			v := make([]uint64, params.cycloOrd)
+			return &v
+		}),
 	}
 }
 
@@ -202,7 +199,7 @@ func newAnyCyclotomicTransformer(params RingParameters, mod *num.Modulus) *anyCy
 func (ntt *anyCyclotomicTransformer) ForwardTo(vNTT, v []uint64) {
 	checkLength(ntt.params.rank, len(vNTT), len(v))
 
-	vBufPtr := ntt.pool.Get().(*[]uint64)
+	vBufPtr := ntt.pool.Get()
 	vBuf := *vBufPtr
 	defer ntt.pool.Put(vBufPtr)
 
@@ -220,7 +217,7 @@ func (ntt *anyCyclotomicTransformer) ForwardTo(vNTT, v []uint64) {
 func (ntt *anyCyclotomicTransformer) InverseTo(v, vNTT []uint64) {
 	checkLength(ntt.params.rank, len(vNTT), len(v))
 
-	vBufPtr := ntt.pool.Get().(*[]uint64)
+	vBufPtr := ntt.pool.Get()
 	vBuf := *vBufPtr
 	defer ntt.pool.Put(vBufPtr)
 

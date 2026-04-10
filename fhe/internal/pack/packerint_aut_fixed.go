@@ -3,10 +3,10 @@ package pack
 import (
 	"math/bits"
 	"slices"
-	"sync"
 
 	"github.com/hienaa-org/hienaa/fhe/internal/gnum"
 	"github.com/hienaa-org/hienaa/fhe/internal/gr"
+	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
@@ -31,7 +31,7 @@ type pow2AutFixedMod1IntPacker struct {
 
 	cycloOrdMod *num.Modulus
 
-	pool *sync.Pool
+	pool *pool.Pool[*[]uint64]
 }
 
 // newPow2AutFixedMod1IntPacker creates a new [pow2AutFixedMod1IntPacker].
@@ -60,12 +60,10 @@ func newPow2AutFixedMod1IntPacker(params dft.RingParameters, mod *num.Modulus) *
 
 		cycloOrdMod: num.NewModulus(params.CycloOrder()),
 
-		pool: &sync.Pool{
-			New: func() any {
-				v := make([]uint64, packLen)
-				return &v
-			},
-		},
+		pool: pool.NewPool(func() *[]uint64 {
+			v := make([]uint64, packLen)
+			return &v
+		}),
 	}
 }
 
@@ -99,11 +97,11 @@ func (p *pow2AutFixedMod1IntPacker) PackTo(vPack, v []uint64) {
 
 	vLen := len(v)
 
-	vBufPtr := p.pool.Get().(*[]uint64)
+	vBufPtr := p.pool.Get()
 	vBuf := *vBufPtr
 	defer p.pool.Put(vBufPtr)
 
-	vBufPow5Ptr := p.pool.Get().(*[]uint64)
+	vBufPow5Ptr := p.pool.Get()
 	vBufPow5 := *vBufPow5Ptr
 	defer p.pool.Put(vBufPow5Ptr)
 
@@ -155,11 +153,11 @@ func (p *pow2AutFixedMod1IntPacker) UnPackTo(v, vPack []uint64) {
 
 	vLen := len(v)
 
-	vBufPtr := p.pool.Get().(*[]uint64)
+	vBufPtr := p.pool.Get()
 	vBuf := *vBufPtr
 	defer p.pool.Put(vBufPtr)
 
-	vBufPow5Ptr := p.pool.Get().(*[]uint64)
+	vBufPow5Ptr := p.pool.Get()
 	vBufPow5 := *vBufPow5Ptr
 	defer p.pool.Put(vBufPow5Ptr)
 
@@ -236,7 +234,7 @@ type pow2AutFixedMod3IntPacker struct {
 	// rankInv is the modular inverse of the rank.
 	rankInv uint64
 
-	pool *sync.Pool
+	pool *pool.Pool[*[]gnum.GaussianInt]
 }
 
 // newPow2AutFixedMod3IntPacker creates a new [pow2AutFixedMod3IntPacker].
@@ -351,12 +349,10 @@ func newPow2AutFixedMod3IntPacker(params dft.RingParameters, mod *num.Modulus) *
 
 		rankInv: num.Inv(uint64(nttRank<<1), mod),
 
-		pool: &sync.Pool{
-			New: func() any {
-				v := make([]gnum.GaussianInt, nttRank)
-				return &v
-			},
-		},
+		pool: pool.NewPool(func() *[]gnum.GaussianInt {
+			v := make([]gnum.GaussianInt, nttRank)
+			return &v
+		}),
 	}
 }
 
@@ -390,7 +386,7 @@ func (p *pow2AutFixedMod3IntPacker) PackTo(vPack, v []uint64) {
 
 	vLen := len(v)
 
-	vBufPtr := p.pool.Get().(*[]gnum.GaussianInt)
+	vBufPtr := p.pool.Get()
 	vBuf := *vBufPtr
 	defer p.pool.Put(vBufPtr)
 
@@ -434,7 +430,7 @@ func (p *pow2AutFixedMod3IntPacker) UnPackTo(v, vPack []uint64) {
 
 	vLen := len(v)
 
-	vBufPtr := p.pool.Get().(*[]gnum.GaussianInt)
+	vBufPtr := p.pool.Get()
 	vBuf := *vBufPtr
 	defer p.pool.Put(vBufPtr)
 
@@ -503,7 +499,7 @@ type primeAutFixedIntPacker struct {
 	// embedder is the embedder for the packing.
 	embedder *crt.Embedder
 
-	pool *sync.Pool
+	pool *pool.Pool[*[][]uint64]
 }
 
 // newAutFixedPrimeIntPacker creates a new [primeAutFixedIntPacker].
@@ -589,15 +585,13 @@ func newAutFixedPrimeIntPacker(params dft.RingParameters, mod *num.Modulus) *pri
 		ambNTT:   ambNTT,
 		embedder: embedder,
 
-		pool: &sync.Pool{
-			New: func() any {
-				v := make([][]uint64, len(ambMod))
-				for i := range v {
-					v[i] = make([]uint64, ambRank)
-				}
-				return &v
-			},
-		},
+		pool: pool.NewPool(func() *[][]uint64 {
+			v := make([][]uint64, len(ambMod))
+			for i := range v {
+				v[i] = make([]uint64, ambRank)
+			}
+			return &v
+		}),
 	}
 }
 
@@ -733,7 +727,7 @@ func (p *primeAutFixedIntPacker) PackTo(vPack, v []uint64) {
 		panic("input(s) shape not consistent")
 	}
 
-	vBufPtr := p.pool.Get().(*[][]uint64)
+	vBufPtr := p.pool.Get()
 	vBuf := *vBufPtr
 	defer p.pool.Put(vBufPtr)
 
@@ -773,7 +767,7 @@ func (p *primeAutFixedIntPacker) UnPackTo(v, vPack []uint64) {
 		panic("input(s) shape not consistent")
 	}
 
-	vBufPtr := p.pool.Get().(*[][]uint64)
+	vBufPtr := p.pool.Get()
 	vBuf := *vBufPtr
 	defer p.pool.Put(vBufPtr)
 

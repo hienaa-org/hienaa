@@ -1,8 +1,7 @@
 package crt
 
 import (
-	"sync"
-
+	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
@@ -38,7 +37,7 @@ type baseMulOperator struct {
 	ambNTT    []dft.Transformer
 	embedder  []*Embedder
 
-	pool *sync.Pool
+	pool *pool.Pool[*Element]
 }
 
 // newBaseMulOperator creates a new [baseMulOperator].
@@ -95,11 +94,9 @@ func newBaseMulOperator(params dft.RingParameters, mod []*num.Modulus) *baseMulO
 		ambNTT:    ambNTT,
 		embedder:  embedder,
 
-		pool: &sync.Pool{
-			New: func() any {
-				return NewPoly(params.Rank(), max(1, vec.Max(ambModLen)))
-			},
-		},
+		pool: pool.NewPool(func() *Element {
+			return NewPoly(params.Rank(), max(1, vec.Max(ambModLen)))
+		}),
 	}
 }
 
@@ -129,8 +126,8 @@ func (op *baseMulOperator) MulTo(eOut, e0, e1 *Element) {
 		var e0Amb, e1Amb *Element
 		for i := range op.ambModLen {
 			if op.ambModLen[i] > 0 {
-				e0Amb = op.pool.Get().(*Element)
-				e1Amb = op.pool.Get().(*Element)
+				e0Amb = op.pool.Get()
+				e1Amb = op.pool.Get()
 				defer op.pool.Put(e0Amb)
 				defer op.pool.Put(e1Amb)
 				break
@@ -178,8 +175,8 @@ func (op *baseMulOperator) MulAddTo(eOut, e0, e1 *Element) {
 		var e0Amb, e1Amb *Element
 		for i := range op.ambModLen {
 			if op.ambModLen[i] > 0 {
-				e0Amb = op.pool.Get().(*Element)
-				e1Amb = op.pool.Get().(*Element)
+				e0Amb = op.pool.Get()
+				e1Amb = op.pool.Get()
 				defer op.pool.Put(e0Amb)
 				defer op.pool.Put(e1Amb)
 				break
@@ -228,8 +225,8 @@ func (op *baseMulOperator) MulSubTo(eOut, e0, e1 *Element) {
 		var e0Amb, e1Amb *Element
 		for i := range op.ambModLen {
 			if op.ambModLen[i] > 0 {
-				e0Amb = op.pool.Get().(*Element)
-				e1Amb = op.pool.Get().(*Element)
+				e0Amb = op.pool.Get()
+				e1Amb = op.pool.Get()
 				defer op.pool.Put(e0Amb)
 				defer op.pool.Put(e1Amb)
 				break
@@ -301,7 +298,7 @@ type anyCyclotomicMulOperator struct {
 
 	reducer *CyclotomicReducer
 
-	pool *sync.Pool
+	pool *pool.Pool[*Element]
 }
 
 // newAnyCyclotomicMulOperator creates a new [anyCyclotomicMulOperator].
@@ -355,11 +352,9 @@ func newAnyCyclotomicMulOperator(params dft.RingParameters, mod []*num.Modulus, 
 
 		reducer: reducer,
 
-		pool: &sync.Pool{
-			New: func() any {
-				return NewPoly(params.CycloOrder(), max(1, vec.Max(ambModLen)))
-			},
-		},
+		pool: pool.NewPool(func() *Element {
+			return NewPoly(params.CycloOrder(), max(1, vec.Max(ambModLen)))
+		}),
 	}
 }
 
@@ -389,8 +384,8 @@ func (op *anyCyclotomicMulOperator) MulTo(eOut, e0, e1 *Element) {
 		var e0Amb, e1Amb *Element
 		for i := range op.ambModLen {
 			if op.ambModLen[i] > 0 {
-				e0Amb = op.pool.Get().(*Element)
-				e1Amb = op.pool.Get().(*Element)
+				e0Amb = op.pool.Get()
+				e1Amb = op.pool.Get()
 				defer op.pool.Put(e0Amb)
 				defer op.pool.Put(e1Amb)
 				break
@@ -446,8 +441,8 @@ func (op *anyCyclotomicMulOperator) MulAddTo(eOut, e0, e1 *Element) {
 		var e0Amb, e1Amb *Element
 		for i := range op.ambModLen {
 			if op.ambModLen[i] > 0 {
-				e0Amb = op.pool.Get().(*Element)
-				e1Amb = op.pool.Get().(*Element)
+				e0Amb = op.pool.Get()
+				e1Amb = op.pool.Get()
 				defer op.pool.Put(e0Amb)
 				defer op.pool.Put(e1Amb)
 				break
@@ -504,8 +499,8 @@ func (op *anyCyclotomicMulOperator) MulSubTo(eOut, e0, e1 *Element) {
 		var e0Amb, e1Amb *Element
 		for i := range op.ambModLen {
 			if op.ambModLen[i] > 0 {
-				e0Amb = op.pool.Get().(*Element)
-				e1Amb = op.pool.Get().(*Element)
+				e0Amb = op.pool.Get()
+				e1Amb = op.pool.Get()
 				defer op.pool.Put(e0Amb)
 				defer op.pool.Put(e1Amb)
 				break
@@ -590,7 +585,7 @@ type reduceMulOperator struct {
 
 	reducer *Reducer
 
-	pool *sync.Pool
+	pool *pool.Pool[*Element]
 }
 
 // newReduceMulOperator creates a new [reduceMulOperator].
@@ -657,11 +652,9 @@ func newReduceMulOperator(mod []*num.Modulus, modPoly []int64, reducer *Reducer)
 
 		reducer: reducer,
 
-		pool: &sync.Pool{
-			New: func() any {
-				return NewPoly(ambParams.Rank(), max(1, vec.Max(ambModLen)))
-			},
-		},
+		pool: pool.NewPool(func() *Element {
+			return NewPoly(ambParams.Rank(), max(1, vec.Max(ambModLen)))
+		}),
 	}
 }
 
@@ -688,8 +681,8 @@ func (op *reduceMulOperator) MulTo(eOut, e0, e1 *Element) {
 			panic("input(s) must be in NTT form")
 		}
 
-		e0Amb := op.pool.Get().(*Element)
-		e1Amb := op.pool.Get().(*Element)
+		e0Amb := op.pool.Get()
+		e1Amb := op.pool.Get()
 		defer op.pool.Put(e0Amb)
 		defer op.pool.Put(e1Amb)
 
@@ -748,8 +741,8 @@ func (op *reduceMulOperator) MulAddTo(eOut, e0, e1 *Element) {
 			panic("input(s) must be in NTT form")
 		}
 
-		e0Amb := op.pool.Get().(*Element)
-		e1Amb := op.pool.Get().(*Element)
+		e0Amb := op.pool.Get()
+		e1Amb := op.pool.Get()
 		defer op.pool.Put(e0Amb)
 		defer op.pool.Put(e1Amb)
 
@@ -810,8 +803,8 @@ func (op *reduceMulOperator) MulSubTo(eOut, e0, e1 *Element) {
 			panic("input(s) must be in NTT form")
 		}
 
-		e0Amb := op.pool.Get().(*Element)
-		e1Amb := op.pool.Get().(*Element)
+		e0Amb := op.pool.Get()
+		e1Amb := op.pool.Get()
 		defer op.pool.Put(e0Amb)
 		defer op.pool.Put(e1Amb)
 

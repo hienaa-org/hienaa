@@ -3,8 +3,8 @@ package crt
 import (
 	"math/bits"
 	"slices"
-	"sync"
 
+	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
 )
@@ -29,7 +29,7 @@ type pow2CyclotomicAutOperator struct {
 	mod           []*num.Modulus
 	isNTTFriendly []bool
 
-	pool *sync.Pool
+	pool *pool.Pool[*[]uint64]
 }
 
 // newPow2CyclotomicAutOperator creates a new [pow2CyclotomicAutOperator].
@@ -44,12 +44,10 @@ func newPow2CyclotomicAutOperator(params dft.RingParameters, mod []*num.Modulus)
 		mod:           mod,
 		isNTTFriendly: isNTTFriendly,
 
-		pool: &sync.Pool{
-			New: func() any {
-				v := make([]uint64, params.Rank())
-				return &v
-			},
-		},
+		pool: pool.NewPool(func() *[]uint64 {
+			v := make([]uint64, params.Rank())
+			return &v
+		}),
 	}
 }
 
@@ -89,7 +87,7 @@ func (op *pow2CyclotomicAutOperator) AutTo(eOut, e *Element, idx int) {
 			return
 		}
 
-		eBufPtr := op.pool.Get().(*[]uint64)
+		eBufPtr := op.pool.Get()
 		eBuf := *eBufPtr
 		defer op.pool.Put(eBufPtr)
 
@@ -154,7 +152,7 @@ type anyCyclotomicAutOperator struct {
 	// dims is the dimension of the hypercube structure.
 	dims []int
 
-	pool *sync.Pool
+	pool *pool.Pool[*[]uint64]
 }
 
 // newAnyCyclotomicAutOperator creates a new [anyCyclotomicAutOperator].
@@ -215,12 +213,10 @@ func newAnyCyclotomicAutOperator(params dft.RingParameters, mod []*num.Modulus, 
 		rootExps:     rootExps,
 		dims:         dims,
 
-		pool: &sync.Pool{
-			New: func() any {
-				v := make([]uint64, params.CycloOrder())
-				return &v
-			},
-		},
+		pool: pool.NewPool(func() *[]uint64 {
+			v := make([]uint64, params.CycloOrder())
+			return &v
+		}),
 	}
 }
 
@@ -260,7 +256,7 @@ func (op *anyCyclotomicAutOperator) AutTo(eOut, e *Element, idx int) {
 			return
 		}
 
-		eBufPtr := op.pool.Get().(*[]uint64)
+		eBufPtr := op.pool.Get()
 		eBuf := *eBufPtr
 		defer op.pool.Put(eBufPtr)
 
@@ -344,7 +340,7 @@ type pow2AutFixedAutOperator struct {
 	mod           []*num.Modulus
 	isNTTFriendly []bool
 
-	pool *sync.Pool
+	pool *pool.Pool[*[]uint64]
 }
 
 // newPow2AutFixedAutOperator creates a new [pow2AutFixedAutOperator].
@@ -359,12 +355,10 @@ func newPow2AutFixedAutOperator(params dft.RingParameters, mod []*num.Modulus) *
 		mod:           mod,
 		isNTTFriendly: isNTTFriendly,
 
-		pool: &sync.Pool{
-			New: func() any {
-				v := make([]uint64, params.Rank())
-				return &v
-			},
-		},
+		pool: pool.NewPool(func() *[]uint64 {
+			v := make([]uint64, params.Rank())
+			return &v
+		}),
 	}
 }
 
@@ -404,7 +398,7 @@ func (op *pow2AutFixedAutOperator) AutTo(eOut, e *Element, idx int) {
 			return
 		}
 
-		eBufPtr := op.pool.Get().(*[]uint64)
+		eBufPtr := op.pool.Get()
 		eBuf := *eBufPtr
 		defer op.pool.Put(eBufPtr)
 
@@ -475,7 +469,7 @@ type primeAutFixedAutOperator struct {
 	// rootPowInv are the powers of the inverse of the generator modulo the cyclotomic order.
 	rootPowInv []uint64
 
-	pool *sync.Pool
+	pool *pool.Pool[*[]uint64]
 }
 
 // newPrimeAutFixedAutOperator creates a new [primeAutFixedAutOperator].
@@ -506,12 +500,10 @@ func newPrimeAutFixedAutOperator(params dft.RingParameters, mod []*num.Modulus) 
 		rootPow:    rootPow,
 		rootPowInv: rootPowInv,
 
-		pool: &sync.Pool{
-			New: func() any {
-				v := make([]uint64, params.Rank())
-				return &v
-			},
-		},
+		pool: pool.NewPool(func() *[]uint64 {
+			v := make([]uint64, params.Rank())
+			return &v
+		}),
 	}
 }
 
@@ -546,7 +538,7 @@ func (op *primeAutFixedAutOperator) AutTo(eOut, e *Element, idx int) {
 		cycloOrd, rank := op.params.CycloOrder(), op.params.Rank()
 		idx = (idx%cycloOrd + cycloOrd) % cycloOrd
 
-		eBufPtr := op.pool.Get().(*[]uint64)
+		eBufPtr := op.pool.Get()
 		eBuf := *eBufPtr
 		defer op.pool.Put(eBufPtr)
 

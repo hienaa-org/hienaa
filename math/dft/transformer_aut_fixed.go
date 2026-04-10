@@ -1,9 +1,9 @@
 package dft
 
 import (
-	"sync"
 	"unsafe"
 
+	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
 )
@@ -25,7 +25,7 @@ type pow2AutFixedTransformer struct {
 	// rankInv is the modular inverse of the rank.
 	rankInv uint64
 
-	pool *sync.Pool
+	pool *pool.Pool[*[]uint64]
 }
 
 // newPow2AutFixedTransformer creates a new [pow2AutFixedTransformer].
@@ -71,12 +71,10 @@ func newPow2AutFixedTransformer(params RingParameters, mod *num.Modulus) *pow2Au
 
 		rankInv: num.InvMForm(num.Inv(uint64(2*params.rank), mod), mod),
 
-		pool: &sync.Pool{
-			New: func() any {
-				v := make([]uint64, params.rank)
-				return &v
-			},
-		},
+		pool: pool.NewPool(func() *[]uint64 {
+			v := make([]uint64, params.rank)
+			return &v
+		}),
 	}
 }
 
@@ -84,7 +82,7 @@ func newPow2AutFixedTransformer(params RingParameters, mod *num.Modulus) *pow2Au
 func (ntt *pow2AutFixedTransformer) ForwardTo(vNTT, v []uint64) {
 	checkLength(ntt.params.rank, len(vNTT), len(v))
 
-	vBufPtr := ntt.pool.Get().(*[]uint64)
+	vBufPtr := ntt.pool.Get()
 	vBuf := *vBufPtr
 	defer ntt.pool.Put(vBufPtr)
 
@@ -128,7 +126,7 @@ func (ntt *pow2AutFixedTransformer) InverseTo(v, vNTT []uint64) {
 	copy(v, vNTT)
 	inttInPlacePow2(v, ntt.twInv, ntt.twInvS, ntt.mod.Value())
 
-	vBufPtr := ntt.pool.Get().(*[]uint64)
+	vBufPtr := ntt.pool.Get()
 	vBuf := *vBufPtr
 	defer ntt.pool.Put(vBufPtr)
 
@@ -196,7 +194,7 @@ type primeAutFixedTransformer struct {
 	// cycloOrdInv is the modular inverse of the cyclotomic order.
 	cycloOrdInv uint64
 
-	pool *sync.Pool
+	pool *pool.Pool[*[]uint64]
 }
 
 // newPrimeAutFixedTransformer creates a new [primeAutFixedTransformer].
@@ -260,12 +258,10 @@ func newPrimeAutFixedTransformer(params RingParameters, mod *num.Modulus) *prime
 		ambRankInvM: ambRankInv,
 		cycloOrdInv: num.Inv(uint64(params.cycloOrd), mod),
 
-		pool: &sync.Pool{
-			New: func() any {
-				v := make([]uint64, ambRank)
-				return &v
-			},
-		},
+		pool: pool.NewPool(func() *[]uint64 {
+			v := make([]uint64, ambRank)
+			return &v
+		}),
 	}
 }
 
@@ -273,7 +269,7 @@ func newPrimeAutFixedTransformer(params RingParameters, mod *num.Modulus) *prime
 func (ntt *primeAutFixedTransformer) ForwardTo(vNTT, v []uint64) {
 	checkLength(ntt.params.rank, len(vNTT), len(v))
 
-	vBufPtr := ntt.pool.Get().(*[]uint64)
+	vBufPtr := ntt.pool.Get()
 	vBuf := *vBufPtr
 	defer ntt.pool.Put(vBufPtr)
 
@@ -324,7 +320,7 @@ func (ntt *primeAutFixedTransformer) ForwardTo(vNTT, v []uint64) {
 func (ntt *primeAutFixedTransformer) InverseTo(v, vNTT []uint64) {
 	checkLength(ntt.params.rank, len(vNTT), len(v))
 
-	vBufPtr := ntt.pool.Get().(*[]uint64)
+	vBufPtr := ntt.pool.Get()
 	vBuf := *vBufPtr
 	defer ntt.pool.Put(vBufPtr)
 

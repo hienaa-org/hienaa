@@ -5,10 +5,10 @@ import (
 	"math"
 	"math/big"
 	"slices"
-	"sync"
 
 	"github.com/hienaa-org/hienaa/fhe/internal/heint"
 	"github.com/hienaa-org/hienaa/fhe/rlwe"
+	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
@@ -25,10 +25,10 @@ type Operator struct {
 
 	noise *NoiseEstimator
 
-	bigPool *sync.Pool
+	bigPool *pool.Pool[*big.Int]
 	ptPool  *rlwe.ElementPool
-	ctPool  *sync.Pool
-	vPool   *sync.Pool
+	ctPool  *pool.Pool[*Ciphertext]
+	vPool   *pool.Pool[*rlwe.Vector]
 }
 
 // NewOperator creates a new [Operator].
@@ -109,22 +109,16 @@ func NewOperator(params rlwe.Parameters, msgMod *num.Modulus, estimType heint.Es
 
 		noise: NewNoiseEstimator(params, msgMod, estimType),
 
-		bigPool: &sync.Pool{
-			New: func() any {
-				return new(big.Int)
-			},
-		},
+		bigPool: pool.NewPool(func() *big.Int {
+			return new(big.Int)
+		}),
 		ptPool: rlwe.NewElementPool(ambParams, false, true),
-		ctPool: &sync.Pool{
-			New: func() any {
-				return NewCiphertext(ambParams, false)
-			},
-		},
-		vPool: &sync.Pool{
-			New: func() any {
-				return rlwe.NewVector(ambParams, 3, false, true)
-			},
-		},
+		ctPool: pool.NewPool(func() *Ciphertext {
+			return NewCiphertext(ambParams, false)
+		}),
+		vPool: pool.NewPool(func() *rlwe.Vector {
+			return rlwe.NewVector(ambParams, 3, false, true)
+		}),
 	}
 }
 
@@ -155,7 +149,7 @@ func (op *Operator) RescaleTo(ctOut, ct *Ciphertext, isNTT bool) {
 		tarLen--
 	}
 
-	buf := op.ctPool.Get().(*Ciphertext)
+	buf := op.ctPool.Get()
 	defer op.ctPool.Put(buf)
 	buf = buf.WithModLen(tarLen)
 
@@ -315,8 +309,8 @@ func (op *Operator) MulTo(ctOut, ct0, ct1 *Ciphertext, rlk *rlwe.RelinKey, isNTT
 	tarLen := ct0.ModLen()
 	auxLen := op.getMulAuxLen(ct0, tarLen)
 
-	cAmb0 := op.ctPool.Get().(*Ciphertext)
-	cAmb1 := op.ctPool.Get().(*Ciphertext)
+	cAmb0 := op.ctPool.Get()
+	cAmb1 := op.ctPool.Get()
 	defer op.ctPool.Put(cAmb0)
 	defer op.ctPool.Put(cAmb1)
 
@@ -349,7 +343,7 @@ func (op *Operator) MulTo(ctOut, ct0, ct1 *Ciphertext, rlk *rlwe.RelinKey, isNTT
 	op.ambOp.FwdNTTTo(cAmb1.Value, cAmb1.Value)
 
 	// Tensoring the ciphertexts.
-	vAmb := op.vPool.Get().(*rlwe.Vector)
+	vAmb := op.vPool.Get()
 	defer op.vPool.Put(vAmb)
 	vAmb = vAmb.WithModLen(tarLen+auxLen, 0)
 	op.ambOp.TensorTo(vAmb, cAmb0.Value, cAmb1.Value)

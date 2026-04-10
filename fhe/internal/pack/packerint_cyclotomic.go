@@ -2,9 +2,9 @@ package pack
 
 import (
 	"math/bits"
-	"sync"
 
 	"github.com/hienaa-org/hienaa/fhe/internal/gnum"
+	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
@@ -26,7 +26,7 @@ type pow2CyclotomicMod1IntPacker struct {
 	// cubeGen is the corresponding generator for the hypercube structure.
 	cubeGen []uint64
 
-	pool *sync.Pool
+	pool *pool.Pool[*[]uint64]
 }
 
 // newPow2CyclotomicMod1IntPacker creates a new [pow2CyclotomicMod1IntPacker].
@@ -52,12 +52,10 @@ func newPow2CyclotomicMod1IntPacker(params dft.RingParameters, mod *num.Modulus)
 		cube:    []int{packLen >> 1, 2},
 		cubeGen: []uint64{5, uint64(params.CycloOrder() - 1)},
 
-		pool: &sync.Pool{
-			New: func() any {
-				v := make([]uint64, packLen)
-				return &v
-			},
-		},
+		pool: pool.NewPool(func() *[]uint64 {
+			v := make([]uint64, packLen)
+			return &v
+		}),
 	}
 }
 
@@ -89,11 +87,11 @@ func (p *pow2CyclotomicMod1IntPacker) PackTo(vPack, v []uint64) {
 		panic("input(s) shape not consistent")
 	}
 
-	vBufPtr := p.pool.Get().(*[]uint64)
+	vBufPtr := p.pool.Get()
 	vBuf := *vBufPtr
 	defer p.pool.Put(vBufPtr)
 
-	vBufPow5Ptr := p.pool.Get().(*[]uint64)
+	vBufPow5Ptr := p.pool.Get()
 	vBufPow5 := *vBufPow5Ptr
 	defer p.pool.Put(vBufPow5Ptr)
 
@@ -133,12 +131,12 @@ func (p *pow2CyclotomicMod1IntPacker) UnPackTo(v, vPack []uint64) {
 		panic("input(s) shape not consistent")
 	}
 
-	vBufPtr := p.pool.Get().(*[]uint64)
+	vBufPtr := p.pool.Get()
 	vBuf := *vBufPtr
 	defer p.pool.Put(vBufPtr)
 	clear(vBuf)
 
-	vBufPow5Ptr := p.pool.Get().(*[]uint64)
+	vBufPow5Ptr := p.pool.Get()
 	vBufPow5 := *vBufPow5Ptr
 	defer p.pool.Put(vBufPow5Ptr)
 
@@ -221,7 +219,7 @@ type pow2CyclotomicMod3IntPacker struct {
 	// rankInv is the modular inverse of the rank.
 	rankInv uint64
 
-	pool *sync.Pool
+	pool *pool.Pool[*[]gnum.GaussianInt]
 }
 
 // newPow2CyclotomicMod3IntPacker creates a new [pow2CyclotomicMod3Packer].
@@ -272,12 +270,10 @@ func newPow2CyclotomicMod3IntPacker(params dft.RingParameters, mod *num.Modulus)
 
 		rankInv: rankInv,
 
-		pool: &sync.Pool{
-			New: func() any {
-				v := make([]gnum.GaussianInt, packLen<<1)
-				return &v
-			},
-		},
+		pool: pool.NewPool(func() *[]gnum.GaussianInt {
+			v := make([]gnum.GaussianInt, packLen<<1)
+			return &v
+		}),
 	}
 }
 
@@ -309,7 +305,7 @@ func (p *pow2CyclotomicMod3IntPacker) PackTo(vPack, v []uint64) {
 		panic("input(s) shape not consistent")
 	}
 
-	vBufPtr := p.pool.Get().(*[]gnum.GaussianInt)
+	vBufPtr := p.pool.Get()
 	vBuf := *vBufPtr
 	defer p.pool.Put(vBufPtr)
 
@@ -346,7 +342,7 @@ func (p *pow2CyclotomicMod3IntPacker) UnPackTo(v, vPack []uint64) {
 		panic("input(s) shape not consistent")
 	}
 
-	vBufPtr := p.pool.Get().(*[]gnum.GaussianInt)
+	vBufPtr := p.pool.Get()
 	vBuf := *vBufPtr
 	defer p.pool.Put(vBufPtr)
 	clear(vBuf)

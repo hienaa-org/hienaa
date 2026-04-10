@@ -1,8 +1,7 @@
 package rlwe
 
 import (
-	"sync"
-
+	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/num"
 )
@@ -21,9 +20,9 @@ type Encryptor struct {
 	auxSampler crt.Sampler
 	eSampler   crt.Sampler
 
-	sPool  *sync.Pool
-	ptPool *sync.Pool
-	ctPool *sync.Pool
+	sPool  *pool.Pool[*Element]
+	ptPool *pool.Pool[*Element]
+	ctPool *pool.Pool[*Ciphertext]
 }
 
 // NewEncryptor creates a new [Encryptor].
@@ -65,21 +64,15 @@ func newEncryptorWithKey(params Parameters, skNTT *SecretKey) *Encryptor {
 		crtOp:   params.crtOp,
 		dcmp:    NewDecomposer(params),
 
-		sPool: &sync.Pool{
-			New: func() any {
-				return NewScalar(params, params.HasAuxModulus())
-			},
-		},
-		ptPool: &sync.Pool{
-			New: func() any {
-				return NewPoly(params, params.HasAuxModulus(), false)
-			},
-		},
-		ctPool: &sync.Pool{
-			New: func() any {
-				return NewCiphertext(params, params.HasAuxModulus(), false)
-			},
-		},
+		sPool: pool.NewPool(func() *Element {
+			return NewScalar(params, params.HasAuxModulus())
+		}),
+		ptPool: pool.NewPool(func() *Element {
+			return NewPoly(params, params.HasAuxModulus(), false)
+		}),
+		ctPool: pool.NewPool(func() *Ciphertext {
+			return NewCiphertext(params, params.HasAuxModulus(), false)
+		}),
 	}
 }
 
@@ -145,7 +138,7 @@ func (e *Encryptor) PhaseTo(eOut *Element, c *Ciphertext) {
 	baseLen := c.BaseModLen()
 	auxLen := c.AuxModLen()
 
-	cPhase := e.ctPool.Get().(*Ciphertext)
+	cPhase := e.ctPool.Get()
 	defer e.ctPool.Put(cPhase)
 	cPhase = cPhase.WithModLen(baseLen, auxLen)
 
@@ -177,7 +170,7 @@ func (e *Encryptor) EncryptTo(ctOut *Ciphertext, pt *Element, isNTT bool) {
 	if pt.Value.Type() == crt.TypeScalar || pt.IsNTT() == isNTT {
 		e.plainOp.AddTo(ctOut.Body, ctOut.Body, pt)
 	} else {
-		ptBuf := e.ptPool.Get().(*Element)
+		ptBuf := e.ptPool.Get()
 		defer e.ptPool.Put(ptBuf)
 
 		ptBuf = ptBuf.WithModLen(pt.BaseModLen(), pt.AuxModLen())
@@ -210,15 +203,15 @@ func (e *Encryptor) GadgetEncryptTo(ctOut *GadgetEncryption, pt *Element, isNTT 
 	var ptMul *Element
 
 	if pt.Value.Type() == crt.TypeScalar {
-		ptBuf = e.sPool.Get().(*Element)
-		ptMul = e.sPool.Get().(*Element)
+		ptBuf = e.sPool.Get()
+		ptMul = e.sPool.Get()
 		defer e.sPool.Put(ptBuf)
 		defer e.sPool.Put(ptMul)
 
 		ptBuf.CopyFrom(pt)
 	} else {
-		ptBuf = e.ptPool.Get().(*Element)
-		ptMul = e.ptPool.Get().(*Element)
+		ptBuf = e.ptPool.Get()
+		ptMul = e.ptPool.Get()
 		defer e.ptPool.Put(ptBuf)
 		defer e.ptPool.Put(ptMul)
 
@@ -258,15 +251,15 @@ func (e *Encryptor) RGSWEncryptTo(ctOut *RGSW, pt *Element, isNTT bool) {
 	var ptMul *Element
 
 	if pt.Value.Type() == crt.TypeScalar {
-		ptBuf = e.sPool.Get().(*Element)
-		ptMul = e.sPool.Get().(*Element)
+		ptBuf = e.sPool.Get()
+		ptMul = e.sPool.Get()
 		defer e.sPool.Put(ptBuf)
 		defer e.sPool.Put(ptMul)
 
 		ptBuf.CopyFrom(pt)
 	} else {
-		ptBuf = e.ptPool.Get().(*Element)
-		ptMul = e.ptPool.Get().(*Element)
+		ptBuf = e.ptPool.Get()
+		ptMul = e.ptPool.Get()
 		defer e.ptPool.Put(ptBuf)
 		defer e.ptPool.Put(ptMul)
 
@@ -326,7 +319,7 @@ func (e *Encryptor) NewAutomorphismKey(idx int) *AutomorphismKey {
 		atkVal[i] = NewCiphertextCustom(e.params.Rank(), baseLen, auxLen, true)
 	}
 
-	skAut := e.ptPool.Get().(*Element)
+	skAut := e.ptPool.Get()
 	defer e.ptPool.Put(skAut)
 
 	idxInv := int(num.Inv(uint64(idx), num.NewModulus(e.params.RingParams().CycloOrder())))

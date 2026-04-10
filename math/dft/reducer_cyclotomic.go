@@ -1,8 +1,7 @@
 package dft
 
 import (
-	"sync"
-
+	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
 )
@@ -40,7 +39,7 @@ type cyclotomicReducer struct {
 	// Precisely, it is floor(X^d_qs/\Phi_m(X)) modulo the modulus, where d_qs is the degree of the quotient polynomial Q_sp.
 	divPoly []uint64
 
-	pool *sync.Pool
+	pool *pool.Pool[*[]uint64]
 }
 
 // newCyclotomicReducer creates a new [cyclotomicReducer].
@@ -101,19 +100,17 @@ func newCyclotomicReducer(params RingParameters, mod *num.Modulus) *cyclotomicRe
 		cycloPoly: cycloPoly,
 		divPoly:   divPoly,
 
-		pool: &sync.Pool{
-			New: func() any {
-				p := make([]uint64, max(params.cycloOrd, diffDegNext, degNext))
-				return &p
-			},
-		},
+		pool: pool.NewPool(func() *[]uint64 {
+			p := make([]uint64, max(params.cycloOrd, diffDegNext, degNext))
+			return &p
+		}),
 	}
 }
 
 func (r *cyclotomicReducer) reduceTo(pOut, p []uint64) {
 	cycloOrd, rank := r.params.cycloOrd, r.params.rank
 
-	pInPtr := r.pool.Get().(*[]uint64)
+	pInPtr := r.pool.Get()
 	pIn := (*pInPtr)[:cycloOrd]
 	defer r.pool.Put(pInPtr)
 
@@ -148,7 +145,7 @@ func (r *cyclotomicReducer) reduceTo(pOut, p []uint64) {
 	}
 
 	if !r.isTrivial {
-		pQuoPtr := r.pool.Get().(*[]uint64)
+		pQuoPtr := r.pool.Get()
 		pQuo := (*pQuoPtr)[:r.diffDegNext]
 		defer r.pool.Put(pQuoPtr)
 
@@ -163,7 +160,7 @@ func (r *cyclotomicReducer) reduceTo(pOut, p []uint64) {
 		vec.MMulLazyTo(pQuo, pQuo, r.divPoly, r.mod)
 		r.diffDegNextNTT.InverseTo(pQuo, pQuo)
 
-		pRemPtr := r.pool.Get().(*[]uint64)
+		pRemPtr := r.pool.Get()
 		pRem := (*pRemPtr)[:r.degNext]
 		defer r.pool.Put(pRemPtr)
 

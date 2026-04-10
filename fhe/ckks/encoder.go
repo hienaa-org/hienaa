@@ -2,9 +2,9 @@ package ckks
 
 import (
 	"math/big"
-	"sync"
 
 	"github.com/hienaa-org/hienaa/fhe/rlwe"
+	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/crt"
 )
 
@@ -14,9 +14,9 @@ type Encoder struct {
 
 	pOp *rlwe.PlainOperator
 
-	fPool   *sync.Pool
-	bigPool *sync.Pool
-	vPool   *sync.Pool
+	fPool   *pool.Pool[*big.Float]
+	bigPool *pool.Pool[*big.Int]
+	vPool   *pool.Pool[[]*big.Int]
 	ePool   *rlwe.ElementPool
 }
 
@@ -27,25 +27,19 @@ func NewEncoder(params rlwe.Parameters) *Encoder {
 	return &Encoder{
 		params: params,
 		pOp:    pOp,
-		fPool: &sync.Pool{
-			New: func() any {
-				return big.NewFloat(0).SetPrec(52 + 52 + 64)
-			},
-		},
-		bigPool: &sync.Pool{
-			New: func() any {
-				return new(big.Int)
-			},
-		},
-		vPool: &sync.Pool{
-			New: func() any {
-				res := make([]*big.Int, params.Rank())
-				for i := range res {
-					res[i] = new(big.Int)
-				}
-				return res
-			},
-		},
+		fPool: pool.NewPool(func() *big.Float {
+			return big.NewFloat(0).SetPrec(52 + 52 + 64)
+		}),
+		bigPool: pool.NewPool(func() *big.Int {
+			return new(big.Int)
+		}),
+		vPool: pool.NewPool(func() []*big.Int {
+			res := make([]*big.Int, params.Rank())
+			for i := range res {
+				res[i] = new(big.Int)
+			}
+			return res
+		}),
 		ePool: rlwe.NewElementPool(params, true, true),
 	}
 }
@@ -79,12 +73,12 @@ func (ecd *Encoder) EncodeTo(eOut *rlwe.Element, eIn *Plaintext, scFac float64, 
 		panic("invalid output length")
 	}
 
-	tmpFloat := ecd.fPool.Get().(*big.Float)
-	scBig := ecd.fPool.Get().(*big.Float)
+	tmpFloat := ecd.fPool.Get()
+	scBig := ecd.fPool.Get()
 	defer ecd.fPool.Put(tmpFloat)
 	defer ecd.fPool.Put(scBig)
 
-	v := ecd.vPool.Get().([]*big.Int)
+	v := ecd.vPool.Get()
 	defer ecd.vPool.Put(v)
 	v = v[:eOut.Rank()]
 
@@ -96,9 +90,9 @@ func (ecd *Encoder) EncodeTo(eOut *rlwe.Element, eIn *Plaintext, scFac float64, 
 		tmpFloat.Int(v[i])
 	}
 
-	tmpInt := ecd.bigPool.Get().(*big.Int)
-	modBig := ecd.bigPool.Get().(*big.Int)
-	zero := ecd.bigPool.Get().(*big.Int)
+	tmpInt := ecd.bigPool.Get()
+	modBig := ecd.bigPool.Get()
+	zero := ecd.bigPool.Get()
 	defer ecd.bigPool.Put(tmpInt)
 	defer ecd.bigPool.Put(modBig)
 	defer ecd.bigPool.Put(zero)

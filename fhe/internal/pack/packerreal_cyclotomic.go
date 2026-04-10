@@ -2,8 +2,8 @@ package pack
 
 import (
 	"math"
-	"sync"
 
+	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
@@ -26,7 +26,7 @@ type pow2CyclotomicComplexPacker struct {
 	// cubeGen is the corresponding generator for the hypercube structure.
 	cubeGen []uint64
 
-	pool *sync.Pool
+	pool *pool.Pool[*[]complex128]
 }
 
 // newPow2CyclotomicComplexPacker creates a new [pow2CyclotomicComplexPacker].
@@ -54,12 +54,10 @@ func newPow2CyclotomicComplexPacker(params dft.RingParameters) *pow2CyclotomicCo
 		cube:    []int{params.CycloOrder() >> 1},
 		cubeGen: []uint64{5},
 
-		pool: &sync.Pool{
-			New: func() any {
-				v := make([]complex128, params.Rank()>>1)
-				return &v
-			},
-		},
+		pool: pool.NewPool(func() *[]complex128 {
+			v := make([]complex128, params.Rank()>>1)
+			return &v
+		}),
 	}
 }
 
@@ -84,7 +82,7 @@ func (p *pow2CyclotomicComplexPacker) PackTo(vPack []float64, v []complex128) {
 		panic("input(s) shape not consistent")
 	}
 
-	bufPtr := p.pool.Get().(*[]complex128)
+	bufPtr := p.pool.Get()
 	buf := *bufPtr
 	defer p.pool.Put(bufPtr)
 	buf = buf[:len(v)]
@@ -124,7 +122,7 @@ func (p *pow2CyclotomicComplexPacker) UnPackTo(v []complex128, vPack []float64) 
 		panic("input(s) shape not consistent")
 	}
 
-	bufPtr := p.pool.Get().(*[]complex128)
+	bufPtr := p.pool.Get()
 	buf := *bufPtr
 	defer p.pool.Put(bufPtr)
 
