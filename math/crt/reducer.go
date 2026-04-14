@@ -16,8 +16,10 @@ type LongDivReducer struct {
 	// maxRank is the maximum rank of the input polynomial.
 	maxRank int
 
-	// modPoly is the polynomial we target to reduce to.
+	// modPoly is the target modulus polynomial.
 	modPoly [][]uint64
+	// modPolySigned is modPoly in signed form.
+	modPolySigned []int64
 
 	pool *pool.Pool[*[]uint64]
 }
@@ -40,7 +42,9 @@ func NewLongDivReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *LongDi
 		mod:    mod,
 
 		maxRank: maxRank,
-		modPoly: modPolyRed,
+
+		modPolySigned: modPoly,
+		modPoly:       modPolyRed,
 
 		pool: pool.NewPool(func() *[]uint64 {
 			v := make([]uint64, max(maxRank, maxRank-len(modPoly)+1))
@@ -183,14 +187,50 @@ func (r *LongDivReducer) SubReducer(idx ...int) *LongDivReducer {
 
 		maxRank: r.maxRank,
 
-		modPoly: modPolyCopy,
+		modPoly:       modPolyCopy,
+		modPolySigned: r.modPolySigned,
+
+		pool: r.pool,
+	}
+}
+
+// Append appends a new [LongDivReducer] and returns the new [LongDivReducer].
+func (r *LongDivReducer) Append(r0 *LongDivReducer) *LongDivReducer {
+	if !r.params.Equal(r0.params) || r.maxRank != r0.maxRank {
+		panic("inconsistent input(s)")
+	}
+
+	return &LongDivReducer{
+		params: r.params,
+		mod:    vec.Concat(r.mod, r0.mod),
+
+		maxRank: r.maxRank,
+
+		modPoly:       vec.Concat(r.modPoly, r0.modPoly),
+		modPolySigned: r.modPolySigned,
+
+		pool: r.pool,
+	}
+}
+
+// AppendModulus appends q to the moduli chain and returns the new [LongDivReducer].
+// This assumes that modulus is NTT-unfriendly, trading the appending performance with operation performance.
+func (r *LongDivReducer) AppendModulus(mod *num.Modulus) *LongDivReducer {
+	return &LongDivReducer{
+		params: r.params,
+		mod:    vec.Concat(r.mod, []*num.Modulus{mod}),
+
+		maxRank: r.maxRank,
+
+		modPoly:       vec.Concat(r.modPoly, [][]uint64{vec.Reduce(r.modPolySigned, mod)}),
+		modPolySigned: r.modPolySigned,
 
 		pool: r.pool,
 	}
 }
 
 // CyclotomicReducer is an optimized [Reducer] for cyclotomic polynomial.
-// In other words, it computes a(X) mod \Phi_m(X), where a(X) is at most degree m-1.
+// It computes a(X) mod \Phi_m(X), where a(X) is at most degree m-1.
 // It uses Optimised Barrett reduction for polynomial, from https://eprint.iacr.org/2017/748.
 // In this implementation, Q_sp = (X^m-1)/(X^(m/p)-1) for the smallest prime factor p.
 type CyclotomicReducer struct {
@@ -269,41 +309,31 @@ func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *Cyclot
 		diffDegNextParams := dft.NewCyclicParameters(diffDegNext)
 		degNextParams := dft.NewCyclicParameters(degNext)
 
-		needAmbMod := false
+		ambExpFactorBits := num.Log2(max(diffDegNextParams.ExpandFactor(), degNextParams.ExpandFactor()))
+		ambMod = dft.MustFindAmbientPrimes(params, ambExpFactorBits+2*num.MaxModulusBits)
+
 		ambModLen = make([]int, len(mod))
 		for i := range mod {
 			if dft.IsNTTFriendly(diffDegNextParams, mod[i]) && dft.IsNTTFriendly(degNextParams, mod[i]) {
 				continue
 			}
-			needAmbMod = true
-			ambModLen[i] = 1
+
+			ambBits := ambExpFactorBits + 2*num.Log2(mod[i].Value())
+			bits := 0.0
+			for j := range ambMod {
+				bits += num.Log2(ambMod[j].Value())
+				if bits >= ambBits {
+					ambModLen[i] = j + 1
+					break
+				}
+			}
 		}
 
-		if needAmbMod {
-			ambExpFacBits := num.Log2(max(diffDegNextParams.ExpandFactor(), degNextParams.ExpandFactor()))
-			ambMod = dft.MustFindAmbientPrimes(params, ambExpFacBits+2*num.MaxModulusBits)
-			diffDegNextAmbNTT = make([]dft.Transformer, len(ambMod))
-			degNextAmbNTT = make([]dft.Transformer, len(ambMod))
-			for i := range ambMod {
-				diffDegNextAmbNTT[i] = dft.NewTransformer(diffDegNextParams, ambMod[i])
-				degNextAmbNTT[i] = dft.NewTransformer(degNextParams, ambMod[i])
-			}
-
-			for i := range mod {
-				if ambModLen[i] == 0 {
-					continue
-				}
-
-				ambBits := ambExpFacBits + 2*num.Log2(mod[i].Value())
-				bits := 0.0
-				for j := range ambMod {
-					bits += num.Log2(ambMod[j].Value())
-					if bits >= ambBits {
-						ambModLen[i] = j + 1
-						break
-					}
-				}
-			}
+		diffDegNextAmbNTT = make([]dft.Transformer, len(ambMod))
+		degNextAmbNTT = make([]dft.Transformer, len(ambMod))
+		for i := range ambMod {
+			diffDegNextAmbNTT[i] = dft.NewTransformer(diffDegNextParams, ambMod[i])
+			degNextAmbNTT[i] = dft.NewTransformer(degNextParams, ambMod[i])
 		}
 
 		embedder = make([]*Embedder, len(mod))
@@ -388,7 +418,7 @@ func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *Cyclot
 		divPoly:   divPoly,
 
 		pool: pool.NewPool(func() *[][]uint64 {
-			p := make([][]uint64, max(1, vec.Max(ambModLen)))
+			p := make([][]uint64, max(1, len(ambMod)))
 			for i := range p {
 				p[i] = make([]uint64, max(cycloOrd, diffDegNext, degNext))
 			}
@@ -566,10 +596,8 @@ func (r *CyclotomicReducer) SubReducer(idx ...int) *CyclotomicReducer {
 	}
 
 	var ambModLenCopy []int
-	var ambModCopy []*num.Modulus
 	var embedderCopy []*Embedder
 	var diffDegNextNTTCopy, degNextNTTCopy []dft.Transformer
-	var diffDegNextAmbNTTCopy, degNextAmbNTTCopy []dft.Transformer
 	var cycloPolyCopy, divPolyCopy [][][]uint64
 
 	if !r.isTrivial {
@@ -590,11 +618,6 @@ func (r *CyclotomicReducer) SubReducer(idx ...int) *CyclotomicReducer {
 			diffDegNextNTTCopy[i] = r.diffDegNextNTT[idx[i]]
 			degNextNTTCopy[i] = r.degNextNTT[idx[i]]
 		}
-
-		maxAmbModLen := vec.Max(ambModLenCopy)
-		ambModCopy = r.ambMod[:maxAmbModLen]
-		diffDegNextAmbNTTCopy = r.diffDegNextAmbNTT[:maxAmbModLen]
-		degNextAmbNTTCopy = r.degNextAmbNTT[:maxAmbModLen]
 	}
 
 	return &CyclotomicReducer{
@@ -613,14 +636,135 @@ func (r *CyclotomicReducer) SubReducer(idx ...int) *CyclotomicReducer {
 		degNextNTT:     degNextNTTCopy,
 
 		ambModLen: ambModLenCopy,
-		ambMod:    ambModCopy,
+		ambMod:    r.ambMod,
 		embedder:  embedderCopy,
 
-		diffDegNextAmbNTT: diffDegNextAmbNTTCopy,
-		degNextAmbNTT:     degNextAmbNTTCopy,
+		diffDegNextAmbNTT: r.diffDegNextAmbNTT,
+		degNextAmbNTT:     r.degNextAmbNTT,
 
 		cycloPoly: cycloPolyCopy,
 		divPoly:   divPolyCopy,
+
+		pool: r.pool,
+	}
+}
+
+// Append appends a new [CyclotomicReducer] and returns the new [CyclotomicReducer].
+func (r *CyclotomicReducer) Append(r0 *CyclotomicReducer) *CyclotomicReducer {
+	if !r.params.Equal(r0.params) {
+		panic("inconsistent input(s)")
+	}
+
+	return &CyclotomicReducer{
+		params: r.params,
+		mod:    vec.Concat(r.mod, r0.mod),
+
+		leastFac:  r.leastFac,
+		isTrivial: r.isTrivial,
+
+		redDeg: r.redDeg,
+
+		diffDeg:     r.diffDeg,
+		diffDegNext: r.diffDegNext,
+		degNext:     r.degNext,
+
+		diffDegNextNTT: vec.Concat(r.diffDegNextNTT, r0.diffDegNextNTT),
+		degNextNTT:     vec.Concat(r.degNextNTT, r0.degNextNTT),
+
+		ambModLen: vec.Concat(r.ambModLen, r0.ambModLen),
+		ambMod:    r.ambMod,
+		embedder:  vec.Concat(r.embedder, r0.embedder),
+
+		diffDegNextAmbNTT: r.diffDegNextAmbNTT,
+		degNextAmbNTT:     r.degNextAmbNTT,
+
+		cycloPoly: vec.Concat(r.cycloPoly, r0.cycloPoly),
+		divPoly:   vec.Concat(r.divPoly, r0.divPoly),
+
+		pool: r.pool,
+	}
+}
+
+// AppendModulus appends modulus to the moduli chain and returns the new [CyclotomicReducer].
+// This assumes that modulus is NTT-unfriendly, trading the appending performance with operation performance.
+func (r *CyclotomicReducer) AppendModulus(mod *num.Modulus) *CyclotomicReducer {
+	if r.isTrivial {
+		return &CyclotomicReducer{
+			params: r.params,
+			mod:    vec.Concat(r.mod, []*num.Modulus{mod}),
+
+			leastFac:  r.leastFac,
+			isTrivial: r.isTrivial,
+
+			redDeg: r.redDeg,
+
+			pool: r.pool,
+		}
+	}
+
+	ambModLen := 0
+	ambExpFactorBits := num.Log2(max(r.diffDegNextAmbNTT[0].Params().ExpandFactor(), r.degNextAmbNTT[0].Params().ExpandFactor()))
+	ambBits := ambExpFactorBits + 2*num.Log2(mod.Value())
+	bits := 0.0
+	for j := range r.ambMod {
+		bits += num.Log2(r.ambMod[j].Value())
+		if bits >= ambBits {
+			ambModLen = j + 1
+			break
+		}
+	}
+
+	embedder := NewEmbedder([]*num.Modulus{mod}, r.ambMod[:ambModLen])
+
+	cycloPoly := make([][]uint64, ambModLen)
+	cycloPoly[0] = append(vec.Reduce(r.params.ModulusPoly(), mod), make([]uint64, r.degNext-len(r.params.ModulusPoly()))...)
+	for j := 1; j < ambModLen; j++ {
+		cycloPoly[j] = make([]uint64, r.degNext)
+		copy(cycloPoly[j], cycloPoly[0])
+	}
+
+	dividend := NewPoly(r.redDeg+1, 1)
+	dividend.Coeffs[0][r.redDeg] = 1
+
+	divPoly := make([][]uint64, ambModLen)
+	divReducer := NewLongDivReducer(r.redDeg+1, []*num.Modulus{mod}, r.params.ModulusPoly())
+	divPolyRef := divReducer.Quotient(dividend).Coeffs[0]
+	divPoly[0] = append(divPolyRef, make([]uint64, r.diffDegNext-len(divPolyRef))...)
+	for j := 1; j < ambModLen; j++ {
+		divPoly[j] = make([]uint64, r.diffDegNext)
+		copy(divPoly[j], divPoly[0])
+	}
+
+	for j := 0; j < ambModLen; j++ {
+		r.diffDegNextAmbNTT[j].ForwardTo(divPoly[j], divPoly[j])
+		r.degNextAmbNTT[j].ForwardTo(cycloPoly[j], cycloPoly[j])
+	}
+
+	return &CyclotomicReducer{
+		params: r.params,
+		mod:    vec.Concat(r.mod, []*num.Modulus{mod}),
+
+		leastFac:  r.leastFac,
+		isTrivial: r.isTrivial,
+
+		redDeg: r.redDeg,
+
+		diffDeg:     r.diffDeg,
+		diffDegNext: r.diffDegNext,
+		degNext:     r.degNext,
+
+		diffDegNextNTT: vec.Concat(r.diffDegNextNTT, []dft.Transformer{nil}),
+		degNextNTT:     vec.Concat(r.degNextNTT, []dft.Transformer{nil}),
+
+		ambModLen: vec.Concat(r.ambModLen, []int{ambModLen}),
+		ambMod:    r.ambMod,
+		embedder:  vec.Concat(r.embedder, []*Embedder{embedder}),
+
+		diffDegNextAmbNTT: r.diffDegNextAmbNTT,
+		degNextAmbNTT:     r.degNextAmbNTT,
+
+		cycloPoly: vec.Concat(r.cycloPoly, [][][]uint64{cycloPoly}),
+		divPoly:   vec.Concat(r.divPoly, [][][]uint64{divPoly}),
 
 		pool: r.pool,
 	}
@@ -685,43 +829,31 @@ func NewReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *Reducer {
 	diffDegNextParams := dft.NewCyclicParameters(diffDegNext)
 	degNextParams := dft.NewCyclicParameters(degNext)
 
-	needAmbMod := false
+	ambParams := dft.NewCyclicParameters(2 * max(diffDegNext, degNext))
+	ambMod := dft.MustFindAmbientPrimes(ambParams, num.Log2(ambParams.ExpandFactor())+2*num.MaxModulusBits)
+
 	ambModLen := make([]int, len(mod))
 	for i := range mod {
 		if dft.IsNTTFriendly(diffDegNextParams, mod[i]) && dft.IsNTTFriendly(degNextParams, mod[i]) {
 			continue
 		}
-		needAmbMod = true
-		ambModLen[i] = 1
+
+		ambBits := num.Log2(ambParams.ExpandFactor()) + 2*num.Log2(mod[i].Value())
+		bits := 0.0
+		for j := range ambMod {
+			bits += num.Log2(ambMod[j].Value())
+			if bits >= ambBits {
+				ambModLen[i] = j + 1
+				break
+			}
+		}
 	}
 
-	var ambMod []*num.Modulus
-	var diffDegNextAmbNTT, degNextAmbNTT []dft.Transformer
-	if needAmbMod {
-		ambParams := dft.NewCyclicParameters(2 * max(diffDegNext, degNext))
-		ambMod = dft.MustFindAmbientPrimes(ambParams, num.Log2(ambParams.ExpandFactor())+2*num.MaxModulusBits)
-		diffDegNextAmbNTT = make([]dft.Transformer, len(ambMod))
-		degNextAmbNTT = make([]dft.Transformer, len(ambMod))
-		for i := range ambMod {
-			diffDegNextAmbNTT[i] = dft.NewTransformer(diffDegNextParams, ambMod[i])
-			degNextAmbNTT[i] = dft.NewTransformer(degNextParams, ambMod[i])
-		}
-
-		for i := range mod {
-			if ambModLen[i] == 0 {
-				continue
-			}
-
-			ambBits := num.Log2(ambParams.ExpandFactor()) + 2*num.Log2(mod[i].Value())
-			bits := 0.0
-			for j := range ambMod {
-				bits += num.Log2(ambMod[j].Value())
-				if bits >= ambBits {
-					ambModLen[i] = j + 1
-					break
-				}
-			}
-		}
+	diffDegNextAmbNTT := make([]dft.Transformer, len(ambMod))
+	degNextAmbNTT := make([]dft.Transformer, len(ambMod))
+	for i := range ambMod {
+		diffDegNextAmbNTT[i] = dft.NewTransformer(diffDegNextParams, ambMod[i])
+		degNextAmbNTT[i] = dft.NewTransformer(degNextParams, ambMod[i])
 	}
 
 	embedder := make([]*Embedder, len(mod))
@@ -748,7 +880,6 @@ func NewReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *Reducer {
 		if ambModLen[i] == 0 {
 			modPolyRed[i] = [][]uint64{make([]uint64, degNext)}
 			vec.ReduceTo(modPolyRed[i][0][:rank+1], modPoly, mod[i])
-
 			divPoly[i] = [][]uint64{append(divPolyRef, make([]uint64, diffDegNext-len(divPolyRef))...)}
 		} else {
 			modPolyRed[i] = make([][]uint64, ambModLen[i])
@@ -803,7 +934,7 @@ func NewReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *Reducer {
 		divPoly: divPoly,
 
 		pool: pool.NewPool(func() *[][]uint64 {
-			p := make([][]uint64, max(1, vec.Max(ambModLen)))
+			p := make([][]uint64, len(ambMod))
 			for i := range p {
 				p[i] = make([]uint64, max(maxRank, diffDegNext, degNext))
 			}
@@ -970,14 +1101,6 @@ func (r *Reducer) SubReducer(idx ...int) *Reducer {
 		degNextNTTCopy[i] = r.degNextNTT[idx[i]]
 	}
 
-	maxAmbModLen := vec.Max(ambModLenCopy)
-	diffDegNextAmbNTTCopy := make([]dft.Transformer, maxAmbModLen)
-	degNextAmbNTTCopy := make([]dft.Transformer, maxAmbModLen)
-	for i := 0; i < maxAmbModLen; i++ {
-		diffDegNextAmbNTTCopy[i] = r.diffDegNextAmbNTT[i]
-		degNextAmbNTTCopy[i] = r.degNextAmbNTT[i]
-	}
-
 	return &Reducer{
 		params: r.params,
 		mod:    modCopy,
@@ -991,14 +1114,115 @@ func (r *Reducer) SubReducer(idx ...int) *Reducer {
 		degNextNTT:     degNextNTTCopy,
 
 		ambModLen: ambModLenCopy,
-		ambMod:    r.ambMod[:maxAmbModLen],
+		ambMod:    r.ambMod,
 		embedder:  embedderCopy,
 
-		diffDegNextAmbNTT: diffDegNextAmbNTTCopy,
-		degNextAmbNTT:     degNextAmbNTTCopy,
+		diffDegNextAmbNTT: r.diffDegNextAmbNTT,
+		degNextAmbNTT:     r.degNextAmbNTT,
 
 		modPoly: modPolyCopy,
 		divPoly: divPolyCopy,
+
+		pool: r.pool,
+	}
+}
+
+// Append appends a new [Reducer] and returns the new [Reducer].
+func (r *Reducer) Append(r0 *Reducer) *Reducer {
+	if !r.params.Equal(r0.params) || r.maxRank != r0.maxRank {
+		panic("inconsistent input(s)")
+	}
+
+	return &Reducer{
+		params: r.params,
+		mod:    vec.Concat(r.mod, r0.mod),
+
+		maxRank: r.maxRank,
+
+		diffDeg:     r.diffDeg,
+		diffDegNext: r.diffDegNext,
+		degNext:     r.degNext,
+
+		diffDegNextNTT: vec.Concat(r.diffDegNextNTT, r0.diffDegNextNTT),
+		degNextNTT:     vec.Concat(r.degNextNTT, r0.degNextNTT),
+
+		ambModLen: vec.Concat(r.ambModLen, r0.ambModLen),
+		ambMod:    r.ambMod,
+		embedder:  vec.Concat(r.embedder, r0.embedder),
+
+		diffDegNextAmbNTT: r.diffDegNextAmbNTT,
+		degNextAmbNTT:     r.degNextAmbNTT,
+
+		modPoly: vec.Concat(r.modPoly, r0.modPoly),
+		divPoly: vec.Concat(r.divPoly, r0.divPoly),
+
+		pool: r.pool,
+	}
+}
+
+// AppendModulus appends modulus to the moduli chain and returns the new [Reducer].
+// This assumes that modulus is NTT-unfriendly, trading the appending performance with operation performance.
+func (r *Reducer) AppendModulus(mod *num.Modulus) *Reducer {
+	ambModLen := 0
+	ambExpFactorBits := num.Log2(2 * max(r.diffDegNext, r.degNext))
+	ambBits := ambExpFactorBits + 2*num.Log2(mod.Value())
+	bits := 0.0
+	for j := range r.ambMod {
+		bits += num.Log2(r.ambMod[j].Value())
+		if bits >= ambBits {
+			ambModLen = j + 1
+			break
+		}
+	}
+
+	embedder := NewEmbedder([]*num.Modulus{mod}, r.ambMod[:ambModLen])
+
+	modPoly := make([][]uint64, ambModLen)
+	modPoly[0] = append(vec.Reduce(r.params.ModulusPoly(), mod), make([]uint64, r.degNext-len(r.params.ModulusPoly()))...)
+	for j := 1; j < ambModLen; j++ {
+		modPoly[j] = make([]uint64, r.degNext)
+		copy(modPoly[j], modPoly[0])
+	}
+
+	dividend := NewPoly(r.maxRank, 1)
+	dividend.Coeffs[0][r.maxRank-1] = 1
+
+	divPoly := make([][]uint64, ambModLen)
+	divReducer := NewLongDivReducer(r.maxRank, []*num.Modulus{mod}, r.params.ModulusPoly())
+	divPolyRef := divReducer.Quotient(dividend).Coeffs[0]
+	divPoly[0] = append(divPolyRef, make([]uint64, r.diffDegNext-len(divPolyRef))...)
+	for j := 1; j < ambModLen; j++ {
+		divPoly[j] = make([]uint64, r.diffDegNext)
+		copy(divPoly[j], divPoly[0])
+	}
+
+	for j := 0; j < ambModLen; j++ {
+		r.diffDegNextAmbNTT[j].ForwardTo(divPoly[j], divPoly[j])
+		r.degNextAmbNTT[j].ForwardTo(modPoly[j], modPoly[j])
+	}
+
+	return &Reducer{
+		params: r.params,
+		mod:    vec.Concat(r.mod, []*num.Modulus{mod}),
+
+		maxRank: r.maxRank,
+
+		diffDeg:     r.diffDeg,
+		diffDegNext: r.diffDegNext,
+		degNext:     r.degNext,
+
+		diffDegNextNTT: vec.Concat(r.diffDegNextNTT, []dft.Transformer{nil}),
+		degNextNTT:     vec.Concat(r.degNextNTT, []dft.Transformer{nil}),
+
+		ambModLen: vec.Concat(r.ambModLen, []int{ambModLen}),
+		ambMod:    r.ambMod,
+		embedder:  vec.Concat(r.embedder, []*Embedder{embedder}),
+
+		diffDegNextAmbNTT: r.diffDegNextAmbNTT,
+		degNextAmbNTT:     r.degNextAmbNTT,
+
+		modPoly: vec.Concat(r.modPoly, [][][]uint64{modPoly}),
+		divPoly: vec.Concat(r.divPoly, [][][]uint64{divPoly}),
 
 		pool: r.pool,
 	}

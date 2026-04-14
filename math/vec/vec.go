@@ -31,6 +31,11 @@ func checkLength(xs ...int) {
 	}
 }
 
+// Concat concatenates two vectors into a new, contiguous vector.
+func Concat[T any](v0, v1 []T) []T {
+	return append(append(make([]T, 0, len(v0)+len(v1)), v0...), v1...)
+}
+
 // Cast casts vector v of type []T to []TOut.
 func Cast[TOut, T num.Real](v []T) []TOut {
 	vOut := make([]TOut, len(v))
