@@ -213,9 +213,9 @@ func (r *LongDivReducer) Append(r0 *LongDivReducer) *LongDivReducer {
 	}
 }
 
-// AppendModulus appends q to the moduli chain and returns the new [LongDivReducer].
+// AppendAuxModulus appends "auxillary" modulus to the moduli chain and returns the new [LongDivReducer].
 // This assumes that modulus is NTT-unfriendly, trading the appending performance with operation performance.
-func (r *LongDivReducer) AppendModulus(mod *num.Modulus) *LongDivReducer {
+func (r *LongDivReducer) AppendAuxModulus(mod *num.Modulus) *LongDivReducer {
 	return &LongDivReducer{
 		params: r.params,
 		mod:    vec.Concat(r.mod, []*num.Modulus{mod}),
@@ -685,9 +685,9 @@ func (r *CyclotomicReducer) Append(r0 *CyclotomicReducer) *CyclotomicReducer {
 	}
 }
 
-// AppendModulus appends modulus to the moduli chain and returns the new [CyclotomicReducer].
+// AppendAuxModulus appends "auxillary" modulus to the moduli chain and returns the new [CyclotomicReducer].
 // This assumes that modulus is NTT-unfriendly, trading the appending performance with operation performance.
-func (r *CyclotomicReducer) AppendModulus(mod *num.Modulus) *CyclotomicReducer {
+func (r *CyclotomicReducer) AppendAuxModulus(mod *num.Modulus) *CyclotomicReducer {
 	if r.isTrivial {
 		return &CyclotomicReducer{
 			params: r.params,
@@ -1160,9 +1160,9 @@ func (r *Reducer) Append(r0 *Reducer) *Reducer {
 	}
 }
 
-// AppendModulus appends modulus to the moduli chain and returns the new [Reducer].
+// AppendAuxModulus appends "auxillary" modulus to the moduli chain and returns the new [Reducer].
 // This assumes that modulus is NTT-unfriendly, trading the appending performance with operation performance.
-func (r *Reducer) AppendModulus(mod *num.Modulus) *Reducer {
+func (r *Reducer) AppendAuxModulus(mod *num.Modulus) *Reducer {
 	ambModLen := 0
 	ambExpFactorBits := num.Log2(2 * max(r.diffDegNext, r.degNext))
 	ambBits := ambExpFactorBits + 2*num.Log2(mod.Value())

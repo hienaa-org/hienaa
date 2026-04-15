@@ -97,3 +97,24 @@ func (op *Operator) SubOperator(idx ...int) *Operator {
 		autOperator:    op.autOperator.subOperator(idx...),
 	}
 }
+
+// Append appends a new [Operator] and returns the new [Operator].
+func (op *Operator) Append(op0 *Operator) *Operator {
+	return &Operator{
+		baseOperator:   op.baseOperator.append(op0.baseOperator),
+		addSubOperator: op.addSubOperator.append(op0.addSubOperator),
+		mulOperator:    op.mulOperator.append(op0.mulOperator),
+		autOperator:    op.autOperator.append(op0.autOperator),
+	}
+}
+
+// AppendAuxModulus appends "auxillary" modulus to the moduli chain and returns the new [Operator].
+// This assumes that modulus is NTT-unfriendly, trading the appending performance with operation performance.
+func (op *Operator) AppendAuxModulus(mod *num.Modulus) *Operator {
+	return &Operator{
+		baseOperator:   op.baseOperator.appendAuxModulus(mod),
+		addSubOperator: op.addSubOperator.appendAuxModulus(mod),
+		mulOperator:    op.mulOperator.appendAuxModulus(mod),
+		autOperator:    op.autOperator.appendAuxModulus(mod),
+	}
+}

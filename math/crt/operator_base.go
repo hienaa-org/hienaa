@@ -208,3 +208,23 @@ func (op *baseOperator) subOperator(idx ...int) *baseOperator {
 		ntt:           nttCopy,
 	}
 }
+
+func (op *baseOperator) append(op0 *baseOperator) *baseOperator {
+	return &baseOperator{
+		params: op.params,
+		mod:    vec.Concat(op.mod, op0.mod),
+
+		isNTTFriendly: vec.Concat(op.isNTTFriendly, op0.isNTTFriendly),
+		ntt:           vec.Concat(op.ntt, op0.ntt),
+	}
+}
+
+func (op *baseOperator) appendAuxModulus(mod *num.Modulus) *baseOperator {
+	return &baseOperator{
+		params: op.params,
+		mod:    vec.Concat(op.mod, []*num.Modulus{mod}),
+
+		isNTTFriendly: vec.Concat(op.isNTTFriendly, []bool{false}),
+		ntt:           vec.Concat(op.ntt, []dft.Transformer{nil}),
+	}
+}

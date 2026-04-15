@@ -7,6 +7,7 @@ import (
 	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
+	"github.com/hienaa-org/hienaa/math/vec"
 )
 
 // autOperator implements automorphism operations.
@@ -21,6 +22,8 @@ type autOperator interface {
 	AutTo(eOut, e *Element, idx int)
 
 	subOperator(idx ...int) autOperator
+	append(op0 autOperator) autOperator
+	appendAuxModulus(mod *num.Modulus) autOperator
 }
 
 // pow2CyclotomicAutOperator is a [autOperator] for power-of-two cyclotomic ring.
@@ -131,6 +134,27 @@ func (op *pow2CyclotomicAutOperator) subOperator(idx ...int) autOperator {
 		params:        op.params,
 		mod:           modCopy,
 		isNTTFriendly: isNTTFriendlyCopy,
+
+		pool: op.pool,
+	}
+}
+
+func (op *pow2CyclotomicAutOperator) append(op0 autOperator) autOperator {
+	opOther := op0.(*pow2CyclotomicAutOperator)
+	return &pow2CyclotomicAutOperator{
+		params:        op.params,
+		mod:           vec.Concat(op.mod, opOther.mod),
+		isNTTFriendly: vec.Concat(op.isNTTFriendly, opOther.isNTTFriendly),
+
+		pool: op.pool,
+	}
+}
+
+func (op *pow2CyclotomicAutOperator) appendAuxModulus(mod *num.Modulus) autOperator {
+	return &pow2CyclotomicAutOperator{
+		params:        op.params,
+		mod:           vec.Concat(op.mod, []*num.Modulus{mod}),
+		isNTTFriendly: vec.Concat(op.isNTTFriendly, []bool{false}),
 
 		pool: op.pool,
 	}
@@ -334,6 +358,41 @@ func (op *anyCyclotomicAutOperator) subOperator(idx ...int) autOperator {
 	}
 }
 
+func (op *anyCyclotomicAutOperator) append(op0 autOperator) autOperator {
+	opOther := op0.(*anyCyclotomicAutOperator)
+	return &anyCyclotomicAutOperator{
+		params:        op.params,
+		cycloOrdMod:   op.cycloOrdMod,
+		mod:           vec.Concat(op.mod, opOther.mod),
+		isNTTFriendly: vec.Concat(op.isNTTFriendly, opOther.isNTTFriendly),
+
+		reducer: op.reducer.Append(opOther.reducer),
+
+		primeExpMods: op.primeExpMods,
+		rootExps:     op.rootExps,
+		dims:         op.dims,
+
+		pool: op.pool,
+	}
+}
+
+func (op *anyCyclotomicAutOperator) appendAuxModulus(mod *num.Modulus) autOperator {
+	return &anyCyclotomicAutOperator{
+		params:        op.params,
+		cycloOrdMod:   op.cycloOrdMod,
+		mod:           vec.Concat(op.mod, []*num.Modulus{mod}),
+		isNTTFriendly: vec.Concat(op.isNTTFriendly, []bool{false}),
+
+		reducer: op.reducer.AppendAuxModulus(mod),
+
+		primeExpMods: op.primeExpMods,
+		rootExps:     op.rootExps,
+		dims:         op.dims,
+
+		pool: op.pool,
+	}
+}
+
 // pow2AutFixedAutOperator is a [autOperator] for power-of-two autfixed ring.
 type pow2AutFixedAutOperator struct {
 	params        dft.RingParameters
@@ -453,6 +512,27 @@ func (op *pow2AutFixedAutOperator) subOperator(idx ...int) autOperator {
 		params:        op.params,
 		mod:           modCopy,
 		isNTTFriendly: isNTTFriendlyCopy,
+
+		pool: op.pool,
+	}
+}
+
+func (op *pow2AutFixedAutOperator) append(op0 autOperator) autOperator {
+	opOther := op0.(*pow2AutFixedAutOperator)
+	return &pow2AutFixedAutOperator{
+		params:        op.params,
+		mod:           vec.Concat(op.mod, opOther.mod),
+		isNTTFriendly: vec.Concat(op.isNTTFriendly, opOther.isNTTFriendly),
+
+		pool: op.pool,
+	}
+}
+
+func (op *pow2AutFixedAutOperator) appendAuxModulus(mod *num.Modulus) autOperator {
+	return &pow2AutFixedAutOperator{
+		params:        op.params,
+		mod:           vec.Concat(op.mod, []*num.Modulus{mod}),
+		isNTTFriendly: vec.Concat(op.isNTTFriendly, []bool{false}),
 
 		pool: op.pool,
 	}
@@ -584,6 +664,33 @@ func (op *primeAutFixedAutOperator) subOperator(idx ...int) autOperator {
 	}
 }
 
+func (op *primeAutFixedAutOperator) append(op0 autOperator) autOperator {
+	opOther := op0.(*primeAutFixedAutOperator)
+	return &primeAutFixedAutOperator{
+		params:        op.params,
+		mod:           vec.Concat(op.mod, opOther.mod),
+		isNTTFriendly: vec.Concat(op.isNTTFriendly, opOther.isNTTFriendly),
+
+		rootPow:    op.rootPow,
+		rootPowInv: op.rootPowInv,
+
+		pool: op.pool,
+	}
+}
+
+func (op *primeAutFixedAutOperator) appendAuxModulus(mod *num.Modulus) autOperator {
+	return &primeAutFixedAutOperator{
+		params:        op.params,
+		mod:           vec.Concat(op.mod, []*num.Modulus{mod}),
+		isNTTFriendly: vec.Concat(op.isNTTFriendly, []bool{false}),
+
+		rootPow:    op.rootPow,
+		rootPowInv: op.rootPowInv,
+
+		pool: op.pool,
+	}
+}
+
 // noAutOperator is a no-op [autOperator].
 type noAutOperator struct{}
 
@@ -605,5 +712,13 @@ func (op noAutOperator) AutTo(eOut, e *Element, idx int) {
 }
 
 func (op noAutOperator) subOperator(idx ...int) autOperator {
+	return op
+}
+
+func (op noAutOperator) append(op0 autOperator) autOperator {
+	return op
+}
+
+func (op noAutOperator) appendAuxModulus(mod *num.Modulus) autOperator {
 	return op
 }

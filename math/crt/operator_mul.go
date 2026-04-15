@@ -23,14 +23,16 @@ type mulOperator interface {
 	MulSubTo(eOut, e0, e1 *Element)
 
 	subOperator(idx ...int) mulOperator
+	append(op0 mulOperator) mulOperator
+	appendAuxModulus(mod *num.Modulus) mulOperator
 }
 
 // baseMulOperator is a [mulOperator] for rings that do not require reduction after
 // multiplication.
 // This includes all rings except aribtrary cyclotomic and quotient ring.
 type baseMulOperator struct {
-	rank int
-	mod  []*num.Modulus
+	params dft.RingParameters
+	mod    []*num.Modulus
 
 	ambModLen []int
 	ambMod    []*num.Modulus
@@ -42,21 +44,7 @@ type baseMulOperator struct {
 
 // newBaseMulOperator creates a new [baseMulOperator].
 func newBaseMulOperator(params dft.RingParameters, mod []*num.Modulus) *baseMulOperator {
-	maxBits := make([]float64, len(mod))
-	for i := range mod {
-		if dft.IsNTTFriendly(params, mod[i]) {
-			continue
-		}
-		maxBits[i] = 2 * num.Log2(mod[i].Value())
-		switch params.RingType() {
-		case dft.TypeCyclic, dft.TypeCyclotomic:
-			maxBits[i] += num.Log2(params.Rank())
-		case dft.TypeAutFixed:
-			maxBits[i] += num.Log2(params.CycloOrder())
-		}
-	}
-
-	ambMod := dft.MustFindAmbientPrimes(params, vec.Max(maxBits))
+	ambMod := dft.MustFindAmbientPrimes(params, num.Log2(params.ExpandFactor())+2*num.MaxModulusBits)
 	ambNTT := make([]dft.Transformer, len(ambMod))
 	for i := range ambMod {
 		ambNTT[i] = dft.NewTransformer(params, ambMod[i])
@@ -64,13 +52,15 @@ func newBaseMulOperator(params dft.RingParameters, mod []*num.Modulus) *baseMulO
 
 	ambModLen := make([]int, len(mod))
 	for i := range mod {
-		if maxBits[i] == 0 {
+		if dft.IsNTTFriendly(params, mod[i]) {
 			continue
 		}
+
+		maxBits := num.Log2(params.ExpandFactor()) + 2*num.Log2(mod[i].Value())
 		currBits := 0.0
 		for j := range ambMod {
 			currBits += num.Log2(ambMod[j].Value())
-			if currBits >= maxBits[i] {
+			if currBits >= maxBits {
 				ambModLen[i] = j + 1
 				break
 			}
@@ -86,8 +76,8 @@ func newBaseMulOperator(params dft.RingParameters, mod []*num.Modulus) *baseMulO
 	}
 
 	return &baseMulOperator{
-		rank: params.Rank(),
-		mod:  mod,
+		params: params,
+		mod:    mod,
 
 		ambModLen: ambModLen,
 		ambMod:    ambMod,
@@ -95,7 +85,7 @@ func newBaseMulOperator(params dft.RingParameters, mod []*num.Modulus) *baseMulO
 		embedder:  embedder,
 
 		pool: pool.NewPool(func() *Element {
-			return NewPoly(params.Rank(), max(1, vec.Max(ambModLen)))
+			return NewPoly(params.Rank(), len(ambMod))
 		}),
 	}
 }
@@ -111,7 +101,7 @@ func (op *baseMulOperator) Mul(e0, e1 *Element) *Element {
 // MulTo computes eOut = e0 * e1.
 // When e0, e1 are both polynomials, they must be in NTT form.
 func (op *baseMulOperator) MulTo(eOut, e0, e1 *Element) {
-	isBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
+	isBinaryOperable(op.params.Rank(), len(op.mod), eOut, e0, e1)
 
 	switch {
 	case isEqualType(e0, e1, TypeScalar):
@@ -160,7 +150,7 @@ func (op *baseMulOperator) MulTo(eOut, e0, e1 *Element) {
 
 // MulAddTo computes eOut += e0 * e1.
 func (op *baseMulOperator) MulAddTo(eOut, e0, e1 *Element) {
-	isBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
+	isBinaryOperable(op.params.Rank(), len(op.mod), eOut, e0, e1)
 
 	switch {
 	case isEqualType(e0, e1, TypeScalar):
@@ -210,7 +200,7 @@ func (op *baseMulOperator) MulAddTo(eOut, e0, e1 *Element) {
 
 // MulSubTo computes eOut -= e0 * e1.
 func (op *baseMulOperator) MulSubTo(eOut, e0, e1 *Element) {
-	isBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
+	isBinaryOperable(op.params.Rank(), len(op.mod), eOut, e0, e1)
 
 	switch {
 	case isEqualType(e0, e1, TypeScalar):
@@ -271,16 +261,56 @@ func (op *baseMulOperator) subOperator(idx ...int) mulOperator {
 		embedderCopy[i] = op.embedder[idx[i]]
 	}
 
-	maxAmbModLen := vec.Max(ambModLenCopy)
-
 	return &baseMulOperator{
-		rank: op.rank,
-		mod:  modCopy,
+		params: op.params,
+		mod:    modCopy,
 
 		ambModLen: ambModLenCopy,
-		ambMod:    op.ambMod[:maxAmbModLen],
-		ambNTT:    op.ambNTT[:maxAmbModLen],
+		ambMod:    op.ambMod,
+		ambNTT:    op.ambNTT,
 		embedder:  embedderCopy,
+
+		pool: op.pool,
+	}
+}
+
+func (op *baseMulOperator) append(op0 mulOperator) mulOperator {
+	opOther := op0.(*baseMulOperator)
+	return &baseMulOperator{
+		params: op.params,
+		mod:    vec.Concat(op.mod, opOther.mod),
+
+		ambModLen: vec.Concat(op.ambModLen, opOther.ambModLen),
+		ambMod:    op.ambMod,
+		ambNTT:    op.ambNTT,
+		embedder:  vec.Concat(op.embedder, opOther.embedder),
+
+		pool: op.pool,
+	}
+}
+
+func (op *baseMulOperator) appendAuxModulus(mod *num.Modulus) mulOperator {
+	ambModLen := 0
+	ambBits := num.Log2(op.params.ExpandFactor()) + 2*num.Log2(mod.Value())
+	bits := 0.0
+	for j := range op.ambMod {
+		bits += num.Log2(op.ambMod[j].Value())
+		if bits >= ambBits {
+			ambModLen = j + 1
+			break
+		}
+	}
+
+	embedder := NewEmbedder([]*num.Modulus{mod}, op.ambMod[:ambModLen])
+
+	return &baseMulOperator{
+		params: op.params,
+		mod:    vec.Concat(op.mod, []*num.Modulus{mod}),
+
+		ambModLen: vec.Concat(op.ambModLen, []int{ambModLen}),
+		ambMod:    op.ambMod,
+		ambNTT:    op.ambNTT,
+		embedder:  vec.Concat(op.embedder, []*Embedder{embedder}),
 
 		pool: op.pool,
 	}
@@ -303,16 +333,8 @@ type anyCyclotomicMulOperator struct {
 
 // newAnyCyclotomicMulOperator creates a new [anyCyclotomicMulOperator].
 func newAnyCyclotomicMulOperator(params dft.RingParameters, mod []*num.Modulus, reducer *CyclotomicReducer) *anyCyclotomicMulOperator {
-	maxBits := make([]float64, len(mod))
-	for i := range mod {
-		if dft.IsNTTFriendly(params, mod[i]) {
-			continue
-		}
-		maxBits[i] = num.Log2(params.CycloOrder()) + 2*num.Log2(mod[i].Value())
-	}
-
 	ambParams := dft.NewCyclicParameters(params.CycloOrder())
-	ambMod := dft.MustFindAmbientPrimes(ambParams, vec.Max(maxBits))
+	ambMod := dft.MustFindAmbientPrimes(ambParams, num.Log2(params.ExpandFactor())+2*num.MaxModulusBits)
 	ambNTT := make([]dft.Transformer, len(ambMod))
 	for i := range ambMod {
 		ambNTT[i] = dft.NewTransformer(ambParams, ambMod[i])
@@ -320,13 +342,15 @@ func newAnyCyclotomicMulOperator(params dft.RingParameters, mod []*num.Modulus, 
 
 	ambModLen := make([]int, len(mod))
 	for i := range mod {
-		if maxBits[i] == 0 {
+		if dft.IsNTTFriendly(params, mod[i]) {
 			continue
 		}
+
+		maxBits := num.Log2(params.ExpandFactor()) + 2*num.Log2(mod[i].Value())
 		currBits := 0.0
 		for j := range ambMod {
 			currBits += num.Log2(ambMod[j].Value())
-			if currBits >= maxBits[i] {
+			if currBits >= maxBits {
 				ambModLen[i] = j + 1
 				break
 			}
@@ -353,7 +377,7 @@ func newAnyCyclotomicMulOperator(params dft.RingParameters, mod []*num.Modulus, 
 		reducer: reducer,
 
 		pool: pool.NewPool(func() *Element {
-			return NewPoly(params.CycloOrder(), max(1, vec.Max(ambModLen)))
+			return NewPoly(params.CycloOrder(), len(ambMod))
 		}),
 	}
 }
@@ -548,8 +572,6 @@ func (op *anyCyclotomicMulOperator) subOperator(idx ...int) mulOperator {
 		ambModLenCopy[i] = op.ambModLen[idx[i]]
 	}
 
-	maxAmbModLen := vec.Max(ambModLenCopy)
-
 	embedderCopy := make([]*Embedder, len(idx))
 	for i := range idx {
 		embedderCopy[i] = op.embedder[idx[i]]
@@ -560,8 +582,8 @@ func (op *anyCyclotomicMulOperator) subOperator(idx ...int) mulOperator {
 		mod:    modCopy,
 
 		ambModLen: ambModLenCopy,
-		ambMod:    op.ambMod[:maxAmbModLen],
-		ambNTT:    op.ambNTT[:maxAmbModLen],
+		ambMod:    op.ambMod,
+		ambNTT:    op.ambNTT,
 		embedder:  embedderCopy,
 
 		reducer: op.reducer.SubReducer(idx...),
@@ -570,11 +592,57 @@ func (op *anyCyclotomicMulOperator) subOperator(idx ...int) mulOperator {
 	}
 }
 
+func (op *anyCyclotomicMulOperator) append(op0 mulOperator) mulOperator {
+	opOther := op0.(*anyCyclotomicMulOperator)
+	return &anyCyclotomicMulOperator{
+		params: op.params,
+		mod:    vec.Concat(op.mod, opOther.mod),
+
+		ambModLen: vec.Concat(op.ambModLen, opOther.ambModLen),
+		ambMod:    op.ambMod,
+		ambNTT:    op.ambNTT,
+		embedder:  vec.Concat(op.embedder, opOther.embedder),
+
+		reducer: op.reducer.Append(opOther.reducer),
+
+		pool: op.pool,
+	}
+}
+
+func (op *anyCyclotomicMulOperator) appendAuxModulus(mod *num.Modulus) mulOperator {
+	ambModLen := 0
+	ambBits := num.Log2(op.params.ExpandFactor()) + 2*num.Log2(mod.Value())
+	bits := 0.0
+	for j := range op.ambMod {
+		bits += num.Log2(op.ambMod[j].Value())
+		if bits >= ambBits {
+			ambModLen = j + 1
+			break
+		}
+	}
+
+	embedder := NewEmbedder([]*num.Modulus{mod}, op.ambMod[:ambModLen])
+
+	return &anyCyclotomicMulOperator{
+		params: op.params,
+		mod:    vec.Concat(op.mod, []*num.Modulus{mod}),
+
+		ambModLen: vec.Concat(op.ambModLen, []int{ambModLen}),
+		ambMod:    op.ambMod,
+		ambNTT:    op.ambNTT,
+		embedder:  vec.Concat(op.embedder, []*Embedder{embedder}),
+
+		reducer: op.reducer.AppendAuxModulus(mod),
+
+		pool: op.pool,
+	}
+}
+
 // reduceMulOperator is a [mulOperator] for arbitrary modulo rings.
 type reduceMulOperator struct {
-	rank    int
-	ambRank int
-	mod     []*num.Modulus
+	rank      int
+	ambParams dft.RingParameters
+	mod       []*num.Modulus
 
 	ntt []dft.Transformer
 
@@ -591,39 +659,25 @@ type reduceMulOperator struct {
 // newReduceMulOperator creates a new [reduceMulOperator].
 func newReduceMulOperator(mod []*num.Modulus, modPoly []int64, reducer *Reducer) *reduceMulOperator {
 	ambParams := dft.NewCyclicParameters(num.NextProdPower(2*len(modPoly)-1, []int{2}))
+	ambMod := dft.MustFindAmbientPrimes(ambParams, num.Log2(ambParams.ExpandFactor())+2*num.MaxModulusBits)
+	ambNTT := make([]dft.Transformer, len(ambMod))
+	for i := range ambMod {
+		ambNTT[i] = dft.NewTransformer(ambParams, ambMod[i])
+	}
 
 	ntt := make([]dft.Transformer, len(mod))
-	needAmbMod := false
 	ambModLen := make([]int, len(mod))
 	for i := range mod {
 		if dft.IsNTTFriendly(ambParams, mod[i]) {
 			ntt[i] = dft.NewTransformer(ambParams, mod[i])
 			continue
 		}
-		needAmbMod = true
-		ambModLen[i] = 1
-	}
 
-	var ambMod []*num.Modulus
-	var ambNTT []dft.Transformer
-	if needAmbMod {
-		ambMod = dft.MustFindAmbientPrimes(ambParams, num.Log2(ambParams.ExpandFactor())+2*num.MaxModulusBits)
-		ambNTT = make([]dft.Transformer, len(ambMod))
-		for i := range ambMod {
-			ambNTT[i] = dft.NewTransformer(ambParams, ambMod[i])
-		}
-	}
-
-	for i := range mod {
-		if ambModLen[i] == 0 {
-			continue
-		}
-
-		ambBits := num.Log2(ambParams.ExpandFactor()) + 2*num.Log2(mod[i].Value())
-		bits := 0.0
+		maxBits := num.Log2(ambParams.ExpandFactor()) + 2*num.Log2(mod[i].Value())
+		currBits := 0.0
 		for j := range ambMod {
-			bits += num.Log2(ambMod[j].Value())
-			if bits >= ambBits {
+			currBits += num.Log2(ambMod[j].Value())
+			if currBits >= maxBits {
 				ambModLen[i] = j + 1
 				break
 			}
@@ -639,9 +693,9 @@ func newReduceMulOperator(mod []*num.Modulus, modPoly []int64, reducer *Reducer)
 	}
 
 	return &reduceMulOperator{
-		rank:    len(modPoly) - 1,
-		ambRank: ambParams.Rank(),
-		mod:     mod,
+		rank:      len(modPoly) - 1,
+		ambParams: ambParams,
+		mod:       mod,
 
 		ntt: ntt,
 
@@ -653,7 +707,7 @@ func newReduceMulOperator(mod []*num.Modulus, modPoly []int64, reducer *Reducer)
 		reducer: reducer,
 
 		pool: pool.NewPool(func() *Element {
-			return NewPoly(ambParams.Rank(), max(1, vec.Max(ambModLen)))
+			return NewPoly(ambParams.Rank(), len(ambMod))
 		}),
 	}
 }
@@ -861,26 +915,76 @@ func (op *reduceMulOperator) subOperator(idx ...int) mulOperator {
 		ambModLenCopy[i] = op.ambModLen[idx[i]]
 	}
 
-	maxAmbModLen := vec.Max(ambModLenCopy)
-
 	embedderCopy := make([]*Embedder, len(idx))
 	for i := range idx {
 		embedderCopy[i] = op.embedder[idx[i]]
 	}
 
 	return &reduceMulOperator{
-		rank:    op.rank,
-		ambRank: op.ambRank,
-		mod:     modCopy,
+		rank:      op.rank,
+		ambParams: op.ambParams,
+		mod:       modCopy,
 
 		ntt: nttCopy,
 
 		ambModLen: ambModLenCopy,
-		ambMod:    op.ambMod[:maxAmbModLen],
-		ambNTT:    op.ambNTT[:maxAmbModLen],
+		ambMod:    op.ambMod,
+		ambNTT:    op.ambNTT,
 		embedder:  embedderCopy,
 
 		reducer: op.reducer.SubReducer(idx...),
+
+		pool: op.pool,
+	}
+}
+
+func (op *reduceMulOperator) append(op0 mulOperator) mulOperator {
+	opOther := op0.(*reduceMulOperator)
+	return &reduceMulOperator{
+		rank:      op.rank,
+		ambParams: op.ambParams,
+		mod:       vec.Concat(op.mod, opOther.mod),
+
+		ntt: vec.Concat(op.ntt, opOther.ntt),
+
+		ambModLen: vec.Concat(op.ambModLen, opOther.ambModLen),
+		ambMod:    op.ambMod,
+		ambNTT:    op.ambNTT,
+		embedder:  vec.Concat(op.embedder, opOther.embedder),
+
+		reducer: op.reducer.Append(opOther.reducer),
+
+		pool: op.pool,
+	}
+}
+
+func (op *reduceMulOperator) appendAuxModulus(mod *num.Modulus) mulOperator {
+	ambModLen := 0
+	ambBits := num.Log2(op.ambParams.ExpandFactor()) + 2*num.Log2(mod.Value())
+	bits := 0.0
+	for j := range op.ambMod {
+		bits += num.Log2(op.ambMod[j].Value())
+		if bits >= ambBits {
+			ambModLen = j + 1
+			break
+		}
+	}
+
+	embedder := NewEmbedder([]*num.Modulus{mod}, op.ambMod[:ambModLen])
+
+	return &reduceMulOperator{
+		rank:      op.rank,
+		ambParams: op.ambParams,
+		mod:       vec.Concat(op.mod, []*num.Modulus{mod}),
+
+		ntt: vec.Concat(op.ntt, []dft.Transformer{nil}),
+
+		ambModLen: vec.Concat(op.ambModLen, []int{ambModLen}),
+		ambMod:    op.ambMod,
+		ambNTT:    op.ambNTT,
+		embedder:  vec.Concat(op.embedder, []*Embedder{embedder}),
+
+		reducer: op.reducer.AppendAuxModulus(mod),
 
 		pool: op.pool,
 	}

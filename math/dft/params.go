@@ -145,10 +145,12 @@ func (p RingParameters) RingType() RingType {
 
 // Equal checks if two parameters are equal.
 func (p RingParameters) Equal(p0 RingParameters) bool {
-	return p.cycloOrd == p0.cycloOrd &&
-		p.rank == p0.rank &&
-		p.ringType == p0.ringType &&
-		slices.Equal(p.modPoly, p0.modPoly)
+	eq := p.cycloOrd == p0.cycloOrd && p.rank == p0.rank && p.ringType == p0.ringType
+
+	if p.ringType == TypeOther {
+		return eq && slices.Equal(p.modPoly, p0.modPoly)
+	}
+	return eq
 }
 
 // cyclotomicExpFac computes the expansion factor for cyclotomic ring.

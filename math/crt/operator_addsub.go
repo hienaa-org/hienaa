@@ -19,6 +19,8 @@ type addSubOperator interface {
 	SubTo(eOut, e0, e1 *Element)
 
 	subOperator(idx ...int) addSubOperator
+	append(op0 addSubOperator) addSubOperator
+	appendAuxModulus(mod *num.Modulus) addSubOperator
 }
 
 // baseAddSubOperator is a [addSubOperator] for every ring
@@ -128,6 +130,23 @@ func (op *baseAddSubOperator) subOperator(idx ...int) addSubOperator {
 	}
 }
 
+func (op *baseAddSubOperator) append(op0 addSubOperator) addSubOperator {
+	opOther := op0.(*baseAddSubOperator)
+	return &baseAddSubOperator{
+		rank:          opOther.rank,
+		mod:           vec.Concat(op.mod, opOther.mod),
+		isNTTFriendly: vec.Concat(op.isNTTFriendly, opOther.isNTTFriendly),
+	}
+}
+
+func (op *baseAddSubOperator) appendAuxModulus(mod *num.Modulus) addSubOperator {
+	return &baseAddSubOperator{
+		rank:          op.rank,
+		mod:           vec.Concat(op.mod, []*num.Modulus{mod}),
+		isNTTFriendly: vec.Concat(op.isNTTFriendly, []bool{false}),
+	}
+}
+
 // primeAutFixedAddSubOperator is a [addSubOperator] for prime-order autfixed ring.
 type primeAutFixedAddSubOperator struct {
 	rank          int
@@ -229,5 +248,22 @@ func (op *primeAutFixedAddSubOperator) subOperator(idx ...int) addSubOperator {
 		rank:          op.rank,
 		mod:           modCopy,
 		isNTTFriendly: isNTTFriendlyCopy,
+	}
+}
+
+func (op *primeAutFixedAddSubOperator) append(op0 addSubOperator) addSubOperator {
+	opOther := op0.(*primeAutFixedAddSubOperator)
+	return &primeAutFixedAddSubOperator{
+		rank:          op.rank,
+		mod:           vec.Concat(op.mod, opOther.mod),
+		isNTTFriendly: vec.Concat(op.isNTTFriendly, opOther.isNTTFriendly),
+	}
+}
+
+func (op *primeAutFixedAddSubOperator) appendAuxModulus(mod *num.Modulus) addSubOperator {
+	return &primeAutFixedAddSubOperator{
+		rank:          op.rank,
+		mod:           vec.Concat(op.mod, []*num.Modulus{mod}),
+		isNTTFriendly: vec.Concat(op.isNTTFriendly, []bool{false}),
 	}
 }
