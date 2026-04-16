@@ -36,6 +36,15 @@ func Concat[T any](v0, v1 []T) []T {
 	return append(append(make([]T, 0, len(v0)+len(v1)), v0...), v1...)
 }
 
+// Gather returns a new vector with elements of given indices.
+func Gather[T any](v []T, idx ...int) []T {
+	vOut := make([]T, len(idx))
+	for i := range idx {
+		vOut[i] = v[idx[i]]
+	}
+	return vOut
+}
+
 // Cast casts vector v of type []T to []TOut.
 func Cast[TOut, T num.Real](v []T) []TOut {
 	vOut := make([]TOut, len(v))

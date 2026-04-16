@@ -190,22 +190,13 @@ func (op *baseOperator) AsBig(e *Element) []*big.Int {
 	return pBig
 }
 
-func (op *baseOperator) subOperator(idx ...int) *baseOperator {
-	modCopy := make([]*num.Modulus, len(idx))
-	isNTTFriendlyCopy := make([]bool, len(idx))
-	nttCopy := make([]dft.Transformer, len(idx))
-	for i := range idx {
-		modCopy[i] = op.mod[idx[i]]
-		isNTTFriendlyCopy[i] = op.isNTTFriendly[idx[i]]
-		nttCopy[i] = op.ntt[idx[i]]
-	}
-
+func (op *baseOperator) gather(idx ...int) *baseOperator {
 	return &baseOperator{
 		params: op.params,
-		mod:    modCopy,
+		mod:    vec.Gather(op.mod, idx...),
 
-		isNTTFriendly: isNTTFriendlyCopy,
-		ntt:           nttCopy,
+		isNTTFriendly: vec.Gather(op.isNTTFriendly, idx...),
+		ntt:           vec.Gather(op.ntt, idx...),
 	}
 }
 

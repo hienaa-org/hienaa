@@ -172,22 +172,15 @@ func (r *LongDivReducer) Modulus() []*num.Modulus {
 	return r.mod
 }
 
-// SubReducer returns a reducer for modulus of given indices.
-func (r *LongDivReducer) SubReducer(idx ...int) *LongDivReducer {
-	modCopy := make([]*num.Modulus, len(idx))
-	modPolyCopy := make([][]uint64, len(idx))
-	for i := range idx {
-		modCopy[i] = r.mod[idx[i]]
-		modPolyCopy[i] = r.modPoly[idx[i]]
-	}
-
+// Gather returns a [Reducer] for modulus of given indices.
+func (r *LongDivReducer) Gather(idx ...int) *LongDivReducer {
 	return &LongDivReducer{
 		params: r.params,
-		mod:    modCopy,
+		mod:    vec.Gather(r.mod, idx...),
 
 		maxRank: r.maxRank,
 
-		modPoly:       modPolyCopy,
+		modPoly:       vec.Gather(r.modPoly, idx...),
 		modPolySigned: r.modPolySigned,
 
 		pool: r.pool,
@@ -587,42 +580,41 @@ func (r *CyclotomicReducer) Modulus() []*num.Modulus {
 	return r.mod
 }
 
-// SubReducer returns a reducer for modulus of given indices.
-func (r *CyclotomicReducer) SubReducer(idx ...int) *CyclotomicReducer {
-	modCopy := make([]*num.Modulus, len(idx))
+// Gather returns a reducer for modulus of given indices.
+func (r *CyclotomicReducer) Gather(idx ...int) *CyclotomicReducer {
+	if r.isTrivial {
+		return &CyclotomicReducer{
+			params: r.params,
+			mod:    vec.Gather(r.mod, idx...),
 
-	for i := range idx {
-		modCopy[i] = r.mod[idx[i]]
-	}
+			leastFac:  r.leastFac,
+			isTrivial: r.isTrivial,
 
-	var ambModLenCopy []int
-	var embedderCopy []*Embedder
-	var diffDegNextNTTCopy, degNextNTTCopy []dft.Transformer
-	var cycloPolyCopy, divPolyCopy [][][]uint64
+			redDeg:      r.redDeg,
+			diffDeg:     r.diffDeg,
+			diffDegNext: r.diffDegNext,
+			degNext:     r.degNext,
 
-	if !r.isTrivial {
-		ambModLenCopy = make([]int, len(idx))
-		cycloPolyCopy = make([][][]uint64, len(idx))
-		divPolyCopy = make([][][]uint64, len(idx))
-		for i := range idx {
-			ambModLenCopy[i] = r.ambModLen[idx[i]]
-			cycloPolyCopy[i] = r.cycloPoly[idx[i]]
-			divPolyCopy[i] = r.divPoly[idx[i]]
-		}
+			diffDegNextNTT: r.diffDegNextNTT,
+			degNextNTT:     r.degNextNTT,
 
-		embedderCopy = make([]*Embedder, len(idx))
-		diffDegNextNTTCopy = make([]dft.Transformer, len(idx))
-		degNextNTTCopy = make([]dft.Transformer, len(idx))
-		for i := range idx {
-			embedderCopy[i] = r.embedder[idx[i]]
-			diffDegNextNTTCopy[i] = r.diffDegNextNTT[idx[i]]
-			degNextNTTCopy[i] = r.degNextNTT[idx[i]]
+			ambModLen: r.ambModLen,
+			ambMod:    r.ambMod,
+			embedder:  r.embedder,
+
+			diffDegNextAmbNTT: r.diffDegNextAmbNTT,
+			degNextAmbNTT:     r.degNextAmbNTT,
+
+			cycloPoly: r.cycloPoly,
+			divPoly:   r.divPoly,
+
+			pool: r.pool,
 		}
 	}
 
 	return &CyclotomicReducer{
 		params: r.params,
-		mod:    modCopy,
+		mod:    vec.Gather(r.mod, idx...),
 
 		leastFac:  r.leastFac,
 		isTrivial: r.isTrivial,
@@ -632,18 +624,18 @@ func (r *CyclotomicReducer) SubReducer(idx ...int) *CyclotomicReducer {
 		diffDegNext: r.diffDegNext,
 		degNext:     r.degNext,
 
-		diffDegNextNTT: diffDegNextNTTCopy,
-		degNextNTT:     degNextNTTCopy,
+		diffDegNextNTT: vec.Gather(r.diffDegNextNTT, idx...),
+		degNextNTT:     vec.Gather(r.degNextNTT, idx...),
 
-		ambModLen: ambModLenCopy,
+		ambModLen: vec.Gather(r.ambModLen, idx...),
 		ambMod:    r.ambMod,
-		embedder:  embedderCopy,
+		embedder:  vec.Gather(r.embedder, idx...),
 
 		diffDegNextAmbNTT: r.diffDegNextAmbNTT,
 		degNextAmbNTT:     r.degNextAmbNTT,
 
-		cycloPoly: cycloPolyCopy,
-		divPoly:   divPolyCopy,
+		cycloPoly: vec.Gather(r.cycloPoly, idx...),
+		divPoly:   vec.Gather(r.divPoly, idx...),
 
 		pool: r.pool,
 	}
@@ -1079,49 +1071,29 @@ func (r *Reducer) Modulus() []*num.Modulus {
 	return r.mod
 }
 
-// SubReducer returns a reducer for modulus of given indices.
-func (r *Reducer) SubReducer(idx ...int) *Reducer {
-	modCopy := make([]*num.Modulus, len(idx))
-	ambModLenCopy := make([]int, len(idx))
-	modPolyCopy := make([][][]uint64, len(idx))
-	divPolyCopy := make([][][]uint64, len(idx))
-	for i := range idx {
-		modCopy[i] = r.mod[idx[i]]
-		ambModLenCopy[i] = r.ambModLen[idx[i]]
-		modPolyCopy[i] = r.modPoly[idx[i]]
-		divPolyCopy[i] = r.divPoly[idx[i]]
-	}
-
-	embedderCopy := make([]*Embedder, len(idx))
-	diffDegNextNTTCopy := make([]dft.Transformer, len(idx))
-	degNextNTTCopy := make([]dft.Transformer, len(idx))
-	for i := range idx {
-		embedderCopy[i] = r.embedder[idx[i]]
-		diffDegNextNTTCopy[i] = r.diffDegNextNTT[idx[i]]
-		degNextNTTCopy[i] = r.degNextNTT[idx[i]]
-	}
-
+// Gather returns a [Reducer] for modulus of given indices.
+func (r *Reducer) Gather(idx ...int) *Reducer {
 	return &Reducer{
 		params: r.params,
-		mod:    modCopy,
+		mod:    vec.Gather(r.mod, idx...),
 
 		maxRank:     r.maxRank,
 		diffDeg:     r.diffDeg,
 		diffDegNext: r.diffDegNext,
 		degNext:     r.degNext,
 
-		diffDegNextNTT: diffDegNextNTTCopy,
-		degNextNTT:     degNextNTTCopy,
+		diffDegNextNTT: vec.Gather(r.diffDegNextNTT, idx...),
+		degNextNTT:     vec.Gather(r.degNextNTT, idx...),
 
-		ambModLen: ambModLenCopy,
+		ambModLen: vec.Gather(r.ambModLen, idx...),
 		ambMod:    r.ambMod,
-		embedder:  embedderCopy,
+		embedder:  vec.Gather(r.embedder, idx...),
 
 		diffDegNextAmbNTT: r.diffDegNextAmbNTT,
 		degNextAmbNTT:     r.degNextAmbNTT,
 
-		modPoly: modPolyCopy,
-		divPoly: divPolyCopy,
+		modPoly: vec.Gather(r.modPoly, idx...),
+		divPoly: vec.Gather(r.divPoly, idx...),
 
 		pool: r.pool,
 	}

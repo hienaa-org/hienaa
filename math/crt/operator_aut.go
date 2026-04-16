@@ -21,7 +21,7 @@ type autOperator interface {
 	// Panics when the automorphism index is invalid.
 	AutTo(eOut, e *Element, idx int)
 
-	subOperator(idx ...int) autOperator
+	gather(idx ...int) autOperator
 	append(op0 autOperator) autOperator
 	appendAuxModulus(mod *num.Modulus) autOperator
 }
@@ -122,18 +122,11 @@ func (op *pow2CyclotomicAutOperator) AutTo(eOut, e *Element, idx int) {
 	}
 }
 
-func (op *pow2CyclotomicAutOperator) subOperator(idx ...int) autOperator {
-	modCopy := make([]*num.Modulus, len(idx))
-	isNTTFriendlyCopy := make([]bool, len(idx))
-	for i := range idx {
-		modCopy[i] = op.mod[idx[i]]
-		isNTTFriendlyCopy[i] = op.isNTTFriendly[idx[i]]
-	}
-
+func (op *pow2CyclotomicAutOperator) gather(idx ...int) autOperator {
 	return &pow2CyclotomicAutOperator{
 		params:        op.params,
-		mod:           modCopy,
-		isNTTFriendly: isNTTFriendlyCopy,
+		mod:           vec.Gather(op.mod, idx...),
+		isNTTFriendly: vec.Gather(op.isNTTFriendly, idx...),
 
 		pool: op.pool,
 	}
@@ -334,21 +327,14 @@ func (op *anyCyclotomicAutOperator) AutTo(eOut, e *Element, idx int) {
 	}
 }
 
-func (op *anyCyclotomicAutOperator) subOperator(idx ...int) autOperator {
-	modCopy := make([]*num.Modulus, len(idx))
-	isNTTFriendlyCopy := make([]bool, len(idx))
-	for i := range idx {
-		modCopy[i] = op.mod[idx[i]]
-		isNTTFriendlyCopy[i] = op.isNTTFriendly[idx[i]]
-	}
-
+func (op *anyCyclotomicAutOperator) gather(idx ...int) autOperator {
 	return &anyCyclotomicAutOperator{
 		params:        op.params,
 		cycloOrdMod:   op.cycloOrdMod,
-		mod:           modCopy,
-		isNTTFriendly: isNTTFriendlyCopy,
+		mod:           vec.Gather(op.mod, idx...),
+		isNTTFriendly: vec.Gather(op.isNTTFriendly, idx...),
 
-		reducer: op.reducer.SubReducer(idx...),
+		reducer: op.reducer.Gather(idx...),
 
 		primeExpMods: op.primeExpMods,
 		rootExps:     op.rootExps,
@@ -500,18 +486,11 @@ func (op *pow2AutFixedAutOperator) AutTo(eOut, e *Element, idx int) {
 	}
 }
 
-func (op *pow2AutFixedAutOperator) subOperator(idx ...int) autOperator {
-	modCopy := make([]*num.Modulus, len(idx))
-	isNTTFriendlyCopy := make([]bool, len(idx))
-	for i := range idx {
-		modCopy[i] = op.mod[idx[i]]
-		isNTTFriendlyCopy[i] = op.isNTTFriendly[idx[i]]
-	}
-
+func (op *pow2AutFixedAutOperator) gather(idx ...int) autOperator {
 	return &pow2AutFixedAutOperator{
 		params:        op.params,
-		mod:           modCopy,
-		isNTTFriendly: isNTTFriendlyCopy,
+		mod:           vec.Gather(op.mod, idx...),
+		isNTTFriendly: vec.Gather(op.isNTTFriendly, idx...),
 
 		pool: op.pool,
 	}
@@ -644,18 +623,11 @@ func (op *primeAutFixedAutOperator) AutTo(eOut, e *Element, idx int) {
 	}
 }
 
-func (op *primeAutFixedAutOperator) subOperator(idx ...int) autOperator {
-	modCopy := make([]*num.Modulus, len(idx))
-	isNTTFriendlyCopy := make([]bool, len(idx))
-	for i := range idx {
-		modCopy[i] = op.mod[idx[i]]
-		isNTTFriendlyCopy[i] = op.isNTTFriendly[idx[i]]
-	}
-
+func (op *primeAutFixedAutOperator) gather(idx ...int) autOperator {
 	return &primeAutFixedAutOperator{
 		params:        op.params,
-		mod:           modCopy,
-		isNTTFriendly: isNTTFriendlyCopy,
+		mod:           vec.Gather(op.mod, idx...),
+		isNTTFriendly: vec.Gather(op.isNTTFriendly, idx...),
 
 		rootPow:    op.rootPow,
 		rootPowInv: op.rootPowInv,
@@ -711,7 +683,7 @@ func (op noAutOperator) AutTo(eOut, e *Element, idx int) {
 	panic("automorphism not supported")
 }
 
-func (op noAutOperator) subOperator(idx ...int) autOperator {
+func (op noAutOperator) gather(idx ...int) autOperator {
 	return op
 }
 

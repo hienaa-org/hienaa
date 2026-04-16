@@ -18,7 +18,7 @@ type addSubOperator interface {
 	// SubTo computes eOut = e0 - e1.
 	SubTo(eOut, e0, e1 *Element)
 
-	subOperator(idx ...int) addSubOperator
+	gather(idx ...int) addSubOperator
 	append(op0 addSubOperator) addSubOperator
 	appendAuxModulus(mod *num.Modulus) addSubOperator
 }
@@ -115,18 +115,11 @@ func (op *baseAddSubOperator) SubTo(eOut, e0, e1 *Element) {
 	}
 }
 
-func (op *baseAddSubOperator) subOperator(idx ...int) addSubOperator {
-	modCopy := make([]*num.Modulus, len(idx))
-	isNTTFriendlyCopy := make([]bool, len(idx))
-	for i := range idx {
-		modCopy[i] = op.mod[idx[i]]
-		isNTTFriendlyCopy[i] = op.isNTTFriendly[idx[i]]
-	}
-
+func (op *baseAddSubOperator) gather(idx ...int) addSubOperator {
 	return &baseAddSubOperator{
 		rank:          op.rank,
-		mod:           modCopy,
-		isNTTFriendly: isNTTFriendlyCopy,
+		mod:           vec.Gather(op.mod, idx...),
+		isNTTFriendly: vec.Gather(op.isNTTFriendly, idx...),
 	}
 }
 
@@ -236,18 +229,11 @@ func (op *primeAutFixedAddSubOperator) SubTo(eOut, e0, e1 *Element) {
 	}
 }
 
-func (op *primeAutFixedAddSubOperator) subOperator(idx ...int) addSubOperator {
-	modCopy := make([]*num.Modulus, len(idx))
-	isNTTFriendlyCopy := make([]bool, len(idx))
-	for i := range idx {
-		modCopy[i] = op.mod[idx[i]]
-		isNTTFriendlyCopy[i] = op.isNTTFriendly[idx[i]]
-	}
-
+func (op *primeAutFixedAddSubOperator) gather(idx ...int) addSubOperator {
 	return &primeAutFixedAddSubOperator{
 		rank:          op.rank,
-		mod:           modCopy,
-		isNTTFriendly: isNTTFriendlyCopy,
+		mod:           vec.Gather(op.mod, idx...),
+		isNTTFriendly: vec.Gather(op.isNTTFriendly, idx...),
 	}
 }
 

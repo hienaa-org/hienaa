@@ -161,7 +161,7 @@ func (op *PlainOperator) subCRTOperator(baseLen, auxLen int) *crt.Operator {
 	} else {
 		idx = vec.Range(paramAuxLen, paramAuxLen+baseLen)
 	}
-	return op.crtOp.SubOperator(idx...)
+	return op.crtOp.Gather(idx...)
 }
 
 // AsBig returns e as *[big.Int] vector.
@@ -174,7 +174,7 @@ func (op *PlainOperator) AsBig(e *Element) []*big.Int {
 	lo := paramAuxLen - auxLen
 	hi := paramAuxLen + baseLen
 
-	crtOp := op.crtOp.SubOperator(vec.Range(lo, hi)...)
+	crtOp := op.crtOp.Gather(vec.Range(lo, hi)...)
 
 	return crtOp.AsBig(e.Value)
 }
@@ -206,8 +206,8 @@ func (op *PlainOperator) ModRaiseTo(eOut, e *Element, isNTT bool) {
 			defer op.pPool.Put(pNTT)
 			pNTT = pNTT.WithModIdx(vec.Range(0, inLen)...)
 
-			crtOpIn := op.crtOp.SubOperator(vec.Range(0, inLen)...)
-			crtOpDiff := op.crtOp.SubOperator(vec.Range(inLen, outLen)...)
+			crtOpIn := op.crtOp.Gather(vec.Range(0, inLen)...)
+			crtOpDiff := op.crtOp.Gather(vec.Range(inLen, outLen)...)
 			crtOpIn.InvNTTTo(pNTT, e.Value)
 
 			eOutIn := &crt.Element{
@@ -232,7 +232,7 @@ func (op *PlainOperator) ModRaiseTo(eOut, e *Element, isNTT bool) {
 				defer op.pPool.Put(pNTT)
 				pNTTIn := pNTT.WithModIdx(vec.Range(0, inLen)...)
 
-				crtOpIn := op.crtOp.SubOperator(vec.Range(0, inLen)...)
+				crtOpIn := op.crtOp.Gather(vec.Range(0, inLen)...)
 				crtOpIn.InvNTTTo(pNTTIn, e.Value)
 
 				emb.EmbedTo(eOut.Value, pNTTIn)
@@ -277,8 +277,8 @@ func (op *PlainOperator) DivByAuxModulusTo(eOut, e *Element, isNTT bool) {
 	baseLen, auxLen := e.BaseModLen(), e.AuxModLen()
 	paramAuxLen := len(op.Params.auxMod)
 
-	opBase := op.crtOp.SubOperator(vec.Range(paramAuxLen, paramAuxLen+baseLen)...)
-	opAux := op.crtOp.SubOperator(vec.Range(paramAuxLen-auxLen, paramAuxLen)...)
+	opBase := op.crtOp.Gather(vec.Range(paramAuxLen, paramAuxLen+baseLen)...)
+	opAux := op.crtOp.Gather(vec.Range(paramAuxLen-auxLen, paramAuxLen)...)
 
 	baseMod := op.Params.baseMod[:baseLen]
 	auxMod := op.Params.auxMod[paramAuxLen-auxLen : paramAuxLen]
@@ -362,8 +362,8 @@ func (op *PlainOperator) ScaleTo(eOut, e *Element, l int, isNTT bool) {
 		scMod := inMod[outLen:]
 
 		auxLen := len(op.Params.auxMod)
-		opOut := op.crtOp.SubOperator(vec.Range(auxLen, auxLen+outLen)...)
-		opScale := op.crtOp.SubOperator(vec.Range(auxLen+outLen, auxLen+inLen)...)
+		opOut := op.crtOp.Gather(vec.Range(auxLen, auxLen+outLen)...)
+		opScale := op.crtOp.Gather(vec.Range(auxLen+outLen, auxLen+inLen)...)
 
 		p := op.pPool.Get()
 		defer op.pPool.Put(p)
@@ -412,7 +412,7 @@ func (op *PlainOperator) ScaleTo(eOut, e *Element, l int, isNTT bool) {
 		scMod := outMod[inLen:]
 
 		auxLen := len(op.Params.auxMod)
-		opOut := op.crtOp.SubOperator(vec.Range(auxLen, auxLen+outLen)...)
+		opOut := op.crtOp.Gather(vec.Range(auxLen, auxLen+outLen)...)
 
 		scale := crt.NewScalarFrom(1, inMod)
 		for i := range inMod {

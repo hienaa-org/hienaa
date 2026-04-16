@@ -22,7 +22,7 @@ type mulOperator interface {
 	// When e0, e1 are both polynomials, they must be in NTT form.
 	MulSubTo(eOut, e0, e1 *Element)
 
-	subOperator(idx ...int) mulOperator
+	gather(idx ...int) mulOperator
 	append(op0 mulOperator) mulOperator
 	appendAuxModulus(mod *num.Modulus) mulOperator
 }
@@ -248,27 +248,15 @@ func (op *baseMulOperator) MulSubTo(eOut, e0, e1 *Element) {
 	}
 }
 
-func (op *baseMulOperator) subOperator(idx ...int) mulOperator {
-	modCopy := make([]*num.Modulus, len(idx))
-	ambModLenCopy := make([]int, len(idx))
-	for i := range idx {
-		modCopy[i] = op.mod[idx[i]]
-		ambModLenCopy[i] = op.ambModLen[idx[i]]
-	}
-
-	embedderCopy := make([]*Embedder, len(idx))
-	for i := range idx {
-		embedderCopy[i] = op.embedder[idx[i]]
-	}
-
+func (op *baseMulOperator) gather(idx ...int) mulOperator {
 	return &baseMulOperator{
 		params: op.params,
-		mod:    modCopy,
+		mod:    vec.Gather(op.mod, idx...),
 
-		ambModLen: ambModLenCopy,
+		ambModLen: vec.Gather(op.ambModLen, idx...),
 		ambMod:    op.ambMod,
 		ambNTT:    op.ambNTT,
-		embedder:  embedderCopy,
+		embedder:  vec.Gather(op.embedder, idx...),
 
 		pool: op.pool,
 	}
@@ -564,29 +552,17 @@ func (op *anyCyclotomicMulOperator) MulSubTo(eOut, e0, e1 *Element) {
 	}
 }
 
-func (op *anyCyclotomicMulOperator) subOperator(idx ...int) mulOperator {
-	modCopy := make([]*num.Modulus, len(idx))
-	ambModLenCopy := make([]int, len(idx))
-	for i := range idx {
-		modCopy[i] = op.mod[idx[i]]
-		ambModLenCopy[i] = op.ambModLen[idx[i]]
-	}
-
-	embedderCopy := make([]*Embedder, len(idx))
-	for i := range idx {
-		embedderCopy[i] = op.embedder[idx[i]]
-	}
-
+func (op *anyCyclotomicMulOperator) gather(idx ...int) mulOperator {
 	return &anyCyclotomicMulOperator{
 		params: op.params,
-		mod:    modCopy,
+		mod:    vec.Gather(op.mod, idx...),
 
-		ambModLen: ambModLenCopy,
+		ambModLen: vec.Gather(op.ambModLen, idx...),
 		ambMod:    op.ambMod,
 		ambNTT:    op.ambNTT,
-		embedder:  embedderCopy,
+		embedder:  vec.Gather(op.embedder, idx...),
 
-		reducer: op.reducer.SubReducer(idx...),
+		reducer: op.reducer.Gather(idx...),
 
 		pool: op.pool,
 	}
@@ -905,34 +881,20 @@ func (op *reduceMulOperator) MulSubTo(eOut, e0, e1 *Element) {
 	}
 }
 
-func (op *reduceMulOperator) subOperator(idx ...int) mulOperator {
-	modCopy := make([]*num.Modulus, len(idx))
-	nttCopy := make([]dft.Transformer, len(idx))
-	ambModLenCopy := make([]int, len(idx))
-	for i := range idx {
-		modCopy[i] = op.mod[idx[i]]
-		nttCopy[i] = op.ntt[idx[i]]
-		ambModLenCopy[i] = op.ambModLen[idx[i]]
-	}
-
-	embedderCopy := make([]*Embedder, len(idx))
-	for i := range idx {
-		embedderCopy[i] = op.embedder[idx[i]]
-	}
-
+func (op *reduceMulOperator) gather(idx ...int) mulOperator {
 	return &reduceMulOperator{
 		rank:      op.rank,
 		ambParams: op.ambParams,
-		mod:       modCopy,
+		mod:       vec.Gather(op.mod, idx...),
 
-		ntt: nttCopy,
+		ntt: vec.Gather(op.ntt, idx...),
 
-		ambModLen: ambModLenCopy,
+		ambModLen: vec.Gather(op.ambModLen, idx...),
 		ambMod:    op.ambMod,
 		ambNTT:    op.ambNTT,
-		embedder:  embedderCopy,
+		embedder:  vec.Gather(op.embedder, idx...),
 
-		reducer: op.reducer.SubReducer(idx...),
+		reducer: op.reducer.Gather(idx...),
 
 		pool: op.pool,
 	}
