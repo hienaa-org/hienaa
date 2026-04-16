@@ -190,7 +190,7 @@ func (op *baseOperator) AsBig(e *Element) []*big.Int {
 	return pBig
 }
 
-func (op *baseOperator) gather(idx ...int) *baseOperator {
+func (op *baseOperator) withModIdx(idx ...int) *baseOperator {
 	return &baseOperator{
 		params: op.params,
 		mod:    vec.Gather(op.mod, idx...),

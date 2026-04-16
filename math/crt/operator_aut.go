@@ -21,7 +21,7 @@ type autOperator interface {
 	// Panics when the automorphism index is invalid.
 	AutTo(eOut, e *Element, idx int)
 
-	gather(idx ...int) autOperator
+	withModIdx(idx ...int) autOperator
 	append(op0 autOperator) autOperator
 	appendAuxModulus(mod *num.Modulus) autOperator
 }
@@ -122,7 +122,7 @@ func (op *pow2CyclotomicAutOperator) AutTo(eOut, e *Element, idx int) {
 	}
 }
 
-func (op *pow2CyclotomicAutOperator) gather(idx ...int) autOperator {
+func (op *pow2CyclotomicAutOperator) withModIdx(idx ...int) autOperator {
 	return &pow2CyclotomicAutOperator{
 		params:        op.params,
 		mod:           vec.Gather(op.mod, idx...),
@@ -327,14 +327,14 @@ func (op *anyCyclotomicAutOperator) AutTo(eOut, e *Element, idx int) {
 	}
 }
 
-func (op *anyCyclotomicAutOperator) gather(idx ...int) autOperator {
+func (op *anyCyclotomicAutOperator) withModIdx(idx ...int) autOperator {
 	return &anyCyclotomicAutOperator{
 		params:        op.params,
 		cycloOrdMod:   op.cycloOrdMod,
 		mod:           vec.Gather(op.mod, idx...),
 		isNTTFriendly: vec.Gather(op.isNTTFriendly, idx...),
 
-		reducer: op.reducer.Gather(idx...),
+		reducer: op.reducer.WithModIdx(idx...),
 
 		primeExpMods: op.primeExpMods,
 		rootExps:     op.rootExps,
@@ -486,7 +486,7 @@ func (op *pow2AutFixedAutOperator) AutTo(eOut, e *Element, idx int) {
 	}
 }
 
-func (op *pow2AutFixedAutOperator) gather(idx ...int) autOperator {
+func (op *pow2AutFixedAutOperator) withModIdx(idx ...int) autOperator {
 	return &pow2AutFixedAutOperator{
 		params:        op.params,
 		mod:           vec.Gather(op.mod, idx...),
@@ -623,7 +623,7 @@ func (op *primeAutFixedAutOperator) AutTo(eOut, e *Element, idx int) {
 	}
 }
 
-func (op *primeAutFixedAutOperator) gather(idx ...int) autOperator {
+func (op *primeAutFixedAutOperator) withModIdx(idx ...int) autOperator {
 	return &primeAutFixedAutOperator{
 		params:        op.params,
 		mod:           vec.Gather(op.mod, idx...),
@@ -683,7 +683,7 @@ func (op noAutOperator) AutTo(eOut, e *Element, idx int) {
 	panic("automorphism not supported")
 }
 
-func (op noAutOperator) gather(idx ...int) autOperator {
+func (op noAutOperator) withModIdx(idx ...int) autOperator {
 	return op
 }
 

@@ -22,7 +22,7 @@ type mulOperator interface {
 	// When e0, e1 are both polynomials, they must be in NTT form.
 	MulSubTo(eOut, e0, e1 *Element)
 
-	gather(idx ...int) mulOperator
+	withModIdx(idx ...int) mulOperator
 	append(op0 mulOperator) mulOperator
 	appendAuxModulus(mod *num.Modulus) mulOperator
 }
@@ -248,7 +248,7 @@ func (op *baseMulOperator) MulSubTo(eOut, e0, e1 *Element) {
 	}
 }
 
-func (op *baseMulOperator) gather(idx ...int) mulOperator {
+func (op *baseMulOperator) withModIdx(idx ...int) mulOperator {
 	return &baseMulOperator{
 		params: op.params,
 		mod:    vec.Gather(op.mod, idx...),
@@ -552,7 +552,7 @@ func (op *anyCyclotomicMulOperator) MulSubTo(eOut, e0, e1 *Element) {
 	}
 }
 
-func (op *anyCyclotomicMulOperator) gather(idx ...int) mulOperator {
+func (op *anyCyclotomicMulOperator) withModIdx(idx ...int) mulOperator {
 	return &anyCyclotomicMulOperator{
 		params: op.params,
 		mod:    vec.Gather(op.mod, idx...),
@@ -562,7 +562,7 @@ func (op *anyCyclotomicMulOperator) gather(idx ...int) mulOperator {
 		ambNTT:    op.ambNTT,
 		embedder:  vec.Gather(op.embedder, idx...),
 
-		reducer: op.reducer.Gather(idx...),
+		reducer: op.reducer.WithModIdx(idx...),
 
 		pool: op.pool,
 	}
@@ -881,7 +881,7 @@ func (op *reduceMulOperator) MulSubTo(eOut, e0, e1 *Element) {
 	}
 }
 
-func (op *reduceMulOperator) gather(idx ...int) mulOperator {
+func (op *reduceMulOperator) withModIdx(idx ...int) mulOperator {
 	return &reduceMulOperator{
 		rank:      op.rank,
 		ambParams: op.ambParams,
@@ -894,7 +894,7 @@ func (op *reduceMulOperator) gather(idx ...int) mulOperator {
 		ambNTT:    op.ambNTT,
 		embedder:  vec.Gather(op.embedder, idx...),
 
-		reducer: op.reducer.Gather(idx...),
+		reducer: op.reducer.WithModIdx(idx...),
 
 		pool: op.pool,
 	}

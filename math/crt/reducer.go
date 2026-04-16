@@ -172,8 +172,8 @@ func (r *LongDivReducer) Modulus() []*num.Modulus {
 	return r.mod
 }
 
-// Gather returns a [Reducer] for modulus of given indices.
-func (r *LongDivReducer) Gather(idx ...int) *LongDivReducer {
+// WithModIdx returns a [Reducer] for modulus of given indices.
+func (r *LongDivReducer) WithModIdx(idx ...int) *LongDivReducer {
 	return &LongDivReducer{
 		params: r.params,
 		mod:    vec.Gather(r.mod, idx...),
@@ -580,8 +580,8 @@ func (r *CyclotomicReducer) Modulus() []*num.Modulus {
 	return r.mod
 }
 
-// Gather returns a reducer for modulus of given indices.
-func (r *CyclotomicReducer) Gather(idx ...int) *CyclotomicReducer {
+// WithModIdx returns a reducer for modulus of given indices.
+func (r *CyclotomicReducer) WithModIdx(idx ...int) *CyclotomicReducer {
 	if r.isTrivial {
 		return &CyclotomicReducer{
 			params: r.params,
@@ -1071,8 +1071,8 @@ func (r *Reducer) Modulus() []*num.Modulus {
 	return r.mod
 }
 
-// Gather returns a [Reducer] for modulus of given indices.
-func (r *Reducer) Gather(idx ...int) *Reducer {
+// WithModIdx returns a [Reducer] for modulus of given indices.
+func (r *Reducer) WithModIdx(idx ...int) *Reducer {
 	return &Reducer{
 		params: r.params,
 		mod:    vec.Gather(r.mod, idx...),

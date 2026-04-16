@@ -18,7 +18,7 @@ type addSubOperator interface {
 	// SubTo computes eOut = e0 - e1.
 	SubTo(eOut, e0, e1 *Element)
 
-	gather(idx ...int) addSubOperator
+	withModIdx(idx ...int) addSubOperator
 	append(op0 addSubOperator) addSubOperator
 	appendAuxModulus(mod *num.Modulus) addSubOperator
 }
@@ -115,7 +115,7 @@ func (op *baseAddSubOperator) SubTo(eOut, e0, e1 *Element) {
 	}
 }
 
-func (op *baseAddSubOperator) gather(idx ...int) addSubOperator {
+func (op *baseAddSubOperator) withModIdx(idx ...int) addSubOperator {
 	return &baseAddSubOperator{
 		rank:          op.rank,
 		mod:           vec.Gather(op.mod, idx...),
@@ -229,7 +229,7 @@ func (op *primeAutFixedAddSubOperator) SubTo(eOut, e0, e1 *Element) {
 	}
 }
 
-func (op *primeAutFixedAddSubOperator) gather(idx ...int) addSubOperator {
+func (op *primeAutFixedAddSubOperator) withModIdx(idx ...int) addSubOperator {
 	return &primeAutFixedAddSubOperator{
 		rank:          op.rank,
 		mod:           vec.Gather(op.mod, idx...),

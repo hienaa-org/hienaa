@@ -89,18 +89,21 @@ func (e *Element) Resize(baseLen, auxLen int) {
 	switch {
 	case e.auxLen >= auxLen && e.BaseModLen() >= baseLen:
 		e.Value.Coeffs = e.Value.Coeffs[e.auxLen-auxLen : e.auxLen+baseLen]
+
 	case e.auxLen >= auxLen && e.BaseModLen() < baseLen:
 		extraBase := make([][]uint64, baseLen-e.BaseModLen())
 		for i := range extraBase {
 			extraBase[i] = make([]uint64, e.Value.Rank())
 		}
 		e.Value.Coeffs = append(e.Value.Coeffs, extraBase...)
+
 	case e.auxLen < auxLen && e.BaseModLen() >= baseLen:
 		extraAux := make([][]uint64, auxLen-e.auxLen)
 		for i := range extraAux {
 			extraAux[i] = make([]uint64, e.Value.Rank())
 		}
 		e.Value.Coeffs = append(extraAux, e.Value.Coeffs[e.auxLen-auxLen:e.auxLen+baseLen]...)
+
 	case e.auxLen < auxLen && e.BaseModLen() < baseLen:
 		extraAux := make([][]uint64, auxLen-e.auxLen)
 		for i := range extraAux {

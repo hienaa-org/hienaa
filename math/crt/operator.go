@@ -87,14 +87,14 @@ func NewOperator(params dft.RingParameters, mod []*num.Modulus) *Operator {
 	panic("unsupported parameters")
 }
 
-// Gather returns an [Operator] for modulus of given indices.
+// WithModIdx returns an [Operator] for modulus of given indices.
 // Useful for "levelled" operations, especially with [vec.Range].
-func (op *Operator) Gather(idx ...int) *Operator {
+func (op *Operator) WithModIdx(idx ...int) *Operator {
 	return &Operator{
-		baseOperator:   op.baseOperator.gather(idx...),
-		addSubOperator: op.addSubOperator.gather(idx...),
-		mulOperator:    op.mulOperator.gather(idx...),
-		autOperator:    op.autOperator.gather(idx...),
+		baseOperator:   op.baseOperator.withModIdx(idx...),
+		addSubOperator: op.addSubOperator.withModIdx(idx...),
+		mulOperator:    op.mulOperator.withModIdx(idx...),
+		autOperator:    op.autOperator.withModIdx(idx...),
 	}
 }
 
