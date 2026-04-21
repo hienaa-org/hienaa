@@ -3,10 +3,12 @@ package main
 import (
 	. "github.com/mmcloughlin/avo/build"
 	. "github.com/mmcloughlin/avo/operand"
+	"github.com/mmcloughlin/avo/reg"
 )
 
 func NTTConstants() {
 	ConstData("MASK_LO", U64(1<<32-1))
+	ConstData("MASK_52", U64(1<<52-1))
 
 	GLOBL("PERM_00112233", RODATA|NOPTR)
 	for i, idx := range []uint64{0, 0, 1, 1, 2, 2, 3, 3} {
@@ -24,12 +26,24 @@ func NTTConstants() {
 	}
 }
 
-func FwdNTTInPlacePow2UnrollAVX512() {
-	TEXT("fwdNTTInPlacePow2UnrollAVX512", NOSPLIT, "func(coeffs, tw, twS []uint64, q uint64)")
+func FwdNTTInPlacePow2UnrollAVX512(isIFMA bool) {
+	if !isIFMA {
+		TEXT("fwdNTTInPlacePow2UnrollAVX512", NOSPLIT, "func(coeffs, tw, twS []uint64, q uint64)")
+	} else {
+		TEXT("fwdNTTInPlacePow2UnrollAVX512IFMA", NOSPLIT, "func(coeffs, tw, twS []uint64, q uint64)")
+	}
 	Pragma("noescape")
 
-	maskLo := ZMM()
-	VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_LO"), 0), maskLo)
+	var maskLo, mask52, zero reg.VecVirtual
+	if !isIFMA {
+		maskLo = ZMM()
+		VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_LO"), 0), maskLo)
+	} else {
+		mask52 = ZMM()
+		VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_52"), 0), mask52)
+		zero = ZMM()
+		VPXORQ(zero, zero, zero)
+	}
 
 	coeffs := Load(Param("coeffs").Base(), GP64())
 	tw := Load(Param("tw").Base(), GP64())
@@ -48,8 +62,13 @@ func FwdNTTInPlacePow2UnrollAVX512() {
 	VPBROADCASTQ(Mem{Base: twS, Index: wIdx, Scale: 8}, wS)
 	INCQ(wIdx)
 
-	wSHi := ZMM()
-	VPSRLQ(Imm(32), wS, wSHi)
+	var wSHi reg.VecVirtual
+	if !isIFMA {
+		wSHi = ZMM()
+		VPSRLQ(Imm(32), wS, wSHi)
+	} else {
+		VPSRLQ(Imm(12), wS, wS)
+	}
 
 	NN := GP64()
 	MOVQ(N, NN)
@@ -70,7 +89,11 @@ func FwdNTTInPlacePow2UnrollAVX512() {
 	VMOVDQU64(Mem{Base: coeffs, Index: j, Scale: 8}, u)
 	VMOVDQU64(Mem{Base: coeffs, Index: jt, Scale: 8}, v)
 
-	FwdButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo)
+	if !isIFMA {
+		FwdButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo)
+	} else {
+		FwdButterflyAVX512IFMA(u, v, w, wS, q, twoQ, zero, mask52)
+	}
 
 	VMOVDQU64(u, Mem{Base: coeffs, Index: j, Scale: 8})
 	VMOVDQU64(v, Mem{Base: coeffs, Index: jt, Scale: 8})
@@ -107,7 +130,11 @@ func FwdNTTInPlacePow2UnrollAVX512() {
 	VPBROADCASTQ(Mem{Base: twS, Index: wIdx, Scale: 8}, wS)
 	INCQ(wIdx)
 
-	VPSRLQ(Imm(32), wS, wSHi)
+	if !isIFMA {
+		VPSRLQ(Imm(32), wS, wSHi)
+	} else {
+		VPSRLQ(Imm(12), wS, wS)
+	}
 
 	MOVQ(j1, j)
 	MOVQ(j2, jt)
@@ -118,7 +145,11 @@ func FwdNTTInPlacePow2UnrollAVX512() {
 	VMOVDQU64(Mem{Base: coeffs, Index: j, Scale: 8}, u)
 	VMOVDQU64(Mem{Base: coeffs, Index: jt, Scale: 8}, v)
 
-	FwdButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo)
+	if !isIFMA {
+		FwdButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo)
+	} else {
+		FwdButterflyAVX512IFMA(u, v, w, wS, q, twoQ, zero, mask52)
+	}
 
 	VMOVDQU64(u, Mem{Base: coeffs, Index: j, Scale: 8})
 	VMOVDQU64(v, Mem{Base: coeffs, Index: jt, Scale: 8})
@@ -159,7 +190,11 @@ func FwdNTTInPlacePow2UnrollAVX512() {
 	VSHUFI64X2(Imm(0b10_10_00_00), w1, w0, w)
 	VSHUFI64X2(Imm(0b10_10_00_00), w1S, w0S, wS)
 
-	VPSRLQ(Imm(32), wS, wSHi)
+	if !isIFMA {
+		VPSRLQ(Imm(32), wS, wSHi)
+	} else {
+		VPSRLQ(Imm(12), wS, wS)
+	}
 
 	VMOVDQU64(Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8}, u)
 	VMOVDQU64(Mem{Base: coeffs, Index: i, Disp: 8 * 8, Scale: 8}, v)
@@ -168,7 +203,11 @@ func FwdNTTInPlacePow2UnrollAVX512() {
 	VSHUFI64X2(Imm(0b01_00_01_00), v, u, uu)
 	VSHUFI64X2(Imm(0b11_10_11_10), v, u, vv)
 
-	FwdButterflyAVX512(uu, vv, w, wS, wSHi, q, twoQ, maskLo)
+	if !isIFMA {
+		FwdButterflyAVX512(uu, vv, w, wS, wSHi, q, twoQ, maskLo)
+	} else {
+		FwdButterflyAVX512IFMA(uu, vv, w, wS, q, twoQ, zero, mask52)
+	}
 
 	VSHUFI64X2(Imm(0b01_00_01_00), vv, uu, u)
 	VSHUFI64X2(Imm(0b11_10_11_10), vv, uu, v)
@@ -196,7 +235,11 @@ func FwdNTTInPlacePow2UnrollAVX512() {
 	VPERMQ(w, PERM_00112233, w)
 	VPERMQ(wS, PERM_00112233, wS)
 
-	VPSRLQ(Imm(32), wS, wSHi)
+	if !isIFMA {
+		VPSRLQ(Imm(32), wS, wSHi)
+	} else {
+		VPSRLQ(Imm(12), wS, wS)
+	}
 
 	VMOVDQU64(Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8}, u)
 	VMOVDQU64(Mem{Base: coeffs, Index: i, Disp: 8 * 8, Scale: 8}, v)
@@ -204,7 +247,11 @@ func FwdNTTInPlacePow2UnrollAVX512() {
 	VSHUFI64X2(Imm(0b10_00_10_00), v, u, uu)
 	VSHUFI64X2(Imm(0b11_01_11_01), v, u, vv)
 
-	FwdButterflyAVX512(uu, vv, w, wS, wSHi, q, twoQ, maskLo)
+	if !isIFMA {
+		FwdButterflyAVX512(uu, vv, w, wS, wSHi, q, twoQ, maskLo)
+	} else {
+		FwdButterflyAVX512IFMA(uu, vv, w, wS, q, twoQ, zero, mask52)
+	}
 
 	VSHUFI64X2(Imm(0b01_00_01_00), vv, uu, u)
 	VSHUFI64X2(Imm(0b11_10_11_10), vv, uu, v)
@@ -232,7 +279,11 @@ func FwdNTTInPlacePow2UnrollAVX512() {
 	VMOVDQU64(Mem{Base: twS, Index: wIdx, Scale: 8}, wS)
 	ADDQ(Imm(8), wIdx)
 
-	VPSRLQ(Imm(32), wS, wSHi)
+	if !isIFMA {
+		VPSRLQ(Imm(32), wS, wSHi)
+	} else {
+		VPSRLQ(Imm(12), wS, wS)
+	}
 
 	VMOVDQU64(Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8}, u)
 	VMOVDQU64(Mem{Base: coeffs, Index: i, Disp: 8 * 8, Scale: 8}, v)
@@ -243,7 +294,11 @@ func FwdNTTInPlacePow2UnrollAVX512() {
 	VSHUFF64X2(Imm(0b01_00_01_00), v, u, uu)
 	VSHUFF64X2(Imm(0b11_10_11_10), v, u, vv)
 
-	FwdButterflyAVX512(uu, vv, w, wS, wSHi, q, twoQ, maskLo)
+	if !isIFMA {
+		FwdButterflyAVX512(uu, vv, w, wS, wSHi, q, twoQ, maskLo)
+	} else {
+		FwdButterflyAVX512IFMA(uu, vv, w, wS, q, twoQ, zero, mask52)
+	}
 
 	VSHUFF64X2(Imm(0b01_00_01_00), vv, uu, u)
 	VSHUFF64X2(Imm(0b11_10_11_10), vv, uu, v)
@@ -263,15 +318,24 @@ func FwdNTTInPlacePow2UnrollAVX512() {
 	RET()
 }
 
-func InvNTTInPlacePow2UnrollAVX512() {
-	TEXT("invNTTInPlacePow2UnrollAVX512", NOSPLIT, "func(coeffs, twInv, twInvS []uint64, q uint64)")
+func InvNTTInPlacePow2UnrollAVX512(isIFMA bool) {
+	if !isIFMA {
+		TEXT("invNTTInPlacePow2UnrollAVX512", NOSPLIT, "func(coeffs, twInv, twInvS []uint64, q uint64)")
+	} else {
+		TEXT("invNTTInPlacePow2UnrollAVX512IFMA", NOSPLIT, "func(coeffs, twInv, twInvS []uint64, q uint64)")
+	}
 	Pragma("noescape")
 
-	maskLo := ZMM()
-	VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_LO"), 0), maskLo)
-
-	maskLo256 := YMM()
-	VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_LO"), 0), maskLo256)
+	var maskLo, mask52, zero reg.VecVirtual
+	if !isIFMA {
+		maskLo = ZMM()
+		VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_LO"), 0), maskLo)
+	} else {
+		mask52 = ZMM()
+		VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_52"), 0), mask52)
+		zero = ZMM()
+		VPXORQ(zero, zero, zero)
+	}
 
 	coeffs := Load(Param("coeffs").Base(), GP64())
 	twInv := Load(Param("twInv").Base(), GP64())
@@ -301,8 +365,13 @@ func InvNTTInPlacePow2UnrollAVX512() {
 	VMOVDQU64(Mem{Base: twInvS, Index: wIdx, Scale: 8}, wS)
 	ADDQ(Imm(8), wIdx)
 
-	wSHi := ZMM()
-	VPSRLQ(Imm(32), wS, wSHi)
+	var wSHi reg.VecVirtual
+	if !isIFMA {
+		wSHi = ZMM()
+		VPSRLQ(Imm(32), wS, wSHi)
+	} else {
+		VPSRLQ(Imm(12), wS, wS)
+	}
 
 	u, v := ZMM(), ZMM()
 	VMOVDQU64(Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8}, u)
@@ -315,7 +384,11 @@ func InvNTTInPlacePow2UnrollAVX512() {
 	VSHUFF64X2(Imm(0b01_00_01_00), v, u, uu)
 	VSHUFF64X2(Imm(0b11_10_11_10), v, u, vv)
 
-	InvButterflyAVX512(uu, vv, w, wS, wSHi, q, twoQ, maskLo)
+	if !isIFMA {
+		InvButterflyAVX512(uu, vv, w, wS, wSHi, q, twoQ, maskLo)
+	} else {
+		InvButterflyAVX512IFMA(uu, vv, w, wS, wSHi, q, twoQ, zero, mask52)
+	}
 
 	VSHUFF64X2(Imm(0b01_00_01_00), vv, uu, u)
 	VSHUFF64X2(Imm(0b11_10_11_10), vv, uu, v)
@@ -349,7 +422,11 @@ func InvNTTInPlacePow2UnrollAVX512() {
 	VPERMQ(w, PERM_00112233, w)
 	VPERMQ(wS, PERM_00112233, wS)
 
-	VPSRLQ(Imm(32), wS, wSHi)
+	if !isIFMA {
+		VPSRLQ(Imm(32), wS, wSHi)
+	} else {
+		VPSRLQ(Imm(12), wS, wS)
+	}
 
 	VMOVDQU64(Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8}, u)
 	VMOVDQU64(Mem{Base: coeffs, Index: i, Disp: 8 * 8, Scale: 8}, v)
@@ -357,7 +434,11 @@ func InvNTTInPlacePow2UnrollAVX512() {
 	VSHUFI64X2(Imm(0b10_00_10_00), v, u, uu)
 	VSHUFI64X2(Imm(0b11_01_11_01), v, u, vv)
 
-	InvButterflyAVX512(uu, vv, w, wS, wSHi, q, twoQ, maskLo)
+	if !isIFMA {
+		InvButterflyAVX512(uu, vv, w, wS, wSHi, q, twoQ, maskLo)
+	} else {
+		InvButterflyAVX512IFMA(uu, vv, w, wS, wSHi, q, twoQ, zero, mask52)
+	}
 
 	VSHUFI64X2(Imm(0b01_00_01_00), vv, uu, u)
 	VSHUFI64X2(Imm(0b11_10_11_10), vv, uu, v)
@@ -393,7 +474,11 @@ func InvNTTInPlacePow2UnrollAVX512() {
 	VSHUFI64X2(Imm(0b10_10_00_00), w1, w0, w)
 	VSHUFI64X2(Imm(0b10_10_00_00), w1S, w0S, wS)
 
-	VPSRLQ(Imm(32), wS, wSHi)
+	if !isIFMA {
+		VPSRLQ(Imm(32), wS, wSHi)
+	} else {
+		VPSRLQ(Imm(12), wS, wS)
+	}
 
 	VMOVDQU64(Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8}, u)
 	VMOVDQU64(Mem{Base: coeffs, Index: i, Disp: 8 * 8, Scale: 8}, v)
@@ -401,7 +486,11 @@ func InvNTTInPlacePow2UnrollAVX512() {
 	VSHUFI64X2(Imm(0b01_00_01_00), v, u, uu)
 	VSHUFI64X2(Imm(0b11_10_11_10), v, u, vv)
 
-	InvButterflyAVX512(uu, vv, w, wS, wSHi, q, twoQ, maskLo)
+	if !isIFMA {
+		InvButterflyAVX512(uu, vv, w, wS, wSHi, q, twoQ, maskLo)
+	} else {
+		InvButterflyAVX512IFMA(uu, vv, w, wS, wSHi, q, twoQ, zero, mask52)
+	}
 
 	VSHUFI64X2(Imm(0b01_00_01_00), vv, uu, u)
 	VSHUFI64X2(Imm(0b11_10_11_10), vv, uu, v)
@@ -439,7 +528,11 @@ func InvNTTInPlacePow2UnrollAVX512() {
 	VPBROADCASTQ(Mem{Base: twInvS, Index: wIdx, Scale: 8}, wS)
 	INCQ(wIdx)
 
-	VPSRLQ(Imm(32), wS, wSHi)
+	if !isIFMA {
+		VPSRLQ(Imm(32), wS, wSHi)
+	} else {
+		VPSRLQ(Imm(12), wS, wS)
+	}
 
 	j, jt := GP64(), GP64()
 	MOVQ(j1, j)
@@ -451,7 +544,11 @@ func InvNTTInPlacePow2UnrollAVX512() {
 	VMOVDQU64(Mem{Base: coeffs, Index: j, Scale: 8}, u)
 	VMOVDQU64(Mem{Base: coeffs, Index: jt, Scale: 8}, v)
 
-	InvButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo)
+	if !isIFMA {
+		InvButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo)
+	} else {
+		InvButterflyAVX512IFMA(u, v, w, wS, wSHi, q, twoQ, zero, mask52)
+	}
 
 	VMOVDQU64(u, Mem{Base: coeffs, Index: j, Scale: 8})
 	VMOVDQU64(v, Mem{Base: coeffs, Index: jt, Scale: 8})
@@ -483,7 +580,11 @@ func InvNTTInPlacePow2UnrollAVX512() {
 	VPBROADCASTQ(Mem{Base: twInv, Disp: 8, Scale: 8}, w)
 	VPBROADCASTQ(Mem{Base: twInvS, Disp: 8, Scale: 8}, wS)
 
-	VPSRLQ(Imm(32), wS, wSHi)
+	if !isIFMA {
+		VPSRLQ(Imm(32), wS, wSHi)
+	} else {
+		VPSRLQ(Imm(12), wS, wS)
+	}
 
 	XORQ(j, j)
 	MOVQ(j, jt)
@@ -495,7 +596,11 @@ func InvNTTInPlacePow2UnrollAVX512() {
 	VMOVDQU64(Mem{Base: coeffs, Index: j, Scale: 8}, u)
 	VMOVDQU64(Mem{Base: coeffs, Index: jt, Scale: 8}, v)
 
-	InvButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo)
+	if !isIFMA {
+		InvButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo)
+	} else {
+		InvButterflyAVX512IFMA(u, v, w, wS, wSHi, q, twoQ, zero, mask52)
+	}
 
 	VMOVDQU64(u, Mem{Base: coeffs, Index: j, Scale: 8})
 	VMOVDQU64(v, Mem{Base: coeffs, Index: jt, Scale: 8})

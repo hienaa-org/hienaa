@@ -68,14 +68,6 @@ func main() {
 		VecMulScalarWordToAVX512(OpAdd)
 		VecMulScalarWordToAVX512(OpSub)
 
-		VecMulScalarToAVX512(OpPure, false)
-		VecMulScalarToAVX512(OpAdd, false)
-		VecMulScalarToAVX512(OpSub, false)
-
-		VecMulScalarToAVX512(OpPure, true)
-		VecMulScalarToAVX512(OpAdd, true)
-		VecMulScalarToAVX512(OpSub, true)
-
 		VecMMulScalarToAVX512(OpPure, false)
 		VecMMulScalarToAVX512(OpAdd, false)
 		VecMMulScalarToAVX512(OpSub, false)
@@ -83,6 +75,22 @@ func main() {
 		VecMMulScalarToAVX512(OpPure, true)
 		VecMMulScalarToAVX512(OpAdd, true)
 		VecMMulScalarToAVX512(OpSub, true)
+
+		VecSMulScalarToAVX512(OpPure, false, false)
+		VecSMulScalarToAVX512(OpAdd, false, false)
+		VecSMulScalarToAVX512(OpSub, false, false)
+
+		VecSMulScalarToAVX512(OpPure, false, true)
+		VecSMulScalarToAVX512(OpAdd, false, true)
+		VecSMulScalarToAVX512(OpSub, false, true)
+
+		VecSMulScalarToAVX512(OpPure, true, false)
+		VecSMulScalarToAVX512(OpAdd, true, false)
+		VecSMulScalarToAVX512(OpSub, true, false)
+
+		VecSMulScalarToAVX512(OpPure, true, true)
+		VecSMulScalarToAVX512(OpAdd, true, true)
+		VecSMulScalarToAVX512(OpSub, true, true)
 
 		VecMulWordToAVX2(OpPure)
 		VecMulWordToAVX2(OpAdd)
@@ -100,21 +108,31 @@ func main() {
 		VecMMulToAVX512(OpAdd, true)
 		VecMMulToAVX512(OpSub, true)
 
-		VecSMulToAVX512(OpPure, false)
-		VecSMulToAVX512(OpAdd, false)
-		VecSMulToAVX512(OpSub, false)
+		VecSMulToAVX512(OpPure, false, false)
+		VecSMulToAVX512(OpAdd, false, false)
+		VecSMulToAVX512(OpSub, false, false)
 
-		VecSMulToAVX512(OpPure, true)
-		VecSMulToAVX512(OpAdd, true)
-		VecSMulToAVX512(OpSub, true)
+		VecSMulToAVX512(OpPure, false, true)
+		VecSMulToAVX512(OpAdd, false, true)
+		VecSMulToAVX512(OpSub, false, true)
+
+		VecSMulToAVX512(OpPure, true, false)
+		VecSMulToAVX512(OpAdd, true, false)
+		VecSMulToAVX512(OpSub, true, false)
+
+		VecSMulToAVX512(OpPure, true, true)
+		VecSMulToAVX512(OpAdd, true, true)
+		VecSMulToAVX512(OpSub, true, true)
 	}
 
 	if *ntt {
 		NTTConstants()
 
-		FwdNTTInPlacePow2UnrollAVX512()
+		FwdNTTInPlacePow2UnrollAVX512(false)
+		FwdNTTInPlacePow2UnrollAVX512(true)
 
-		InvNTTInPlacePow2UnrollAVX512()
+		InvNTTInPlacePow2UnrollAVX512(false)
+		InvNTTInPlacePow2UnrollAVX512(true)
 	}
 
 	Generate()
