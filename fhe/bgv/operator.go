@@ -249,11 +249,11 @@ func (op *Operator) MulTo(ctOut, ct0, ct1 *Ciphertext, rlk *rlwe.RelinKey, isNTT
 	defer op.vPool.Put(v)
 	v = v.WithModLen(tarLen, 0)
 
-	op.tensorTo(v, ct0, ct1, tarLen, auxIdx, auxMod, isNTT)
+	op.tensorTo(v, ct0, ct1, tarLen, auxIdx, auxMod, true)
 
 	// Relinearise the result.
 	ctOut.Value.Resize(tarLen, 0)
-	op.rlweOp.RelinTo(ctOut.Value, v, rlk, isNTT)
+	op.rlweOp.RelinTo(ctOut.Value, v, rlk, true)
 
 	// Estimate the noise.
 	op.noise.MulTo(ctOut, ct0, ct1)
@@ -413,17 +413,9 @@ func (op *Operator) scaleFromMulModTo(vOut *rlwe.Vector, vIn *rlwe.Vector, auxId
 	sc := crt.NewScaler(opOut, opIn)
 	sc.WithPool(op.embPool)
 
-	sc.ScaleTo(vOut.Value[0].Value, vOut.Value[0].Value, false)
-	sc.ScaleTo(vOut.Value[1].Value, vOut.Value[1].Value, false)
-	sc.ScaleTo(vOut.Value[2].Value, vOut.Value[2].Value, false)
-
-	// Remove this.
-	if isNTT {
-		pOp := op.rlweOp.PlainOperator()
-		pOp.FwdNTTTo(vOut.Value[0], vOut.Value[0])
-		pOp.FwdNTTTo(vOut.Value[1], vOut.Value[1])
-		pOp.FwdNTTTo(vOut.Value[2], vOut.Value[2])
-	}
+	sc.ScaleTo(vOut.Value[0].Value, vOut.Value[0].Value, isNTT)
+	sc.ScaleTo(vOut.Value[1].Value, vOut.Value[1].Value, isNTT)
+	sc.ScaleTo(vOut.Value[2].Value, vOut.Value[2].Value, isNTT)
 }
 
 // MulPlain computes ctOut = ct * pt.

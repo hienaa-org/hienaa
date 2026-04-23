@@ -160,7 +160,7 @@ func (op *Operator) RescaleTo(ctOut, ct *Ciphertext, isNTT bool) {
 
 	op.rlweOp.ScaleTo(buf.Value, ct.Value, tarLen, isNTT)
 	ctOut.Value.Resize(tarLen, 0)
-	ctOut.CopyFrom(buf)
+	ctOut.Value.CopyFrom(buf.Value)
 	op.noise.RescaleTo(ctOut, ct)
 }
 
