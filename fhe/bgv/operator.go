@@ -375,7 +375,7 @@ func (op *Operator) tensorTo(v *rlwe.Vector, ct0, ct1 *Ciphertext, tarLen int, a
 	defer op.ePool.Put(msgMod)
 	msgMod = msgMod.WithModLen(mulLen, 0)
 	for i := 0; i < mulLen; i++ {
-		msgMod.Value.Coeffs[i][0] = num.Reduce(mulMod[i].Value()-op.msgMod.Value(), mulMod[i])
+		msgMod.Value.Coeffs[i][0] = num.Neg(num.Reduce(op.msgMod.Value(), mulMod[i]), mulMod[i])
 	}
 
 	opAux.MulTo(v.Value[0].Value, c0.Value.Body.Value, c1.Value.Body.Value)
