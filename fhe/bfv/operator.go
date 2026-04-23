@@ -12,6 +12,7 @@ import (
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
+	"github.com/hienaa-org/hienaa/math/vec"
 )
 
 // Operator evaluates operations over [*Ciphertext] and [Plaintext].
@@ -29,6 +30,7 @@ type Operator struct {
 	ptPool  *rlwe.ElementPool
 	ctPool  *pool.Pool[*Ciphertext]
 	vPool   *pool.Pool[*rlwe.Vector]
+	embPool *pool.Pool[[]uint64]
 }
 
 // NewOperator creates a new [Operator].
@@ -118,6 +120,9 @@ func NewOperator(params rlwe.Parameters, msgMod *num.Modulus, estimType heint.Es
 		}),
 		vPool: pool.NewPool(func() *rlwe.Vector {
 			return rlwe.NewVector(ambParams, 3, false, true)
+		}),
+		embPool: pool.NewPool(func() []uint64 {
+			return make([]uint64, params.Rank())
 		}),
 	}
 }
@@ -319,28 +324,22 @@ func (op *Operator) MulTo(ctOut, ct0, ct1 *Ciphertext, rlk *rlwe.RelinKey, isNTT
 	cAux1 := cAmb1.WithModLen(auxLen)
 
 	// Modulus switch ct1.
-	ctMod := op.ambOp.Params.FullModulus()[:ct1.ModLen()]
-	auxMod := op.ambOp.Params.FullModulus()[tarLen : tarLen+auxLen]
-	sc := crt.NewScaler(auxMod, ctMod)
-	if ct1.IsNTT() {
-		c1NTT := cAmb1.WithModLen(ct1.ModLen())
+	ctOp := op.ambOp.Params.Operator().WithModIdx(vec.Range(0, ct1.ModLen())...)
+	auxOp := op.ambOp.Params.Operator().WithModIdx(vec.Range(tarLen, tarLen+auxLen)...)
 
-		op.InvNTTTo(c1NTT, ct1)
-		sc.ScaleTo(cAux1.Value.Body.Value, c1NTT.Value.Body.Value)
-		sc.ScaleTo(cAux1.Value.Mask.Value, c1NTT.Value.Mask.Value)
-	} else {
-		sc.ScaleTo(cAux1.Value.Body.Value, ct1.Value.Body.Value)
-		sc.ScaleTo(cAux1.Value.Mask.Value, ct1.Value.Mask.Value)
-	}
+	sc := crt.NewScaler(auxOp, ctOp)
+	sc.WithPool(op.embPool)
+	sc.ScaleTo(cAux1.Value.Body.Value, ct1.Value.Body.Value, true)
+	sc.ScaleTo(cAux1.Value.Mask.Value, ct1.Value.Mask.Value, true)
 
 	// Lift to the ambient modulus, in the NTT form.
 	op.ambOp.ModRaiseTo(cAmb0.Value, ct0.Value, true)
 
-	ambMod := op.ambOp.Params.FullModulus()[:tarLen+auxLen]
-	emb := crt.NewEmbedder(ambMod, auxMod)
-	emb.EmbedTo(cAmb1.Value.Body.Value, cAux1.Value.Body.Value)
-	emb.EmbedTo(cAmb1.Value.Mask.Value, cAux1.Value.Mask.Value)
-	op.ambOp.FwdNTTTo(cAmb1.Value, cAmb1.Value)
+	ambOp := op.ambOp.Params.Operator().WithModIdx(vec.Range(0, tarLen+auxLen)...)
+	emb := crt.NewEmbedder(ambOp, auxOp)
+	emb.WithPool(op.embPool)
+	emb.EmbedTo(cAmb1.Value.Body.Value, cAux1.Value.Body.Value, true)
+	emb.EmbedTo(cAmb1.Value.Mask.Value, cAux1.Value.Mask.Value, true)
 
 	// Tensoring the ciphertexts.
 	vAmb := op.vPool.Get()

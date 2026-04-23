@@ -30,8 +30,8 @@ func Recompose(d rlwe.Decomposer, dcmp *rlwe.Vector) *crt.Element {
 		op.MulAddTo(pSum, dcmp.Value[i].Value, g.Value)
 	}
 
-	scaler := crt.NewScaler(currMod, fullMod)
-	scaler.ScaleVecTo(pOut.Coeffs, pSum.Coeffs)
+	scaler := crt.NewVecScaler(currMod, fullMod)
+	scaler.ScaleTo(pOut.Coeffs, pSum.Coeffs)
 
 	return pOut
 }
@@ -73,7 +73,7 @@ func TestDecompose(t *testing.T) {
 
 		p := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
 		us.SampleTo(p.Value, q[:baseLen])
-		pDec := dcmp.Decompose(p)
+		pDec := dcmp.Decompose(p, false)
 		pRef := Recompose(dcmp, pDec)
 
 		assert.Equal(t, pRef, p.Value)
@@ -93,7 +93,7 @@ func TestDecompose(t *testing.T) {
 
 		p := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
 		us.SampleTo(p.Value, q[:baseLen])
-		pDec := dcmp.Decompose(p)
+		pDec := dcmp.Decompose(p, false)
 		pRef := Recompose(dcmp, pDec)
 
 		assert.Equal(t, pRef, p.Value)

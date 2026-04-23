@@ -23,9 +23,9 @@ type Decomposer interface {
 	// AuxModLen returns the auxiliary modulus length for the given base modulus length.
 	AuxModLen(baseLen int) int
 	// Decompose decomposes p.
-	Decompose(p *Element) *Vector
+	Decompose(p *Element, isNTT bool) *Vector
 	// DecomposeTo decomposes p into pOut.
-	DecomposeTo(pOut *Vector, p *Element)
+	DecomposeTo(pOut *Vector, p *Element, isNTT bool)
 }
 
 // NewDecomposer creates a new [Decomposer] for the given parameters.
@@ -61,13 +61,20 @@ func newRNSDecomposer(params Parameters) Decomposer {
 		auxModBig.Mul(auxModBig, new(big.Int).SetUint64(q.Value()))
 	}
 
+	auxLen := len(params.auxMod)
+	embPool := pool.NewPool(func() []uint64 {
+		return make([]uint64, params.Rank())
+	})
 	for i := 0; i < gadLen; i++ {
 		start := i * chunkSize
 		end := min((i+1)*chunkSize, len(params.baseMod))
 
 		embedders[i] = make([]*crt.Embedder, end-start)
+		fullOp := params.Operator()
 		for j := range embedders[i] {
-			embedders[i][j] = crt.NewEmbedder(params.fullMod, params.baseMod[start:start+j+1])
+			modOp := fullOp.WithModIdx(vec.Range(auxLen+start, auxLen+start+j+1)...)
+			embedders[i][j] = crt.NewEmbedder(fullOp, modOp)
+			embedders[i][j].WithPool(embPool)
 		}
 
 		g := big.NewInt(1)
@@ -124,18 +131,18 @@ func (d *rnsDecomposer) AuxModLen(baseLen int) int {
 }
 
 // Decompose decomposes a polynomial into a tensor using the RNS gadget.
-func (d *rnsDecomposer) Decompose(p *Element) *Vector {
+func (d *rnsDecomposer) Decompose(p *Element, isNTT bool) *Vector {
 	auxLen := d.AuxModLen(p.BaseModLen())
 
 	pOut := NewVectorCustom(
 		p.Rank(), p.BaseModLen(), auxLen, d.DecomposeLen(p.BaseModLen()), false,
 	)
-	d.DecomposeTo(pOut, p)
+	d.DecomposeTo(pOut, p, isNTT)
 	return pOut
 }
 
 // DecomposeTo decomposes p into pOut using the RNS gadget.
-func (d *rnsDecomposer) DecomposeTo(pOut *Vector, p *Element) {
+func (d *rnsDecomposer) DecomposeTo(pOut *Vector, p *Element, isNTT bool) {
 	if p.IsNTT() {
 		panic("input(s) must be in standard form")
 	} else if p.AuxModLen() > 0 {
@@ -147,7 +154,7 @@ func (d *rnsDecomposer) DecomposeTo(pOut *Vector, p *Element) {
 	for i := 0; i < pOut.Len(); i++ {
 		start := i * d.gadparams.chunkSize
 		end := min((i+1)*d.gadparams.chunkSize, p.BaseModLen())
-		d.embedders[i][end-start-1].EmbedTo(pOut.Value[i].Value, p.Value.WithModIdx(vec.Range(start, end)...))
+		d.embedders[i][end-start-1].EmbedTo(pOut.Value[i].Value, p.Value.WithModIdx(vec.Range(start, end)...), isNTT)
 	}
 }
 
@@ -186,10 +193,18 @@ func newDigitDecomposer(params Parameters) Decomposer {
 	}
 
 	digitEmbedder := make([]*crt.Embedder, len(params.baseMod))
+	baseModOp := crt.NewOperator(params.RingParams(), []*num.Modulus{baseMod})
+	auxLen := len(params.auxMod)
+	embPool := pool.NewPool(func() []uint64 {
+		return make([]uint64, params.Rank())
+	})
 	for i := range params.baseMod {
-		digitEmbedder[i] = crt.NewEmbedder([]*num.Modulus{baseMod}, params.baseMod[:i+1])
+		modOp := params.Operator().WithModIdx(vec.Range(auxLen, auxLen+i+1)...)
+		digitEmbedder[i] = crt.NewEmbedder(baseModOp, modOp)
+		digitEmbedder[i].WithPool(embPool)
 	}
-	modEmbedder := crt.NewEmbedder(params.fullMod, []*num.Modulus{baseMod})
+	modEmbedder := crt.NewEmbedder(params.Operator(), baseModOp)
+	modEmbedder.WithPool(embPool)
 
 	return &digitDecomposer{
 		params:    params,
@@ -236,17 +251,17 @@ func (d *digitDecomposer) AuxModLen(baseLen int) int {
 }
 
 // Decompose outputs the decomposition of p using the digit gadget.
-func (d *digitDecomposer) Decompose(p *Element) *Vector {
+func (d *digitDecomposer) Decompose(p *Element, isNTT bool) *Vector {
 	auxLen := d.AuxModLen(p.BaseModLen())
 	pOut := NewVectorCustom(
 		p.Rank(), p.BaseModLen(), auxLen, d.DecomposeLen(p.BaseModLen()), false,
 	)
-	d.DecomposeTo(pOut, p)
+	d.DecomposeTo(pOut, p, isNTT)
 	return pOut
 }
 
 // DecomposeTo decomposes p into pOut using the digit gadget.
-func (d *digitDecomposer) DecomposeTo(pOut *Vector, p *Element) {
+func (d *digitDecomposer) DecomposeTo(pOut *Vector, p *Element, isNTT bool) {
 	baseLen, auxLen, dcmpLen := p.BaseModLen(), d.AuxModLen(p.BaseModLen()), d.DecomposeLen(p.BaseModLen())
 
 	if p.IsNTT() {
@@ -265,8 +280,8 @@ func (d *digitDecomposer) DecomposeTo(pOut *Vector, p *Element) {
 
 	base := uint64(1 << d.gadParams.logDigitBase)
 	for i := 0; i < dcmpLen; i++ {
-		d.digitEmbedder[baseLen-1].EmbedTo(pOut.Value[i].Value.WithModIdx(0), pBuf.Value)
-		d.modEmbedder.EmbedTo(pOut.Value[i].Value, pOut.Value[i].Value.WithModIdx(0))
+		d.digitEmbedder[baseLen-1].EmbedTo(pOut.Value[i].Value.WithModIdx(0), pBuf.Value, false)
+		d.modEmbedder.EmbedTo(pOut.Value[i].Value, pOut.Value[i].Value.WithModIdx(0), isNTT)
 
 		for j := 0; j < baseLen; j++ {
 			vec.SubTo(pBuf.Value.Coeffs[j], pBuf.Value.Coeffs[j], pOut.Value[i].Value.Coeffs[auxLen+j], d.params.baseMod[j])

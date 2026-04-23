@@ -497,7 +497,7 @@ type primeAutFixedIntPacker struct {
 	// ambNTT is the ambient NTT.
 	ambNTT []dft.Transformer
 	// embedder is the embedder for the packing.
-	embedder *crt.Embedder
+	embedder *crt.VecEmbedder
 
 	pool *pool.Pool[*[][]uint64]
 }
@@ -562,7 +562,7 @@ func newAutFixedPrimeIntPacker(params dft.RingParameters, mod *num.Modulus) *pri
 		ambNTT[i].ForwardTo(invResol[i], invResol[i])
 	}
 
-	embedder := crt.NewEmbedder([]*num.Modulus{mod}, ambMod)
+	embedder := crt.NewVecEmbedder([]*num.Modulus{mod}, ambMod)
 
 	cycloOrdMod := num.NewModulus(cycloOrd)
 
@@ -744,7 +744,7 @@ func (p *primeAutFixedIntPacker) PackTo(vPack, v []uint64) {
 		p.ambNTT[i].InverseTo(vBuf[i], vBuf[i])
 	}
 
-	p.embedder.EmbedVecTo(vBuf[:1], vBuf)
+	p.embedder.EmbedTo(vBuf[:1], vBuf)
 	if p.packLen != p.ambRank {
 		vec.AddTo(vBuf[0][:p.packLen-1], vBuf[0][:p.packLen-1], vBuf[0][p.packLen:2*p.packLen-1], p.mod)
 	}
@@ -781,7 +781,7 @@ func (p *primeAutFixedIntPacker) UnPackTo(v, vPack []uint64) {
 		vec.MMulLazyTo(vBuf[i], vBuf[i], p.invResol[i], p.ambMod[i])
 		p.ambNTT[i].InverseTo(vBuf[i], vBuf[i])
 	}
-	p.embedder.EmbedVecTo(vBuf[:1], vBuf)
+	p.embedder.EmbedTo(vBuf[:1], vBuf)
 
 	if p.packLen != p.ambRank {
 		vec.AddTo(vBuf[0][:p.packLen-1], vBuf[0][:p.packLen-1], vBuf[0][p.packLen:2*p.packLen-1], p.mod)

@@ -279,8 +279,8 @@ func testOperator(t *testing.T, rP dft.RingParameters) {
 		randomElementTo(pt, p.FullModulus()[:baseLen+auxLen])
 
 		ptRef := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
-		sc := crt.NewScaler(baseMod[:baseLen], p.FullModulus()[:baseLen+auxLen])
-		sc.ScaleTo(ptRef.Value, pt.Value)
+		sc := crt.NewVecScaler(baseMod[:baseLen], p.FullModulus()[:baseLen+auxLen])
+		sc.ScaleTo(ptRef.Value.Coeffs, pt.Value.Coeffs)
 
 		c := e.Encrypt(pt, true)
 		cOut := o.DivByAuxModulus(c, true)
@@ -301,8 +301,8 @@ func testOperator(t *testing.T, rP dft.RingParameters) {
 			randomElementTo(pt, baseMod[:oldLen])
 
 			ptRef := rlwe.NewElement(rP.Rank(), newLen, 0, false)
-			sc := crt.NewScaler(baseMod[:newLen], baseMod[:oldLen])
-			sc.ScaleTo(ptRef.Value, pt.Value)
+			sc := crt.NewVecScaler(baseMod[:newLen], baseMod[:oldLen])
+			sc.ScaleTo(ptRef.Value.Coeffs, pt.Value.Coeffs)
 
 			c := e.Encrypt(pt, true)
 
@@ -322,8 +322,8 @@ func testOperator(t *testing.T, rP dft.RingParameters) {
 			randomElementTo(pt, baseMod[:oldLen])
 
 			ptRef := rlwe.NewElement(rP.Rank(), newLen, 0, false)
-			sc := crt.NewScaler(baseMod[:newLen], baseMod[:oldLen])
-			sc.ScaleTo(ptRef.Value, pt.Value)
+			sc := crt.NewVecScaler(baseMod[:newLen], baseMod[:oldLen])
+			sc.ScaleTo(ptRef.Value.Coeffs, pt.Value.Coeffs)
 
 			c := e.Encrypt(pt, true)
 
@@ -346,8 +346,8 @@ func testOperator(t *testing.T, rP dft.RingParameters) {
 			randomElementTo(pt, baseMod[:oldLen])
 
 			ptRef := rlwe.NewElement(rP.Rank(), newLen, 0, false)
-			sc := crt.NewScaler(baseMod[:newLen], baseMod[:oldLen])
-			sc.ScaleTo(ptRef.Value, pt.Value)
+			sc := crt.NewVecScaler(baseMod[:newLen], baseMod[:oldLen])
+			sc.ScaleTo(ptRef.Value.Coeffs, pt.Value.Coeffs)
 
 			c := e.Encrypt(pt, true)
 

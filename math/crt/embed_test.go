@@ -149,11 +149,11 @@ func TestEmbedder(t *testing.T) {
 	modIn, modOut := genModInOut(modInLen, modOutLen)
 
 	embBig := NewBigEmbedder(modOut, modIn)
-	emb := crt.NewEmbedder(modOut, modIn)
+	emb := crt.NewVecEmbedder(modOut, modIn)
 
 	v := randPoly(vLen, modIn).Coeffs
 
-	vOut := emb.EmbedVec(v)
+	vOut := emb.Embed(v)
 	vOutRef := embBig.Embed(v)
 
 	assert.Equal(t, vOutRef, vOut)
@@ -167,11 +167,11 @@ func TestScaler(t *testing.T) {
 	modIn, modOut := genModInOut(modInLen, modOutLen)
 
 	embBig := NewBigEmbedder(modOut, modIn)
-	sc := crt.NewScaler(modOut, modIn)
+	sc := crt.NewVecScaler(modOut, modIn)
 
 	v := randPoly(vLen, modIn).Coeffs
 
-	vOut := sc.ScaleVec(v)
+	vOut := sc.Scale(v)
 	vOutRef := embBig.Scale(v)
 
 	assert.Equal(t, vOutRef, vOut)
@@ -180,11 +180,11 @@ func TestScaler(t *testing.T) {
 		modIn = modOut[:len(modOut)>>1]
 
 		embBig := NewBigEmbedder(modOut, modIn)
-		sc := crt.NewScaler(modOut, modIn)
+		sc := crt.NewVecScaler(modOut, modIn)
 
 		v := randPoly(vLen, modIn).Coeffs
 
-		vOut := sc.ScaleVec(v)
+		vOut := sc.Scale(v)
 		vOutRef := embBig.Scale(v)
 
 		assert.Equal(t, vOutRef, vOut)
@@ -194,11 +194,11 @@ func TestScaler(t *testing.T) {
 		modOut = modIn[:len(modIn)>>1]
 
 		embBig := NewBigEmbedder(modOut, modIn)
-		sc := crt.NewScaler(modOut, modIn)
+		sc := crt.NewVecScaler(modOut, modIn)
 
 		v := randPoly(vLen, modIn).Coeffs
 
-		vOut := sc.ScaleVec(v)
+		vOut := sc.Scale(v)
 		vOutRef := embBig.Scale(v)
 
 		assert.Equal(t, vOutRef, vOut)

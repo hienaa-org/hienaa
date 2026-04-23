@@ -7,6 +7,7 @@ import (
 	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/num"
+	"github.com/hienaa-org/hienaa/math/vec"
 )
 
 // Operator evaluates operations over [*Ciphertext] and [*Plaintext].
@@ -20,9 +21,10 @@ type Operator struct {
 	fPool   *pool.Pool[*big.Float]
 	intPool *pool.Pool[*big.Int]
 
-	ePool  *rlwe.ElementPool
-	ctPool *pool.Pool[*Ciphertext]
-	vPool  *pool.Pool[*rlwe.Vector]
+	ePool   *rlwe.ElementPool
+	ctPool  *pool.Pool[*Ciphertext]
+	vPool   *pool.Pool[*rlwe.Vector]
+	embPool *pool.Pool[[]uint64]
 }
 
 func NewOperator(params rlwe.Parameters, scFac float64) *Operator {
@@ -45,6 +47,9 @@ func NewOperator(params rlwe.Parameters, scFac float64) *Operator {
 		}),
 		vPool: pool.NewPool(func() *rlwe.Vector {
 			return rlwe.NewVector(params, 3, false, true)
+		}),
+		embPool: pool.NewPool(func() []uint64 {
+			return make([]uint64, params.Rank())
 		}),
 	}
 }
@@ -539,19 +544,23 @@ func (op *Operator) getAuxMod(ct0, ct1 *Ciphertext) (int, *num.Modulus) {
 // scaleToMulModTo scales the ciphertext to the multiplication modulus.
 // Output is in the NTT form.
 func (op *Operator) scaleToMulModTo(ctOut *Ciphertext, ctIn *Ciphertext, auxMod *num.Modulus) {
-	baseMod := op.params.BaseModulus()
-
 	inLen := ctIn.ModLen()
 	outLen := ctOut.ModLen()
 
-	inMod := baseMod[:inLen]
-	outMod := make([]*num.Modulus, outLen)
+	auxLen := len(op.rlweOp.PlainOperator().Params.AuxModulus())
+	opIn := op.rlweOp.PlainOperator().Params.Operator().WithModIdx(vec.Range(auxLen, auxLen+inLen)...)
+
+	var opOut *crt.Operator
 	if auxMod == nil {
-		copy(outMod, baseMod[:outLen])
+		opOut = opIn.WithModIdx(vec.Range(0, outLen)...)
 	} else {
-		copy(outMod[:outLen-1], baseMod[:outLen-1])
-		outMod[outLen-1] = auxMod
+		opOut = opIn.WithModIdx(vec.Range(0, outLen-1)...).AppendAuxModulus(auxMod)
 	}
+
+	inMod := opIn.Modulus()
+	outMod := opOut.Modulus()
+	sc := crt.NewScaler(opOut, opIn)
+	sc.WithPool(op.embPool)
 
 	// Find 'diff', which needs to be multiplied to ctIn to make the scaling factors equal.
 	diffFloat := op.fPool.Get()
@@ -584,23 +593,14 @@ func (op *Operator) scaleToMulModTo(ctOut *Ciphertext, ctIn *Ciphertext, auxMod 
 		diff.Value.Coeffs[i][0] = tmpInt.Uint64()
 	}
 
-	// TODO: optimise later.
 	ctBuf := op.ctPool.Get()
 	defer op.ctPool.Put(ctBuf)
 	ctBuf = ctBuf.WithModLen(inLen)
-
 	op.rlweOp.MulElementTo(ctBuf.Value, ctIn.Value, diff)
 
-	sc := crt.NewScaler(outMod, inMod)
-	opOut := crt.NewOperator(op.params.RingParams(), outMod)
-	if ctIn.Value.IsNTT() {
-		op.InvNTTTo(ctBuf, ctBuf)
-	}
-	sc.ScaleTo(ctOut.Value.Body.Value, ctBuf.Value.Body.Value)
-	sc.ScaleTo(ctOut.Value.Mask.Value, ctBuf.Value.Mask.Value)
-
-	opOut.FwdNTTTo(ctOut.Value.Body.Value, ctOut.Value.Body.Value)
-	opOut.FwdNTTTo(ctOut.Value.Mask.Value, ctOut.Value.Mask.Value)
+	// Scale and Forward NTT.
+	sc.ScaleTo(ctOut.Value.Body.Value, ctBuf.Value.Body.Value, true)
+	sc.ScaleTo(ctOut.Value.Mask.Value, ctBuf.Value.Mask.Value, true)
 
 	// Set output scaling factor.
 	scale := op.fPool.Get()
@@ -642,16 +642,16 @@ func (op *Operator) tensorTo(v *rlwe.Vector, ct0, ct1 *Ciphertext, tarLen int, a
 		panic("inconsistent input(s)")
 	}
 
-	// TODO: optimise later.
-	baseMod := op.params.BaseModulus()
-	mulMod := make([]*num.Modulus, tarLen)
+	auxLen := len(op.rlweOp.PlainOperator().Params.AuxModulus())
+	mulLen := c0.ModLen()
+
+	baseOp := op.rlweOp.PlainOperator().Params.Operator().WithModIdx(vec.Range(auxLen, auxLen+mulLen)...)
+	var opAux *crt.Operator
 	if auxMod == nil {
-		copy(mulMod, baseMod[:tarLen])
+		opAux = baseOp
 	} else {
-		copy(mulMod[:tarLen-1], baseMod[:tarLen-1])
-		mulMod[tarLen-1] = auxMod
+		opAux = baseOp.WithModIdx(vec.Range(0, mulLen-1)...).AppendAuxModulus(auxMod)
 	}
-	opAux := crt.NewOperator(op.params.RingParams(), mulMod)
 
 	opAux.MulTo(v.Value[0].Value, c0.Value.Body.Value, c1.Value.Body.Value)
 	opAux.MulTo(v.Value[1].Value, c0.Value.Body.Value, c1.Value.Mask.Value)
@@ -662,6 +662,7 @@ func (op *Operator) tensorTo(v *rlwe.Vector, ct0, ct1 *Ciphertext, tarLen int, a
 	op.scaleFromMulModTo(v, v, auxMod, isNTT)
 
 	// compute the scaling factor.
+	baseMod := baseOp.Modulus()
 	outScFac := c0.scFac * c1.scFac
 	if auxMod != nil {
 		outScFac *= float64(baseMod[tarLen-1].Value()) / float64(auxMod.Value())
@@ -677,40 +678,32 @@ func (op *Operator) scaleFromMulModTo(vOut *rlwe.Vector, vIn *rlwe.Vector, auxMo
 		panic("inconsistent input(s)")
 	}
 
-	// TODO: optimise later.
+	inLen := vIn.BaseModLen()
+	outLen := vOut.BaseModLen()
+	auxLen := len(op.rlweOp.PlainOperator().Params.AuxModulus())
+	opOut := op.rlweOp.PlainOperator().Params.Operator().WithModIdx(vec.Range(auxLen, auxLen+outLen)...)
+
 	if auxMod == nil {
 		vOut.Value[0].CopyFrom(vIn.Value[0])
 		vOut.Value[1].CopyFrom(vIn.Value[1])
 		vOut.Value[2].CopyFrom(vIn.Value[2])
-	} else {
-		baseMod := op.params.BaseModulus()
 
-		modLen := vIn.BaseModLen()
-		inMod := make([]*num.Modulus, modLen)
-		copy(inMod[:modLen-1], baseMod[:modLen-1])
-		inMod[modLen-1] = auxMod
-
-		outMod := baseMod[:modLen]
-		opAux := crt.NewOperator(op.params.RingParams(), inMod)
-
-		sc := crt.NewScaler(outMod, inMod)
-
-		opAux.InvNTTTo(vOut.Value[0].Value, vOut.Value[0].Value)
-		opAux.InvNTTTo(vOut.Value[1].Value, vOut.Value[1].Value)
-		opAux.InvNTTTo(vOut.Value[2].Value, vOut.Value[2].Value)
-
-		sc.ScaleTo(vOut.Value[0].Value, vOut.Value[0].Value)
-		sc.ScaleTo(vOut.Value[1].Value, vOut.Value[1].Value)
-		sc.ScaleTo(vOut.Value[2].Value, vOut.Value[2].Value)
-	}
-
-	pOp := op.rlweOp.PlainOperator()
-	for i := 0; i < 3; i++ {
-		if isNTT && !vOut.Value[i].IsNTT() {
-			pOp.FwdNTTTo(vOut.Value[i], vOut.Value[i])
-		} else if !isNTT && vOut.Value[i].IsNTT() {
-			pOp.InvNTTTo(vOut.Value[i], vOut.Value[i])
+		for i := 0; i < 3; i++ {
+			if isNTT && !vOut.Value[i].IsNTT() {
+				opOut.FwdNTTTo(vOut.Value[i].Value, vOut.Value[i].Value)
+			} else if !isNTT && vOut.Value[i].IsNTT() {
+				opOut.InvNTTTo(vOut.Value[i].Value, vOut.Value[i].Value)
+			}
 		}
+	} else {
+		opIn := opOut.WithModIdx(vec.Range(0, inLen-1)...).AppendAuxModulus(auxMod)
+
+		sc := crt.NewScaler(opOut, opIn)
+		sc.WithPool(op.embPool)
+
+		sc.ScaleTo(vOut.Value[0].Value, vOut.Value[0].Value, isNTT)
+		sc.ScaleTo(vOut.Value[1].Value, vOut.Value[1].Value, isNTT)
+		sc.ScaleTo(vOut.Value[2].Value, vOut.Value[2].Value, isNTT)
 	}
 }
 

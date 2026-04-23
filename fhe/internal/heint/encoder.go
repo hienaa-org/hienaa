@@ -2,6 +2,7 @@ package heint
 
 import (
 	"github.com/hienaa-org/hienaa/fhe/rlwe"
+	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
@@ -22,17 +23,25 @@ type Encoder struct {
 // NewEncoder creates a new [Encoder].
 func NewEncoder(rlweParams rlwe.Parameters, msgMod *num.Modulus) *Encoder {
 	pOp := rlwe.NewPlainOperator(rlweParams)
+	msgOp := crt.NewOperator(rlweParams.RingParams(), []*num.Modulus{msgMod})
 
 	msgToFull := make([]*crt.Embedder, 1+len(rlweParams.AuxModulus()))
-	paramAuxLen := len(rlweParams.AuxModulus())
-	fullMod := rlweParams.FullModulus()
+	auxLen := len(rlweParams.AuxModulus())
+	modLen := len(rlweParams.BaseModulus())
+	embPool := pool.NewPool(func() []uint64 {
+		return make([]uint64, rlweParams.Rank())
+	})
 	for i := range msgToFull {
-		msgToFull[i] = crt.NewEmbedder(fullMod[paramAuxLen-i:], []*num.Modulus{msgMod})
+		modOp := rlweParams.Operator().WithModIdx(vec.Range(auxLen-i, auxLen+modLen)...)
+		msgToFull[i] = crt.NewEmbedder(modOp, msgOp)
+		msgToFull[i].WithPool(embPool)
 	}
 
 	baseToMsg := make([]*crt.Embedder, len(rlweParams.BaseModulus()))
 	for i := range baseToMsg {
-		baseToMsg[i] = crt.NewEmbedder([]*num.Modulus{msgMod}, rlweParams.BaseModulus()[:i+1])
+		modOp := rlweParams.Operator().WithModIdx(vec.Range(auxLen, auxLen+i+1)...)
+		baseToMsg[i] = crt.NewEmbedder(msgOp, modOp)
+		baseToMsg[i].WithPool(embPool)
 	}
 
 	return &Encoder{
@@ -81,12 +90,7 @@ func (ecd *Encoder) EncodeTo(eOut *rlwe.Element, eIn []uint64, isNTT bool) {
 	vec.ReduceTo(eBase.Value.Coeffs[0], eIn, ecd.msgMod)
 
 	auxLen := eOut.AuxModLen()
-	ecd.msgToFull[auxLen].EmbedTo(eOut.Value, eBase.Value)
-	eOut.Value.IsNTT = false
-
-	if isNTT && eOut.Value.Type() == crt.TypePoly {
-		ecd.pOp.FwdNTTTo(eOut, eOut)
-	}
+	ecd.msgToFull[auxLen].EmbedTo(eOut.Value, eBase.Value, isNTT)
 }
 
 // Decode decodes a [*rlwe.Element] into a []uint64.
@@ -113,9 +117,9 @@ func (ecd *Encoder) DecodeTo(eOut []uint64, e *rlwe.Element) {
 
 	if e.IsNTT() {
 		ecd.pOp.InvNTTTo(buf, e)
-		ecd.baseToMsg[baseLen-1].EmbedTo(bufOut.Value, buf.Value)
+		ecd.baseToMsg[baseLen-1].EmbedTo(bufOut.Value, buf.Value, false)
 	} else {
-		ecd.baseToMsg[baseLen-1].EmbedTo(bufOut.Value, e.Value)
+		ecd.baseToMsg[baseLen-1].EmbedTo(bufOut.Value, e.Value, false)
 	}
 
 	copy(eOut, bufOut.Value.Coeffs[0][:len(eOut)])

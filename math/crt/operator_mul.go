@@ -37,7 +37,7 @@ type baseMulOperator struct {
 	ambModLen []int
 	ambMod    []*num.Modulus
 	ambNTT    []dft.Transformer
-	embedder  []*Embedder
+	embedder  []*VecEmbedder
 
 	pool *pool.Pool[*Element]
 }
@@ -67,12 +67,12 @@ func newBaseMulOperator(params dft.RingParameters, mod []*num.Modulus) *baseMulO
 		}
 	}
 
-	embedder := make([]*Embedder, len(mod))
+	embedder := make([]*VecEmbedder, len(mod))
 	for i := range mod {
 		if ambModLen[i] == 0 {
 			continue
 		}
-		embedder[i] = NewEmbedder([]*num.Modulus{mod[i]}, ambMod[:ambModLen[i]])
+		embedder[i] = NewVecEmbedder([]*num.Modulus{mod[i]}, ambMod[:ambModLen[i]])
 	}
 
 	return &baseMulOperator{
@@ -134,7 +134,7 @@ func (op *baseMulOperator) MulTo(eOut, e0, e1 *Element) {
 					vec.MMulTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j], e1Amb.Coeffs[j], op.ambMod[j])
 					op.ambNTT[j].InverseTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 				}
-				op.embedder[i].EmbedVecTo(eOut.Coeffs[i:i+1], e0Amb.Coeffs[:op.ambModLen[i]])
+				op.embedder[i].EmbedTo(eOut.Coeffs[i:i+1], e0Amb.Coeffs[:op.ambModLen[i]])
 			}
 		}
 
@@ -183,7 +183,7 @@ func (op *baseMulOperator) MulAddTo(eOut, e0, e1 *Element) {
 					vec.MMulTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j], e1Amb.Coeffs[j], op.ambMod[j])
 					op.ambNTT[j].InverseTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 				}
-				op.embedder[i].EmbedVecTo(e0Amb.Coeffs[:1], e0Amb.Coeffs[:op.ambModLen[i]])
+				op.embedder[i].EmbedTo(e0Amb.Coeffs[:1], e0Amb.Coeffs[:op.ambModLen[i]])
 				vec.AddTo(eOut.Coeffs[i], eOut.Coeffs[i], e0Amb.Coeffs[0], op.mod[i])
 			}
 		}
@@ -233,7 +233,7 @@ func (op *baseMulOperator) MulSubTo(eOut, e0, e1 *Element) {
 					vec.MMulTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j], e1Amb.Coeffs[j], op.ambMod[j])
 					op.ambNTT[j].InverseTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 				}
-				op.embedder[i].EmbedVecTo(e0Amb.Coeffs[:1], e0Amb.Coeffs[:op.ambModLen[i]])
+				op.embedder[i].EmbedTo(e0Amb.Coeffs[:1], e0Amb.Coeffs[:op.ambModLen[i]])
 				vec.SubTo(eOut.Coeffs[i], eOut.Coeffs[i], e0Amb.Coeffs[0], op.mod[i])
 			}
 		}
@@ -289,7 +289,7 @@ func (op *baseMulOperator) appendAuxModulus(mod *num.Modulus) mulOperator {
 		}
 	}
 
-	embedder := NewEmbedder([]*num.Modulus{mod}, op.ambMod[:ambModLen])
+	embedder := NewVecEmbedder([]*num.Modulus{mod}, op.ambMod[:ambModLen])
 
 	return &baseMulOperator{
 		params: op.params,
@@ -298,7 +298,7 @@ func (op *baseMulOperator) appendAuxModulus(mod *num.Modulus) mulOperator {
 		ambModLen: vec.Concat(op.ambModLen, []int{ambModLen}),
 		ambMod:    op.ambMod,
 		ambNTT:    op.ambNTT,
-		embedder:  vec.Concat(op.embedder, []*Embedder{embedder}),
+		embedder:  vec.Concat(op.embedder, []*VecEmbedder{embedder}),
 
 		pool: op.pool,
 	}
@@ -312,7 +312,7 @@ type anyCyclotomicMulOperator struct {
 	ambModLen []int
 	ambMod    []*num.Modulus
 	ambNTT    []dft.Transformer
-	embedder  []*Embedder
+	embedder  []*VecEmbedder
 
 	reducer *CyclotomicReducer
 
@@ -345,12 +345,12 @@ func newAnyCyclotomicMulOperator(params dft.RingParameters, mod []*num.Modulus, 
 		}
 	}
 
-	embedder := make([]*Embedder, len(mod))
+	embedder := make([]*VecEmbedder, len(mod))
 	for i := range mod {
 		if ambModLen[i] == 0 {
 			continue
 		}
-		embedder[i] = NewEmbedder([]*num.Modulus{mod[i]}, ambMod[:ambModLen[i]])
+		embedder[i] = NewVecEmbedder([]*num.Modulus{mod[i]}, ambMod[:ambModLen[i]])
 	}
 
 	return &anyCyclotomicMulOperator{
@@ -421,7 +421,7 @@ func (op *anyCyclotomicMulOperator) MulTo(eOut, e0, e1 *Element) {
 					vec.MMulTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j], e1Amb.Coeffs[j], op.ambMod[j])
 					op.ambNTT[j].InverseTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 				}
-				op.embedder[i].EmbedVecTo(e0Amb.Coeffs[:1], e0Amb.Coeffs[:op.ambModLen[i]])
+				op.embedder[i].EmbedTo(e0Amb.Coeffs[:1], e0Amb.Coeffs[:op.ambModLen[i]])
 				op.reducer.reduceTo(eOut.Coeffs[i], e0Amb.Coeffs[0], i)
 			}
 		}
@@ -478,7 +478,7 @@ func (op *anyCyclotomicMulOperator) MulAddTo(eOut, e0, e1 *Element) {
 					vec.MMulTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j], e1Amb.Coeffs[j], op.ambMod[j])
 					op.ambNTT[j].InverseTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 				}
-				op.embedder[i].EmbedVecTo(e0Amb.Coeffs[:1], e0Amb.Coeffs[:op.ambModLen[i]])
+				op.embedder[i].EmbedTo(e0Amb.Coeffs[:1], e0Amb.Coeffs[:op.ambModLen[i]])
 				op.reducer.reduceTo(e0Amb.Coeffs[0][:rank], e0Amb.Coeffs[0], i)
 				vec.AddTo(eOut.Coeffs[i], eOut.Coeffs[i], e0Amb.Coeffs[0][:rank], op.mod[i])
 			}
@@ -536,7 +536,7 @@ func (op *anyCyclotomicMulOperator) MulSubTo(eOut, e0, e1 *Element) {
 					vec.MMulTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j], e1Amb.Coeffs[j], op.ambMod[j])
 					op.ambNTT[j].InverseTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 				}
-				op.embedder[i].EmbedVecTo(e0Amb.Coeffs[:1], e0Amb.Coeffs[:op.ambModLen[i]])
+				op.embedder[i].EmbedTo(e0Amb.Coeffs[:1], e0Amb.Coeffs[:op.ambModLen[i]])
 				op.reducer.reduceTo(e0Amb.Coeffs[0][:rank], e0Amb.Coeffs[0], i)
 				vec.SubTo(eOut.Coeffs[i], eOut.Coeffs[i], e0Amb.Coeffs[0][:rank], op.mod[i])
 			}
@@ -597,7 +597,7 @@ func (op *anyCyclotomicMulOperator) appendAuxModulus(mod *num.Modulus) mulOperat
 		}
 	}
 
-	embedder := NewEmbedder([]*num.Modulus{mod}, op.ambMod[:ambModLen])
+	embedder := NewVecEmbedder([]*num.Modulus{mod}, op.ambMod[:ambModLen])
 
 	return &anyCyclotomicMulOperator{
 		params: op.params,
@@ -606,7 +606,7 @@ func (op *anyCyclotomicMulOperator) appendAuxModulus(mod *num.Modulus) mulOperat
 		ambModLen: vec.Concat(op.ambModLen, []int{ambModLen}),
 		ambMod:    op.ambMod,
 		ambNTT:    op.ambNTT,
-		embedder:  vec.Concat(op.embedder, []*Embedder{embedder}),
+		embedder:  vec.Concat(op.embedder, []*VecEmbedder{embedder}),
 
 		reducer: op.reducer.AppendAuxModulus(mod),
 
@@ -625,7 +625,7 @@ type reduceMulOperator struct {
 	ambModLen []int
 	ambMod    []*num.Modulus
 	ambNTT    []dft.Transformer
-	embedder  []*Embedder
+	embedder  []*VecEmbedder
 
 	reducer *Reducer
 
@@ -660,12 +660,12 @@ func newReduceMulOperator(mod []*num.Modulus, modPoly []int64, reducer *Reducer)
 		}
 	}
 
-	embedder := make([]*Embedder, len(mod))
+	embedder := make([]*VecEmbedder, len(mod))
 	for i := range mod {
 		if ambModLen[i] == 0 {
 			continue
 		}
-		embedder[i] = NewEmbedder([]*num.Modulus{mod[i]}, ambMod[:ambModLen[i]])
+		embedder[i] = NewVecEmbedder([]*num.Modulus{mod[i]}, ambMod[:ambModLen[i]])
 	}
 
 	return &reduceMulOperator{
@@ -742,7 +742,7 @@ func (op *reduceMulOperator) MulTo(eOut, e0, e1 *Element) {
 					vec.MMulTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j], e1Amb.Coeffs[j], op.ambMod[j])
 					op.ambNTT[j].InverseTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 				}
-				op.embedder[i].EmbedVecTo(e0Amb.Coeffs[:1], e0Amb.Coeffs[:op.ambModLen[i]])
+				op.embedder[i].EmbedTo(e0Amb.Coeffs[:1], e0Amb.Coeffs[:op.ambModLen[i]])
 				op.reducer.reduceTo(eOut.Coeffs[i], e0Amb.Coeffs[0], i)
 			}
 		}
@@ -803,7 +803,7 @@ func (op *reduceMulOperator) MulAddTo(eOut, e0, e1 *Element) {
 					vec.MMulTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j], e1Amb.Coeffs[j], op.ambMod[j])
 					op.ambNTT[j].InverseTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 				}
-				op.embedder[i].EmbedVecTo(e0Amb.Coeffs[:1], e0Amb.Coeffs[:op.ambModLen[i]])
+				op.embedder[i].EmbedTo(e0Amb.Coeffs[:1], e0Amb.Coeffs[:op.ambModLen[i]])
 				op.reducer.reduceTo(e0Amb.Coeffs[0][:op.rank], e0Amb.Coeffs[0], i)
 				vec.AddTo(eOut.Coeffs[i], eOut.Coeffs[i], e0Amb.Coeffs[0][:op.rank], op.mod[i])
 			}
@@ -865,7 +865,7 @@ func (op *reduceMulOperator) MulSubTo(eOut, e0, e1 *Element) {
 					vec.MMulTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j], e1Amb.Coeffs[j], op.ambMod[j])
 					op.ambNTT[j].InverseTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 				}
-				op.embedder[i].EmbedVecTo(e0Amb.Coeffs[:1], e0Amb.Coeffs[:op.ambModLen[i]])
+				op.embedder[i].EmbedTo(e0Amb.Coeffs[:1], e0Amb.Coeffs[:op.ambModLen[i]])
 				op.reducer.reduceTo(e0Amb.Coeffs[0][:op.rank], e0Amb.Coeffs[0], i)
 				vec.SubTo(eOut.Coeffs[i], eOut.Coeffs[i], e0Amb.Coeffs[0][:op.rank], op.mod[i])
 			}
@@ -932,7 +932,7 @@ func (op *reduceMulOperator) appendAuxModulus(mod *num.Modulus) mulOperator {
 		}
 	}
 
-	embedder := NewEmbedder([]*num.Modulus{mod}, op.ambMod[:ambModLen])
+	embedder := NewVecEmbedder([]*num.Modulus{mod}, op.ambMod[:ambModLen])
 
 	return &reduceMulOperator{
 		rank:      op.rank,
@@ -944,7 +944,7 @@ func (op *reduceMulOperator) appendAuxModulus(mod *num.Modulus) mulOperator {
 		ambModLen: vec.Concat(op.ambModLen, []int{ambModLen}),
 		ambMod:    op.ambMod,
 		ambNTT:    op.ambNTT,
-		embedder:  vec.Concat(op.embedder, []*Embedder{embedder}),
+		embedder:  vec.Concat(op.embedder, []*VecEmbedder{embedder}),
 
 		reducer: op.reducer.AppendAuxModulus(mod),
 

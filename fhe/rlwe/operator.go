@@ -14,7 +14,8 @@ type PlainOperator struct {
 	Params Parameters
 	crtOp  *crt.Operator
 
-	pPool *pool.Pool[*crt.Element]
+	pPool   *pool.Pool[*crt.Element]
+	embPool *pool.Pool[[]uint64]
 }
 
 // NewPlainOperator creates a new [PlainOperator].
@@ -25,6 +26,9 @@ func NewPlainOperator(params Parameters) *PlainOperator {
 
 		pPool: pool.NewPool(func() *crt.Element {
 			return crt.NewPoly(params.Rank(), len(params.fullMod))
+		}),
+		embPool: pool.NewPool(func() []uint64 {
+			return make([]uint64, params.Rank())
 		}),
 	}
 }
@@ -196,64 +200,13 @@ func (op *PlainOperator) ModRaiseTo(eOut, e *Element, isNTT bool) {
 	inLen := e.BaseModLen()
 	outLen := eOut.BaseModLen()
 
-	switch {
-	case inLen < outLen:
-		if e.IsNTT() && isNTT {
-			emb := crt.NewEmbedder(op.Params.baseMod[inLen:outLen], op.Params.baseMod[:inLen])
+	auxLen := len(op.Params.auxMod)
+	inOp := op.crtOp.WithModIdx(vec.Range(auxLen, auxLen+inLen)...)
+	outOp := op.crtOp.WithModIdx(vec.Range(auxLen, auxLen+outLen)...)
 
-			pNTT := op.pPool.Get()
-			defer op.pPool.Put(pNTT)
-			pNTT = pNTT.WithModIdx(vec.Range(0, inLen)...)
-
-			crtOpIn := op.crtOp.WithModIdx(vec.Range(0, inLen)...)
-			crtOpDiff := op.crtOp.WithModIdx(vec.Range(inLen, outLen)...)
-			crtOpIn.InvNTTTo(pNTT, e.Value)
-
-			eOutIn := &crt.Element{
-				Coeffs: eOut.Value.Coeffs[:inLen],
-				IsNTT:  false,
-			}
-			eOutDiff := &crt.Element{
-				Coeffs: eOut.Value.Coeffs[inLen:outLen],
-				IsNTT:  false,
-			}
-
-			eOutIn.CopyFrom(e.Value)
-			emb.EmbedTo(eOutDiff, pNTT)
-			crtOpDiff.FwdNTTTo(eOutDiff, eOutDiff)
-
-			eOut.Value.IsNTT = true
-		} else {
-			emb := crt.NewEmbedder(op.Params.baseMod[:outLen], op.Params.baseMod[:inLen])
-
-			if e.IsNTT() {
-				pNTT := op.pPool.Get()
-				defer op.pPool.Put(pNTT)
-				pNTTIn := pNTT.WithModIdx(vec.Range(0, inLen)...)
-
-				crtOpIn := op.crtOp.WithModIdx(vec.Range(0, inLen)...)
-				crtOpIn.InvNTTTo(pNTTIn, e.Value)
-
-				emb.EmbedTo(eOut.Value, pNTTIn)
-				eOut.Value.IsNTT = false
-			} else {
-				emb.EmbedTo(eOut.Value, e.Value)
-				eOut.Value.IsNTT = false
-			}
-
-			if isNTT {
-				op.FwdNTTTo(eOut, eOut)
-			}
-		}
-
-	case inLen == outLen:
-		eOut.CopyFrom(e)
-		if isNTT && !eOut.Value.IsNTT {
-			op.FwdNTTTo(eOut, eOut)
-		} else if !isNTT && eOut.Value.IsNTT {
-			op.InvNTTTo(eOut, eOut)
-		}
-	}
+	emb := crt.NewEmbedder(outOp, inOp)
+	emb.WithPool(op.embPool)
+	emb.EmbedTo(eOut.Value, e.Value, isNTT)
 
 	eOut.auxLen = 0
 }
@@ -279,9 +232,10 @@ func (op *PlainOperator) DivByAuxModulusTo(eOut, e *Element, isNTT bool) {
 	opBase := op.crtOp.WithModIdx(vec.Range(paramAuxLen, paramAuxLen+baseLen)...)
 	opAux := op.crtOp.WithModIdx(vec.Range(paramAuxLen-auxLen, paramAuxLen)...)
 
-	baseMod := op.Params.baseMod[:baseLen]
-	auxMod := op.Params.auxMod[paramAuxLen-auxLen : paramAuxLen]
-	scaler := crt.NewScaler(baseMod, auxMod)
+	baseMod := opBase.Modulus()
+	auxMod := opAux.Modulus()
+	scaler := crt.NewScaler(opBase, opAux)
+	scaler.WithPool(op.embPool)
 
 	auxInvBase := crt.NewScalarFrom(1, baseMod) // auxMod^{-1} mod baseMod
 	baseInvAux := crt.NewScalarFrom(1, auxMod)  // baseMod^{-1} mod auxMod
@@ -309,18 +263,12 @@ func (op *PlainOperator) DivByAuxModulusTo(eOut, e *Element, isNTT bool) {
 		opAux.InvNTTTo(pDivAux, pDivAux)
 	}
 
-	scaler.ScaleTo(eOut.Value, pDivAux)
-	eOut.Value.IsNTT = false
+	scaler.ScaleTo(eOut.Value, pDivAux, isNTT)
 
-	if isNTT {
-		opBase.FwdNTTTo(eOut.Value, eOut.Value)
-		if !pDivBase.IsNTT {
-			opBase.FwdNTTTo(pDivBase, pDivBase)
-		}
-	} else {
-		if pDivBase.IsNTT {
-			opBase.InvNTTTo(pDivBase, pDivBase)
-		}
+	if isNTT && !pDivBase.IsNTT {
+		opBase.FwdNTTTo(pDivBase, pDivBase)
+	} else if !isNTT && pDivBase.IsNTT {
+		opBase.InvNTTTo(pDivBase, pDivBase)
 	}
 	opBase.AddTo(eOut.Value, eOut.Value, pDivBase)
 
@@ -371,7 +319,7 @@ func (op *PlainOperator) ScaleTo(eOut, e *Element, l int, isNTT bool) {
 		pOut := p.WithModIdx(vec.Range(0, outLen)...)
 		pScale := p.WithModIdx(vec.Range(outLen, inLen)...)
 
-		scaler := crt.NewScaler(outMod, scMod)
+		scaler := crt.NewScaler(opOut, opScale)
 
 		scInvOut := crt.NewScalarFrom(1, outMod) // scale^{-1} mod outMod
 		outInvSc := crt.NewScalarFrom(1, scMod)  // outMod^{-1} mod scale
@@ -392,18 +340,12 @@ func (op *PlainOperator) ScaleTo(eOut, e *Element, l int, isNTT bool) {
 			opScale.InvNTTTo(pScale, pScale)
 		}
 
-		scaler.ScaleTo(eOut.Value, pScale)
-		eOut.Value.IsNTT = false
+		scaler.ScaleTo(eOut.Value, pScale, isNTT)
 
-		if isNTT {
-			opOut.FwdNTTTo(eOut.Value, eOut.Value)
-			if !pOut.IsNTT {
-				opOut.FwdNTTTo(pOut, pOut)
-			}
-		} else {
-			if pOut.IsNTT {
-				opOut.InvNTTTo(pOut, pOut)
-			}
+		if isNTT && !pOut.IsNTT {
+			opOut.FwdNTTTo(pOut, pOut)
+		} else if !isNTT && pOut.IsNTT {
+			opOut.InvNTTTo(pOut, pOut)
 		}
 		opOut.AddTo(eOut.Value, eOut.Value, pOut)
 
@@ -774,11 +716,7 @@ func (op *Operator) GadgetProdLazyTo(ctOut *Ciphertext, p *Element, ctGadEnc *Ga
 	pDcmp := op.dcmpPool.Get()
 	defer op.dcmpPool.Put(pDcmp)
 	pDcmp = pDcmp.Slice(vec.Range(0, op.dcmp.DecomposeLen(baseLen))...).WithModLen(baseLen, auxLen)
-	op.dcmp.DecomposeTo(pDcmp, pInvNTT)
-
-	for i := range pDcmp.Value {
-		op.plainOp.FwdNTTTo(pDcmp.Value[i], pDcmp.Value[i])
-	}
+	op.dcmp.DecomposeTo(pDcmp, pInvNTT, true)
 
 	op.HoistedGadgetProdLazyTo(ctOut, pDcmp, ctGadEnc, isNTT)
 }
@@ -812,11 +750,7 @@ func (op *Operator) GadgetProdTo(ctOut *Ciphertext, p *Element, ctGadEnc *Gadget
 	pDcmp := op.dcmpPool.Get()
 	defer op.dcmpPool.Put(pDcmp)
 	pDcmp = pDcmp.Slice(vec.Range(0, op.dcmp.DecomposeLen(baseLen))...).WithModLen(baseLen, auxLen)
-	op.dcmp.DecomposeTo(pDcmp, pInvNTT)
-
-	for i := range pDcmp.Value {
-		op.plainOp.FwdNTTTo(pDcmp.Value[i], pDcmp.Value[i])
-	}
+	op.dcmp.DecomposeTo(pDcmp, pInvNTT, true)
 
 	op.HoistedGadgetProdTo(ctOut, pDcmp, ctGadEnc, isNTT)
 }
@@ -901,11 +835,7 @@ func (op *Operator) KeySwitchTo(cOut *Ciphertext, cIn *Ciphertext, ksk *KeySwitc
 	pDcmp := op.dcmpPool.Get()
 	defer op.dcmpPool.Put(pDcmp)
 	pDcmp = pDcmp.Slice(vec.Range(0, dcmpLen)...).WithModLen(baseLen, auxLen)
-
-	op.dcmp.DecomposeTo(pDcmp, pNTT)
-	for i := range pDcmp.Value {
-		pOp.FwdNTTTo(pDcmp.Value[i], pDcmp.Value[i])
-	}
+	op.dcmp.DecomposeTo(pDcmp, pNTT, true)
 
 	op.HoistedKeySwitchTo(cOut, pDcmp, cIn, ksk, isNTT)
 }

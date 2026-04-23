@@ -3,8 +3,10 @@ package heint
 import (
 	"github.com/hienaa-org/hienaa/fhe/internal/pack"
 	"github.com/hienaa-org/hienaa/fhe/rlwe"
+	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/num"
+	"github.com/hienaa-org/hienaa/math/vec"
 )
 
 // Encryptor encrypts/decrypts [*Ciphertext] and [*Plaintext].
@@ -39,8 +41,16 @@ func NewEncryptorWithKey(params rlwe.Parameters, msgMod *num.Modulus, skNTT *rlw
 	scFacs := computeScalingFactor(baseMod, msgMod)
 
 	scaler := make([]*crt.Scaler, len(baseMod))
+	msgOp := crt.NewOperator(params.RingParams(), []*num.Modulus{msgMod})
+	auxLen := len(params.AuxModulus())
+	scPool := pool.NewPool(func() []uint64 {
+		return make([]uint64, params.Rank())
+	})
+
 	for i := range scaler {
-		scaler[i] = crt.NewScaler([]*num.Modulus{msgMod}, baseMod[:i+1])
+		modOp := params.Operator().WithModIdx(vec.Range(auxLen, auxLen+i+1)...)
+		scaler[i] = crt.NewScaler(msgOp, modOp)
+		scaler[i].WithPool(scPool)
 	}
 
 	return &Encryptor{
@@ -180,7 +190,7 @@ func (e *Encryptor) DecryptTo(vOut []uint64, ct *rlwe.Ciphertext) {
 
 	e.PhaseTo(pt, ct)
 
-	e.sc[baseLen-1].ScaleTo(ptScale.Value, pt.Value)
+	e.sc[baseLen-1].ScaleTo(ptScale.Value, pt.Value, false)
 	copy(vOut, ptScale.Value.Coeffs[0][:len(vOut)])
 }
 
@@ -218,7 +228,7 @@ func (e *Encryptor) NoiseTo(eOut *rlwe.Element, ct *rlwe.Ciphertext) {
 	v := vEcd.Value.WithModIdx(1)
 
 	e.PhaseTo(pt, ct)
-	e.sc[baseLen-1].ScaleTo(v, pt.Value)
+	e.sc[baseLen-1].ScaleTo(v, pt.Value, false)
 	e.ecd.EncodeTo(vEcd, v.Coeffs[0], false)
 	e.pOp.MulTo(vEcd, vEcd, e.scFacs[baseLen-1])
 	e.pOp.SubTo(eOut, pt, vEcd)

@@ -254,7 +254,7 @@ type CyclotomicReducer struct {
 	// ambMod is the ambient modulus.
 	ambMod []*num.Modulus
 	// embedder is the embedder from ambient modulus.
-	embedder []*Embedder
+	embedder []*VecEmbedder
 
 	// diffDegNextAmbNTT is diffDegNextNTT for ambient modulus.
 	diffDegNextAmbNTT []dft.Transformer
@@ -288,7 +288,7 @@ func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *Cyclot
 
 	var ambModLen []int
 	var ambMod []*num.Modulus
-	var embedder []*Embedder
+	var embedder []*VecEmbedder
 	var diffDeg, diffDegNext, degNext int
 	var diffDegNextNTT, degNextNTT []dft.Transformer
 	var diffDegNextAmbNTT, degNextAmbNTT []dft.Transformer
@@ -329,7 +329,7 @@ func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *Cyclot
 			degNextAmbNTT[i] = dft.NewTransformer(degNextParams, ambMod[i])
 		}
 
-		embedder = make([]*Embedder, len(mod))
+		embedder = make([]*VecEmbedder, len(mod))
 		diffDegNextNTT = make([]dft.Transformer, len(mod))
 		degNextNTT = make([]dft.Transformer, len(mod))
 		for i := range mod {
@@ -337,7 +337,7 @@ func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *Cyclot
 				diffDegNextNTT[i] = dft.NewTransformer(diffDegNextParams, mod[i])
 				degNextNTT[i] = dft.NewTransformer(degNextParams, mod[i])
 			} else {
-				embedder[i] = NewEmbedder([]*num.Modulus{mod[i]}, ambMod[:ambModLen[i]])
+				embedder[i] = NewVecEmbedder([]*num.Modulus{mod[i]}, ambMod[:ambModLen[i]])
 			}
 		}
 
@@ -485,7 +485,7 @@ func (r *CyclotomicReducer) reduceTo(pOut, p []uint64, idx int) {
 				vec.MMulLazyTo(pQuo[i], pQuo[i], r.divPoly[idx][i], r.ambMod[i])
 				r.diffDegNextAmbNTT[i].InverseTo(pQuo[i], pQuo[i])
 			}
-			r.embedder[idx].EmbedVecTo(pQuo[:1], pQuo[:r.ambModLen[idx]])
+			r.embedder[idx].EmbedTo(pQuo[:1], pQuo[:r.ambModLen[idx]])
 		}
 
 		pRemPtr := r.pool.Get()
@@ -524,7 +524,7 @@ func (r *CyclotomicReducer) reduceTo(pOut, p []uint64, idx int) {
 				vec.MMulLazyTo(pRem[i], pRem[i], r.cycloPoly[idx][i], r.ambMod[i])
 				r.degNextAmbNTT[i].InverseTo(pRem[i], pRem[i])
 			}
-			r.embedder[idx].EmbedVecTo(pRem[:1], pRem[:r.ambModLen[idx]])
+			r.embedder[idx].EmbedTo(pRem[:1], pRem[:r.ambModLen[idx]])
 		}
 
 		// pIn = pIn % X^degNext - 1
@@ -706,7 +706,7 @@ func (r *CyclotomicReducer) AppendAuxModulus(mod *num.Modulus) *CyclotomicReduce
 		}
 	}
 
-	embedder := NewEmbedder([]*num.Modulus{mod}, r.ambMod[:ambModLen])
+	embedder := NewVecEmbedder([]*num.Modulus{mod}, r.ambMod[:ambModLen])
 
 	cycloPoly := make([][]uint64, ambModLen)
 	cycloPoly[0] = append(vec.Reduce(r.params.ModulusPoly(), mod), make([]uint64, r.degNext-len(r.params.ModulusPoly()))...)
@@ -750,7 +750,7 @@ func (r *CyclotomicReducer) AppendAuxModulus(mod *num.Modulus) *CyclotomicReduce
 
 		ambModLen: vec.Concat(r.ambModLen, []int{ambModLen}),
 		ambMod:    r.ambMod,
-		embedder:  vec.Concat(r.embedder, []*Embedder{embedder}),
+		embedder:  vec.Concat(r.embedder, []*VecEmbedder{embedder}),
 
 		diffDegNextAmbNTT: r.diffDegNextAmbNTT,
 		degNextAmbNTT:     r.degNextAmbNTT,
@@ -788,7 +788,7 @@ type Reducer struct {
 	// ambMod is the ambient modulus.
 	ambMod []*num.Modulus
 	// embedder is the embedder from ambient modulus.
-	embedder []*Embedder
+	embedder []*VecEmbedder
 
 	// diffDegNextAmbNTT is diffDegNextNTT for ambient modulus.
 	diffDegNextAmbNTT []dft.Transformer
@@ -848,7 +848,7 @@ func NewReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *Reducer {
 		degNextAmbNTT[i] = dft.NewTransformer(degNextParams, ambMod[i])
 	}
 
-	embedder := make([]*Embedder, len(mod))
+	embedder := make([]*VecEmbedder, len(mod))
 	diffDegNextNTT := make([]dft.Transformer, len(mod))
 	degNextNTT := make([]dft.Transformer, len(mod))
 	for i := range mod {
@@ -856,7 +856,7 @@ func NewReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *Reducer {
 			diffDegNextNTT[i] = dft.NewTransformer(diffDegNextParams, mod[i])
 			degNextNTT[i] = dft.NewTransformer(degNextParams, mod[i])
 		} else {
-			embedder[i] = NewEmbedder([]*num.Modulus{mod[i]}, ambMod[:ambModLen[i]])
+			embedder[i] = NewVecEmbedder([]*num.Modulus{mod[i]}, ambMod[:ambModLen[i]])
 		}
 	}
 
@@ -971,7 +971,7 @@ func (r *Reducer) reduceTo(pOut, p []uint64, idx int) {
 			vec.MMulLazyTo(pQuo[i], pQuo[i], r.divPoly[idx][i], r.ambMod[i])
 			r.diffDegNextAmbNTT[i].InverseTo(pQuo[i], pQuo[i])
 		}
-		r.embedder[idx].EmbedVecTo(pQuo[:1], pQuo[:r.ambModLen[idx]])
+		r.embedder[idx].EmbedTo(pQuo[:1], pQuo[:r.ambModLen[idx]])
 	}
 
 	pRemPtr := r.pool.Get()
@@ -1010,7 +1010,7 @@ func (r *Reducer) reduceTo(pOut, p []uint64, idx int) {
 			vec.MMulLazyTo(pRem[i], pRem[i], r.modPoly[idx][i], r.ambMod[i])
 			r.degNextAmbNTT[i].InverseTo(pRem[i], pRem[i])
 		}
-		r.embedder[idx].EmbedVecTo(pRem[:1], pRem[:r.ambModLen[idx]])
+		r.embedder[idx].EmbedTo(pRem[:1], pRem[:r.ambModLen[idx]])
 	}
 
 	// pIn = pIn % (X^degNext - 1)
@@ -1147,7 +1147,7 @@ func (r *Reducer) AppendAuxModulus(mod *num.Modulus) *Reducer {
 		}
 	}
 
-	embedder := NewEmbedder([]*num.Modulus{mod}, r.ambMod[:ambModLen])
+	embedder := NewVecEmbedder([]*num.Modulus{mod}, r.ambMod[:ambModLen])
 
 	modPoly := make([][]uint64, ambModLen)
 	modPoly[0] = append(vec.Reduce(r.params.ModulusPoly(), mod), make([]uint64, r.degNext-len(r.params.ModulusPoly()))...)
@@ -1188,7 +1188,7 @@ func (r *Reducer) AppendAuxModulus(mod *num.Modulus) *Reducer {
 
 		ambModLen: vec.Concat(r.ambModLen, []int{ambModLen}),
 		ambMod:    r.ambMod,
-		embedder:  vec.Concat(r.embedder, []*Embedder{embedder}),
+		embedder:  vec.Concat(r.embedder, []*VecEmbedder{embedder}),
 
 		diffDegNextAmbNTT: r.diffDegNextAmbNTT,
 		degNextAmbNTT:     r.degNextAmbNTT,

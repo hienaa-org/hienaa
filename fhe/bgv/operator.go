@@ -8,6 +8,7 @@ import (
 	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/num"
+	"github.com/hienaa-org/hienaa/math/vec"
 )
 
 // Operator evaluates operations over [*Ciphertext] and [*Plaintext].
@@ -20,9 +21,10 @@ type Operator struct {
 
 	noise *NoiseEstimator
 
-	ePool  *rlwe.ElementPool
-	ctPool *pool.Pool[*Ciphertext]
-	vPool  *pool.Pool[*rlwe.Vector]
+	ePool   *rlwe.ElementPool
+	ctPool  *pool.Pool[*Ciphertext]
+	vPool   *pool.Pool[*rlwe.Vector]
+	embPool *pool.Pool[[]uint64]
 }
 
 // NewOperator creates a new [Operator].
@@ -42,6 +44,9 @@ func NewOperator(params rlwe.Parameters, msgMod *num.Modulus, estimType heint.Es
 		}),
 		vPool: pool.NewPool(func() *rlwe.Vector {
 			return rlwe.NewVector(params, 3, false, true)
+		}),
+		embPool: pool.NewPool(func() []uint64 {
+			return make([]uint64, params.Rank())
 		}),
 	}
 }
@@ -316,36 +321,20 @@ func (op *Operator) scaleToMulModTo(ctOut *Ciphertext, ctIn *Ciphertext, auxIdx 
 	inLen := ctIn.ModLen()
 	outLen := ctOut.ModLen()
 
-	baseMod := op.params.BaseModulus()
+	auxLen := len(op.rlweOp.PlainOperator().Params.AuxModulus())
+	opIn := op.rlweOp.PlainOperator().Params.Operator().WithModIdx(vec.Range(auxLen, auxLen+inLen)...)
 
-	inMod := baseMod[:inLen]
-	outMod := make([]*num.Modulus, outLen)
-	for i := 0; i < outLen; i++ {
-		if i == auxIdx && auxMod != nil {
-			outMod[i] = auxMod
-		} else {
-			outMod[i] = baseMod[i]
-		}
-	}
-
-	// TODO: optimise later.
-	sc := crt.NewScaler(outMod, inMod)
-	opOut := crt.NewOperator(op.params.RingParams(), outMod)
-	if ctIn.Value.IsNTT() {
-		ctBuf := op.ctPool.Get()
-		defer op.ctPool.Put(ctBuf)
-		ctBuf = ctBuf.WithModLen(inLen)
-
-		op.InvNTTTo(ctBuf, ctIn)
-		sc.ScaleTo(ctOut.Value.Body.Value, ctBuf.Value.Body.Value)
-		sc.ScaleTo(ctOut.Value.Mask.Value, ctBuf.Value.Mask.Value)
+	var opOut *crt.Operator
+	if auxMod == nil {
+		opOut = opIn.WithModIdx(vec.Range(0, outLen)...)
 	} else {
-		sc.ScaleTo(ctOut.Value.Body.Value, ctIn.Value.Body.Value)
-		sc.ScaleTo(ctOut.Value.Mask.Value, ctIn.Value.Mask.Value)
+		opOut = opIn.WithModIdx(vec.Range(0, auxIdx)...).AppendAuxModulus(auxMod).Append(opIn.WithModIdx(vec.Range(auxIdx+1, outLen)...))
 	}
 
-	opOut.FwdNTTTo(ctOut.Value.Body.Value, ctOut.Value.Body.Value)
-	opOut.FwdNTTTo(ctOut.Value.Mask.Value, ctOut.Value.Mask.Value)
+	sc := crt.NewScaler(opOut, opIn)
+	sc.WithPool(op.embPool)
+	sc.ScaleTo(ctOut.Value.Body.Value, ctIn.Value.Body.Value, true)
+	sc.ScaleTo(ctOut.Value.Mask.Value, ctIn.Value.Mask.Value, true)
 }
 
 // TensorTo tensors two ciphertexts in the multiplication modulus into a vector.
@@ -370,18 +359,17 @@ func (op *Operator) tensorTo(v *rlwe.Vector, ct0, ct1 *Ciphertext, tarLen int, a
 		panic("inconsistent input(s)")
 	}
 
-	// TODO: optimise later.
+	auxLen := len(op.rlweOp.PlainOperator().Params.AuxModulus())
 	mulLen := c0.ModLen()
-	baseMod := op.params.BaseModulus()
-	mulMod := make([]*num.Modulus, mulLen)
-	for i := 0; i < mulLen; i++ {
-		if i == auxIdx && auxMod != nil {
-			mulMod[i] = auxMod
-		} else {
-			mulMod[i] = baseMod[i]
-		}
+
+	baseOp := op.rlweOp.PlainOperator().Params.Operator().WithModIdx(vec.Range(auxLen, auxLen+mulLen)...)
+	var opAux *crt.Operator
+	if auxMod == nil {
+		opAux = baseOp
+	} else {
+		opAux = baseOp.WithModIdx(vec.Range(0, auxIdx)...).AppendAuxModulus(auxMod).Append(baseOp.WithModIdx(vec.Range(auxIdx+1, mulLen)...))
 	}
-	opAux := crt.NewOperator(op.params.RingParams(), mulMod)
+	mulMod := opAux.Modulus()
 
 	msgMod := op.ePool.Get(crt.TypeScalar)
 	defer op.ePool.Put(msgMod)
@@ -410,31 +398,26 @@ func (op *Operator) scaleFromMulModTo(vOut *rlwe.Vector, vIn *rlwe.Vector, auxId
 		panic("inconsistent input(s)")
 	}
 
-	baseMod := op.params.BaseModulus()
+	inLen := vIn.BaseModLen()
+	outLen := vOut.BaseModLen()
+	auxLen := len(op.rlweOp.PlainOperator().Params.AuxModulus())
+	opOut := op.rlweOp.PlainOperator().Params.Operator().WithModIdx(vec.Range(auxLen, auxLen+outLen)...)
 
-	// TODO: optimise later.
-	modLen := vIn.BaseModLen()
-	inMod := make([]*num.Modulus, modLen)
-	for i := 0; i < modLen; i++ {
-		if i == auxIdx && auxMod != nil {
-			inMod[i] = auxMod
-		} else {
-			inMod[i] = baseMod[i]
-		}
+	var opIn *crt.Operator
+	if auxMod == nil {
+		opIn = opOut
+	} else {
+		opIn = opOut.WithModIdx(vec.Range(0, auxIdx)...).AppendAuxModulus(auxMod).Append(opOut.WithModIdx(vec.Range(auxIdx+1, inLen)...))
 	}
-	outMod := baseMod[:modLen]
-	opAux := crt.NewOperator(op.params.RingParams(), inMod)
 
-	sc := crt.NewScaler(outMod, inMod)
+	sc := crt.NewScaler(opOut, opIn)
+	sc.WithPool(op.embPool)
 
-	opAux.InvNTTTo(vOut.Value[0].Value, vOut.Value[0].Value)
-	opAux.InvNTTTo(vOut.Value[1].Value, vOut.Value[1].Value)
-	opAux.InvNTTTo(vOut.Value[2].Value, vOut.Value[2].Value)
+	sc.ScaleTo(vOut.Value[0].Value, vOut.Value[0].Value, false)
+	sc.ScaleTo(vOut.Value[1].Value, vOut.Value[1].Value, false)
+	sc.ScaleTo(vOut.Value[2].Value, vOut.Value[2].Value, false)
 
-	sc.ScaleTo(vOut.Value[0].Value, vOut.Value[0].Value)
-	sc.ScaleTo(vOut.Value[1].Value, vOut.Value[1].Value)
-	sc.ScaleTo(vOut.Value[2].Value, vOut.Value[2].Value)
-
+	// Remove this.
 	if isNTT {
 		pOp := op.rlweOp.PlainOperator()
 		pOp.FwdNTTTo(vOut.Value[0], vOut.Value[0])
