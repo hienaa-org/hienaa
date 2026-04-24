@@ -28,20 +28,19 @@ func NewEncoder(rlweParams rlwe.Parameters, msgMod *num.Modulus) *Encoder {
 	msgToFull := make([]*crt.Embedder, 1+len(rlweParams.AuxModulus()))
 	auxLen := len(rlweParams.AuxModulus())
 	modLen := len(rlweParams.BaseModulus())
-	embPool := pool.NewPool(func() []uint64 {
-		return make([]uint64, rlweParams.Rank())
+	embPool := pool.NewPool(func() *[]uint64 {
+		v := make([]uint64, rlweParams.Rank())
+		return &v
 	})
 	for i := range msgToFull {
 		modOp := rlweParams.Operator().WithModIdx(vec.Range(auxLen-i, auxLen+modLen)...)
-		msgToFull[i] = crt.NewEmbedder(modOp, msgOp)
-		msgToFull[i].WithPool(embPool)
+		msgToFull[i] = crt.NewEmbedder(modOp, msgOp).WithPool(embPool)
 	}
 
 	baseToMsg := make([]*crt.Embedder, len(rlweParams.BaseModulus()))
 	for i := range baseToMsg {
 		modOp := rlweParams.Operator().WithModIdx(vec.Range(auxLen, auxLen+i+1)...)
-		baseToMsg[i] = crt.NewEmbedder(msgOp, modOp)
-		baseToMsg[i].WithPool(embPool)
+		baseToMsg[i] = crt.NewEmbedder(msgOp, modOp).WithPool(embPool)
 	}
 
 	return &Encoder{

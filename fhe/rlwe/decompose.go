@@ -62,8 +62,9 @@ func newRNSDecomposer(params Parameters) Decomposer {
 	}
 
 	auxLen := len(params.auxMod)
-	embPool := pool.NewPool(func() []uint64 {
-		return make([]uint64, params.Rank())
+	embPool := pool.NewPool(func() *[]uint64 {
+		v := make([]uint64, params.Rank())
+		return &v
 	})
 	for i := 0; i < gadLen; i++ {
 		start := i * chunkSize
@@ -73,8 +74,7 @@ func newRNSDecomposer(params Parameters) Decomposer {
 		fullOp := params.Operator()
 		for j := range embedders[i] {
 			modOp := fullOp.WithModIdx(vec.Range(auxLen+start, auxLen+start+j+1)...)
-			embedders[i][j] = crt.NewEmbedder(fullOp, modOp)
-			embedders[i][j].WithPool(embPool)
+			embedders[i][j] = crt.NewEmbedder(fullOp, modOp).WithPool(embPool)
 		}
 
 		g := big.NewInt(1)
@@ -195,13 +195,13 @@ func newDigitDecomposer(params Parameters) Decomposer {
 	digitEmbedder := make([]*crt.Embedder, len(params.baseMod))
 	baseModOp := crt.NewOperator(params.RingParams(), []*num.Modulus{baseMod})
 	auxLen := len(params.auxMod)
-	embPool := pool.NewPool(func() []uint64 {
-		return make([]uint64, params.Rank())
+	embPool := pool.NewPool(func() *[]uint64 {
+		v := make([]uint64, params.Rank())
+		return &v
 	})
 	for i := range params.baseMod {
 		modOp := params.Operator().WithModIdx(vec.Range(auxLen, auxLen+i+1)...)
-		digitEmbedder[i] = crt.NewEmbedder(baseModOp, modOp)
-		digitEmbedder[i].WithPool(embPool)
+		digitEmbedder[i] = crt.NewEmbedder(baseModOp, modOp).WithPool(embPool)
 	}
 	modEmbedder := crt.NewEmbedder(params.Operator(), baseModOp)
 	modEmbedder.WithPool(embPool)

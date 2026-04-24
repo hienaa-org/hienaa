@@ -30,7 +30,7 @@ type Operator struct {
 	ptPool  *rlwe.ElementPool
 	ctPool  *pool.Pool[*Ciphertext]
 	vPool   *pool.Pool[*rlwe.Vector]
-	embPool *pool.Pool[[]uint64]
+	embPool *pool.Pool[*[]uint64]
 }
 
 // NewOperator creates a new [Operator].
@@ -121,8 +121,9 @@ func NewOperator(params rlwe.Parameters, msgMod *num.Modulus, estimType heint.Es
 		vPool: pool.NewPool(func() *rlwe.Vector {
 			return rlwe.NewVector(ambParams, 3, false, true)
 		}),
-		embPool: pool.NewPool(func() []uint64 {
-			return make([]uint64, params.Rank())
+		embPool: pool.NewPool(func() *[]uint64 {
+			v := make([]uint64, params.Rank())
+			return &v
 		}),
 	}
 }
@@ -327,8 +328,7 @@ func (op *Operator) MulTo(ctOut, ct0, ct1 *Ciphertext, rlk *rlwe.RelinKey, isNTT
 	ctOp := op.ambOp.Params.Operator().WithModIdx(vec.Range(0, ct1.ModLen())...)
 	auxOp := op.ambOp.Params.Operator().WithModIdx(vec.Range(tarLen, tarLen+auxLen)...)
 
-	sc := crt.NewScaler(auxOp, ctOp)
-	sc.WithPool(op.embPool)
+	sc := crt.NewScaler(auxOp, ctOp).WithPool(op.embPool)
 	sc.ScaleTo(cAux1.Value.Body.Value, ct1.Value.Body.Value, true)
 	sc.ScaleTo(cAux1.Value.Mask.Value, ct1.Value.Mask.Value, true)
 
@@ -336,8 +336,7 @@ func (op *Operator) MulTo(ctOut, ct0, ct1 *Ciphertext, rlk *rlwe.RelinKey, isNTT
 	op.ambOp.ModRaiseTo(cAmb0.Value, ct0.Value, true)
 
 	ambOp := op.ambOp.Params.Operator().WithModIdx(vec.Range(0, tarLen+auxLen)...)
-	emb := crt.NewEmbedder(ambOp, auxOp)
-	emb.WithPool(op.embPool)
+	emb := crt.NewEmbedder(ambOp, auxOp).WithPool(op.embPool)
 	emb.EmbedTo(cAmb1.Value.Body.Value, cAux1.Value.Body.Value, true)
 	emb.EmbedTo(cAmb1.Value.Mask.Value, cAux1.Value.Mask.Value, true)
 

@@ -43,14 +43,14 @@ func NewEncryptorWithKey(params rlwe.Parameters, msgMod *num.Modulus, skNTT *rlw
 	scaler := make([]*crt.Scaler, len(baseMod))
 	msgOp := crt.NewOperator(params.RingParams(), []*num.Modulus{msgMod})
 	auxLen := len(params.AuxModulus())
-	scPool := pool.NewPool(func() []uint64 {
-		return make([]uint64, params.Rank())
+	scPool := pool.NewPool(func() *[]uint64 {
+		v := make([]uint64, params.Rank())
+		return &v
 	})
 
 	for i := range scaler {
 		modOp := params.Operator().WithModIdx(vec.Range(auxLen, auxLen+i+1)...)
-		scaler[i] = crt.NewScaler(msgOp, modOp)
-		scaler[i].WithPool(scPool)
+		scaler[i] = crt.NewScaler(msgOp, modOp).WithPool(scPool)
 	}
 
 	return &Encryptor{

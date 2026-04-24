@@ -15,7 +15,7 @@ type PlainOperator struct {
 	crtOp  *crt.Operator
 
 	pPool   *pool.Pool[*crt.Element]
-	embPool *pool.Pool[[]uint64]
+	embPool *pool.Pool[*[]uint64]
 }
 
 // NewPlainOperator creates a new [PlainOperator].
@@ -27,8 +27,9 @@ func NewPlainOperator(params Parameters) *PlainOperator {
 		pPool: pool.NewPool(func() *crt.Element {
 			return crt.NewPoly(params.Rank(), len(params.fullMod))
 		}),
-		embPool: pool.NewPool(func() []uint64 {
-			return make([]uint64, params.Rank())
+		embPool: pool.NewPool(func() *[]uint64 {
+			v := make([]uint64, params.Rank())
+			return &v
 		}),
 	}
 }
@@ -204,8 +205,7 @@ func (op *PlainOperator) ModRaiseTo(eOut, e *Element, isNTT bool) {
 	inOp := op.crtOp.WithModIdx(vec.Range(auxLen, auxLen+inLen)...)
 	outOp := op.crtOp.WithModIdx(vec.Range(auxLen, auxLen+outLen)...)
 
-	emb := crt.NewEmbedder(outOp, inOp)
-	emb.WithPool(op.embPool)
+	emb := crt.NewEmbedder(outOp, inOp).WithPool(op.embPool)
 	emb.EmbedTo(eOut.Value, e.Value, isNTT)
 
 	eOut.auxLen = 0
@@ -234,8 +234,7 @@ func (op *PlainOperator) DivByAuxModulusTo(eOut, e *Element, isNTT bool) {
 
 	baseMod := opBase.Modulus()
 	auxMod := opAux.Modulus()
-	scaler := crt.NewScaler(opBase, opAux)
-	scaler.WithPool(op.embPool)
+	scaler := crt.NewScaler(opBase, opAux).WithPool(op.embPool)
 
 	auxInvBase := crt.NewScalarFrom(1, baseMod) // auxMod^{-1} mod baseMod
 	baseInvAux := crt.NewScalarFrom(1, auxMod)  // baseMod^{-1} mod auxMod

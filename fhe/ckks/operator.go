@@ -24,7 +24,7 @@ type Operator struct {
 	ePool   *rlwe.ElementPool
 	ctPool  *pool.Pool[*Ciphertext]
 	vPool   *pool.Pool[*rlwe.Vector]
-	embPool *pool.Pool[[]uint64]
+	embPool *pool.Pool[*[]uint64]
 }
 
 func NewOperator(params rlwe.Parameters, scFac float64) *Operator {
@@ -48,8 +48,9 @@ func NewOperator(params rlwe.Parameters, scFac float64) *Operator {
 		vPool: pool.NewPool(func() *rlwe.Vector {
 			return rlwe.NewVector(params, 3, false, true)
 		}),
-		embPool: pool.NewPool(func() []uint64 {
-			return make([]uint64, params.Rank())
+		embPool: pool.NewPool(func() *[]uint64 {
+			v := make([]uint64, params.Rank())
+			return &v
 		}),
 	}
 }
@@ -559,8 +560,7 @@ func (op *Operator) scaleToMulModTo(ctOut *Ciphertext, ctIn *Ciphertext, auxMod 
 
 	inMod := opIn.Modulus()
 	outMod := opOut.Modulus()
-	sc := crt.NewScaler(opOut, opIn)
-	sc.WithPool(op.embPool)
+	sc := crt.NewScaler(opOut, opIn).WithPool(op.embPool)
 
 	// Find 'diff', which needs to be multiplied to ctIn to make the scaling factors equal.
 	diffFloat := op.fPool.Get()
@@ -698,8 +698,7 @@ func (op *Operator) scaleFromMulModTo(vOut *rlwe.Vector, vIn *rlwe.Vector, auxMo
 	} else {
 		opIn := opOut.WithModIdx(vec.Range(0, inLen-1)...).AppendAuxModulus(auxMod)
 
-		sc := crt.NewScaler(opOut, opIn)
-		sc.WithPool(op.embPool)
+		sc := crt.NewScaler(opOut, opIn).WithPool(op.embPool)
 
 		sc.ScaleTo(vOut.Value[0].Value, vOut.Value[0].Value, isNTT)
 		sc.ScaleTo(vOut.Value[1].Value, vOut.Value[1].Value, isNTT)

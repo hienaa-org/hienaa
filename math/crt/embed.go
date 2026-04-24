@@ -35,7 +35,7 @@ type Embedder struct {
 	opOut *Operator
 
 	vecEmb *VecEmbedder
-	pool   *pool.Pool[[]uint64]
+	pool   *pool.Pool[*[]uint64]
 }
 
 // NewEmbedder creates a new [Embedder].
@@ -45,16 +45,17 @@ func NewEmbedder(opOut *Operator, opIn *Operator) *Embedder {
 		opOut: opOut,
 
 		vecEmb: NewVecEmbedder(opOut.mod, opIn.mod),
-		pool: pool.NewPool(func() []uint64 {
-			return make([]uint64, opIn.params.Rank())
+		pool: pool.NewPool(func() *[]uint64 {
+			v := make([]uint64, opIn.params.Rank())
+			return &v
 		}),
 	}
 }
 
-// WithPool sets the pool for the embedder.
-// This can be used to reuse the same pool for multiple embedders.
-func (emb *Embedder) WithPool(pool *pool.Pool[[]uint64]) {
-	emb.pool = pool
+// WithPool sets the pool of [Embedder] and returns it.
+func (emb *Embedder) WithPool(p *pool.Pool[*[]uint64]) *Embedder {
+	emb.pool = p
+	return emb
 }
 
 // Embed embeds e to the output modulus.
@@ -84,22 +85,20 @@ func (emb *Embedder) EmbedTo(eOut, e *Element, isNTT bool) {
 			eOut.IsNTT = false
 
 			if isNTT {
-				opOut := emb.opOut.WithModIdx(vec.Range(0, eOut.ModLen())...)
-				opOut.FwdNTTTo(eOut, eOut)
+				emb.opOut.Slice(0, eOut.ModLen()).FwdNTTTo(eOut, eOut)
 			}
 		} else if !isNTT {
-			eNTTVec := make([][]uint64, e.ModLen())
-			for i := range eNTTVec {
-				eNTTVec[i] = emb.pool.Get()
-				defer emb.pool.Put(eNTTVec[i])
-			}
-
 			eNTT := &Element{
-				Coeffs: eNTTVec,
+				Coeffs: make([][]uint64, e.ModLen()),
 				IsNTT:  false,
 			}
-			emb.opIn.InvNTTTo(eNTT, e)
+			for i := range eNTT.Coeffs {
+				vPtr := emb.pool.Get()
+				eNTT.Coeffs[i] = *vPtr
+				defer emb.pool.Put(vPtr)
+			}
 
+			emb.opIn.InvNTTTo(eNTT, e)
 			emb.vecEmb.EmbedTo(eOut.Coeffs, eNTT.Coeffs)
 			eOut.IsNTT = false
 		} else {
@@ -111,23 +110,26 @@ func (emb *Embedder) EmbedTo(eOut, e *Element, isNTT bool) {
 
 // embedNTTTo embeds eNTT to eOut.
 func (emb *Embedder) embedNTTTo(eOut, e *Element) {
-	eCopyVec := make([][]uint64, e.ModLen())
-	eNTTVec := make([][]uint64, e.ModLen())
-	for i := 0; i < e.ModLen(); i++ {
-		eCopyVec[i] = emb.pool.Get()
-		eNTTVec[i] = emb.pool.Get()
-		defer emb.pool.Put(eCopyVec[i])
-		defer emb.pool.Put(eNTTVec[i])
+	eCopy := &Element{
+		Coeffs: make([][]uint64, e.ModLen()),
+		IsNTT:  false,
+	}
+	for i := range eCopy.Coeffs {
+		vPtr := emb.pool.Get()
+		eCopy.Coeffs[i] = *vPtr
+		defer emb.pool.Put(vPtr)
 	}
 
-	eCopy := &Element{
-		Coeffs: eCopyVec,
-		IsNTT:  false,
-	}
 	eNTT := &Element{
-		Coeffs: eNTTVec,
+		Coeffs: make([][]uint64, e.ModLen()),
 		IsNTT:  false,
 	}
+	for i := range eNTT.Coeffs {
+		vPtr := emb.pool.Get()
+		eNTT.Coeffs[i] = *vPtr
+		defer emb.pool.Put(vPtr)
+	}
+
 	eCopy.CopyFrom(e)
 	emb.opIn.InvNTTTo(eNTT, eCopy)
 
@@ -590,7 +592,7 @@ type Scaler struct {
 	opOut *Operator
 
 	vecSc *VecScaler
-	pool  *pool.Pool[[]uint64]
+	pool  *pool.Pool[*[]uint64]
 }
 
 // NewScaler creates a new [Scaler].
@@ -600,16 +602,17 @@ func NewScaler(opOut *Operator, opIn *Operator) *Scaler {
 		opOut: opOut,
 
 		vecSc: NewVecScaler(opOut.mod, opIn.mod),
-		pool: pool.NewPool(func() []uint64 {
-			return make([]uint64, opIn.params.Rank())
+		pool: pool.NewPool(func() *[]uint64 {
+			v := make([]uint64, opIn.params.Rank())
+			return &v
 		}),
 	}
 }
 
-// WithPool sets the pool for the scaler.
-// This can be used to reuse the same pool for multiple scalers.
-func (sc *Scaler) WithPool(pool *pool.Pool[[]uint64]) {
-	sc.pool = pool
+// WithPool sets the pool of [Scaler] and returns it.
+func (sc *Scaler) WithPool(p *pool.Pool[*[]uint64]) *Scaler {
+	sc.pool = p
+	return sc
 }
 
 // Scale scales e to the output modulus.
@@ -633,17 +636,17 @@ func (sc *Scaler) ScaleTo(eOut, e *Element, isNTT bool) {
 			sc.opOut.FwdNTTTo(eOut, eOut)
 		}
 	} else if !isNTT {
-		eNTTVec := make([][]uint64, e.ModLen())
-		for i := 0; i < e.ModLen(); i++ {
-			eNTTVec[i] = sc.pool.Get()
-			defer sc.pool.Put(eNTTVec[i])
-		}
 		eNTT := &Element{
-			Coeffs: eNTTVec,
+			Coeffs: make([][]uint64, e.ModLen()),
 			IsNTT:  false,
 		}
-		sc.opIn.InvNTTTo(eNTT, e)
+		for i := range eNTT.Coeffs {
+			vPtr := sc.pool.Get()
+			eNTT.Coeffs[i] = *vPtr
+			defer sc.pool.Put(vPtr)
+		}
 
+		sc.opIn.InvNTTTo(eNTT, e)
 		sc.vecSc.ScaleTo(eOut.Coeffs, eNTT.Coeffs)
 		eOut.IsNTT = false
 	} else {
@@ -661,14 +664,14 @@ func (sc *Scaler) scaleNTTTo(eOut, e *Element) {
 
 	// Edge case, where inMod divides outMod.
 	if len(sc.vecSc.modIn) == sc.vecSc.modGCDLen {
-		eCopyVec := make([][]uint64, e.ModLen())
-		for i := 0; i < e.ModLen(); i++ {
-			eCopyVec[i] = sc.pool.Get()
-			defer sc.pool.Put(eCopyVec[i])
-		}
 		eCopy := &Element{
-			Coeffs: eCopyVec,
+			Coeffs: make([][]uint64, e.ModLen()),
 			IsNTT:  false,
+		}
+		for i := range eCopy.Coeffs {
+			vPtr := sc.pool.Get()
+			eCopy.Coeffs[i] = *vPtr
+			defer sc.pool.Put(vPtr)
 		}
 
 		for i := 0; i < inLen; i++ {
@@ -688,30 +691,32 @@ func (sc *Scaler) scaleNTTTo(eOut, e *Element) {
 		return
 	}
 
-	vMulVec := make([][]uint64, gcdLen)
-	for i := range vMulVec {
-		vMulVec[i] = sc.pool.Get()
-		defer sc.pool.Put(vMulVec[i])
-	}
 	vMul := &Element{
-		Coeffs: vMulVec,
+		Coeffs: make([][]uint64, gcdLen),
 		IsNTT:  false,
 	}
-
-	vBufVec := make([][]uint64, inLen-gcdLen)
-	for i := range vBufVec {
-		vBufVec[i] = sc.pool.Get()
-		defer sc.pool.Put(vBufVec[i])
+	for i := range vMul.Coeffs {
+		vPtr := sc.pool.Get()
+		vMul.Coeffs[i] = *vPtr
+		defer sc.pool.Put(vPtr)
 	}
+
 	vBuf := &Element{
-		Coeffs: vBufVec,
+		Coeffs: make([][]uint64, inLen-gcdLen),
 		IsNTT:  false,
 	}
+	for i := range vBuf.Coeffs {
+		vPtr := sc.pool.Get()
+		vBuf.Coeffs[i] = *vPtr
+		defer sc.pool.Put(vPtr)
+	}
 
-	vBool := sc.pool.Get()
-	defer sc.pool.Put(vBool)
-	vCorr := sc.pool.Get()
-	defer sc.pool.Put(vCorr)
+	vBoolPtr := sc.pool.Get()
+	vBool := *vBoolPtr
+	defer sc.pool.Put(vBoolPtr)
+	vCorrPtr := sc.pool.Get()
+	vCorr := *vCorrPtr
+	defer sc.pool.Put(vCorrPtr)
 
 	var qLast uint64
 	for i := inLen - 1; i >= 0; i-- {
@@ -868,10 +873,12 @@ type VecScaler struct {
 	emb *VecEmbedder
 
 	// outCompModInComp equals modOut/modGCD modulo modIn.
-	outCompModIn  []uint64
+	outCompModIn []uint64
+	// outCompModInS is the Shoup form of outCompModInComp.
 	outCompModInS []uint64
 	// negInCompInvModOut equals the inverse of modIn/modGCD modulo modOut.
-	negInCompInvModOut  []uint64
+	negInCompInvModOut []uint64
+	// negInCompInvModOutS is the Shoup form of negInCompInvModOut.
 	negInCompInvModOutS []uint64
 }
 
