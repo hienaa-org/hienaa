@@ -712,14 +712,13 @@ func SMulSubScalarLazyTo(vOut, v []uint64, c, cS uint64, q *num.Modulus) {
 	checkLength(len(vOut), len(v))
 
 	qv := q.Value()
-	divHi, _ := q.Div()
 
 	cNeg := modops.Neg(c, qv)
 	var cNegS uint64
 	if qv&1 == 1 {
 		cNegS = -cS - 1
 	} else {
-		cNegS = modops.SForm(cNeg, qv, divHi)
+		cNegS = modops.SForm(cNeg, qv)
 	}
 
 	M := (len(vOut) >> 3) << 3

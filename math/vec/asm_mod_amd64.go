@@ -1807,7 +1807,7 @@ func SMulSubLazyTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
 
 	switch {
 	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
-		sMulSubToAVX512(vOut, v0, v1, v1S, q.Value())
+		sMulSubLazyToAVX512(vOut, v0, v1, v1S, q.Value())
 		return
 	}
 
