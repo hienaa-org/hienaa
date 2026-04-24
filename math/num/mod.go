@@ -205,7 +205,7 @@ func MMulLazy(x0M, y0M uint64, q *Modulus) uint64 {
 //
 // Panics if q is nil.
 func SForm(x uint64, q *Modulus) uint64 {
-	return modops.SForm(x, q.modulus, q.divHi)
+	return modops.SForm(x, q.modulus)
 }
 
 // SMul returns x0 * x1 mod q using Shoup multiplication.

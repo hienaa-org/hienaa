@@ -1156,70 +1156,35 @@ func VecMMulScalarToAVX512(opType OpType, isLazy bool) {
 	RET()
 }
 
-func VecSMulScalarToAVX512(opType OpType, isIFMA, isLazy bool) {
+func VecSMulScalarToAVX512(opType OpType, isLazy bool) {
 	if !isLazy {
-		if !isIFMA {
-			switch opType {
-			case OpPure:
-				TEXT("sMulScalarToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
-			case OpAdd:
-				TEXT("sMulAddScalarToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
-			case OpSub:
-				TEXT("sMulSubScalarToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
-			}
-		} else {
-			switch opType {
-			case OpPure:
-				TEXT("sMulScalarToAVX512IFMA", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
-			case OpAdd:
-				TEXT("sMulAddScalarToAVX512IFMA", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
-			case OpSub:
-				TEXT("sMulSubScalarToAVX512IFMA", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
-			}
+		switch opType {
+		case OpPure:
+			TEXT("sMulScalarToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
+		case OpAdd:
+			TEXT("sMulAddScalarToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
+		case OpSub:
+			TEXT("sMulSubScalarToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
 		}
 	} else {
-		if !isIFMA {
-			switch opType {
-			case OpPure:
-				TEXT("sMulScalarLazyToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
-			case OpAdd:
-				TEXT("sMulAddScalarLazyToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
-			case OpSub:
-				TEXT("sMulSubScalarLazyToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
-			}
-		} else {
-			switch opType {
-			case OpPure:
-				TEXT("sMulScalarLazyToAVX512IFMA", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
-			case OpAdd:
-				TEXT("sMulAddScalarLazyToAVX512IFMA", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
-			case OpSub:
-				TEXT("sMulSubScalarLazyToAVX512IFMA", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
-			}
+		switch opType {
+		case OpPure:
+			TEXT("sMulScalarLazyToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
+		case OpAdd:
+			TEXT("sMulAddScalarLazyToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
+		case OpSub:
+			TEXT("sMulSubScalarLazyToAVX512", NOSPLIT, "func(vOut, v []uint64, c, cS, q uint64)")
 		}
 	}
 	Pragma("noescape")
 
-	var maskLo, mask52, zero reg.VecVirtual
-	if !isIFMA {
-		maskLo = ZMM()
-		VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_LO"), 0), maskLo)
-	} else {
-		mask52 = ZMM()
-		VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_52"), 0), mask52)
-		zero = ZMM()
-		VPXORQ(zero, zero, zero)
-	}
+	maskLo := ZMM()
+	VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_LO"), 0), maskLo)
 
 	q64 := Load(Param("q"), GP64())
-	q := ZMM()
+	q, qHi := ZMM(), ZMM()
 	VPBROADCASTQ(NewParamAddr("q", 64), q)
-
-	var qHi reg.VecVirtual
-	if !isIFMA {
-		qHi = ZMM()
-		VPSRLQ(Imm(32), q, qHi)
-	}
+	VPSRLQ(Imm(32), q, qHi)
 
 	c64 := Load(Param("c"), GP64())
 	cS64 := Load(Param("cS"), GP64())
@@ -1227,13 +1192,8 @@ func VecSMulScalarToAVX512(opType OpType, isIFMA, isLazy bool) {
 	VPBROADCASTQ(NewParamAddr("c", 48), c)
 	VPBROADCASTQ(NewParamAddr("cS", 56), cS)
 
-	var cSHi reg.VecVirtual
-	if !isIFMA {
-		cSHi = ZMM()
-		VPSRLQ(Imm(32), cS, cSHi)
-	} else {
-		VPSRLQ(Imm(12), cS, cS)
-	}
+	cSHi := ZMM()
+	VPSRLQ(Imm(32), cS, cSHi)
 
 	N := Load(Param("vOut").Len(), GP64())
 	vOut := Load(Param("vOut").Base(), GP64())
@@ -1254,27 +1214,15 @@ func VecSMulScalarToAVX512(opType OpType, isIFMA, isLazy bool) {
 
 	xOut, xMul := ZMM(), ZMM()
 
-	if !isIFMA {
-		xHi := ZMM()
-		VPSRLQ(Imm(32), x, xHi)
+	xHi := ZMM()
+	VPSRLQ(Imm(32), x, xHi)
 
-		quo := ZMM()
-		Mul64HiAVX512(x, xHi, cS, cSHi, maskLo, quo)
-		VPMULLQ(quo, q, quo)
+	quo := ZMM()
+	Mul64HiAVX512(x, xHi, cS, cSHi, maskLo, quo)
+	VPMULLQ(quo, q, quo)
 
-		VPMULLQ(x, c, xMul)
-		VPSUBQ(quo, xMul, xMul)
-	} else {
-		quo := ZMM()
-		VPXORQ(quo, quo, quo)
-		VPMADD52HUQ(x, cS, quo)
-
-		VPXORQ(xMul, xMul, xMul)
-		VPMADD52LUQ(q, quo, xMul)
-		VPSUBQ(xMul, zero, xMul)
-		VPMADD52LUQ(x, c, xMul)
-		VPANDQ(xMul, mask52, xMul)
-	}
+	VPMULLQ(x, c, xMul)
+	VPSUBQ(quo, xMul, xMul)
 
 	if !isLazy {
 		xSubQ := ZMM()
@@ -1736,70 +1684,35 @@ func VecMMulToAVX512(opType OpType, isLazy bool) {
 	RET()
 }
 
-func VecSMulToAVX512(opType OpType, isIFMA, isLazy bool) {
+func VecSMulToAVX512(opType OpType, isLazy bool) {
 	if !isLazy {
-		if !isIFMA {
-			switch opType {
-			case OpPure:
-				TEXT("sMulToAVX512", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
-			case OpAdd:
-				TEXT("sMulAddToAVX512", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
-			case OpSub:
-				TEXT("sMulSubToAVX512", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
-			}
-		} else {
-			switch opType {
-			case OpPure:
-				TEXT("sMulToAVX512IFMA", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
-			case OpAdd:
-				TEXT("sMulAddToAVX512IFMA", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
-			case OpSub:
-				TEXT("sMulSubToAVX512IFMA", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
-			}
+		switch opType {
+		case OpPure:
+			TEXT("sMulToAVX512", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
+		case OpAdd:
+			TEXT("sMulAddToAVX512", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
+		case OpSub:
+			TEXT("sMulSubToAVX512", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
 		}
 	} else {
-		if !isIFMA {
-			switch opType {
-			case OpPure:
-				TEXT("sMulLazyToAVX512", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
-			case OpAdd:
-				TEXT("sMulAddLazyToAVX512", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
-			case OpSub:
-				TEXT("sMulSubLazyToAVX512", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
-			}
-		} else {
-			switch opType {
-			case OpPure:
-				TEXT("sMulLazyToAVX512IFMA", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
-			case OpAdd:
-				TEXT("sMulAddLazyToAVX512IFMA", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
-			case OpSub:
-				TEXT("sMulSubLazyToAVX512IFMA", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
-			}
+		switch opType {
+		case OpPure:
+			TEXT("sMulLazyToAVX512", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
+		case OpAdd:
+			TEXT("sMulAddLazyToAVX512", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
+		case OpSub:
+			TEXT("sMulSubLazyToAVX512", NOSPLIT, "func(vOut, v0, v1, v1S []uint64, q uint64)")
 		}
 	}
 	Pragma("noescape")
 
-	var maskLo, mask52, zero reg.VecVirtual
-	if !isIFMA {
-		maskLo = ZMM()
-		VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_LO"), 0), maskLo)
-	} else {
-		mask52 = ZMM()
-		VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_52"), 0), mask52)
-		zero = ZMM()
-		VPXORQ(zero, zero, zero)
-	}
+	maskLo := ZMM()
+	VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_LO"), 0), maskLo)
 
 	q64 := Load(Param("q"), GP64())
-	q := ZMM()
+	q, qHi := ZMM(), ZMM()
 	VPBROADCASTQ(NewParamAddr("q", 96), q)
-
-	var qHi reg.VecVirtual
-	if !isIFMA {
-		qHi = ZMM()
-		VPSRLQ(Imm(32), q, qHi)
-	}
+	VPSRLQ(Imm(32), q, qHi)
 
 	N := Load(Param("vOut").Len(), GP64())
 	vOut := Load(Param("vOut").Base(), GP64())
@@ -1828,30 +1741,16 @@ func VecSMulToAVX512(opType OpType, isIFMA, isLazy bool) {
 
 	xOut, xMul := ZMM(), ZMM()
 
-	if !isIFMA {
-		x0Hi, x1SHi := ZMM(), ZMM()
-		VPSRLQ(Imm(32), x0, x0Hi)
-		VPSRLQ(Imm(32), x1S, x1SHi)
+	x0Hi, x1SHi := ZMM(), ZMM()
+	VPSRLQ(Imm(32), x0, x0Hi)
+	VPSRLQ(Imm(32), x1S, x1SHi)
 
-		quo := ZMM()
-		Mul64HiAVX512(x0, x0Hi, x1S, x1SHi, maskLo, quo)
-		VPMULLQ(quo, q, quo)
+	quo := ZMM()
+	Mul64HiAVX512(x0, x0Hi, x1S, x1SHi, maskLo, quo)
+	VPMULLQ(quo, q, quo)
 
-		VPMULLQ(x0, x1, xMul)
-		VPSUBQ(quo, xMul, xMul)
-	} else {
-		VPSRLQ(Imm(12), x1S, x1S)
-
-		quo := ZMM()
-		VPXORQ(quo, quo, quo)
-		VPMADD52HUQ(x0, x1S, quo)
-
-		VPXORQ(xMul, xMul, xMul)
-		VPMADD52LUQ(q, quo, xMul)
-		VPSUBQ(xMul, zero, xMul)
-		VPMADD52LUQ(x1, x0, xMul)
-		VPANDQ(xMul, mask52, xMul)
-	}
+	VPMULLQ(x0, x1, xMul)
+	VPSUBQ(quo, xMul, xMul)
 
 	if !isLazy {
 		xSubQ := ZMM()

@@ -202,8 +202,8 @@ func MMulLazy(x0M, x1M, q, inv uint64) uint64 {
 }
 
 // SForm transforms x into Shoup form.
-func SForm(x, q, divHi uint64) uint64 {
-	xS, _ := bits.Div64(BMod64(x, q, divHi), 0, q)
+func SForm(x, q uint64) uint64 {
+	xS, _ := bits.Div64(x, 0, q)
 	return xS
 }
 

@@ -94,8 +94,7 @@ func MulScalar(v []uint64, c uint64, q *num.Modulus) []uint64 {
 // If q is nil, then it returns x0 * x1.
 func MulScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	if q != nil {
-		divHi, _ := q.Div()
-		SMulScalarTo(vOut, v, c, modops.SForm(c, q.Value(), divHi), q)
+		SMulScalarTo(vOut, v, c, modops.SForm(c, q.Value()), q)
 		return
 	}
 	mulScalarWordTo(vOut, v, c)
@@ -105,8 +104,7 @@ func MulScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 // If q is nil, then it returns vOut += v * c.
 func MulAddScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	if q != nil {
-		divHi, _ := q.Div()
-		SMulAddScalarTo(vOut, v, c, modops.SForm(c, q.Value(), divHi), q)
+		SMulAddScalarTo(vOut, v, c, modops.SForm(c, q.Value()), q)
 		return
 	}
 	mulAddScalarWordTo(vOut, v, c)
@@ -116,8 +114,7 @@ func MulAddScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 // If q is nil, then it returns vOut -= v * c.
 func MulSubScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	if q != nil {
-		divHi, _ := q.Div()
-		SMulSubScalarTo(vOut, v, c, modops.SForm(c, q.Value(), divHi), q)
+		SMulSubScalarTo(vOut, v, c, modops.SForm(c, q.Value()), q)
 		return
 	}
 	mulSubScalarWordTo(vOut, v, c)
@@ -147,8 +144,7 @@ func MulScalarLazy(v []uint64, c uint64, q *num.Modulus) []uint64 {
 //
 // Panics if q is nil.
 func MulScalarLazyTo(vOut, v []uint64, c uint64, q *num.Modulus) {
-	divHi, _ := q.Div()
-	SMulScalarLazyTo(vOut, v, c, modops.SForm(c, q.Value(), divHi), q)
+	SMulScalarLazyTo(vOut, v, c, modops.SForm(c, q.Value()), q)
 }
 
 // MulAddScalarLazyTo computes vOut += c * v mod q using Shoup multiplication,
@@ -156,8 +152,7 @@ func MulScalarLazyTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 //
 // Panics if q is nil.
 func MulAddScalarLazyTo(vOut, v []uint64, c uint64, q *num.Modulus) {
-	divHi, _ := q.Div()
-	SMulAddScalarLazyTo(vOut, v, c, modops.SForm(c, q.Value(), divHi), q)
+	SMulAddScalarLazyTo(vOut, v, c, modops.SForm(c, q.Value()), q)
 }
 
 // MulSubScalarLazyTo computes vOut -= c * v mod q using Shoup multiplication,
@@ -165,8 +160,7 @@ func MulAddScalarLazyTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 //
 // Panics if q is nil.
 func MulSubScalarLazyTo(vOut, v []uint64, c uint64, q *num.Modulus) {
-	divHi, _ := q.Div()
-	SMulSubScalarLazyTo(vOut, v, c, modops.SForm(c, q.Value(), divHi), q)
+	SMulSubScalarLazyTo(vOut, v, c, modops.SForm(c, q.Value()), q)
 }
 
 // SMulScalarLazy returns v * c mod q using Shoup multiplication,
@@ -480,7 +474,6 @@ func SFormTo(vOutS, v []uint64, q *num.Modulus) {
 	checkLength(len(vOutS), len(v))
 
 	qv := q.Value()
-	divHi, _ := q.Div()
 
 	M := (len(vOutS) >> 3) << 3
 	L := unsafe.Sizeof(uint64(0))
@@ -492,19 +485,19 @@ func SFormTo(vOutS, v []uint64, q *num.Modulus) {
 		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
 		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
 
-		wOut[0] = modops.SForm(w[0], qv, divHi)
-		wOut[1] = modops.SForm(w[1], qv, divHi)
-		wOut[2] = modops.SForm(w[2], qv, divHi)
-		wOut[3] = modops.SForm(w[3], qv, divHi)
+		wOut[0] = modops.SForm(w[0], qv)
+		wOut[1] = modops.SForm(w[1], qv)
+		wOut[2] = modops.SForm(w[2], qv)
+		wOut[3] = modops.SForm(w[3], qv)
 
-		wOut[4] = modops.SForm(w[4], qv, divHi)
-		wOut[5] = modops.SForm(w[5], qv, divHi)
-		wOut[6] = modops.SForm(w[6], qv, divHi)
-		wOut[7] = modops.SForm(w[7], qv, divHi)
+		wOut[4] = modops.SForm(w[4], qv)
+		wOut[5] = modops.SForm(w[5], qv)
+		wOut[6] = modops.SForm(w[6], qv)
+		wOut[7] = modops.SForm(w[7], qv)
 	}
 
 	for i := M; i < len(vOutS); i++ {
-		vOutS[i] = modops.SForm(v[i], qv, divHi)
+		vOutS[i] = modops.SForm(v[i], qv)
 	}
 }
 

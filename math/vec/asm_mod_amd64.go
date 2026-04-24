@@ -675,12 +675,7 @@ func SMulScalarTo(vOut, v []uint64, c, cS uint64, q *num.Modulus) {
 
 	switch {
 	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
-		qv := q.Value()
-		if cpu.X86.HasAVX512IFMA && qv < num.MaxModulusIFMA {
-			sMulScalarToAVX512IFMA(vOut, v, c, cS, qv)
-		} else {
-			sMulScalarToAVX512(vOut, v, c, cS, qv)
-		}
+		sMulScalarToAVX512(vOut, v, c, cS, q.Value())
 		return
 	}
 
@@ -718,12 +713,7 @@ func SMulAddScalarTo(vOut, v []uint64, c, cS uint64, q *num.Modulus) {
 
 	switch {
 	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
-		qv := q.Value()
-		if cpu.X86.HasAVX512IFMA && qv < num.MaxModulusIFMA {
-			sMulAddScalarToAVX512IFMA(vOut, v, c, cS, qv)
-		} else {
-			sMulAddScalarToAVX512(vOut, v, c, cS, qv)
-		}
+		sMulAddScalarToAVX512(vOut, v, c, cS, q.Value())
 		return
 	}
 
@@ -761,12 +751,7 @@ func SMulSubScalarTo(vOut, v []uint64, c, cS uint64, q *num.Modulus) {
 
 	switch {
 	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
-		qv := q.Value()
-		if cpu.X86.HasAVX512IFMA && qv < num.MaxModulusIFMA {
-			sMulSubScalarToAVX512IFMA(vOut, v, c, cS, qv)
-		} else {
-			sMulSubScalarToAVX512(vOut, v, c, cS, qv)
-		}
+		sMulSubScalarToAVX512(vOut, v, c, cS, q.Value())
 		return
 	}
 
@@ -807,12 +792,7 @@ func SMulScalarLazyTo(vOut, v []uint64, c, cS uint64, q *num.Modulus) {
 
 	switch {
 	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
-		qv := q.Value()
-		if cpu.X86.HasAVX512IFMA && qv < num.MaxModulusIFMA {
-			sMulScalarLazyToAVX512IFMA(vOut, v, c, cS, qv)
-		} else {
-			sMulScalarLazyToAVX512(vOut, v, c, cS, qv)
-		}
+		sMulScalarLazyToAVX512(vOut, v, c, cS, q.Value())
 		return
 	}
 
@@ -853,12 +833,7 @@ func SMulAddScalarLazyTo(vOut, v []uint64, c, cS uint64, q *num.Modulus) {
 
 	switch {
 	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
-		qv := q.Value()
-		if cpu.X86.HasAVX512IFMA && qv < num.MaxModulusIFMA {
-			sMulAddScalarLazyToAVX512IFMA(vOut, v, c, cS, qv)
-		} else {
-			sMulAddScalarLazyToAVX512(vOut, v, c, cS, qv)
-		}
+		sMulAddScalarLazyToAVX512(vOut, v, c, cS, q.Value())
 		return
 	}
 
@@ -900,31 +875,26 @@ func SMulSubScalarLazyTo(vOut, v []uint64, c, cS uint64, q *num.Modulus) {
 	switch {
 	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
 		qv := q.Value()
-		divHi, _ := q.Div()
 		cNeg := modops.Neg(c, qv)
 		var cNegS uint64
 		if qv&1 == 1 {
 			cNegS = -cS - 1
 		} else {
-			cNegS = modops.SForm(cNeg, qv, divHi)
+			cNegS = modops.SForm(cNeg, qv)
 		}
-		if cpu.X86.HasAVX512IFMA && qv < num.MaxModulusIFMA {
-			sMulSubScalarLazyToAVX512IFMA(vOut, v, cNeg, cNegS, qv)
-		} else {
-			sMulSubScalarLazyToAVX512(vOut, v, cNeg, cNegS, qv)
-		}
+
+		sMulSubScalarLazyToAVX512(vOut, v, cNeg, cNegS, qv)
 		return
 	}
 
 	qv := q.Value()
-	divHi, _ := q.Div()
 
 	cNeg := modops.Neg(c, qv)
 	var cNegS uint64
 	if qv&1 == 1 {
 		cNegS = -cS - 1
 	} else {
-		cNegS = modops.SForm(cNeg, qv, divHi)
+		cNegS = modops.SForm(cNeg, qv)
 	}
 
 	M := (len(vOut) >> 3) << 3
@@ -1614,12 +1584,7 @@ func SMulTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
 
 	switch {
 	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
-		qv := q.Value()
-		if cpu.X86.HasAVX512IFMA && q.Value() < num.MaxModulusIFMA {
-			sMulToAVX512IFMA(vOut, v0, v1, v1S, qv)
-		} else {
-			sMulToAVX512(vOut, v0, v1, v1S, qv)
-		}
+		sMulToAVX512(vOut, v0, v1, v1S, q.Value())
 		return
 	}
 
@@ -1663,12 +1628,7 @@ func SMulAddTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
 
 	switch {
 	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
-		qv := q.Value()
-		if cpu.X86.HasAVX512IFMA && q.Value() < num.MaxModulusIFMA {
-			sMulAddToAVX512IFMA(vOut, v0, v1, v1S, qv)
-		} else {
-			sMulAddToAVX512(vOut, v0, v1, v1S, qv)
-		}
+		sMulAddToAVX512(vOut, v0, v1, v1S, q.Value())
 		return
 	}
 
@@ -1712,12 +1672,7 @@ func SMulSubTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
 
 	switch {
 	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
-		qv := q.Value()
-		if cpu.X86.HasAVX512IFMA && q.Value() < num.MaxModulusIFMA {
-			sMulSubToAVX512IFMA(vOut, v0, v1, v1S, qv)
-		} else {
-			sMulSubToAVX512(vOut, v0, v1, v1S, qv)
-		}
+		sMulSubToAVX512(vOut, v0, v1, v1S, q.Value())
 		return
 	}
 
@@ -1762,12 +1717,7 @@ func SMulLazyTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
 
 	switch {
 	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
-		qv := q.Value()
-		if cpu.X86.HasAVX512IFMA && q.Value() < num.MaxModulusIFMA {
-			sMulLazyToAVX512IFMA(vOut, v0, v1, v1S, qv)
-		} else {
-			sMulLazyToAVX512(vOut, v0, v1, v1S, qv)
-		}
+		sMulLazyToAVX512(vOut, v0, v1, v1S, q.Value())
 		return
 	}
 
@@ -1812,12 +1762,7 @@ func SMulAddLazyTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
 
 	switch {
 	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
-		qv := q.Value()
-		if cpu.X86.HasAVX512IFMA && q.Value() < num.MaxModulusIFMA {
-			sMulAddLazyToAVX512IFMA(vOut, v0, v1, v1S, qv)
-		} else {
-			sMulAddLazyToAVX512(vOut, v0, v1, v1S, qv)
-		}
+		sMulAddLazyToAVX512(vOut, v0, v1, v1S, q.Value())
 		return
 	}
 
@@ -1862,12 +1807,7 @@ func SMulSubLazyTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
 
 	switch {
 	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
-		qv := q.Value()
-		if cpu.X86.HasAVX512IFMA && q.Value() < num.MaxModulusIFMA {
-			sMulSubToAVX512IFMA(vOut, v0, v1, v1S, qv)
-		} else {
-			sMulSubToAVX512(vOut, v0, v1, v1S, qv)
-		}
+		sMulSubToAVX512(vOut, v0, v1, v1S, q.Value())
 		return
 	}
 
