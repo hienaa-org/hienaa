@@ -1,7 +1,6 @@
 package bgv
 
 import (
-	"fmt"
 	"math"
 
 	"github.com/hienaa-org/hienaa/fhe/internal/heint"
@@ -102,13 +101,9 @@ func (ne *NoiseEstimator) getAuxMod(ct0, ct1 *Ciphertext) (int, int, *num.Modulu
 	var scale float64
 	switch ne.estimType {
 	case heint.VarianceType:
-		scale = math.Sqrt(ct0.noise / ne.noise.RoundNoise())
+		scale = math.Max(1, math.Sqrt(ct0.noise/ne.noise.RoundNoise()))
 	case heint.WorstCaseType:
-		scale = ct0.noise / ne.noise.RoundNoise()
-	}
-
-	if scale < 1 {
-		return tarLen, tarLen, nil
+		scale = math.Max(1, ct0.noise/ne.noise.RoundNoise())
 	}
 
 	for scale > math.Exp2(num.MaxModulusBits) && tarLen > 0 {
@@ -171,8 +166,6 @@ func (ne *NoiseEstimator) MulTo(ctOut, ct0, ct1 *Ciphertext) {
 		noise1 := ct1.noise/scale + ne.noise.RoundNoise()
 		msgMod := float64(ne.msgMod.Value())
 		expFac := float64(ne.params.RingParams().ExpandFactor())
-
-		fmt.Println(ct0.noise/scale, noise0, ne.noise.RoundNoise())
 
 		mulNoise := noise0 * noise1 * msgMod * expFac
 		ctOut.noise = mulNoise*scale + ne.noise.RoundNoise()

@@ -40,7 +40,7 @@ func (ne *NoiseEstimator) EncryptTo(cOut *Ciphertext) {
 
 // ModSwitchTo switches the modulus of the ciphertext to the given length.
 func (ne *NoiseEstimator) ModSwitchTo(cOut, ct *Ciphertext, l int) {
-	cOut.noise = ne.noise.ModSwitch(cOut.noise, ct.ModLen(), l)
+	cOut.noise = ne.noise.ModSwitch(ct.noise, ct.ModLen(), l)
 }
 
 // FwdNTTTo computes ctOut = FwdNTT(ct).
