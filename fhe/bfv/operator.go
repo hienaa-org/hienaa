@@ -154,6 +154,7 @@ func (op *Operator) RescaleTo(ctOut, ct *Ciphertext, isNTT bool) {
 	if float64(op.params.BaseModulus()[tarLen-1].Value()) < scale {
 		tarLen--
 	}
+	op.noise.ModSwitchTo(ctOut, ct, tarLen)
 
 	buf := op.ctPool.Get()
 	defer op.ctPool.Put(buf)
@@ -162,7 +163,6 @@ func (op *Operator) RescaleTo(ctOut, ct *Ciphertext, isNTT bool) {
 	op.rlweOp.ScaleTo(buf.Value, ct.Value, tarLen, isNTT)
 	ctOut.Value.Resize(tarLen, 0)
 	ctOut.Value.CopyFrom(buf.Value)
-	op.noise.RescaleTo(ctOut, ct)
 }
 
 // ModSwitch switches the modulus of the ciphertext to the given length.

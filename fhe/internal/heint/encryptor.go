@@ -225,7 +225,7 @@ func (e *Encryptor) NoiseTo(eOut *rlwe.Element, ct *rlwe.Ciphertext) {
 	defer e.ePool.Put(vEcd)
 	pt = pt.WithModLen(baseLen, 0)
 	vEcd = vEcd.WithModLen(baseLen, 0)
-	v := vEcd.Value.WithModIdx(1)
+	v := vEcd.Value.WithModIdx(0)
 
 	e.PhaseTo(pt, ct)
 	e.sc[baseLen-1].ScaleTo(v, pt.Value, false)

@@ -132,31 +132,6 @@ func (ne *NoiseEstimator) Encrypt() float64 {
 	}
 }
 
-// RescaleTo rescales the noise of the ciphertext to the target modulus.
-func (ne *NoiseEstimator) RescaleTo(noise float64, modLen int) float64 {
-	var scale float64
-	switch ne.estimType {
-	case VarianceType:
-		scale = math.Ceil(math.Sqrt(noise / ne.RoundNoise()))
-	case WorstCaseType:
-		scale = math.Ceil(noise / ne.RoundNoise())
-	}
-
-	divMod := float64(ne.params.BaseModulus()[modLen-1].Value())
-	if divMod < scale {
-		switch ne.estimType {
-		case VarianceType:
-			return noise/(divMod*divMod) + ne.RoundNoise()
-		case WorstCaseType:
-			return noise/divMod + ne.RoundNoise()
-		default:
-			panic("unsupported noise estimation type")
-		}
-	}
-
-	return noise
-}
-
 // ModSwitchTo switches the modulus of the ciphertext to the given length.
 func (ne *NoiseEstimator) ModSwitch(noise float64, inLen, outLen int) float64 {
 	res := noise

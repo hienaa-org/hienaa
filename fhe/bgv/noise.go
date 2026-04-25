@@ -1,6 +1,7 @@
 package bgv
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/hienaa-org/hienaa/fhe/internal/heint"
@@ -38,14 +39,9 @@ func (ne *NoiseEstimator) EncryptTo(ctOut *Ciphertext) {
 	ctOut.noise = ne.noise.Encrypt()
 }
 
-// RescaleTo rescales the noise of the ciphertext to the target modulus.
-func (ne *NoiseEstimator) RescaleTo(ctOut, ct *Ciphertext) {
-	ctOut.noise = ne.noise.RescaleTo(ct.noise, ct.ModLen())
-}
-
 // ModSwitchTo returns the noise of the modulus switched ciphertext.
 func (ne *NoiseEstimator) ModSwitchTo(ctOut, ct *Ciphertext, l int) {
-	ctOut.noise = ne.noise.ModSwitch(ctOut.noise, ct.ModLen(), l)
+	ctOut.noise = ne.noise.ModSwitch(ct.noise, ct.ModLen(), l)
 }
 
 // FwdNTTTo returns the noise of the forward NTT transformed ciphertext.
@@ -93,13 +89,36 @@ func (ne *NoiseEstimator) SubElementTo(ctOut, ct *Ciphertext, e *rlwe.Element) {
 	ctOut.noise = ne.noise.SubElement(ct.noise, e)
 }
 
-// MulTo returns the noise of the product of two ciphertexts.
-func (ne *NoiseEstimator) MulTo(ctOut, ct0, ct1 *Ciphertext) {
+// getAuxMod gets the auxiliary modulus for the multiplication.
+func (ne *NoiseEstimator) getAuxMod(ct0, ct1 *Ciphertext) (int, int, *num.Modulus) {
+	// Force ct0 to have the larger noise.
 	if ct0.ModLen() > ct1.ModLen() || (ct0.ModLen() == ct1.ModLen() && ct0.noise < ct1.noise) {
 		ct0, ct1 = ct1, ct0
 	}
 
-	tarLen := ct0.ModLen()
+	curLen := ct0.ModLen()
+	tarLen := curLen
+
+	var scale float64
+	switch ne.estimType {
+	case heint.VarianceType:
+		scale = math.Sqrt(ct0.noise / ne.noise.RoundNoise())
+	case heint.WorstCaseType:
+		scale = ct0.noise / ne.noise.RoundNoise()
+	}
+
+	if scale < 1 {
+		return tarLen, tarLen, nil
+	}
+
+	for scale > math.Exp2(num.MaxModulusBits) && tarLen > 0 {
+		tarLen--
+		if tarLen == 0 {
+			panic("ciphertext noise is too large to perform multiplication")
+		}
+		scale /= float64(ne.params.BaseModulus()[tarLen].Value())
+	}
+
 	auxIdx := 0
 	for auxIdx < tarLen-1 {
 		if num.GCD(ne.params.BaseModulus()[auxIdx].Value(), ne.msgMod.Value()) != 1 {
@@ -114,36 +133,49 @@ func (ne *NoiseEstimator) MulTo(ctOut, ct0, ct1 *Ciphertext) {
 			remInv = num.Mul(remInv, ne.params.BaseModulus()[i].Value(), ne.msgMod)
 		}
 	}
-	rem := float64(num.Inv(remInv, ne.msgMod))
+	rem := num.Inv(remInv, ne.msgMod)
+
+	divMod := ne.params.BaseModulus()[auxIdx].Value()
+	msgMod := ne.msgMod.Value()
+	auxMod := uint64(math.Floor(float64(divMod)/scale))*msgMod + rem
+
+	if auxMod == 1 {
+		return tarLen - 1, tarLen - 1, nil
+	} else {
+		return tarLen, auxIdx, num.NewModulus(auxMod)
+	}
+}
+
+// MulTo returns the noise of the product of two ciphertexts.
+func (ne *NoiseEstimator) MulTo(ctOut, ct0, ct1 *Ciphertext) {
+	_, auxIdx, auxMod := ne.getAuxMod(ct0, ct1)
 
 	var scale float64
-	switch ne.estimType {
-	case heint.VarianceType:
-		scale = math.Ceil(math.Sqrt(ct0.noise / ne.noise.RoundNoise()))
-	case heint.WorstCaseType:
-		scale = math.Ceil(ct0.noise / ne.noise.RoundNoise())
+	if auxMod != nil {
+		scale = float64(ne.params.BaseModulus()[auxIdx].Value()) / float64(auxMod.Value())
+	} else {
+		scale = 1
 	}
-	divMod := float64(ne.params.BaseModulus()[auxIdx].Value())
-	msgMod := float64(ne.msgMod.Value())
-	auxMod := math.Floor(divMod/scale*msgMod)*scale*msgMod + rem
 
 	switch ne.estimType {
 	case heint.VarianceType:
-		noise0 := ct0.noise/(divMod/auxMod)/(divMod/auxMod) + ne.noise.RoundNoise()
-		noise1 := ct1.noise/(divMod/auxMod)/(divMod/auxMod) + ne.noise.RoundNoise()
+		noise0 := ct0.noise/scale/scale + ne.noise.RoundNoise()
+		noise1 := ct1.noise/scale/scale + ne.noise.RoundNoise()
 		msgMod := float64(ne.msgMod.Value())
 		expFac := float64(ne.params.RingParams().ExpandFactor())
 
 		mulNoise := noise0 * noise1 * msgMod * msgMod * expFac
-		ctOut.noise = mulNoise*(divMod/auxMod)*(divMod/auxMod) + ne.noise.RoundNoise()
+		ctOut.noise = mulNoise*scale*scale + ne.noise.RoundNoise()
 	case heint.WorstCaseType:
-		noise0 := ct0.noise/(divMod/auxMod) + ne.noise.RoundNoise()
-		noise1 := ct1.noise/(divMod/auxMod) + ne.noise.RoundNoise()
+		noise0 := ct0.noise/scale + ne.noise.RoundNoise()
+		noise1 := ct1.noise/scale + ne.noise.RoundNoise()
 		msgMod := float64(ne.msgMod.Value())
 		expFac := float64(ne.params.RingParams().ExpandFactor())
 
+		fmt.Println(ct0.noise/scale, noise0, ne.noise.RoundNoise())
+
 		mulNoise := noise0 * noise1 * msgMod * expFac
-		ctOut.noise = mulNoise*(divMod/auxMod) + ne.noise.RoundNoise()
+		ctOut.noise = mulNoise*scale + ne.noise.RoundNoise()
 	}
 }
 

@@ -81,15 +81,17 @@ func (op *Operator) RescaleTo(ctOut, ct *Ciphertext, isNTT bool) {
 	tarLen := ct.ModLen()
 	for tarLen > 0 {
 		divMod := float64(op.params.BaseModulus()[tarLen-1].Value())
-		if scale > divMod {
-			scale /= divMod
-		} else {
+		if scale < divMod {
 			break
 		}
+
+		scale /= divMod
+		tarLen--
 	}
 	if tarLen == 0 {
 		panic("ciphertext noise is too large")
 	}
+	op.noise.ModSwitchTo(ctOut, ct, tarLen)
 
 	buf := op.ctPool.Get()
 	defer op.ctPool.Put(buf)
@@ -98,7 +100,6 @@ func (op *Operator) RescaleTo(ctOut, ct *Ciphertext, isNTT bool) {
 	op.rlweOp.ScaleTo(buf.Value, ct.Value, tarLen, isNTT)
 	ctOut.Value.Resize(tarLen, 0)
 	ctOut.Value.CopyFrom(buf.Value)
-	op.noise.RescaleTo(ctOut, ct)
 }
 
 // ModSwitch switches the modulus of the ciphertext to the given length.
@@ -243,7 +244,11 @@ func (op *Operator) Mul(ct0, ct1 *Ciphertext, rlk *rlwe.RelinKey, isNTT bool) *C
 
 // MulTo computes ctOut = ct0 * ct1.
 func (op *Operator) MulTo(ctOut, ct0, ct1 *Ciphertext, rlk *rlwe.RelinKey, isNTT bool) {
-	tarLen, auxIdx, auxMod := op.getAuxMod(ct0, ct1)
+	// Compute the auxiliary modulus for the multiplication.
+	tarLen, auxIdx, auxMod := op.noise.getAuxMod(ct0, ct1)
+
+	// Estimate the noise.
+	op.noise.MulTo(ctOut, ct0, ct1)
 
 	// Tensoring the ciphertexts.
 	v := op.vPool.Get()
@@ -256,64 +261,8 @@ func (op *Operator) MulTo(ctOut, ct0, ct1 *Ciphertext, rlk *rlwe.RelinKey, isNTT
 	ctOut.Value.Resize(tarLen, 0)
 	op.rlweOp.RelinTo(ctOut.Value, v, rlk, true)
 
-	// Estimate the noise.
-	op.noise.MulTo(ctOut, ct0, ct1)
-
 	// Rescale if needed.
 	op.RescaleTo(ctOut, ctOut, isNTT)
-}
-
-// getAuxMod gets the auxiliary modulus for the multiplication.
-func (op *Operator) getAuxMod(ct0, ct1 *Ciphertext) (int, int, *num.Modulus) {
-	// Force ct0 to have the larger noise.
-	if ct0.ModLen() > ct1.ModLen() || (ct0.ModLen() == ct1.ModLen() && ct0.noise < ct1.noise) {
-		ct0, ct1 = ct1, ct0
-	}
-
-	curLen := ct0.ModLen()
-	tarLen := curLen
-
-	var scale float64
-	switch op.noise.estimType {
-	case heint.VarianceType:
-		scale = math.Sqrt(ct0.noise / op.noise.noise.RoundNoise())
-	case heint.WorstCaseType:
-		scale = ct0.noise / op.noise.noise.RoundNoise()
-	}
-	for scale > math.Exp2(num.MaxModulusBits) && tarLen > 0 {
-		tarLen--
-		if tarLen == 0 {
-			panic("ciphertext noise is too large to perform multiplication")
-		}
-		scale /= float64(op.params.BaseModulus()[tarLen].Value())
-	}
-
-	auxIdx := 0
-	for auxIdx < tarLen-1 {
-		if num.GCD(op.params.BaseModulus()[auxIdx].Value(), op.msgMod.Value()) != 1 {
-			break
-		}
-		auxIdx++
-	}
-
-	remInv := uint64(1)
-	for i := 0; i < tarLen; i++ {
-		if i != auxIdx {
-			remInv = num.Mul(remInv, op.params.BaseModulus()[i].Value(), op.msgMod)
-		}
-	}
-	rem := num.Inv(remInv, op.msgMod)
-
-	divMod := op.params.BaseModulus()[auxIdx].Value()
-	msgMod := op.msgMod.Value()
-	skip := uint64(math.Ceil(scale)) * msgMod
-	auxMod := uint64(math.Floor(float64(divMod)/float64(skip)))*skip + rem
-
-	if auxMod == 1 {
-		return tarLen - 1, tarLen - 1, nil
-	} else {
-		return tarLen, auxIdx, num.NewModulus(auxMod)
-	}
 }
 
 // scaleToMulModTo scales the ciphertext to the multiplication modulus.
