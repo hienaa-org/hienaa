@@ -132,7 +132,7 @@ func (ne *NoiseEstimator) getAuxMod(ct0, ct1 *Ciphertext) (int, int, *num.Modulu
 
 	divMod := ne.params.BaseModulus()[auxIdx].Value()
 	msgMod := ne.msgMod.Value()
-	auxMod := uint64(math.Floor(float64(divMod)/scale))*msgMod + rem
+	auxMod := uint64(math.Floor(float64(divMod)/scale/float64(msgMod)))*msgMod + rem
 
 	if auxMod == 1 {
 		return tarLen - 1, tarLen - 1, nil
