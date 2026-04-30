@@ -158,8 +158,7 @@ func (op *Operator) AddPlainTo(ctOut, ct *rlwe.Ciphertext, pt []uint64, isNTT bo
 	defer op.ePool.Put(e)
 	e = e.WithModLen(ct.BaseModLen(), 0)
 
-	op.ecd.EncodeTo(e, pt, false)
-	pOp.MulTo(e, op.scFacs[ct.BaseModLen()-1], e)
+	op.ecd.ScaleEncodeTo(e, pt, false)
 	ctOut.Resize(ct.BaseModLen(), 0)
 	if isNTT && !ct.IsNTT() {
 		rlweOp.AddElementTo(ctOut, ct, e)
@@ -247,8 +246,7 @@ func (op *Operator) SubPlainTo(ctOut, ct *rlwe.Ciphertext, pt []uint64, isNTT bo
 	defer op.ePool.Put(e)
 	e = e.WithModLen(ct.BaseModLen(), 0)
 
-	op.ecd.EncodeTo(e, pt, false)
-	pOp.MulTo(e, op.scFacs[ct.BaseModLen()-1], e)
+	op.ecd.ScaleEncodeTo(e, pt, false)
 	ctOut.Resize(ct.BaseModLen(), 0)
 	if isNTT && !ct.IsNTT() {
 		op.rlweOp.SubElementTo(ctOut, ct, e)

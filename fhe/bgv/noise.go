@@ -122,29 +122,47 @@ func (ne *NoiseEstimator) getAuxMod(ct0, ct1 *Ciphertext) (int, int, *num.Modulu
 		auxIdx++
 	}
 
-	remInv := uint64(1)
+	// We want to set the multiplication modulus Q to satisfy Q mod t = +-1.
+	// By setting so, there is no noise overhead from tensoring.
+	rem := uint64(1)
 	for i := 0; i < tarLen; i++ {
 		if i != auxIdx {
-			remInv = num.Mul(remInv, ne.params.BaseModulus()[i].Value(), ne.msgMod)
+			rem = num.Mul(rem, ne.params.BaseModulus()[i].Value(), ne.msgMod)
 		}
 	}
-	rem := num.Inv(remInv, ne.msgMod)
+	remInv := num.Inv(rem, ne.msgMod)
+	remInvNeg := num.Neg(remInv, ne.msgMod)
+
+	var remSmall, remLarge uint64
+	if remInvNeg < remInv {
+		remSmall = remInvNeg
+		remLarge = remInv
+	} else {
+		remSmall = remInv
+		remLarge = remInvNeg
+	}
 
 	divMod := ne.params.BaseModulus()[auxIdx].Value()
-	msgMod := ne.msgMod.Value()
-	auxMod := uint64(math.Floor(float64(divMod)/scale/float64(msgMod)))*msgMod + rem
+	auxMod := uint64(math.Round(float64(divMod) / scale))
+	modRem := num.Reduce(auxMod, ne.msgMod)
 
-	if auxMod == 1 {
+	if num.Abs(int64(modRem)-int64(remLarge)) < num.Abs(int64(modRem)-int64(remSmall)) {
+		auxMod = auxMod - modRem + remLarge
+	} else {
+		auxMod = auxMod - modRem + remSmall
+	}
+
+	if tarLen == 1 && auxMod <= ne.msgMod.Value() {
+		panic("ciphertext noise is too large to perform multiplication")
+	} else if auxMod == 1 {
 		return tarLen - 1, tarLen - 1, nil
 	} else {
 		return tarLen, auxIdx, num.NewModulus(auxMod)
 	}
 }
 
-// MulTo returns the noise of the product of two ciphertexts.
-func (ne *NoiseEstimator) MulTo(ctOut, ct0, ct1 *Ciphertext) {
-	_, auxIdx, auxMod := ne.getAuxMod(ct0, ct1)
-
+// tensorTo computes the noise of the tensor product of two ciphertexts.
+func (ne *NoiseEstimator) tensorTo(ct0, ct1 *Ciphertext, tarLen, auxIdx int, auxMod *num.Modulus) float64 {
 	var scale float64
 	if auxMod != nil {
 		scale = float64(ne.params.BaseModulus()[auxIdx].Value()) / float64(auxMod.Value())
@@ -152,24 +170,61 @@ func (ne *NoiseEstimator) MulTo(ctOut, ct0, ct1 *Ciphertext) {
 		scale = 1
 	}
 
+	scale0 := scale
+	for i := ct0.ModLen(); i > tarLen; i-- {
+		scale0 *= float64(ne.params.BaseModulus()[i-1].Value())
+	}
+	scale1 := scale
+	for i := ct1.ModLen(); i > tarLen; i-- {
+		scale1 *= float64(ne.params.BaseModulus()[i-1].Value())
+	}
+
+	// Compute rem = Q mod t.
+	rem := uint64(1)
+	for i := 0; i < tarLen; i++ {
+		if i != auxIdx {
+			rem = num.Mul(rem, ne.params.BaseModulus()[i].Value(), ne.msgMod)
+		} else {
+			rem = num.Mul(rem, auxMod.Value(), ne.msgMod)
+		}
+	}
+	remInv := num.Inv(rem, ne.msgMod)
+	mulConst := float64(ne.msgMod.Value())
+	if remInv <= ne.msgMod.Value()>>1 {
+		mulConst = mulConst * float64(remInv)
+	} else {
+		mulConst = mulConst * float64(ne.msgMod.Value()-remInv)
+	}
+
 	switch ne.estimType {
 	case heint.VarianceType:
-		noise0 := ct0.noise/scale/scale + ne.noise.RoundNoise()
-		noise1 := ct1.noise/scale/scale + ne.noise.RoundNoise()
+		noise0 := ct0.noise/scale0/scale0 + ne.noise.RoundNoise()
+		noise1 := ct1.noise/scale1/scale1 + ne.noise.RoundNoise()
 		msgMod := float64(ne.msgMod.Value())
 		expFac := float64(ne.params.RingParams().ExpandFactor())
 
-		mulNoise := noise0 * noise1 * msgMod * msgMod * expFac
-		ctOut.noise = mulNoise*scale*scale + ne.noise.RoundNoise()
+		mulNoise := (noise0*noise1 + noise0*msgMod + noise1*msgMod) * mulConst * mulConst * expFac
+
+		return mulNoise*scale*scale + ne.noise.RoundNoise()
 	case heint.WorstCaseType:
-		noise0 := ct0.noise/scale + ne.noise.RoundNoise()
-		noise1 := ct1.noise/scale + ne.noise.RoundNoise()
+		noise0 := ct0.noise/scale0 + ne.noise.RoundNoise()
+		noise1 := ct1.noise/scale1 + ne.noise.RoundNoise()
+
 		msgMod := float64(ne.msgMod.Value())
 		expFac := float64(ne.params.RingParams().ExpandFactor())
 
-		mulNoise := noise0 * noise1 * msgMod * expFac
-		ctOut.noise = mulNoise*scale + ne.noise.RoundNoise()
+		mulNoise := (noise0*noise1 + noise0*msgMod + noise1*msgMod + 1) * mulConst * expFac
+
+		return mulNoise*scale + ne.noise.RoundNoise()
+	default:
+		panic("unsupported noise estimation type")
 	}
+}
+
+// MulTo returns the noise of the product of two ciphertexts.
+func (ne *NoiseEstimator) MulTo(ctOut, ct0, ct1 *Ciphertext) {
+	tarLen, auxIdx, auxMod := ne.getAuxMod(ct0, ct1)
+	ctOut.noise = ne.tensorTo(ct0, ct1, tarLen, auxIdx, auxMod) + ne.noise.GadgetProd(tarLen)
 }
 
 // MulPlainTo returns the noise of the product of a ciphertext and a plaintext.

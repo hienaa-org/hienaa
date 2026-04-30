@@ -287,20 +287,23 @@ func (op *Operator) scaleToMulModTo(ctOut *Ciphertext, ctIn *Ciphertext, auxIdx 
 }
 
 // TensorTo tensors two ciphertexts in the multiplication modulus into a vector.
+//
 // Input and output are in the NTT form.
+// The algorithm works for any modulus, however, the noise is minimized only when Q mod t = +-1.
 func (op *Operator) tensorTo(v *rlwe.Vector, ct0, ct1 *Ciphertext, tarLen int, auxIdx int, auxMod *num.Modulus, isNTT bool) {
-	c0 := op.ctPool.Get()
-	c1 := op.ctPool.Get()
-	defer op.ctPool.Put(c0)
-	defer op.ctPool.Put(c1)
-	c0 = c0.WithModLen(tarLen)
-	c1 = c1.WithModLen(tarLen)
-
 	// scale to the multiplication modulus.
+	var c0, c1 *Ciphertext
+	c0 = op.ctPool.Get()
+	defer op.ctPool.Put(c0)
+	c0 = c0.WithModLen(tarLen)
+
 	op.scaleToMulModTo(c0, ct0, auxIdx, auxMod)
 	if ct0 == ct1 {
 		c1 = c0
 	} else {
+		c1 = op.ctPool.Get()
+		defer op.ctPool.Put(c1)
+		c1 = c1.WithModLen(tarLen)
 		op.scaleToMulModTo(c1, ct1, auxIdx, auxMod)
 	}
 
@@ -308,33 +311,49 @@ func (op *Operator) tensorTo(v *rlwe.Vector, ct0, ct1 *Ciphertext, tarLen int, a
 		panic("inconsistent input(s)")
 	}
 
+	// Compute required constants.
 	auxLen := len(op.rlweOp.PlainOperator().Params.AuxModulus())
-	mulLen := c0.ModLen()
-
-	baseOp := op.rlweOp.PlainOperator().Params.Operator().WithModIdx(vec.Range(auxLen, auxLen+mulLen)...)
+	baseOp := op.rlweOp.PlainOperator().Params.Operator().WithModIdx(vec.Range(auxLen, auxLen+tarLen)...)
 	var opAux *crt.Operator
 	if auxMod == nil {
 		opAux = baseOp
 	} else {
-		opAux = baseOp.WithModIdx(vec.Range(0, auxIdx)...).AppendAuxModulus(auxMod).Append(baseOp.WithModIdx(vec.Range(auxIdx+1, mulLen)...))
-	}
-	mulMod := opAux.Modulus()
-
-	msgMod := op.ePool.Get(crt.TypeScalar)
-	defer op.ePool.Put(msgMod)
-	msgMod = msgMod.WithModLen(mulLen, 0)
-	for i := 0; i < mulLen; i++ {
-		msgMod.Value.Coeffs[i][0] = num.Neg(num.Reduce(op.msgMod.Value(), mulMod[i]), mulMod[i])
+		opAux = baseOp.WithModIdx(vec.Range(0, auxIdx)...).AppendAuxModulus(auxMod).Append(baseOp.WithModIdx(vec.Range(auxIdx+1, tarLen)...))
 	}
 
+	// Tensoring the ciphertexts.
 	opAux.MulTo(v.Value[0].Value, c0.Value.Body.Value, c1.Value.Body.Value)
 	opAux.MulTo(v.Value[1].Value, c0.Value.Body.Value, c1.Value.Mask.Value)
 	opAux.MulAddTo(v.Value[1].Value, c0.Value.Mask.Value, c1.Value.Body.Value)
 	opAux.MulTo(v.Value[2].Value, c0.Value.Mask.Value, c1.Value.Mask.Value)
 
-	opAux.MulTo(v.Value[0].Value, v.Value[0].Value, msgMod.Value)
-	opAux.MulTo(v.Value[1].Value, v.Value[1].Value, msgMod.Value)
-	opAux.MulTo(v.Value[2].Value, v.Value[2].Value, msgMod.Value)
+	// Compute mulConst = t * [-Q^{-1}]_t mod Q.
+	mulConst := op.ePool.Get(crt.TypeScalar)
+	defer op.ePool.Put(mulConst)
+	mulConst = mulConst.WithModLen(tarLen, 0)
+
+	mulMod := opAux.Modulus()
+	rem := uint64(1)
+	for i := 0; i < tarLen; i++ {
+		rem = num.Mul(rem, mulMod[i].Value(), op.msgMod)
+	}
+	remInv := num.Inv(rem, op.msgMod)
+
+	if remInv <= op.msgMod.Value()>>1 {
+		for i := 0; i < tarLen; i++ {
+			mulConst.Value.Coeffs[i][0] = num.Mul(remInv, op.msgMod.Value(), mulMod[i])
+		}
+		opAux.NegTo(mulConst.Value, mulConst.Value)
+	} else {
+		for i := 0; i < tarLen; i++ {
+			mulConst.Value.Coeffs[i][0] = num.Mul(op.msgMod.Value()-remInv, op.msgMod.Value(), mulMod[i])
+		}
+	}
+
+	// Multiply by mulConst.
+	opAux.MulTo(v.Value[0].Value, v.Value[0].Value, mulConst.Value)
+	opAux.MulTo(v.Value[1].Value, v.Value[1].Value, mulConst.Value)
+	opAux.MulTo(v.Value[2].Value, v.Value[2].Value, mulConst.Value)
 
 	// ScaleEmbed to the target modulus.
 	op.scaleFromMulModTo(v, v, auxIdx, auxMod, isNTT)

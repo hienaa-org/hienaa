@@ -3,8 +3,10 @@ package bgv
 import (
 	"math"
 
-	"github.com/hienaa-org/hienaa/fhe/polyutils.go"
+	"github.com/hienaa-org/hienaa/fhe/internal/heint"
+	"github.com/hienaa-org/hienaa/fhe/polyutils"
 	"github.com/hienaa-org/hienaa/fhe/rlwe"
+	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/num"
 )
 
@@ -57,82 +59,130 @@ func (p *Polynomial) Coeffs() map[int]Plaintext {
 // TODO: Change Evaluate and evalRecurse to a in-place algorithm.
 // Evaluate evaluates the polynomial at the given ciphertext.
 func (op *Operator) Evaluate(p *Polynomial, ct *Ciphertext, rlk *rlwe.RelinKey, isNTT bool) *Ciphertext {
-	// Compute the basis for babystep.
-	basis := op.computeBasis(p, ct, rlk)
-
-	// Evaluate the polynomial.
-	deg := p.Degree()
-	maxLevel := int(math.Ceil(num.Log2(deg + 1)))
-	maxDeg := (1 << maxLevel) - 1
-	ctOut := op.evalRecurse(0, maxDeg, p, basis, rlk)
-
-	// Inverse NTT if needed.
-	if !isNTT {
-		op.InvNTTTo(ctOut, ctOut)
-	}
-
-	// clean up the basis.
-	for _, ct := range basis {
-		op.ctPool.Put(ct)
-	}
-
-	return ctOut
-}
-
-func (op *Operator) computeBasis(p *Polynomial, ct *Ciphertext, rlk *rlwe.RelinKey) map[int]*Ciphertext {
+	// First compute the basis.
 	basis := make(map[int]*Ciphertext)
+	basisLazy := make(map[int]*rlwe.Vector)
+
+	// Hyperparameters
+	ctLen := ct.ModLen()
 	deg := p.Degree()
 	maxLevel := int(math.Ceil(num.Log2(deg + 1)))
 	maxDeg := (1 << maxLevel) - 1
 	babyLevel := (maxLevel + 1) / 2
 	babyDeg := 1 << babyLevel
 
+	// BABYSTEP COMPUTATION
+	bs := make(map[int]*Ciphertext)
+	bsLazy := make(map[int]*rlwe.Vector)
+
 	// Compute the power-of-two monomials.
 	basis[1] = op.ctPool.Get()
-	basis[1] = basis[1].WithModLen(ct.ModLen())
+	defer op.ctPool.Put(basis[1])
+	basis[1] = basis[1].WithModLen(ctLen)
 	if ct.IsNTT() {
 		basis[1].CopyFrom(ct)
 	} else {
 		op.FwdNTTTo(basis[1], ct)
 	}
+	bs[1] = basis[1]
 
 	for i := 1; i < maxLevel; i++ {
 		basis[1<<i] = op.ctPool.Get()
-		op.MulTo(basis[1<<i], basis[1<<(i-1)], basis[1<<(i-1)], rlk, true)
+		defer op.ctPool.Put(basis[1<<i])
+		basis[1<<i] = basis[1<<i].WithModLen(ctLen)
+		bs[1<<i] = basis[1<<i].WithModLen(ctLen)
+
+		op.MulTo(bs[1<<i], bs[1<<(i-1)], bs[1<<(i-1)], rlk, true)
 	}
 
 	// Compute other monomials.
-	for i := 1; i < babyLevel; i++ {
-		for j := 1; j < (1 << i); j++ {
-			// Check if the polynomial is sparse.
-			_, check := p.coeffs[1<<i+j]
+	for i := 1; i < babyDeg; i++ {
+		if num.IsPowerOfTwo(i) {
+			continue
+		}
 
-			// Check if (1<<i+j)-th basis is needed in the babystep generation.
-			for idx := i + 1; idx < babyLevel; idx++ {
-				_, checkIdx := p.coeffs[1<<idx+1<<i+j]
+		// Check if i-th basis is needed in the babystep generation.
+		check := false
+		for j := int(math.Ceil(num.Log2(i))); j < babyLevel; j++ {
+			for k := 0; k < deg; k += babyDeg {
+				_, checkIdx := p.coeffs[k+1<<j+i]
 				check = check || checkIdx
 			}
+		}
 
-			// Check if (1<<i+j)-th basis is needed in the final evaluation.
-			for idx := 0; idx < maxDeg/babyDeg-1; idx++ {
-				_, checkIdx := p.coeffs[idx*babyDeg+j]
-				check = check || checkIdx
-			}
+		if check {
+			basis[i] = op.ctPool.Get()
+			defer op.ctPool.Put(basis[i])
+			basis[i] = basis[i].WithModLen(ctLen)
+			bs[i] = basis[i].WithModLen(ctLen)
 
-			// If the monomial is needed, compute the monomial.
-			if check {
-				basis[1<<i+j] = op.ctPool.Get()
-				op.MulTo(basis[1<<i+j], basis[1<<i], basis[j], rlk, true)
-			}
+			idx1 := 1 << int(math.Floor(num.Log2(i)))
+			idx2 := i - idx1
+
+			op.MulTo(bs[i], bs[idx1], bs[idx2], rlk, true)
+
+			continue
+		}
+
+		// Check if i-th basis is directly needed in the evaluation.
+		check = false
+		for j := 0; j < deg; j += babyDeg {
+			_, checkIdx := p.coeffs[j+i]
+			check = check || checkIdx
+		}
+
+		if check {
+			basisLazy[i] = op.vPool.Get()
+			defer op.vPool.Put(basisLazy[i])
+			basisLazy[i] = basisLazy[i].WithModLen(ctLen, 0)
+
+			basis[i] = op.ctPool.Get()
+			defer op.ctPool.Put(basis[i])
+			basis[i] = basis[i].WithModLen(ctLen)
+			bs[i] = basis[i].WithModLen(ctLen)
+
+			idx1 := 1 << int(math.Floor(num.Log2(i)))
+			idx2 := i - idx1
+
+			tarLen, auxIdx, auxMod := op.noise.getAuxMod(bs[idx1], bs[idx2])
+			bsLazy[i] = basisLazy[i].WithModLen(tarLen, 0)
+
+			op.tensorTo(bsLazy[i], bs[idx1], bs[idx2], tarLen, auxIdx, auxMod, true)
+
+			bs[i] = bs[i].WithModLen(tarLen)
+			bs[i].noise = op.noise.tensorTo(bs[idx1], bs[idx2], tarLen, auxIdx, auxMod)
 		}
 	}
 
-	return basis
+	// Scale the basis to allow the lazy relin BSGS algorithm.
+	for i := range basis {
+		if bsLazy[i] != nil {
+			for j := 0; j < 3; j++ {
+				op.rlweOp.PlainOperator().ScaleTo(basisLazy[i].Value[j], bsLazy[i].Value[j], ctLen, true)
+			}
+			op.noise.ModSwitchTo(basis[i], bs[i], ctLen)
+		} else {
+			op.ModSwitchTo(basis[i], bs[i], ctLen, true)
+		}
+	}
+
+	// Evaluate the polynomial.
+	ctOut, vOut := op.evalRecurse(0, maxDeg, p, basis, basisLazy, rlk)
+
+	if vOut != nil {
+		ctOut = ctOut.WithModLen(vOut.BaseModLen())
+		op.rlweOp.RelinTo(ctOut.Value, vOut, rlk, true)
+		ctOut.noise += op.noise.noise.GadgetProd(ctLen)
+	}
+
+	op.RescaleTo(ctOut, ctOut, isNTT)
+
+	return ctOut
 }
 
 // TODO: Change to an in-place algorithm.
 // TODO: Optimise later using lazy relin BSGS algorithm.
-func (op *Operator) evalRecurse(lo, hi int, p *Polynomial, basis map[int]*Ciphertext, rlk *rlwe.RelinKey) *Ciphertext {
+func (op *Operator) evalRecurse(lo, hi int, p *Polynomial, basis map[int]*Ciphertext, basisLazy map[int]*rlwe.Vector, rlk *rlwe.RelinKey) (*Ciphertext, *rlwe.Vector) {
 	// Hyperparameters.
 	deg := p.Degree()
 	maxLevel := int(math.Ceil(num.Log2(deg + 1)))
@@ -147,101 +197,129 @@ func (op *Operator) evalRecurse(lo, hi int, p *Polynomial, basis map[int]*Cipher
 		panic("Current degree is not a power of two")
 	}
 
-	// Corner case (Does anybody really want to evaluate a constant polynomial?).
-	if curDeg == 1 {
-		ctOut := NewCiphertextCustom(op.params.Rank(), ctLen, true)
-		if val, check := p.coeffs[lo]; check {
-			op.AddPlainTo(ctOut, ctOut, val, false)
-		}
-		return ctOut
-	}
-
-	// Temporary variables.
-	tmpCt := op.ctPool.Get()
-	defer op.ctPool.Put(tmpCt)
-	tmpCt = tmpCt.WithModLen(ctLen)
-
-	if curDeg == babyDeg {
+	pOp := op.rlweOp.PlainOperator()
+	if curDeg <= babyDeg && (hi != maxDeg || curDeg == 2) {
+		// Babystep computation.
 		if lo > deg {
-			return nil
+			return nil, nil
 		}
 
 		var ctOut *Ciphertext
-		if hi == maxDeg {
-			// Babystep computation, at the highest degree.
-			// We need to perform BSGS to the smallest degree to minimise the level consumption.
-			for i := 0; i <= babyLevel; i++ {
-				babyDeg := 1 << i
-				halfBabyDeg := babyDeg >> 1
-				if maxDeg-babyDeg >= deg {
-					continue
-				}
+		var vOut *rlwe.Vector
 
-				if val, check := p.coeffs[maxDeg-babyDeg+1]; check {
-					if ctOut == nil {
-						ctOut = NewCiphertextCustom(op.params.Rank(), ctLen, true)
-					}
+		sc := op.ePool.Get(crt.TypeScalar)
+		defer op.ePool.Put(sc)
+		sc = sc.WithModLen(ctLen, 0)
 
-					op.AddPlainTo(ctOut, ctOut, val, true)
-				}
+		if val, check := p.coeffs[lo]; check {
+			ctOut = NewCiphertextCustom(op.params.Rank(), ctLen, true)
+			op.AddPlainTo(ctOut, ctOut, val, true)
+		}
 
-				for j := 1; j < min(halfBabyDeg, deg+babyDeg-maxDeg); j++ {
-					if val, check := p.coeffs[maxDeg-babyDeg+j+1]; check {
-						if ctOut == nil {
-							ctOut = NewCiphertextCustom(op.params.Rank(), ctLen, true)
-						}
-
-						op.MulPlainTo(tmpCt, basis[j], val, true)
-						op.AddTo(ctOut, ctOut, tmpCt, true)
-					}
-				}
-
-				if i < babyLevel {
-					if ctOut != nil {
-						op.MulTo(ctOut, ctOut, basis[1<<i], rlk, true)
-					}
-				}
-			}
-		} else {
-			// Babystep computation.
-			if val, check := p.coeffs[lo]; check {
+		for i := 1; i <= min(hi, deg)-lo; i++ {
+			if val, check := p.coeffs[lo+i]; check {
 				if ctOut == nil {
 					ctOut = NewCiphertextCustom(op.params.Rank(), ctLen, true)
 				}
 
-				op.AddPlainTo(ctOut, ctOut, val, true)
-			}
-			for i := 1; i <= min(babyDeg, deg-lo+1); i++ {
-				if val, check := p.coeffs[lo+i]; check {
-					if ctOut == nil {
-						ctOut = NewCiphertextCustom(op.params.Rank(), ctLen, true)
+				op.Encoder().EncodeTo(sc, val, false)
+
+				if basisLazy[i] != nil {
+					if vOut == nil {
+						vOut = rlwe.NewVectorCustom(op.params.Rank(), ctLen, 0, 3, true)
+						vOut.Value[0].CopyFrom(ctOut.Value.Body)
+						vOut.Value[1].CopyFrom(ctOut.Value.Mask)
 					}
 
-					op.MulPlainTo(tmpCt, basis[i], val, true)
-					op.AddTo(ctOut, ctOut, tmpCt, true)
+					pOp.MulAddTo(vOut.Value[0], basisLazy[i].Value[0], sc)
+					pOp.MulAddTo(vOut.Value[1], basisLazy[i].Value[1], sc)
+					pOp.MulAddTo(vOut.Value[2], basisLazy[i].Value[2], sc)
+				} else if vOut == nil {
+					pOp.MulAddTo(ctOut.Value.Body, basis[i].Value.Body, sc)
+					pOp.MulAddTo(ctOut.Value.Mask, basis[i].Value.Mask, sc)
+				} else {
+					pOp.MulAddTo(vOut.Value[0], basis[i].Value.Body, sc)
+					pOp.MulAddTo(vOut.Value[1], basis[i].Value.Mask, sc)
+				}
+
+				switch op.noise.estimType {
+				case heint.VarianceType:
+					ctOut.noise += basis[i].noise * float64(val[0]) * float64(val[0])
+				case heint.WorstCaseType:
+					ctOut.noise += basis[i].noise * float64(val[0])
 				}
 			}
 		}
 
-		return ctOut
+		return ctOut, vOut
 	} else {
 		// Giantstep computation.
 		halfDeg := curDeg >> 1
 
-		lo_res := op.evalRecurse(lo, lo+halfDeg-1, p, basis, rlk)
-		hi_res := op.evalRecurse(lo+halfDeg, hi, p, basis, rlk)
+		ctLo, vLo := op.evalRecurse(lo, lo+halfDeg-1, p, basis, basisLazy, rlk)
+		ctHi, vHi := op.evalRecurse(lo+halfDeg, hi, p, basis, basisLazy, rlk)
 
-		if hi_res == nil {
-			return lo_res
-		} else {
-			if lo_res == nil {
-				op.MulTo(hi_res, hi_res, basis[halfDeg], rlk, true)
-				return hi_res
-			} else {
-				op.MulTo(tmpCt, hi_res, basis[halfDeg], rlk, true)
-				op.AddTo(lo_res, lo_res, tmpCt, true)
-				return lo_res
-			}
+		if ctHi == nil {
+			return ctLo, vLo
 		}
+
+		// Multiply basis[halfDeg] to ctHi.
+		if vHi == nil {
+			tarLen, auxIdx, auxMod := op.noise.getAuxMod(ctHi, basis[halfDeg])
+			vHi = rlwe.NewVectorCustom(op.params.Rank(), tarLen, 0, 3, true)
+			op.tensorTo(vHi, ctHi, basis[halfDeg], tarLen, auxIdx, auxMod, true)
+			ctHi.noise = op.noise.tensorTo(ctHi, basis[halfDeg], tarLen, auxIdx, auxMod)
+		} else {
+			ctHi = ctHi.WithModLen(vHi.BaseModLen())
+			op.rlweOp.RelinTo(ctHi.Value, vHi, rlk, true)
+			ctHi.noise += op.noise.noise.GadgetProd(ctLen)
+
+			tarLen, auxIdx, auxMod := op.noise.getAuxMod(ctHi, basis[halfDeg])
+			vHi = vHi.WithModLen(tarLen, 0)
+			op.tensorTo(vHi, ctHi, basis[halfDeg], tarLen, auxIdx, auxMod, true)
+			ctHi.noise = op.noise.tensorTo(ctHi, basis[halfDeg], tarLen, auxIdx, auxMod)
+		}
+
+		if ctLo == nil {
+			return ctHi, vHi
+		}
+
+		if vLo == nil {
+			tarLen := vHi.BaseModLen()
+			ctLoTar := ctLo.WithModLen(tarLen)
+			op.ModSwitchTo(ctLoTar, ctLo, tarLen, true)
+
+			pOp.AddTo(vHi.Value[0], vHi.Value[0], ctLoTar.Value.Body)
+			pOp.AddTo(vHi.Value[1], vHi.Value[1], ctLoTar.Value.Mask)
+
+			ctHi.noise += ctLoTar.noise
+		} else {
+			tarLen := vHi.BaseModLen()
+			vLoTar := vLo.WithModLen(tarLen, 0)
+
+			pOp.ScaleTo(vLoTar.Value[0], vLo.Value[0], tarLen, true)
+			pOp.ScaleTo(vLoTar.Value[1], vLo.Value[1], tarLen, true)
+			pOp.ScaleTo(vLoTar.Value[2], vLo.Value[2], tarLen, true)
+
+			for i := tarLen; i < ctLen; i++ {
+				switch op.noise.estimType {
+				case heint.VarianceType:
+					ctLo.noise /= float64(op.params.BaseModulus()[i].Value()) * float64(op.params.BaseModulus()[i].Value())
+				case heint.WorstCaseType:
+					ctLo.noise /= float64(op.params.BaseModulus()[i].Value())
+				}
+			}
+			if tarLen != ctLen {
+				ctLo.noise += op.noise.noise.RoundNoise()
+			}
+
+			pOp.AddTo(vHi.Value[0], vHi.Value[0], vLoTar.Value[0])
+			pOp.AddTo(vHi.Value[1], vHi.Value[1], vLoTar.Value[1])
+			pOp.AddTo(vHi.Value[2], vHi.Value[2], vLoTar.Value[2])
+
+			ctHi.noise += ctLo.noise
+		}
+
+		return ctHi, vHi
 	}
 }

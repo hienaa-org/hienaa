@@ -3,7 +3,7 @@ package ckks
 import (
 	"math"
 
-	"github.com/hienaa-org/hienaa/fhe/polyutils.go"
+	"github.com/hienaa-org/hienaa/fhe/polyutils"
 	"github.com/hienaa-org/hienaa/fhe/rlwe"
 	"github.com/hienaa-org/hienaa/math/num"
 )

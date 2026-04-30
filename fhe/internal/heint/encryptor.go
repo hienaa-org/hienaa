@@ -3,10 +3,8 @@ package heint
 import (
 	"github.com/hienaa-org/hienaa/fhe/internal/pack"
 	"github.com/hienaa-org/hienaa/fhe/rlwe"
-	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/num"
-	"github.com/hienaa-org/hienaa/math/vec"
 )
 
 // Encryptor encrypts/decrypts [*Ciphertext] and [*Plaintext].
@@ -20,7 +18,6 @@ type Encryptor struct {
 	ecd  *Encoder
 
 	scFacs []*rlwe.Element
-	sc     []*crt.Scaler
 
 	ePool *rlwe.ElementPool
 }
@@ -40,19 +37,6 @@ func NewEncryptorWithKey(params rlwe.Parameters, msgMod *num.Modulus, skNTT *rlw
 	baseMod := params.BaseModulus()
 	scFacs := computeScalingFactor(baseMod, msgMod)
 
-	scaler := make([]*crt.Scaler, len(baseMod))
-	msgOp := crt.NewOperator(params.RingParams(), []*num.Modulus{msgMod})
-	auxLen := len(params.AuxModulus())
-	scPool := pool.NewPool(func() *[]uint64 {
-		v := make([]uint64, params.Rank())
-		return &v
-	})
-
-	for i := range scaler {
-		modOp := params.Operator().WithModIdx(vec.Range(auxLen, auxLen+i+1)...)
-		scaler[i] = crt.NewScaler(msgOp, modOp).WithPool(scPool)
-	}
-
 	return &Encryptor{
 		params: params,
 		msgMod: msgMod,
@@ -63,7 +47,6 @@ func NewEncryptorWithKey(params rlwe.Parameters, msgMod *num.Modulus, skNTT *rlw
 		ecd:  NewEncoder(params, msgMod),
 
 		scFacs: scFacs,
-		sc:     scaler,
 
 		ePool: rlwe.NewElementPool(params, true, true),
 	}
@@ -133,8 +116,7 @@ func (e *Encryptor) EncryptTo(ctOut *rlwe.Ciphertext, v []uint64, isNTT bool) {
 	defer e.ePool.Put(pt)
 	pt = pt.WithModLen(baseLen, 0)
 
-	e.ecd.EncodeTo(pt, v, isNTT)
-	e.pOp.MulTo(pt, pt, e.scFacs[baseLen-1])
+	e.ecd.ScaleEncodeTo(pt, v, isNTT)
 	e.enc.EncryptTo(ctOut, pt, isNTT)
 }
 
@@ -189,8 +171,7 @@ func (e *Encryptor) DecryptTo(vOut []uint64, ct *rlwe.Ciphertext) {
 	ptScale := pt.WithModLen(1, 0)
 
 	e.PhaseTo(pt, ct)
-
-	e.sc[baseLen-1].ScaleTo(ptScale.Value, pt.Value, false)
+	e.ecd.ScaleDecodeTo(ptScale.Value.Coeffs[0], pt)
 	copy(vOut, ptScale.Value.Coeffs[0][:len(vOut)])
 }
 
@@ -228,8 +209,7 @@ func (e *Encryptor) NoiseTo(eOut *rlwe.Element, ct *rlwe.Ciphertext) {
 	v := vEcd.Value.WithModIdx(0)
 
 	e.PhaseTo(pt, ct)
-	e.sc[baseLen-1].ScaleTo(v, pt.Value, false)
-	e.ecd.EncodeTo(vEcd, v.Coeffs[0], false)
-	e.pOp.MulTo(vEcd, vEcd, e.scFacs[baseLen-1])
+	e.ecd.ScaleDecodeTo(v.Coeffs[0], pt)
+	e.ecd.ScaleEncodeTo(vEcd, v.Coeffs[0], false)
 	e.pOp.SubTo(eOut, pt, vEcd)
 }

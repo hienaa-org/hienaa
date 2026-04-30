@@ -138,11 +138,21 @@ func (ne *NoiseEstimator) ModSwitch(noise float64, inLen, outLen int) float64 {
 	switch {
 	case inLen < outLen:
 		for i := inLen; i < outLen; i++ {
-			res *= float64(ne.params.BaseModulus()[i].Value())
+			switch ne.estimType {
+			case VarianceType:
+				res *= float64(ne.params.BaseModulus()[i].Value()) * float64(ne.params.BaseModulus()[i].Value())
+			case WorstCaseType:
+				res *= float64(ne.params.BaseModulus()[i].Value())
+			}
 		}
 	case inLen > outLen:
 		for i := outLen; i < inLen; i++ {
-			res /= float64(ne.params.BaseModulus()[i].Value())
+			switch ne.estimType {
+			case VarianceType:
+				res /= float64(ne.params.BaseModulus()[i].Value()) * float64(ne.params.BaseModulus()[i].Value())
+			case WorstCaseType:
+				res /= float64(ne.params.BaseModulus()[i].Value())
+			}
 		}
 		res += ne.RoundNoise()
 	}
@@ -190,20 +200,35 @@ func (ne *NoiseEstimator) SubElement(noise float64, e *rlwe.Element) float64 {
 // MulPlainTo returns the noise of the product of a ciphertext and a plaintext.
 func (ne *NoiseEstimator) MulPlain(noise float64, pt []uint64) float64 {
 	// Compute the tight bound of the noise.
-	max := uint64(0)
+	max := float64(0)
 	halfMsgMod := ne.msgMod.Value() >> 1
 	for i := 0; i < len(pt); i++ {
-		if pt[i] > halfMsgMod && pt[i]-halfMsgMod > max {
-			max = pt[i] - halfMsgMod
-		} else if pt[i] <= halfMsgMod && pt[i] > max {
-			max = pt[i]
+		if pt[i] > halfMsgMod && float64(pt[i]-halfMsgMod) > max {
+			max = float64(pt[i] - halfMsgMod)
+		} else if pt[i] <= halfMsgMod && float64(pt[i]) > max {
+			max = float64(pt[i])
 		}
 	}
 
 	if len(pt) == 1 {
-		return noise * float64(max)
+		switch ne.estimType {
+		case VarianceType:
+			return noise * max * max
+		case WorstCaseType:
+			return noise * max
+		default:
+			panic("unsupported noise estimation type")
+		}
 	} else {
-		return noise * float64(max) * float64(ne.params.RingParams().ExpandFactor())
+		expFac := float64(ne.params.RingParams().ExpandFactor())
+		switch ne.estimType {
+		case VarianceType:
+			return noise * max * max * expFac
+		case WorstCaseType:
+			return noise * max * expFac
+		default:
+			panic("unsupported noise estimation type")
+		}
 	}
 }
 
@@ -212,10 +237,26 @@ func (ne *NoiseEstimator) MulElement(noise float64, e *rlwe.Element) float64 {
 	// When we multiply a ciphertext and an element, we cannot compute the tight bound of the noise
 	// without expensive operations, such as basis embedding or inverse NTT.
 	// Therefore, we use the half of the message modulus as the noise bound.
+	halfMsgMod := float64(ne.msgMod.Value()) / 2
 	if e.Type() == crt.TypeScalar {
-		return noise * float64(ne.msgMod.Value()) / 2
+		switch ne.estimType {
+		case VarianceType:
+			return noise * halfMsgMod * halfMsgMod
+		case WorstCaseType:
+			return noise * halfMsgMod
+		default:
+			panic("unsupported noise estimation type")
+		}
 	} else {
-		return noise * float64(ne.msgMod.Value()) / 2 * float64(ne.params.RingParams().ExpandFactor())
+		expFac := float64(ne.params.RingParams().ExpandFactor())
+		switch ne.estimType {
+		case VarianceType:
+			return noise * halfMsgMod * halfMsgMod * expFac
+		case WorstCaseType:
+			return noise * halfMsgMod * expFac
+		default:
+			panic("unsupported noise estimation type")
+		}
 	}
 }
 
@@ -237,7 +278,15 @@ func (ne *NoiseEstimator) GadgetProd(modLen int) float64 {
 	if ne.params.HasAuxModulus() {
 		auxLen := ne.dcmp.AuxModLen(modLen)
 		for i := 0; i < auxLen; i++ {
-			res /= float64(ne.params.AuxModulus()[i].Value())
+			auxMod := float64(ne.params.AuxModulus()[i].Value())
+			switch ne.estimType {
+			case VarianceType:
+				res /= auxMod * auxMod
+			case WorstCaseType:
+				res /= auxMod
+			default:
+				panic("unsupported noise estimation type")
+			}
 		}
 		res += ne.RoundNoise()
 	}

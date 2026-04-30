@@ -7,7 +7,9 @@ import (
 
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
-)// FindNTTPrimes returns NTT primes for the given parameters,
+)
+
+// FindNTTPrimes returns NTT primes for the given parameters,
 // where the product of modulus and auxModulus is approximately 2^modulusBits and 2^auxModulusBits respectively.
 func FindNTTPrimes(params dft.RingParameters, baseModBits, auxModBits float64) ([]*num.Modulus, []*num.Modulus) {
 	modLen := int(math.Ceil(baseModBits / num.MaxModulusBits))
@@ -24,7 +26,12 @@ func FindNTTPrimes(params dft.RingParameters, baseModBits, auxModBits float64) (
 			panic(err)
 		}
 
-		start := (uint64(math.Round(math.Exp2(baseModBits/float64(modLen))))/gap)*gap + 1
+		limbBit := math.Ceil(baseModBits / float64(modLen))
+		if limbBit >= 62 {
+			limbBit = 61
+		}
+
+		start := (uint64(math.Round(math.Exp2(limbBit)))/gap)*gap + 1
 		prime, err := num.PrevPrime(start, gap)
 		if err != nil {
 			panic(err)
