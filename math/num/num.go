@@ -6,6 +6,7 @@ import (
 	"math/bits"
 )
 
+// Abs returns the absolute value of x.
 func Abs[T Integer](x T) T {
 	if x < 0 {
 		return T(-x)
