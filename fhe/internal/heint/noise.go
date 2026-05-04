@@ -38,6 +38,8 @@ func NewNoiseEstimator(params rlwe.Parameters, msgMod *num.Modulus, estimType Es
 		// as expFac * Hamming weight / rank. Is this the tight/correct bound?
 		if keyType.HammingWeight > 0 {
 			keyExpFac *= float64(keyType.HammingWeight) / float64(params.Rank())
+		} else {
+			keyExpFac *= keyType.Positive + keyType.Negative
 		}
 	default:
 		switch estimType {

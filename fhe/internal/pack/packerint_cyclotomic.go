@@ -411,7 +411,7 @@ func newAnyCyclotomicIntPacker(params dft.RingParameters, mod *num.Modulus) *any
 	if primes[0] == 2 && exps[0] == 1 {
 		for i := range cube {
 			pExp := num.Exp(primes[i+1], exps[i+1], nil)
-			cube[i] = int(pExp - pExp/primes[i])
+			cube[i] = int(pExp - pExp/primes[i+1])
 			cubeGen[i] = num.Inv(cubeGen[i], cycloOrdMod)
 		}
 	} else {

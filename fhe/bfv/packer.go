@@ -1,6 +1,7 @@
 package bfv
 
 import (
+	"github.com/hienaa-org/hienaa/fhe/internal/heint"
 	pack "github.com/hienaa-org/hienaa/fhe/internal/pack"
 	"github.com/hienaa-org/hienaa/fhe/rlwe"
 	"github.com/hienaa-org/hienaa/math/num"
@@ -10,6 +11,7 @@ import (
 type Packer struct {
 	params rlwe.Parameters
 	pack   pack.IntPacker
+	ecd    *heint.Encoder
 }
 
 // NewPacker creates a new [Packer].
@@ -17,6 +19,7 @@ func NewPacker(params rlwe.Parameters, msgMod *num.Modulus) *Packer {
 	return &Packer{
 		params: params,
 		pack:   pack.NewIntPacker(params.RingParams(), msgMod),
+		ecd:    heint.NewEncoder(params, msgMod),
 	}
 }
 
@@ -87,4 +90,29 @@ func (p *Packer) CubeGen() []uint64 {
 // RotIdxToAutIdx converts a rotation index to an automorphism index.
 func (p *Packer) RotIdxToAutIdx(idx []int) int {
 	return p.pack.RotIdxToAutIdx(idx)
+}
+
+// Encode encodes a [Plaintext] into a [*rlwe.Element].
+func (p *Packer) Encode(eIn Plaintext, hasAux, isNTT bool) *rlwe.Element {
+	return p.ecd.Encode(eIn, hasAux, isNTT)
+}
+
+// EncodeCustom encodes a [Plaintext] into a [*rlwe.Element] with custom parameters.
+func (p *Packer) EncodeCustom(eIn Plaintext, baseLen, auxLen int, isNTT bool) *rlwe.Element {
+	return p.ecd.EncodeCustom(eIn, baseLen, auxLen, isNTT)
+}
+
+// EncodeTo encodes a [Plaintext] into a [*rlwe.Element].
+func (p *Packer) EncodeTo(eOut *rlwe.Element, eIn Plaintext, isNTT bool) {
+	p.ecd.EncodeTo(eOut, eIn, isNTT)
+}
+
+// Decode decodes a [*rlwe.Element] into a [Plaintext].
+func (p *Packer) Decode(e *rlwe.Element) Plaintext {
+	return p.ecd.Decode(e)
+}
+
+// DecodeTo decodes a [*rlwe.Element] into a [Plaintext].
+func (p *Packer) DecodeTo(eOut Plaintext, e *rlwe.Element) {
+	p.ecd.DecodeTo(eOut, e)
 }

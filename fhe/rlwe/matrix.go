@@ -2,14 +2,14 @@ package rlwe
 
 import (
 	"slices"
-)
 
-// TODO: Is this the right place for matrix?
+	"github.com/hienaa-org/hienaa/math/vec"
+)
 
 // BSGSParams is the parameters for the BSGS matrix multiplication algorithm.
 type BSGSParams struct {
-	babyStep  []int
-	giantStep []int
+	BabyStep  []int
+	GiantStep []int
 }
 
 // PlainMatrix is a plaintext matrix.
@@ -21,9 +21,9 @@ type PlainMatrix struct {
 }
 
 // NewPlainMatrix creates a new [PlainMatrix]
-func NewPlainMatrix(params Parameters, bsgsParams BSGSParams) *PlainMatrix {
+func NewPlainMatrix(diag map[int]map[int]*Element, bsgsParams BSGSParams) *PlainMatrix {
 	return &PlainMatrix{
-		diag:       make(map[int]map[int]*Element),
+		diag:       diag,
 		bsgsParams: bsgsParams,
 	}
 }
@@ -36,7 +36,7 @@ func (mat *PlainMatrix) GetDiag(gs, bs int) *Element {
 // SetDiag sets the diagonal element for the given giant step and baby step.
 func (mat *PlainMatrix) SetDiag(gs, bs int, val *Element) {
 	// Sanity check.
-	if !(slices.Contains(mat.bsgsParams.babyStep, bs) && slices.Contains(mat.bsgsParams.giantStep, gs)) {
+	if !(slices.Contains(mat.bsgsParams.BabyStep, bs) && slices.Contains(mat.bsgsParams.GiantStep, gs)) {
 		panic("invalid giant step or baby step")
 	}
 
@@ -52,7 +52,9 @@ func RequiredAutIndex(mat *PlainMatrix) []int {
 
 	for gs, bsMap := range mat.diag {
 		if bsMap != nil {
-			res = append(res, gs)
+			if gs != 1 && !slices.Contains(res, gs) {
+				res = append(res, gs)
+			}
 
 			for bs, val := range bsMap {
 				if bs != 1 && val != nil && !slices.Contains(res, bs) {
@@ -80,10 +82,26 @@ func (op *Operator) MulPlainMatrixTo(cOut *Ciphertext, mat *PlainMatrix, ct *Cip
 		panic("input ciphertext must not have auxiliary modulus")
 	}
 
+	// Decompose the mask.
 	ctLen := ct.BaseModLen()
+	dcmp := op.dcmpPool.Get()
+	defer op.dcmpPool.Put(dcmp)
+	dcmp = dcmp.Slice(vec.Range(0, op.dcmp.DecomposeLen(ctLen))...)
+	dcmp = dcmp.WithModLen(ctLen, op.dcmp.AuxModLen(ctLen))
 
-	babyStep := make(map[int]*Ciphertext, len(mat.bsgsParams.babyStep))
-	for _, bs := range mat.bsgsParams.babyStep {
+	bufNTT := op.pPool.Get()
+	defer op.pPool.Put(bufNTT)
+	bufNTT = bufNTT.WithModLen(ctLen, 0)
+	if !ct.Mask.IsNTT() {
+		bufNTT.CopyFrom(ct.Mask)
+	} else {
+		op.plainOp.InvNTTTo(bufNTT, ct.Mask)
+	}
+	op.dcmp.DecomposeTo(dcmp, bufNTT, true)
+
+	// Compute the baby steps.
+	babyStep := make(map[int]*Ciphertext, len(mat.bsgsParams.BabyStep))
+	for _, bs := range mat.bsgsParams.BabyStep {
 		check := false
 		for _, bsMap := range mat.diag {
 			if bsMap[bs] != nil {
@@ -97,33 +115,31 @@ func (op *Operator) MulPlainMatrixTo(cOut *Ciphertext, mat *PlainMatrix, ct *Cip
 			defer op.ctPool.Put(babyStep[bs])
 			babyStep[bs] = babyStep[bs].WithModLen(ctLen, 0)
 
-			op.AutTo(babyStep[bs], ct, atk[bs], true)
+			if bs == 1 {
+				babyStep[bs].CopyFrom(ct)
+			} else {
+				op.HoistedAutTo(babyStep[bs], dcmp, ct, atk[bs], true)
+			}
 		}
 	}
 
+	// Compute the giant steps.
 	bsAcc := op.ctPool.Get()
 	defer op.ctPool.Put(bsAcc)
 	bsAcc = bsAcc.WithModLen(ctLen, 0)
-
 	for gs, bsMap := range mat.diag {
 		bsAcc.Clear()
-		check := false
 
 		for bs, diag := range bsMap {
-			if diag != nil {
-				check = true
-				diag = diag.WithModLen(ctLen, 0)
-				op.MulAddElementTo(bsAcc, babyStep[bs], diag)
-			}
+			diag = diag.WithModLen(ctLen, 0)
+			op.MulAddElementTo(bsAcc, babyStep[bs], diag)
 		}
 
-		if check {
-			if gs == 1 {
-				cOut.CopyFrom(bsAcc)
-			} else {
-				op.AutTo(bsAcc, bsAcc, atk[gs], true)
-				op.AddTo(cOut, cOut, bsAcc)
-			}
+		if gs == 1 {
+			cOut.CopyFrom(bsAcc)
+		} else {
+			op.AutTo(bsAcc, bsAcc, atk[gs], true)
+			op.AddTo(cOut, cOut, bsAcc)
 		}
 	}
 }

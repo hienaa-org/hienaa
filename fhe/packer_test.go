@@ -117,21 +117,13 @@ func TestPackerInt(t *testing.T) {
 	})
 
 	t.Run("type=CyclotomicAnyNTT", func(t *testing.T) {
-		// sqrtN := int(math.Sqrt(math.Exp2(10)))
-		// m0 := num.MustNextPrime(sqrtN, 1)
-		// m1 := num.MustNextPrime(m0, 2)
-		// M := m0 * m1
-		// rP := dft.NewCyclotomicParameters(M)
-
-		// q := dft.MustFindNextNTTPrimes(rP, 20, 1)[0]
-
-		sqrtN := int(math.Sqrt(10))
+		sqrtN := int(math.Sqrt(math.Exp2(10)))
 		m0 := num.MustNextPrime(sqrtN, 1)
 		m1 := num.MustNextPrime(m0, 2)
 		M := m0 * m1
 		rP := dft.NewCyclotomicParameters(M)
 
-		q := dft.MustFindNextNTTPrimes(rP, 1, 1)[0]
+		q := dft.MustFindNextNTTPrimes(rP, 20, 1)[0]
 
 		testPackerInt(t, rP, q)
 	})

@@ -17,6 +17,10 @@ type Polynomial struct {
 
 // NewPolynomial creates a new polynomial from the given coefficients and type.
 func NewPolynomial(c []uint64, pType polyutils.PolynomialType, msgMod *num.Modulus) *Polynomial {
+	if len(c) == 0 {
+		panic("polynomial must have at least one coefficient")
+	}
+
 	switch pType {
 	case polyutils.Monomial:
 		coeffs := make(map[int]Plaintext)
@@ -56,9 +60,16 @@ func (p *Polynomial) Coeffs() map[int]Plaintext {
 }
 
 // TODO: Move to the right place.
-// TODO: Change Evaluate and evalRecurse to a in-place algorithm.
-// Evaluate evaluates the polynomial at the given ciphertext.
-func (op *Operator) Evaluate(p *Polynomial, ct *Ciphertext, rlk *rlwe.RelinKey, isNTT bool) *Ciphertext {
+// TODO: Change EvaluatePoly and evalRecurse to a in-place algorithm.
+// EvaluatePoly evaluates the polynomial at the given ciphertext.
+func (op *Operator) EvaluatePoly(p *Polynomial, ct *Ciphertext, rlk *rlwe.RelinKey, isNTT bool) *Ciphertext {
+	// Handle the edge case.
+	if p.Degree() == 0 {
+		res := NewCiphertextCustom(op.params.Rank(), ct.ModLen(), true)
+		op.AddPlainTo(res, res, p.coeffs[0], true)
+		return res
+	}
+
 	// First compute the basis.
 	basis := make(map[int]*Ciphertext)
 	basisLazy := make(map[int]*rlwe.Vector)
@@ -222,7 +233,7 @@ func (op *Operator) evalRecurse(lo, hi int, p *Polynomial, basis map[int]*Cipher
 					ctOut = NewCiphertextCustom(op.params.Rank(), ctLen, true)
 				}
 
-				op.Encoder().EncodeTo(sc, val, false)
+				op.intOp.Encoder().EncodeTo(sc, val, false)
 
 				if basisLazy[i] != nil {
 					if vOut == nil {

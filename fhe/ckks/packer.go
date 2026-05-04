@@ -7,6 +7,7 @@ import (
 	"github.com/hienaa-org/hienaa/math/num"
 )
 
+// TODO: Combine RealPacker, ComplexPacker, and Encoder into a single struct Packer.
 type RealPacker struct {
 	params dft.RingParameters
 	pack   pack.ComplexPacker

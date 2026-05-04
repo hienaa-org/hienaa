@@ -67,6 +67,11 @@ func NewEncoder(rlweParams rlwe.Parameters, msgMod *num.Modulus) *Encoder {
 	}
 }
 
+// PlainOperator returns the underlying [*rlwe.PlainOperator].
+func (ecd *Encoder) PlainOperator() *rlwe.PlainOperator {
+	return ecd.pOp
+}
+
 // Encode encodes a []uint64 into a [*rlwe.Element].
 func (ecd *Encoder) Encode(eIn []uint64, hasAux, isNTT bool) *rlwe.Element {
 	auxLen := len(ecd.params.AuxModulus())

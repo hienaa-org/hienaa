@@ -48,7 +48,6 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 
 	o := bfv.NewOperator(p, q, bfv.WorstCaseType)
 	enc := bfv.NewEncryptor(p, q, bfv.WorstCaseType)
-	ecd := bfv.NewEncoder(p, q)
 	pack := bfv.NewPacker(p, q)
 
 	t.Run("Encrypt", func(t *testing.T) {
@@ -142,7 +141,7 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 			msg1 := uint64(rand.Intn(int(q.Value())))
 			msgRef := num.Add(msg0, msg1, q)
 
-			el := ecd.Encode(bfv.NewScalarFrom(msg1, q), false, true)
+			el := pack.Encode(bfv.NewScalarFrom(msg1, q), false, true)
 			ct := enc.Encrypt(bfv.NewScalarFrom(msg0, q), true)
 
 			ctOut := o.AddElement(ct, el, true)
@@ -166,7 +165,7 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 			msgRef := vec.Add(msg0, msg1, q)
 
 			ct := enc.Encrypt(pack.Pack(msg0), false)
-			el := ecd.Encode(pack.Pack(msg1), false, true)
+			el := pack.Encode(pack.Pack(msg1), false, true)
 
 			ctOut := o.AddElement(ct, el, true)
 			res := enc.Decrypt(ctOut)
@@ -237,7 +236,7 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 			msg1 := uint64(rand.Intn(int(q.Value())))
 			msgRef := num.Sub(msg0, msg1, q)
 
-			el := ecd.Encode(bfv.NewScalarFrom(msg1, q), false, true)
+			el := pack.Encode(bfv.NewScalarFrom(msg1, q), false, true)
 			ct := enc.Encrypt(bfv.NewScalarFrom(msg0, q), true)
 
 			ctOut := o.SubElement(ct, el, true)
@@ -261,7 +260,7 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 			msgRef := vec.Sub(msg0, msg1, q)
 
 			ct := enc.Encrypt(pack.Pack(msg0), false)
-			el := ecd.Encode(pack.Pack(msg1), false, true)
+			el := pack.Encode(pack.Pack(msg1), false, true)
 
 			ctOut := o.SubElement(ct, el, true)
 			res := enc.Decrypt(ctOut)

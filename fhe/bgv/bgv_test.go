@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/hienaa-org/hienaa/fhe/bgv"
+	"github.com/hienaa-org/hienaa/fhe/polyutils"
 	"github.com/hienaa-org/hienaa/fhe/rlwe"
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/csprng"
@@ -28,6 +29,22 @@ var (
 	auxModBits  = float64(100)
 )
 
+func eval(msg []uint64, poly *bgv.Polynomial, q *num.Modulus) []uint64 {
+	res := make([]uint64, len(msg))
+	coeff := poly.Coeffs()
+	deg := poly.Degree()
+	for i := range msg {
+		res[i] = coeff[deg][0]
+		for j := deg - 1; j >= 0; j-- {
+			res[i] = num.Mul(res[i], msg[i], q)
+			if coeff[j] != nil {
+				res[i] = num.Add(res[i], coeff[j][0], q)
+			}
+		}
+	}
+	return res
+}
+
 func randMsg(packLen int, msgMod *num.Modulus) []uint64 {
 	msg := make([]uint64, packLen)
 	for i := range msg {
@@ -48,7 +65,6 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 
 	o := bgv.NewOperator(p, q, bgv.WorstCaseType)
 	enc := bgv.NewEncryptor(p, q, bgv.WorstCaseType)
-	ecd := bgv.NewEncoder(p, q)
 	pack := bgv.NewPacker(p, q)
 
 	t.Run("Encrypt", func(t *testing.T) {
@@ -142,7 +158,7 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 			msg1 := uint64(rand.Intn(int(q.Value())))
 			msgRef := num.Add(msg0, msg1, q)
 
-			el := ecd.Encode(bgv.NewScalarFrom(msg1, q), false, true)
+			el := pack.Encode(bgv.NewScalarFrom(msg1, q), false, true)
 			ct := enc.Encrypt(bgv.NewScalarFrom(msg0, q), true)
 
 			ctOut := o.AddElement(ct, el, true)
@@ -166,7 +182,7 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 			msgRef := vec.Add(msg0, msg1, q)
 
 			ct := enc.Encrypt(pack.Pack(msg0), false)
-			el := ecd.Encode(pack.Pack(msg1), false, true)
+			el := pack.Encode(pack.Pack(msg1), false, true)
 
 			ctOut := o.AddElement(ct, el, true)
 			res := enc.Decrypt(ctOut)
@@ -237,7 +253,7 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 			msg1 := uint64(rand.Intn(int(q.Value())))
 			msgRef := num.Sub(msg0, msg1, q)
 
-			el := ecd.Encode(bgv.NewScalarFrom(msg1, q), false, true)
+			el := pack.Encode(bgv.NewScalarFrom(msg1, q), false, true)
 			ct := enc.Encrypt(bgv.NewScalarFrom(msg0, q), true)
 
 			ctOut := o.SubElement(ct, el, true)
@@ -261,7 +277,7 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 			msgRef := vec.Sub(msg0, msg1, q)
 
 			ct := enc.Encrypt(pack.Pack(msg0), false)
-			el := ecd.Encode(pack.Pack(msg1), false, true)
+			el := pack.Encode(pack.Pack(msg1), false, true)
 
 			ctOut := o.SubElement(ct, el, true)
 			res := enc.Decrypt(ctOut)
@@ -325,6 +341,23 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 
 			assert.Equal(t, msgRef, out)
 		})
+	})
+
+	t.Run("EvaluatePoly", func(t *testing.T) {
+		coeff := randMsg(7, q)
+		poly := bgv.NewPolynomial(coeff, polyutils.Monomial, q)
+
+		msg := randMsg(pack.PackLen(), q)
+		msgRef := eval(msg, poly, q)
+
+		ct := enc.Encrypt(pack.Pack(msg), true)
+		rlk := enc.NewRelinKey()
+
+		ctOut := o.EvaluatePoly(poly, ct, rlk, true)
+		res := enc.Decrypt(ctOut)
+		out := pack.UnPack(res)
+
+		assert.Equal(t, msgRef, out)
 	})
 }
 
