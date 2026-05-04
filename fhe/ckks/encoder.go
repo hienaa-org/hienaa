@@ -40,7 +40,7 @@ func NewEncoder(params rlwe.Parameters) *Encoder {
 			}
 			return res
 		}),
-		ePool: rlwe.NewElementPool(params, true, true),
+		ePool: rlwe.NewElementPool(params, params.HasAuxModulus(), true),
 	}
 }
 

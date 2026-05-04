@@ -96,7 +96,7 @@ func NewOperator(params rlwe.Parameters, msgMod *num.Modulus) *Operator {
 		ecd:    encoder,
 		scFacs: computeScalingFactor(params.BaseModulus(), msgMod),
 
-		ePool: rlwe.NewElementPool(params, true, true),
+		ePool: rlwe.NewElementPool(params, params.HasAuxModulus(), true),
 		ctPool: pool.NewPool(func() *rlwe.Ciphertext {
 			return rlwe.NewCiphertextCustom(params.Rank(), len(ambBaseMod), 0, true)
 		}),

@@ -48,7 +48,7 @@ func NewEncryptorWithKey(params rlwe.Parameters, msgMod *num.Modulus, skNTT *rlw
 
 		scFacs: scFacs,
 
-		ePool: rlwe.NewElementPool(params, true, true),
+		ePool: rlwe.NewElementPool(params, params.HasAuxModulus(), true),
 	}
 }
 

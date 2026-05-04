@@ -305,3 +305,25 @@ func (ne *NoiseEstimator) KeySwitch(noise float64, modLen int) float64 {
 func (ne *NoiseEstimator) Aut(noise float64, modLen int) float64 {
 	return noise + ne.GadgetProd(modLen)
 }
+
+// MulPlainMatrix computes the noise of the product of a ciphertext and a plaintext matrix.
+func (ne *NoiseEstimator) MulPlainMatrix(noise float64, mat *rlwe.PlainMatrix, modLen int) float64 {
+	res := 0.0
+	aut := ne.Aut(noise, modLen)
+	for gs, bsMap := range mat.Diag() {
+		acc := 0.0
+		for bs, diag := range bsMap {
+			if bs == 1 {
+				acc += ne.MulElement(noise, diag)
+			} else {
+				acc += ne.MulElement(aut, diag)
+			}
+		}
+		if gs != 1 {
+			acc = ne.Aut(acc, modLen)
+		}
+		res += acc
+	}
+
+	return res
+}

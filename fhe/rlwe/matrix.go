@@ -3,6 +3,8 @@ package rlwe
 import (
 	"slices"
 
+	"github.com/hienaa-org/hienaa/math/crt"
+	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
 )
 
@@ -28,22 +30,14 @@ func NewPlainMatrix(diag map[int]map[int]*Element, bsgsParams BSGSParams) *Plain
 	}
 }
 
-// GetDiag returns the diagonal element for the given giant step and baby step.
-func (mat *PlainMatrix) GetDiag(gs, bs int) *Element {
-	return mat.diag[gs][bs]
+// Diag returns the diagonal element for the given giant step and baby step.
+func (mat *PlainMatrix) Diag() map[int]map[int]*Element {
+	return mat.diag
 }
 
-// SetDiag sets the diagonal element for the given giant step and baby step.
-func (mat *PlainMatrix) SetDiag(gs, bs int, val *Element) {
-	// Sanity check.
-	if !(slices.Contains(mat.bsgsParams.BabyStep, bs) && slices.Contains(mat.bsgsParams.GiantStep, gs)) {
-		panic("invalid giant step or baby step")
-	}
-
-	if mat.diag[gs] == nil {
-		mat.diag[gs] = make(map[int]*Element)
-	}
-	mat.diag[gs][bs] = val
+// BSGSParams returns the BSGS parameters.
+func (mat *PlainMatrix) BSGSParams() BSGSParams {
+	return mat.bsgsParams
 }
 
 // RequiredAutIndex returns the required automorphism indices for the BSGS matrix multiplication algorithm.
@@ -69,27 +63,41 @@ func RequiredAutIndex(mat *PlainMatrix) []int {
 }
 
 // MulPlainMatrix computes ctOut = mat * ct.
-func (op *Operator) MulPlainMatrix(mat *PlainMatrix, ct *Ciphertext, atk map[int]*AutomorphismKey) *Ciphertext {
+func (op *Operator) MulPlainMatrix(mat *PlainMatrix, ct *Ciphertext, atk map[int]*AutomorphismKey, isNTT bool) *Ciphertext {
 	cOut := NewCiphertextCustom(ct.Rank(), ct.BaseModLen(), ct.AuxModLen(), true)
-	op.MulPlainMatrixTo(cOut, mat, ct, atk)
+	op.MulPlainMatrixTo(cOut, mat, ct, atk, isNTT)
 	return cOut
 }
 
 // TODO: Implement double-hoisting BSGS matrix multiplication algorithm.
 // MulPlainMatrixTo computes ctOut = mat * ct using Halevi-Shoup BSGS matrix multiplication algorithm.
-func (op *Operator) MulPlainMatrixTo(cOut *Ciphertext, mat *PlainMatrix, ct *Ciphertext, atk map[int]*AutomorphismKey) {
+func (op *Operator) MulPlainMatrixTo(cOut *Ciphertext, mat *PlainMatrix, ct *Ciphertext, atk map[int]*AutomorphismKey, isNTT bool) {
 	if ct.AuxModLen() > 0 {
 		panic("input ciphertext must not have auxiliary modulus")
 	}
 
-	// Decompose the mask.
+	// Define parameters.
 	ctLen := ct.BaseModLen()
+	auxLen := op.dcmp.AuxModLen(ctLen)
+
+	// Compute constants.
+	auxMod := op.pPool.Get(crt.TypeScalar)
+	defer op.pPool.Put(auxMod)
+	auxMod = auxMod.WithModLen(ctLen, 0)
+	for i := 0; i < ctLen; i++ {
+		auxMod.Value.Coeffs[i][0] = 1
+		for j := 0; j < auxLen; j++ {
+			auxMod.Value.Coeffs[i][0] = num.Mul(auxMod.Value.Coeffs[i][0], op.Params.auxMod[j].Value(), op.Params.baseMod[i])
+		}
+	}
+
+	// Decompose the mask.
 	dcmp := op.dcmpPool.Get()
 	defer op.dcmpPool.Put(dcmp)
 	dcmp = dcmp.Slice(vec.Range(0, op.dcmp.DecomposeLen(ctLen))...)
-	dcmp = dcmp.WithModLen(ctLen, op.dcmp.AuxModLen(ctLen))
+	dcmp = dcmp.WithModLen(ctLen, auxLen)
 
-	bufNTT := op.pPool.Get()
+	bufNTT := op.pPool.Get(crt.TypePoly)
 	defer op.pPool.Put(bufNTT)
 	bufNTT = bufNTT.WithModLen(ctLen, 0)
 	if !ct.Mask.IsNTT() {
@@ -113,16 +121,21 @@ func (op *Operator) MulPlainMatrixTo(cOut *Ciphertext, mat *PlainMatrix, ct *Cip
 		if check {
 			babyStep[bs] = op.ctPool.Get()
 			defer op.ctPool.Put(babyStep[bs])
-			babyStep[bs] = babyStep[bs].WithModLen(ctLen, 0)
+			babyStep[bs] = babyStep[bs].WithModLen(ctLen, auxLen)
 
 			if bs == 1 {
+				bsBase := babyStep[bs].WithModLen(ctLen, 0)
+				bsAux := babyStep[bs].WithModLen(0, auxLen)
 				if !ct.IsNTT() {
-					op.FwdNTTTo(babyStep[bs], ct)
+					op.FwdNTTTo(bsBase, ct)
 				} else {
-					babyStep[bs].CopyFrom(ct)
+					bsBase.CopyFrom(ct)
 				}
+
+				op.MulElementTo(bsBase, bsBase, auxMod)
+				bsAux.Clear()
 			} else {
-				op.HoistedAutTo(babyStep[bs], dcmp, ct, atk[bs], true)
+				op.HoistedAutLazyTo(babyStep[bs], dcmp, ct, atk[bs], true)
 			}
 		}
 	}
@@ -130,20 +143,38 @@ func (op *Operator) MulPlainMatrixTo(cOut *Ciphertext, mat *PlainMatrix, ct *Cip
 	// Compute the giant steps.
 	bsAcc := op.ctPool.Get()
 	defer op.ctPool.Put(bsAcc)
-	bsAcc = bsAcc.WithModLen(ctLen, 0)
+	bsAcc = bsAcc.WithModLen(ctLen, auxLen)
+	bsBase := bsAcc.WithModLen(ctLen, 0)
+
+	gsAcc := op.ctPool.Get()
+	defer op.ctPool.Put(gsAcc)
+	gsAcc = gsAcc.WithModLen(ctLen, auxLen)
 
 	cOut.Clear()
+	cOut.Body.Value.IsNTT = true
+	cOut.Mask.Value.IsNTT = true
 	for gs, bsMap := range mat.diag {
 		bsAcc.Clear()
 
 		for bs, diag := range bsMap {
-			diag = diag.WithModLen(ctLen, 0)
+			diag = diag.WithModLen(ctLen, auxLen)
 			op.MulAddElementTo(bsAcc, babyStep[bs], diag)
 		}
 
 		if gs != 1 {
-			op.AutTo(bsAcc, bsAcc, atk[gs], true)
+			if op.Params.HasAuxModulus() {
+				op.DivByAuxModulusTo(bsBase, bsAcc, true)
+			}
+			op.AutLazyTo(bsAcc, bsBase, atk[gs], true)
 		}
-		op.AddTo(cOut, cOut, bsAcc)
+		op.AddTo(gsAcc, gsAcc, bsAcc)
+	}
+
+	if op.Params.HasAuxModulus() {
+		op.DivByAuxModulusTo(cOut, gsAcc, isNTT)
+	} else if !isNTT {
+		op.InvNTTTo(cOut, gsAcc)
+	} else {
+		cOut.CopyFrom(gsAcc)
 	}
 }

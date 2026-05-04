@@ -63,7 +63,7 @@ func NewEncoder(rlweParams rlwe.Parameters, msgMod *num.Modulus) *Encoder {
 		scEncode:  scEncode,
 		scDecode:  scDecode,
 
-		ePool: rlwe.NewElementPool(rlweParams, true, true),
+		ePool: rlwe.NewElementPool(rlweParams, rlweParams.HasAuxModulus(), true),
 	}
 }
 

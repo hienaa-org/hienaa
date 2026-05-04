@@ -41,7 +41,7 @@ func NewOperator(params rlwe.Parameters, scFac float64) *Operator {
 		intPool: pool.NewPool(func() *big.Int {
 			return new(big.Int)
 		}),
-		ePool: rlwe.NewElementPool(params, true, true),
+		ePool: rlwe.NewElementPool(params, params.HasAuxModulus(), true),
 		ctPool: pool.NewPool(func() *Ciphertext {
 			return NewCiphertext(params, true)
 		}),

@@ -39,7 +39,7 @@ func NewEncryptorWithKey(params rlwe.Parameters, skNTT *rlwe.SecretKey) *Encrypt
 		pack: pack.NewComplexPacker(params.RingParams()),
 		ecd:  NewEncoder(params),
 
-		ePool: rlwe.NewElementPool(params, true, true),
+		ePool: rlwe.NewElementPool(params, params.HasAuxModulus(), true),
 	}
 }
 

@@ -149,3 +149,8 @@ func (ne *NoiseEstimator) KeySwitchTo(cOut, ct *Ciphertext) {
 func (ne *NoiseEstimator) AutTo(cOut, ct *Ciphertext) {
 	cOut.noise = ne.noise.Aut(ct.noise, ct.ModLen())
 }
+
+// MulPlainMatrixTo returns the noise of the product of a ciphertext and a plaintext matrix.
+func (ne *NoiseEstimator) MulPlainMatrixTo(cOut *Ciphertext, mat *rlwe.PlainMatrix, modLen int) {
+	cOut.noise = ne.noise.MulPlainMatrix(cOut.noise, mat, modLen)
+}

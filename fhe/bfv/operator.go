@@ -513,3 +513,17 @@ func (op *Operator) HoistedExtProd(decmpBody *rlwe.Vector, decmpMask *rlwe.Vecto
 func (op *Operator) HoistedExtProdTo(ctOut *Ciphertext, decmpBody *rlwe.Vector, decmpMask *rlwe.Vector, ct *Ciphertext, gsw *rlwe.RGSW, isNTT bool) {
 	op.rlweOp.HoistedExtProdTo(ctOut.Value, decmpBody, decmpMask, gsw, isNTT)
 }
+
+// MulPlainMatrix computes ctOut = mat * ct.
+func (op *Operator) MulPlainMatrix(mat *rlwe.PlainMatrix, ct *Ciphertext, atk map[int]*rlwe.AutomorphismKey, isNTT bool) *Ciphertext {
+	ctOut := NewCiphertextCustom(ct.Rank(), ct.ModLen(), true)
+	op.MulPlainMatrixTo(ctOut, mat, ct, atk, isNTT)
+	return ctOut
+}
+
+// MulPlainMatrixTo computes ctOut = mat * ct.
+func (op *Operator) MulPlainMatrixTo(ctOut *Ciphertext, mat *rlwe.PlainMatrix, ct *Ciphertext, atk map[int]*rlwe.AutomorphismKey, isNTT bool) {
+	ctOut.Value.Resize(ct.Value.BaseModLen(), 0)
+	op.rlweOp.MulPlainMatrixTo(ctOut.Value, mat, ct.Value, atk, isNTT)
+	op.noise.MulPlainMatrixTo(ctOut, mat, ct.ModLen())
+}

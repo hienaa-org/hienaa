@@ -404,7 +404,7 @@ type Operator struct {
 	plainOp *PlainOperator
 	dcmp    Decomposer
 
-	pPool    *pool.Pool[*Element]
+	pPool    *ElementPool
 	ctPool   *pool.Pool[*Ciphertext]
 	dcmpPool *pool.Pool[*Vector]
 }
@@ -417,9 +417,7 @@ func NewOperator(params Parameters) *Operator {
 		plainOp: NewPlainOperator(params),
 		dcmp:    NewDecomposer(params),
 
-		pPool: pool.NewPool(func() *Element {
-			return NewElement(params.Rank(), len(params.baseMod), len(params.auxMod), true)
-		}),
+		pPool: NewElementPool(params, params.HasAuxModulus(), true),
 		ctPool: pool.NewPool(func() *Ciphertext {
 			return NewCiphertext(params, params.HasAuxModulus(), true)
 		}),
@@ -703,7 +701,7 @@ func (op *Operator) GadgetProdLazyTo(ctOut *Ciphertext, p *Element, ctGadEnc *Ga
 
 	baseLen, auxLen := p.BaseModLen(), op.dcmp.AuxModLen(p.BaseModLen())
 
-	pInvNTT := op.pPool.Get()
+	pInvNTT := op.pPool.Get(crt.TypePoly)
 	defer op.pPool.Put(pInvNTT)
 	pInvNTT = pInvNTT.WithModLen(baseLen, 0)
 	if p.Value.IsNTT {
@@ -737,7 +735,7 @@ func (op *Operator) GadgetProdTo(ctOut *Ciphertext, p *Element, ctGadEnc *Gadget
 
 	baseLen, auxLen := p.BaseModLen(), op.dcmp.AuxModLen(p.BaseModLen())
 
-	pInvNTT := op.pPool.Get()
+	pInvNTT := op.pPool.Get(crt.TypePoly)
 	defer op.pPool.Put(pInvNTT)
 	pInvNTT = pInvNTT.WithModLen(baseLen, 0)
 	if p.Value.IsNTT {
@@ -773,7 +771,7 @@ func (op *Operator) RelinTo(cOut *Ciphertext, cIn *Vector, rlk *RelinKey, isNTT 
 	baseLen := cIn.BaseModLen()
 	pOp := op.plainOp
 
-	pNTT := op.pPool.Get()
+	pNTT := op.pPool.Get(crt.TypePoly)
 	defer op.pPool.Put(pNTT)
 	pNTT = pNTT.WithModLen(baseLen, 0)
 
@@ -821,7 +819,7 @@ func (op *Operator) KeySwitchTo(cOut *Ciphertext, cIn *Ciphertext, ksk *KeySwitc
 	auxLen := op.dcmp.AuxModLen(baseLen)
 	dcmpLen := op.dcmp.DecomposeLen(baseLen)
 
-	pNTT := op.pPool.Get()
+	pNTT := op.pPool.Get(crt.TypePoly)
 	defer op.pPool.Put(pNTT)
 	pNTT = pNTT.WithModLen(baseLen, 0)
 
@@ -839,6 +837,45 @@ func (op *Operator) KeySwitchTo(cOut *Ciphertext, cIn *Ciphertext, ksk *KeySwitc
 	op.HoistedKeySwitchTo(cOut, pDcmp, cIn, ksk, isNTT)
 }
 
+// KeySwitchLazy performs a key switch and returns the result.
+func (op *Operator) KeySwitchLazy(cIn *Ciphertext, ksk *KeySwitchKey, isNTT bool) *Ciphertext {
+	baseLen := cIn.BaseModLen()
+	auxLen := op.dcmp.AuxModLen(baseLen)
+	cOut := NewCiphertextCustom(op.Params.Rank(), baseLen, auxLen, false)
+	op.KeySwitchLazyTo(cOut, cIn, ksk, isNTT)
+	return cOut
+}
+
+// KeySwitchLazyTo performs a key switch and stores the result in cOut.
+func (op *Operator) KeySwitchLazyTo(cOut *Ciphertext, cIn *Ciphertext, ksk *KeySwitchKey, isNTT bool) {
+	if cIn.AuxModLen() > 0 {
+		panic("Ciphertext must not have auxiliary modulus.")
+	}
+
+	pOp := op.plainOp
+
+	baseLen := cIn.BaseModLen()
+	auxLen := op.dcmp.AuxModLen(baseLen)
+	dcmpLen := op.dcmp.DecomposeLen(baseLen)
+
+	pNTT := op.pPool.Get(crt.TypePoly)
+	defer op.pPool.Put(pNTT)
+	pNTT = pNTT.WithModLen(baseLen, 0)
+
+	if cIn.Mask.IsNTT() {
+		pOp.InvNTTTo(pNTT, cIn.Mask)
+	} else {
+		pNTT.CopyFrom(cIn.Mask)
+	}
+
+	pDcmp := op.dcmpPool.Get()
+	defer op.dcmpPool.Put(pDcmp)
+	pDcmp = pDcmp.Slice(vec.Range(0, dcmpLen)...).WithModLen(baseLen, auxLen)
+	op.dcmp.DecomposeTo(pDcmp, pNTT, true)
+
+	op.HoistedKeySwitchLazyTo(cOut, pDcmp, cIn, ksk, isNTT)
+}
+
 // HoistedKeySwitch performs a hoisted key switch and returns the result.
 func (op *Operator) HoistedKeySwitch(decmp *Vector, cIn *Ciphertext, ksk *KeySwitchKey, isNTT bool) *Ciphertext {
 	cOut := NewCiphertextCustom(op.Params.Rank(), cIn.BaseModLen(), 0, false)
@@ -854,7 +891,7 @@ func (op *Operator) HoistedKeySwitchTo(cOut *Ciphertext, decmp *Vector, cIn *Cip
 
 	pOp := op.plainOp
 
-	pNTT := op.pPool.Get()
+	pNTT := op.pPool.Get(crt.TypePoly)
 	defer op.pPool.Put(pNTT)
 	pNTT = pNTT.WithModLen(cIn.BaseModLen(), 0)
 
@@ -871,6 +908,47 @@ func (op *Operator) HoistedKeySwitchTo(cOut *Ciphertext, decmp *Vector, cIn *Cip
 	pOp.AddTo(cOut.Body, cOut.Body, pNTT)
 }
 
+// HoistedKeySwitchLazyTo performs a hoisted key switch and stores the result in cOut.
+func (op *Operator) HoistedKeySwitchLazyTo(cOut *Ciphertext, decmp *Vector, cIn *Ciphertext, ksk *KeySwitchKey, isNTT bool) {
+	if cIn.AuxModLen() > 0 {
+		panic("Ciphertext must not have auxiliary modulus.")
+	}
+
+	baseLen := cIn.BaseModLen()
+	auxLen := op.dcmp.AuxModLen(baseLen)
+	pOp := op.plainOp
+
+	pNTT := op.pPool.Get(crt.TypePoly)
+	defer op.pPool.Put(pNTT)
+	pNTT = pNTT.WithModLen(baseLen, auxLen)
+	pNTTBase := pNTT.WithModLen(baseLen, 0)
+	pNTTAux := pNTT.WithModLen(0, auxLen)
+
+	if cIn.Body.IsNTT() && !isNTT {
+		pOp.InvNTTTo(pNTTBase, cIn.Body)
+	} else if !cIn.Body.IsNTT() && isNTT {
+		pOp.FwdNTTTo(pNTTBase, cIn.Body)
+	} else {
+		pNTTBase.CopyFrom(cIn.Body)
+	}
+
+	auxMod := op.pPool.Get(crt.TypeScalar)
+	defer op.pPool.Put(auxMod)
+	auxMod = auxMod.WithModLen(baseLen, 0)
+	for i := 0; i < baseLen; i++ {
+		auxMod.Value.Coeffs[i][0] = 1
+		for j := 0; j < auxLen; j++ {
+			auxMod.Value.Coeffs[i][0] = num.Mul(auxMod.Value.Coeffs[i][0], op.Params.auxMod[j].Value(), op.Params.baseMod[i])
+		}
+	}
+	pOp.MulTo(pNTTBase, pNTTBase, auxMod)
+	pNTTAux.Clear()
+
+	kskGad := (*GadgetEncryption)(ksk)
+	op.HoistedGadgetProdLazyTo(cOut, decmp, kskGad, isNTT)
+	pOp.AddTo(cOut.Body, cOut.Body, pNTT)
+}
+
 // Aut performs an automorphism and returns the result.
 func (op *Operator) Aut(cIn *Ciphertext, atk *AutomorphismKey, isNTT bool) *Ciphertext {
 	cOut := NewCiphertextCustom(op.Params.Rank(), cIn.BaseModLen(), 0, false)
@@ -882,6 +960,25 @@ func (op *Operator) Aut(cIn *Ciphertext, atk *AutomorphismKey, isNTT bool) *Ciph
 func (op *Operator) AutTo(cOut *Ciphertext, cIn *Ciphertext, atk *AutomorphismKey, isNTT bool) {
 	ksk := &KeySwitchKey{Value: atk.Value}
 	op.KeySwitchTo(cOut, cIn, ksk, isNTT)
+
+	pOp := op.plainOp
+	pOp.AutTo(cOut.Body, cOut.Body, atk.Idx)
+	pOp.AutTo(cOut.Mask, cOut.Mask, atk.Idx)
+}
+
+// AutLazy performs an automorphism and returns the result.
+func (op *Operator) AutLazy(cIn *Ciphertext, atk *AutomorphismKey, isNTT bool) *Ciphertext {
+	baseLen := cIn.BaseModLen()
+	auxLen := op.dcmp.AuxModLen(baseLen)
+	cOut := NewCiphertextCustom(op.Params.Rank(), baseLen, auxLen, false)
+	op.AutLazyTo(cOut, cIn, atk, isNTT)
+	return cOut
+}
+
+// AutLazyTo performs an automorphism and stores the result in cOut.
+func (op *Operator) AutLazyTo(cOut *Ciphertext, cIn *Ciphertext, atk *AutomorphismKey, isNTT bool) {
+	ksk := &KeySwitchKey{Value: atk.Value}
+	op.KeySwitchLazyTo(cOut, cIn, ksk, isNTT)
 
 	pOp := op.plainOp
 	pOp.AutTo(cOut.Body, cOut.Body, atk.Idx)
@@ -903,6 +1000,29 @@ func (op *Operator) HoistedAutTo(cOut *Ciphertext, decmp *Vector, cIn *Ciphertex
 
 	ksk := &KeySwitchKey{Value: atk.Value}
 	op.HoistedKeySwitchTo(cOut, decmp, cIn, ksk, isNTT)
+
+	pOp := op.plainOp
+	pOp.AutTo(cOut.Body, cOut.Body, atk.Idx)
+	pOp.AutTo(cOut.Mask, cOut.Mask, atk.Idx)
+}
+
+// HoistedAutLazy performs a hoisted automorphism and returns the result.
+func (op *Operator) HoistedAutLazy(decmp *Vector, cIn *Ciphertext, atk *AutomorphismKey, isNTT bool) *Ciphertext {
+	baseLen := cIn.BaseModLen()
+	auxLen := op.dcmp.AuxModLen(baseLen)
+	cOut := NewCiphertextCustom(op.Params.Rank(), baseLen, auxLen, false)
+	op.HoistedAutLazyTo(cOut, decmp, cIn, atk, isNTT)
+	return cOut
+}
+
+// HoistedAutLazyTo performs a hoisted automorphism and stores the result in cOut.
+func (op *Operator) HoistedAutLazyTo(cOut *Ciphertext, decmp *Vector, cIn *Ciphertext, atk *AutomorphismKey, isNTT bool) {
+	if cIn.AuxModLen() > 0 {
+		panic("Ciphertext must not have auxiliary modulus.")
+	}
+
+	ksk := &KeySwitchKey{Value: atk.Value}
+	op.HoistedKeySwitchLazyTo(cOut, decmp, cIn, ksk, isNTT)
 
 	pOp := op.plainOp
 	pOp.AutTo(cOut.Body, cOut.Body, atk.Idx)
