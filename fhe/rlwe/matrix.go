@@ -65,13 +65,13 @@ func RequiredAutIndex(mat *PlainMatrix) []int {
 // MulPlainMatrix computes ctOut = mat * ct.
 func (op *Operator) MulPlainMatrix(mat *PlainMatrix, ct *Ciphertext, atk map[int]*AutomorphismKey, isNTT bool) *Ciphertext {
 	cOut := NewCiphertextCustom(ct.Rank(), ct.BaseModLen(), ct.AuxModLen(), true)
-	op.MulPlainMatrixTo(cOut, mat, ct, atk, isNTT)
+	op.MulPlainMatrixTo(cOut, ct, mat, atk, isNTT)
 	return cOut
 }
 
 // TODO: Implement double-hoisting BSGS matrix multiplication algorithm.
 // MulPlainMatrixTo computes ctOut = mat * ct using Halevi-Shoup BSGS matrix multiplication algorithm.
-func (op *Operator) MulPlainMatrixTo(cOut *Ciphertext, mat *PlainMatrix, ct *Ciphertext, atk map[int]*AutomorphismKey, isNTT bool) {
+func (op *Operator) MulPlainMatrixTo(cOut, ct *Ciphertext, mat *PlainMatrix, atk map[int]*AutomorphismKey, isNTT bool) {
 	if ct.AuxModLen() > 0 {
 		panic("input ciphertext must not have auxiliary modulus")
 	}
@@ -149,10 +149,8 @@ func (op *Operator) MulPlainMatrixTo(cOut *Ciphertext, mat *PlainMatrix, ct *Cip
 	gsAcc := op.ctPool.Get()
 	defer op.ctPool.Put(gsAcc)
 	gsAcc = gsAcc.WithModLen(ctLen, auxLen)
+	gsAcc.Clear()
 
-	cOut.Clear()
-	cOut.Body.Value.IsNTT = true
-	cOut.Mask.Value.IsNTT = true
 	for gs, bsMap := range mat.diag {
 		bsAcc.Clear()
 
