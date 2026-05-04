@@ -116,7 +116,11 @@ func (op *Operator) MulPlainMatrixTo(cOut *Ciphertext, mat *PlainMatrix, ct *Cip
 			babyStep[bs] = babyStep[bs].WithModLen(ctLen, 0)
 
 			if bs == 1 {
-				babyStep[bs].CopyFrom(ct)
+				if !ct.IsNTT() {
+					op.FwdNTTTo(babyStep[bs], ct)
+				} else {
+					babyStep[bs].CopyFrom(ct)
+				}
 			} else {
 				op.HoistedAutTo(babyStep[bs], dcmp, ct, atk[bs], true)
 			}
@@ -127,6 +131,8 @@ func (op *Operator) MulPlainMatrixTo(cOut *Ciphertext, mat *PlainMatrix, ct *Cip
 	bsAcc := op.ctPool.Get()
 	defer op.ctPool.Put(bsAcc)
 	bsAcc = bsAcc.WithModLen(ctLen, 0)
+
+	cOut.Clear()
 	for gs, bsMap := range mat.diag {
 		bsAcc.Clear()
 
@@ -135,11 +141,9 @@ func (op *Operator) MulPlainMatrixTo(cOut *Ciphertext, mat *PlainMatrix, ct *Cip
 			op.MulAddElementTo(bsAcc, babyStep[bs], diag)
 		}
 
-		if gs == 1 {
-			cOut.CopyFrom(bsAcc)
-		} else {
+		if gs != 1 {
 			op.AutTo(bsAcc, bsAcc, atk[gs], true)
-			op.AddTo(cOut, cOut, bsAcc)
 		}
+		op.AddTo(cOut, cOut, bsAcc)
 	}
 }

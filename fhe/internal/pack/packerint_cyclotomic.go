@@ -414,6 +414,18 @@ func newAnyCyclotomicIntPacker(params dft.RingParameters, mod *num.Modulus) *any
 			cube[i] = int(pExp - pExp/primes[i+1])
 			cubeGen[i] = num.Inv(cubeGen[i], cycloOrdMod)
 		}
+	} else if primes[0] == 2 && exps[0] > 2 {
+		cube[0] = 1 << (exps[0] - 2)
+		cubeGen[0] = num.Inv(cubeGen[0], cycloOrdMod)
+
+		cube[1] = 2
+		cubeGen[1] = num.Inv(cubeGen[1], cycloOrdMod)
+
+		for i := 2; i < len(cube); i++ {
+			pExp := num.Exp(primes[i-1], exps[i-1], nil)
+			cube[i] = int(pExp - pExp/primes[i-1])
+			cubeGen[i] = num.Inv(cubeGen[i], cycloOrdMod)
+		}
 	} else {
 		for i := range cube {
 			pExp := num.Exp(primes[i], exps[i], nil)

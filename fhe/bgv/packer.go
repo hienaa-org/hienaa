@@ -186,7 +186,7 @@ func (p *Packer) GenPlainMatrixCustom(mat map[[2]int]uint64, dim, baseLen, auxLe
 	for i := 0; i < cubeLen; i++ {
 		slices.Sort(cubeRot[i])
 		closestRatio := math.MaxFloat64
-		for j := 2; j <= p.Cube()[i]; j++ {
+		for j := 1; j <= p.Cube()[i]; j++ {
 			babyStep := make([]int, 0)
 			giantStep := make([]int, 0)
 			for k := range cubeRot[i] {

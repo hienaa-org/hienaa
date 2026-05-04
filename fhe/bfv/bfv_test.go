@@ -24,7 +24,7 @@ var (
 		Center: 0,
 		StdDev: 3.2,
 	}
-	baseModBits = float64(200)
+	baseModBits = float64(300)
 	auxModBits  = float64(100)
 )
 
@@ -399,12 +399,12 @@ func TestBFV(t *testing.T) {
 	t.Run("type=AutFixedPrime", func(t *testing.T) {
 		prime := num.MustNextPrime(int(rSrc.SampleN(20)+1), 1)
 
-		var M int
+		M := prime + 1
 		var N int
 		for {
-			M = num.MustNextPrime(int(rSrc.SampleN(1<<10)), 1)
+			M = num.MustNextPrime(M, 1)
 			ord := num.Order(uint64(prime), num.NewModulus(M))
-			if ord < 10 {
+			if ord < 10 && (M-1)/int(ord) > 1 {
 				N = (M - 1) / int(ord)
 				break
 			}

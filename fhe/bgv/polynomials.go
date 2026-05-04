@@ -65,8 +65,8 @@ func (p *Polynomial) Coeffs() map[int]Plaintext {
 func (op *Operator) EvaluatePoly(p *Polynomial, ct *Ciphertext, rlk *rlwe.RelinKey, isNTT bool) *Ciphertext {
 	// Handle the edge case.
 	if p.Degree() == 0 {
-		res := NewCiphertextCustom(op.params.Rank(), ct.ModLen(), true)
-		op.AddPlainTo(res, res, p.coeffs[0], true)
+		res := NewCiphertextCustom(op.params.Rank(), ct.ModLen(), isNTT)
+		op.AddPlainTo(res, res, p.coeffs[0], isNTT)
 		return res
 	}
 
