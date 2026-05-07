@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/hienaa-org/hienaa/fhe/bfv"
+	"github.com/hienaa-org/hienaa/fhe/polyutils"
 	"github.com/hienaa-org/hienaa/fhe/rlwe"
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/csprng"
@@ -27,6 +28,48 @@ var (
 	baseModBits = float64(300)
 	auxModBits  = float64(100)
 )
+
+func eval(msg []uint64, poly *bfv.Polynomial, q *num.Modulus) []uint64 {
+	res := make([]uint64, len(msg))
+	coeff := poly.Coeffs()
+	deg := poly.Degree()
+	for i := range msg {
+		res[i] = coeff[deg][0]
+		for j := deg - 1; j >= 0; j-- {
+			res[i] = num.Mul(res[i], msg[i], q)
+			if coeff[j] != nil {
+				res[i] = num.Add(res[i], coeff[j][0], q)
+			}
+		}
+	}
+	return res
+}
+
+func randMatrix(dim int, msgMod *num.Modulus) map[[2]int]uint64 {
+	matrix := make(map[[2]int]uint64)
+	for i := 0; i < dim; i++ {
+		for j := 0; j < dim; j++ {
+			matrix[[2]int{i, j}] = uint64(rand.Intn(int(msgMod.Value())))
+		}
+	}
+	return matrix
+}
+
+func plainMatMul(mat map[[2]int]uint64, msg []uint64, msgMod *num.Modulus) []uint64 {
+	matLen := len(msg)
+	res := make([]uint64, matLen)
+
+	for i := 0; i < matLen; i++ {
+		for j := 0; j < matLen; j++ {
+			val, ok := mat[[2]int{i, j}]
+			if ok {
+				res[i] = num.Add(res[i], num.Mul(val, msg[j], msgMod), msgMod)
+			}
+		}
+	}
+
+	return res
+}
 
 func randMsg(packLen int, msgMod *num.Modulus) []uint64 {
 	msg := make([]uint64, packLen)
@@ -324,6 +367,43 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 
 			assert.Equal(t, msgRef, out)
 		})
+	})
+
+	t.Run("EvaluatePoly", func(t *testing.T) {
+		coeff := randMsg(7, q)
+		poly := bfv.NewPolynomial(coeff, polyutils.Monomial, q)
+
+		msg := randMsg(pack.PackLen(), q)
+		msgRef := eval(msg, poly, q)
+
+		ct := enc.Encrypt(pack.Pack(msg), true)
+		rlk := enc.NewRelinKey()
+
+		ctOut := o.EvaluatePoly(poly, ct, rlk, true)
+		res := enc.Decrypt(ctOut)
+		out := pack.UnPack(res)
+
+		assert.Equal(t, msgRef, out)
+	})
+
+	t.Run("MulPlainMatrix", func(t *testing.T) {
+		mat := randMatrix(pack.PackLen(), q)
+		msg := randMsg(pack.PackLen(), q)
+		msgRef := plainMatMul(mat, msg, q)
+
+		pMat := pack.GenPlainMatrix(mat, pack.PackLen(), 1)
+		idx := rlwe.RequiredAutIndex(pMat)
+		atk := make(map[int]*rlwe.AutomorphismKey)
+		for _, idx := range idx {
+			atk[idx] = enc.NewAutomorphismKey(idx)
+		}
+
+		ct := enc.Encrypt(pack.Pack(msg), true)
+		ctOut := o.MulPlainMatrix(pMat, ct, atk, true)
+		res := enc.Decrypt(ctOut)
+		out := pack.UnPack(res)
+
+		assert.Equal(t, msgRef, out)
 	})
 }
 

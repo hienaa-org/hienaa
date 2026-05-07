@@ -1,8 +1,13 @@
 package bfv
 
 import (
+	"cmp"
+	"math"
+	"slices"
+
 	"github.com/hienaa-org/hienaa/fhe/internal/heint"
 	"github.com/hienaa-org/hienaa/fhe/rlwe"
+	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
 )
 
@@ -14,6 +19,7 @@ const (
 // NoiseEstimator estimates the noise of the ciphertext.
 type NoiseEstimator struct {
 	params    rlwe.Parameters
+	ambMod    []*num.Modulus
 	msgMod    *num.Modulus
 	estimType heint.EstimType
 
@@ -22,8 +28,67 @@ type NoiseEstimator struct {
 
 // NewNoiseEstimator creates a new [NoiseEstimator].
 func NewNoiseEstimator(params rlwe.Parameters, msgMod *num.Modulus, estimType heint.EstimType) *NoiseEstimator {
+	ringParams := params.RingParams()
+	extraBits := float64(0)
+	for _, mod := range params.BaseModulus() {
+		extraBits += num.Log2(mod.Value())
+	}
+	extraBits = extraBits + num.Log2(ringParams.ExpandFactor())
+	extraLen := int(math.Ceil(extraBits / num.MaxModulusBits))
+	baseMod := params.BaseModulus()
+
+	var extraMod []*num.Modulus
+	var bitlen float64
+	for {
+		extraMod = make([]*num.Modulus, extraLen)
+
+		gap, err := dft.NTTPrimeGap(ringParams)
+		if err != nil {
+			panic(err)
+		}
+
+		bitlen = extraBits
+		start := (uint64(math.Floor(num.MaxModulus/float64(gap))))*gap + 1
+		if start > num.MaxModulus {
+			for start > num.MaxModulus {
+				start -= gap
+			}
+		}
+		prime := num.MustPrevPrime(start, gap)
+
+		cnt := 0
+		for cnt < extraLen {
+			primemod := num.NewModulus(prime)
+			for {
+				_, ok := slices.BinarySearchFunc(baseMod, primemod, func(a, b *num.Modulus) int {
+					return cmp.Compare(a.Value(), b.Value())
+				})
+
+				if !ok {
+					break
+				} else {
+					prime = num.MustPrevPrime(prime, gap)
+					primemod = num.NewModulus(prime)
+				}
+			}
+			extraMod[cnt] = primemod
+			bitlen -= num.Log2(primemod.Value())
+			prime = num.MustPrevPrime(prime, gap)
+			cnt++
+		}
+
+		if bitlen > 0 {
+			extraLen++
+		} else {
+			break
+		}
+	}
+
+	ambMod := append(baseMod, extraMod...)
+
 	return &NoiseEstimator{
 		params:    params,
+		ambMod:    ambMod,
 		msgMod:    msgMod,
 		estimType: estimType,
 
@@ -88,43 +153,106 @@ func (ne *NoiseEstimator) SubElementTo(cOut, ct *Ciphertext, e *rlwe.Element) {
 	cOut.noise = ne.noise.SubElement(ct.noise, e)
 }
 
-// Mul returns the noise of the product of two ciphertexts.
-func (ne *NoiseEstimator) MulTo(ctOut, ct0, ct1 *Ciphertext) {
-	// TODO: noise estimation for the improved BFV multiplication.
-
-	tarLen := min(ct0.ModLen(), ct1.ModLen())
-
-	noise0 := ne.noise.ModSwitch(ct0.noise, ct0.ModLen(), tarLen)
-	noise1 := ne.noise.ModSwitch(ct1.noise, ct1.ModLen(), tarLen)
-
-	// Given phases q/t*m + e + qI and q/t*m' + e' + qI' of lifted ciphertexts,
-	// the output noise is given by q/t*mm' + (me'+m'e) + t*(eI' + e'I) + t/q * ee' + e_rnd + keyswitching noise.
-
-	// e_rnd
-	keyExpFac := ne.noise.KeyExpansionFactor()
-	if ne.estimType == VarianceType {
-		ctOut.noise = (1 + keyExpFac + keyExpFac*keyExpFac) / 12
-	} else {
-		ctOut.noise = (1 + keyExpFac + keyExpFac*keyExpFac) / 2
+// getAuxLen returns the length of the auxiliary modulus for the multiplication of two ciphertexts.
+func (ne *NoiseEstimator) getAmbLen(ct0, ct1 *Ciphertext) int {
+	// Force ct0 to have the larger noise.
+	if ct0.ModLen() > ct1.ModLen() || (ct0.ModLen() == ct1.ModLen() && ct0.noise < ct1.noise) {
+		ct0, ct1 = ct1, ct0
 	}
 
-	// key-switching noise.
-	ctOut.noise += ne.noise.KeySwitch(ctOut.noise, tarLen)
+	tarLen := ct0.ModLen()
+	tarBits := float64(0)
+	for i := 0; i < tarLen; i++ {
+		tarBits += num.Log2(ne.ambMod[i].Value())
+	}
 
-	// t/q * ee'
+	switch ne.estimType {
+	case heint.VarianceType:
+		tarBits -= num.Log2(ct0.noise/ne.noise.RoundNoise()) / 2
+	case heint.WorstCaseType:
+		tarBits -= num.Log2(ct0.noise / ne.noise.RoundNoise())
+	}
+
+	auxModLen := 1
+	for auxModLen <= len(ne.ambMod)-tarLen {
+		tarBits -= num.Log2(ne.ambMod[tarLen+auxModLen-1].Value())
+		if tarBits <= 0 {
+			break
+		}
+		auxModLen += 1
+	}
+
+	return auxModLen
+}
+
+// liftAndTensorTo computes the noise of the tensor product of two ciphertexts.
+func (ne *NoiseEstimator) liftAndTensor(ct0, ct1 *Ciphertext, ambLen int) float64 {
+	// Force ct0 to have the smaller modulus.
+	if ct0.ModLen() > ct1.ModLen() || (ct0.ModLen() == ct1.ModLen() && ct0.noise < ct1.noise) {
+		ct0, ct1 = ct1, ct0
+	}
+
+	tarLen := ct0.ModLen()
+	noise0 := ct0.noise
+	noise1 := ct1.noise
+
+	// Compute the auxiliary and base moduli.
+	logBaseMod := float64(0)
+	for i := 0; i < tarLen; i++ {
+		logBaseMod += num.Log2(float64(ne.ambMod[i].Value()))
+	}
+	logAmbMod := float64(0)
+	for i := tarLen; i < tarLen+ambLen; i++ {
+		logAmbMod += num.Log2(float64(ne.ambMod[i].Value()))
+	}
+
+	// Modulus-switch ct0.
+	rdNoise := ne.noise.RoundNoise()
+	scale := math.Exp2(logAmbMod - logBaseMod)
+	switch ne.estimType {
+	case heint.VarianceType:
+		noise1 = noise1 * scale * scale
+	case heint.WorstCaseType:
+		noise1 = noise1 * scale
+	}
+	noise1 += rdNoise
+
+	// After tensoring we have PQ/t*mm' + Q(m'+tI') * e + P(m+tI) * e' + tee'
+	// For floating point arithmetic, we scale this by P.
+	// Essentially the noise term will be Q/P(m'+tI') * e + (m+tI) * e' + t/P * ee'.
 	msgMod := float64(ne.msgMod.Value())
 	expFac := float64(ne.params.RingParams().ExpandFactor())
-	baseMod := float64(1)
-	for i := 0; i < tarLen; i++ {
-		baseMod *= float64(ne.params.BaseModulus()[i].Value())
+	scale = math.Exp2(logBaseMod - logAmbMod)
+	res := float64(0)
+	switch ne.estimType {
+	case heint.VarianceType:
+		res += scale * scale * (msgMod + msgMod*msgMod*rdNoise) * noise1 * expFac
+		res += (msgMod + msgMod*msgMod*rdNoise) * noise0 * expFac
+		res += float64(1) / float64(12)
+	case heint.WorstCaseType:
+		res += scale * (msgMod + msgMod*rdNoise) * noise1 * expFac
+		res += (msgMod + msgMod*rdNoise) * noise0 * expFac
+		res += 0.5
 	}
-	ctOut.noise += msgMod / baseMod * noise0 * noise1 * expFac
 
-	// t*(eI' + e'I)
-	ctOut.noise += msgMod * expFac * (noise0 + noise1) * ne.noise.RoundNoise()
+	return res
+}
 
-	// me' + m'e
-	ctOut.noise += msgMod / 2 * (noise0 + noise1) * expFac
+// TODO: Output is incorrect. Revise.
+// Mul returns the noise of the product of two ciphertexts.
+func (ne *NoiseEstimator) MulTo(ctOut, ct0, ct1 *Ciphertext) {
+	// Force ct0 to have the smaller modulus.
+	if ct0.ModLen() > ct1.ModLen() || (ct0.ModLen() == ct1.ModLen() && ct0.noise < ct1.noise) {
+		ct0, ct1 = ct1, ct0
+	}
+
+	tarLen := ct0.ModLen()
+	ambLen := ne.getAmbLen(ct0, ct1)
+	res := ne.liftAndTensor(ct0, ct1, ambLen)
+	res += ne.noise.RoundNoise()
+	res += ne.noise.GadgetProd(tarLen)
+
+	ctOut.noise = res
 }
 
 // MulPlainTo returns the noise of the product of a ciphertext and a plaintext.

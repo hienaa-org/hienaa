@@ -516,7 +516,7 @@ func (op *Operator) MulPlainMatrix(mat *rlwe.PlainMatrix, ct *Ciphertext, atk ma
 // MulPlainMatrixTo computes ctOut = mat * ct.
 func (op *Operator) MulPlainMatrixTo(ctOut, ct *Ciphertext, mat *rlwe.PlainMatrix, atk map[int]*rlwe.AutomorphismKey, isNTT bool) {
 	ctOut.Value.Resize(ct.Value.BaseModLen(), 0)
-	op.noise.MulPlainMatrixTo(ctOut, mat, ct.ModLen())
+	op.noise.MulPlainMatrixTo(ctOut, ct, mat)
 	op.rlweOp.MulPlainMatrixTo(ctOut.Value, ct.Value, mat, atk, isNTT)
 	op.RescaleTo(ctOut, ctOut, isNTT)
 }

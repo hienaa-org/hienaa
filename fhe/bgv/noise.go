@@ -249,6 +249,6 @@ func (ne *NoiseEstimator) AutTo(ctOut, ct *Ciphertext) {
 }
 
 // MulPlainMatrixTo returns the noise of the product of a ciphertext and a plaintext matrix.
-func (ne *NoiseEstimator) MulPlainMatrixTo(ctOut *Ciphertext, mat *rlwe.PlainMatrix, modLen int) {
-	ctOut.noise = ne.noise.MulPlainMatrix(ctOut.noise, mat, modLen)
+func (ne *NoiseEstimator) MulPlainMatrixTo(ctOut, ct *Ciphertext, mat *rlwe.PlainMatrix) {
+	ctOut.noise = ne.noise.MulPlainMatrix(ct.noise, mat, ct.ModLen())
 }

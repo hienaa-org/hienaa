@@ -297,102 +297,11 @@ func (op *PlainOperator) ScaleTo(eOut, e *Element, l int, isNTT bool) {
 		panic("inconsistent output")
 	}
 
-	inLen := e.BaseModLen()
-	outLen := l
-
-	inMod := op.Params.baseMod[:inLen]
-	outMod := op.Params.baseMod[:outLen]
-
-	switch {
-	case inLen > outLen:
-		scMod := inMod[outLen:]
-
-		auxLen := len(op.Params.auxMod)
-		opOut := op.crtOp.WithModIdx(vec.Range(auxLen, auxLen+outLen)...)
-		opScale := op.crtOp.WithModIdx(vec.Range(auxLen+outLen, auxLen+inLen)...)
-
-		p := op.pPool.Get()
-		defer op.pPool.Put(p)
-
-		pIn := p.WithModIdx(vec.Range(0, inLen)...)
-		pOut := p.WithModIdx(vec.Range(0, outLen)...)
-		pScale := p.WithModIdx(vec.Range(outLen, inLen)...)
-
-		scaler := crt.NewScaler(opOut, opScale)
-
-		scInvOut := crt.NewScalarFrom(1, outMod) // scale^{-1} mod outMod
-		outInvSc := crt.NewScalarFrom(1, scMod)  // outMod^{-1} mod scale
-		for i := range outMod {
-			for j := range scMod {
-				scInvOut.Coeffs[i][0] = num.Mul(scInvOut.Coeffs[i][0], num.Inv(scMod[j].Value(), outMod[i]), outMod[i])
-				outInvSc.Coeffs[j][0] = num.Mul(outInvSc.Coeffs[j][0], num.Inv(outMod[i].Value(), scMod[j]), scMod[j])
-			}
-		}
-
-		pIn.CopyFrom(e.Value)
-		pOut.IsNTT = pIn.IsNTT
-		pScale.IsNTT = pIn.IsNTT
-
-		opOut.MulTo(pOut, pOut, scInvOut)
-		opScale.MulTo(pScale, pScale, outInvSc)
-		if pScale.IsNTT {
-			opScale.InvNTTTo(pScale, pScale)
-		}
-
-		scaler.ScaleTo(eOut.Value, pScale, isNTT)
-
-		if isNTT && !pOut.IsNTT {
-			opOut.FwdNTTTo(pOut, pOut)
-		} else if !isNTT && pOut.IsNTT {
-			opOut.InvNTTTo(pOut, pOut)
-		}
-		opOut.AddTo(eOut.Value, eOut.Value, pOut)
-
-	case inLen < outLen:
-		scMod := outMod[inLen:]
-
-		auxLen := len(op.Params.auxMod)
-		opOut := op.crtOp.WithModIdx(vec.Range(auxLen, auxLen+outLen)...)
-
-		scale := crt.NewScalarFrom(1, inMod)
-		for i := range inMod {
-			for j := range scMod {
-				scale.Coeffs[i][0] = num.Mul(scale.Coeffs[i][0], scMod[j].Value(), inMod[i])
-			}
-		}
-
-		eOut.Value.IsNTT = e.Value.IsNTT
-
-		for i := 0; i < inLen; i++ {
-			vec.MulScalarTo(eOut.Value.Coeffs[i], e.Value.Coeffs[i], scale.Coeffs[i][0], outMod[i])
-		}
-		for i := inLen; i < outLen; i++ {
-			clear(eOut.Value.Coeffs[i])
-		}
-
-		if isNTT {
-			if !eOut.Value.IsNTT {
-				opOut.FwdNTTTo(eOut.Value, eOut.Value)
-			}
-		} else {
-			if eOut.Value.IsNTT {
-				opOut.InvNTTTo(eOut.Value, eOut.Value)
-			}
-		}
-
-	case inLen == outLen:
-		eOut.CopyFrom(e)
-
-		if isNTT {
-			if !eOut.Value.IsNTT {
-				op.FwdNTTTo(eOut, eOut)
-			}
-		} else {
-			if eOut.Value.IsNTT {
-				op.InvNTTTo(eOut, eOut)
-			}
-		}
-	}
+	auxLen := len(op.Params.auxMod)
+	inOp := op.crtOp.Slice(auxLen, auxLen+e.BaseModLen())
+	outOp := op.crtOp.Slice(auxLen, auxLen+l)
+	sc := crt.NewScaler(outOp, inOp)
+	sc.ScaleTo(eOut.Value, e.Value, isNTT)
 
 	eOut.auxLen = 0
 }
@@ -771,29 +680,28 @@ func (op *Operator) RelinTo(cOut *Ciphertext, cIn *Vector, rlk *RelinKey, isNTT 
 	baseLen := cIn.BaseModLen()
 	pOp := op.plainOp
 
-	pNTT := op.pPool.Get(crt.TypePoly)
-	defer op.pPool.Put(pNTT)
-	pNTT = pNTT.WithModLen(baseLen, 0)
-
-	op.GadgetProdTo(cOut, cIn.Value[2], (*GadgetEncryption)(rlk), isNTT)
+	ctBuf := op.ctPool.Get()
+	defer op.ctPool.Put(ctBuf)
+	ctBuf = ctBuf.WithModLen(baseLen, 0)
 
 	if cIn.Value[0].IsNTT() && !isNTT {
-		pOp.InvNTTTo(pNTT, cIn.Value[0])
+		pOp.InvNTTTo(ctBuf.Body, cIn.Value[0])
 	} else if !cIn.Value[0].IsNTT() && isNTT {
-		pOp.FwdNTTTo(pNTT, cIn.Value[0])
+		pOp.FwdNTTTo(ctBuf.Body, cIn.Value[0])
 	} else {
-		pNTT.CopyFrom(cIn.Value[0])
+		ctBuf.Body.CopyFrom(cIn.Value[0])
 	}
-	pOp.AddTo(cOut.Body, cOut.Body, pNTT)
 
 	if cIn.Value[1].IsNTT() && !isNTT {
-		pOp.InvNTTTo(pNTT, cIn.Value[1])
+		pOp.InvNTTTo(ctBuf.Mask, cIn.Value[1])
 	} else if !cIn.Value[1].IsNTT() && isNTT {
-		pOp.FwdNTTTo(pNTT, cIn.Value[1])
+		pOp.FwdNTTTo(ctBuf.Mask, cIn.Value[1])
 	} else {
-		pNTT.CopyFrom(cIn.Value[1])
+		ctBuf.Mask.CopyFrom(cIn.Value[1])
 	}
-	pOp.AddTo(cOut.Mask, cOut.Mask, pNTT)
+
+	op.GadgetProdTo(cOut, cIn.Value[2], (*GadgetEncryption)(rlk), isNTT)
+	op.AddTo(cOut, cOut, ctBuf)
 }
 
 // KeySwitch performs a key switch and returns the result.
