@@ -17,10 +17,6 @@ type Polynomial struct {
 
 // NewPolynomial creates a new polynomial from the given coefficients and type.
 func NewPolynomial(c []uint64, pType polyutils.PolynomialType, msgMod *num.Modulus) *Polynomial {
-	if len(c) == 0 {
-		panic("polynomial must have at least one coefficient")
-	}
-
 	switch pType {
 	case polyutils.Monomial:
 		coeffs := make(map[int]Plaintext)
@@ -29,6 +25,11 @@ func NewPolynomial(c []uint64, pType polyutils.PolynomialType, msgMod *num.Modul
 				coeffs[i] = NewScalarFrom(c, msgMod)
 			}
 		}
+
+		if len(coeffs) == 0 {
+			panic("polynomial must have at least one coefficient")
+		}
+
 		return &Polynomial{
 			coeffs:   coeffs,
 			polyType: pType,
@@ -174,8 +175,10 @@ func (op *Operator) EvaluatePolyTo(ctOut *Ciphertext, p *Polynomial, ct *Ciphert
 	if isTensor {
 		vOutBase := vOut.WithModLen(ctLen, 0)
 		op.divRoundTo(vOutBase, vOut, true)
-		op.rlweOp.RelinTo(ctOut.Value, vOutBase, rlk, true)
+		op.rlweOp.RelinTo(ctOut.Value, vOutBase, rlk, isNTT)
 		ctOut.noise += op.noise.noise.GadgetProd(ctLen)
+	} else if !isNTT {
+		op.rlweOp.InvNTTTo(ctOut.Value, ctOut.Value)
 	}
 }
 
