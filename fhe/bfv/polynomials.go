@@ -17,6 +17,10 @@ type Polynomial struct {
 
 // NewPolynomial creates a new polynomial from the given coefficients and type.
 func NewPolynomial(c []uint64, pType polyutils.PolynomialType, msgMod *num.Modulus) *Polynomial {
+	if len(c) == 0 {
+		panic("polynomial must have at least one coefficient")
+	}
+
 	switch pType {
 	case polyutils.Monomial:
 		coeffs := make(map[int]Plaintext)
@@ -68,6 +72,7 @@ func (op *Operator) EvaluatePolyTo(ctOut *Ciphertext, p *Polynomial, ct *Ciphert
 	if p.Degree() == 0 {
 		ctOut.Clear()
 		op.AddPlainTo(ctOut, ctOut, p.coeffs[0], isNTT)
+		return
 	}
 
 	// First compute the basis.

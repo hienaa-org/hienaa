@@ -72,6 +72,7 @@ func (op *Operator) EvaluatePolyTo(ctOut *Ciphertext, p *Polynomial, ct *Ciphert
 	if p.Degree() == 0 {
 		ctOut.Clear()
 		op.AddPlainTo(ctOut, ctOut, p.coeffs[0], isNTT)
+		return
 	}
 
 	// First compute the basis.
