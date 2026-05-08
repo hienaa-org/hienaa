@@ -300,7 +300,7 @@ func (op *PlainOperator) ScaleTo(eOut, e *Element, l int, isNTT bool) {
 	auxLen := len(op.Params.auxMod)
 	inOp := op.crtOp.Slice(auxLen, auxLen+e.BaseModLen())
 	outOp := op.crtOp.Slice(auxLen, auxLen+l)
-	sc := crt.NewScaler(outOp, inOp)
+	sc := crt.NewScaler(outOp, inOp).WithPool(op.embPool)
 	sc.ScaleTo(eOut.Value, e.Value, isNTT)
 
 	eOut.auxLen = 0

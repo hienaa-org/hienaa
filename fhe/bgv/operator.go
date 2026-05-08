@@ -375,7 +375,6 @@ func (op *Operator) scaleFromMulModTo(vOut *rlwe.Vector, vIn *rlwe.Vector, auxId
 	}
 
 	sc := crt.NewScaler(opOut, opIn).WithPool(op.embPool)
-
 	sc.ScaleTo(vOut.Value[0].Value, vOut.Value[0].Value, isNTT)
 	sc.ScaleTo(vOut.Value[1].Value, vOut.Value[1].Value, isNTT)
 	sc.ScaleTo(vOut.Value[2].Value, vOut.Value[2].Value, isNTT)

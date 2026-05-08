@@ -203,8 +203,7 @@ func newDigitDecomposer(params Parameters) Decomposer {
 		modOp := params.Operator().WithModIdx(vec.Range(auxLen, auxLen+i+1)...)
 		digitEmbedder[i] = crt.NewEmbedder(baseModOp, modOp).WithPool(embPool)
 	}
-	modEmbedder := crt.NewEmbedder(params.Operator(), baseModOp)
-	modEmbedder.WithPool(embPool)
+	modEmbedder := crt.NewEmbedder(params.Operator(), baseModOp).WithPool(embPool)
 
 	return &digitDecomposer{
 		params:    params,
