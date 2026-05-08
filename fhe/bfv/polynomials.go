@@ -27,7 +27,7 @@ func NewPolynomial(c []uint64, pType polyutils.PolynomialType, msgMod *num.Modul
 		}
 
 		if len(coeffs) == 0 {
-			panic("polynomial must have at least one coefficient")
+			coeffs[0] = NewScalarFrom(0, msgMod)
 		}
 
 		return &Polynomial{

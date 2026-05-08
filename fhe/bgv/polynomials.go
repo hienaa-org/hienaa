@@ -27,7 +27,7 @@ func NewPolynomial(c []uint64, pType polyutils.PolynomialType, msgMod *num.Modul
 		}
 
 		if len(coeffs) == 0 {
-			panic("polynomial must have at least one coefficient")
+			coeffs[0] = NewScalarFrom(0, msgMod)
 		}
 
 		return &Polynomial{
@@ -62,7 +62,7 @@ func (p *Polynomial) Coeffs() map[int]Plaintext {
 
 // EvaluatePoly evaluates the polynomial at the given ciphertext.
 func (op *Operator) EvaluatePoly(p *Polynomial, ct *Ciphertext, rlk *rlwe.RelinKey, isNTT bool) *Ciphertext {
-	ctOut := NewCiphertextCustom(op.params.Rank(), ct.ModLen(), isNTT)
+	ctOut := NewCiphertextCustom(op.params.Rank(), ct.ModLen(), true)
 	op.EvaluatePolyTo(ctOut, p, ct, rlk, isNTT)
 	return ctOut
 }
@@ -226,7 +226,7 @@ func (op *Operator) evalRecurseTo(ctOut *Ciphertext, vOut *rlwe.Vector, lo, hi i
 
 		for i := 1; i <= min(hi, deg)-lo; i++ {
 			if val, check := p.coeffs[lo+i]; check {
-				op.intOp.Encoder().EncodeTo(scBuf, val, false)
+				op.intOp.Encoder().EncodeTo(scBuf, val, true)
 
 				if basisLazy[i] != nil {
 					if !isTensor {

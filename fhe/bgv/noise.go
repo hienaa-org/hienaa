@@ -155,6 +155,8 @@ func (ne *NoiseEstimator) getAuxMod(ct0, ct1 *Ciphertext) (int, int, *num.Modulu
 
 	if tarLen == 1 && auxMod <= ne.msgMod.Value() {
 		panic("ciphertext noise is too large to perform multiplication")
+	} else if auxMod == divMod {
+		return tarLen, auxIdx, nil
 	} else if auxMod == 1 {
 		return tarLen - 1, tarLen - 1, nil
 	} else {
@@ -183,7 +185,7 @@ func (ne *NoiseEstimator) tensorTo(ct0, ct1 *Ciphertext, tarLen, auxIdx int, aux
 	// Compute rem = Q mod t.
 	rem := uint64(1)
 	for i := 0; i < tarLen; i++ {
-		if i != auxIdx {
+		if i != auxIdx || auxMod == nil {
 			rem = num.Mul(rem, ne.params.BaseModulus()[i].Value(), ne.msgMod)
 		} else {
 			rem = num.Mul(rem, auxMod.Value(), ne.msgMod)
