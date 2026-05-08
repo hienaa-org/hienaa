@@ -164,8 +164,8 @@ func (ne *NoiseEstimator) getAuxMod(ct0, ct1 *Ciphertext) (int, int, *num.Modulu
 	}
 }
 
-// tensorTo computes the noise of the tensor product of two ciphertexts.
-func (ne *NoiseEstimator) tensorTo(ct0, ct1 *Ciphertext, tarLen, auxIdx int, auxMod *num.Modulus) float64 {
+// tensor computes the noise of the tensor product of two ciphertexts.
+func (ne *NoiseEstimator) tensor(ct0, ct1 *Ciphertext, tarLen, auxIdx int, auxMod *num.Modulus) float64 {
 	var scale float64
 	if auxMod != nil {
 		scale = float64(ne.params.BaseModulus()[auxIdx].Value()) / float64(auxMod.Value())
@@ -227,7 +227,7 @@ func (ne *NoiseEstimator) tensorTo(ct0, ct1 *Ciphertext, tarLen, auxIdx int, aux
 // MulTo returns the noise of the product of two ciphertexts.
 func (ne *NoiseEstimator) MulTo(ctOut, ct0, ct1 *Ciphertext) {
 	tarLen, auxIdx, auxMod := ne.getAuxMod(ct0, ct1)
-	ctOut.noise = ne.tensorTo(ct0, ct1, tarLen, auxIdx, auxMod) + ne.noise.GadgetProd(tarLen)
+	ctOut.noise = ne.tensor(ct0, ct1, tarLen, auxIdx, auxMod) + ne.noise.GadgetProd(tarLen)
 }
 
 // MulPlainTo returns the noise of the product of a ciphertext and a plaintext.

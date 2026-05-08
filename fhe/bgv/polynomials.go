@@ -8,6 +8,7 @@ import (
 	"github.com/hienaa-org/hienaa/fhe/rlwe"
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/num"
+	"github.com/hienaa-org/hienaa/math/vec"
 )
 
 type Polynomial struct {
@@ -161,7 +162,7 @@ func (op *Operator) EvaluatePolyTo(ctOut *Ciphertext, p *Polynomial, ct *Ciphert
 
 			op.tensorTo(basisLazy[i], basis[idx1], basis[idx2], tarLen, auxIdx, auxMod, true)
 
-			basis[i].noise = op.noise.tensorTo(basis[idx1], basis[idx2], tarLen, auxIdx, auxMod)
+			basis[i].noise = op.noise.tensor(basis[idx1], basis[idx2], tarLen, auxIdx, auxMod)
 		}
 	}
 
@@ -201,15 +202,6 @@ func (op *Operator) evalRecurseTo(ctOut *Ciphertext, vOut *rlwe.Vector, lo, hi i
 	vOut.Clear()
 	isTensor := false
 
-	// Define required instances.
-	ctBuf := op.ctPool.Get()
-	defer op.ctPool.Put(ctBuf)
-	ctBuf = ctBuf.WithModLen(ctLen)
-
-	pBuf := op.ePool.Get(crt.TypePoly)
-	defer op.ePool.Put(pBuf)
-	pBuf = pBuf.WithModLen(ctLen, 0)
-
 	// Paterson-Stockmeyer algorithm.
 	pOp := op.rlweOp.PlainOperator()
 	if curDeg <= babyDeg && (hi != maxDeg || curDeg == 2) {
@@ -238,29 +230,44 @@ func (op *Operator) evalRecurseTo(ctOut *Ciphertext, vOut *rlwe.Vector, lo, hi i
 						isTensor = true
 					}
 
-					pOp.ScaleTo(pBuf, basisLazy[i].Value[0], ctLen, true)
-					pOp.MulAddTo(vOut.Value[0], pBuf, scBuf)
-					pOp.ScaleTo(pBuf, basisLazy[i].Value[1], ctLen, true)
-					pOp.MulAddTo(vOut.Value[1], pBuf, scBuf)
-					pOp.ScaleTo(pBuf, basisLazy[i].Value[2], ctLen, true)
-					pOp.MulAddTo(vOut.Value[2], pBuf, scBuf)
-
-					op.noise.ModSwitchTo(ctBuf, basis[i], ctLen)
+					bsLen := basisLazy[i].BaseModLen()
+					for j := 0; j < bsLen; j++ {
+						sc := val[0]
+						for k := bsLen; k < ctLen; k++ {
+							sc = num.Mul(sc, op.params.BaseModulus()[k].Value(), op.params.BaseModulus()[j])
+						}
+						vec.MulAddScalarTo(vOut.Value[0].Value.Coeffs[j], basisLazy[i].Value[0].Value.Coeffs[j], sc, op.params.BaseModulus()[j])
+						vec.MulAddScalarTo(vOut.Value[1].Value.Coeffs[j], basisLazy[i].Value[1].Value.Coeffs[j], sc, op.params.BaseModulus()[j])
+						vec.MulAddScalarTo(vOut.Value[2].Value.Coeffs[j], basisLazy[i].Value[2].Value.Coeffs[j], sc, op.params.BaseModulus()[j])
+					}
 				} else if !isTensor {
-					op.ModSwitchTo(ctBuf, basis[i], ctLen, true)
-					pOp.MulAddTo(ctOut.Value.Body, ctBuf.Value.Body, scBuf)
-					pOp.MulAddTo(ctOut.Value.Mask, ctBuf.Value.Mask, scBuf)
+					bsLen := basis[i].ModLen()
+					for j := 0; j < bsLen; j++ {
+						sc := val[0]
+						for k := bsLen; k < ctLen; k++ {
+							sc = num.Mul(sc, op.params.BaseModulus()[k].Value(), op.params.BaseModulus()[j])
+						}
+						vec.MulAddScalarTo(ctOut.Value.Body.Value.Coeffs[j], basis[i].Value.Body.Value.Coeffs[j], sc, op.params.BaseModulus()[j])
+						vec.MulAddScalarTo(ctOut.Value.Mask.Value.Coeffs[j], basis[i].Value.Mask.Value.Coeffs[j], sc, op.params.BaseModulus()[j])
+					}
 				} else {
-					op.ModSwitchTo(ctBuf, basis[i], ctLen, true)
-					pOp.MulAddTo(vOut.Value[0], ctBuf.Value.Body, scBuf)
-					pOp.MulAddTo(vOut.Value[1], ctBuf.Value.Mask, scBuf)
+					bsLen := basis[i].ModLen()
+					for j := 0; j < bsLen; j++ {
+						sc := val[0]
+						for k := bsLen; k < ctLen; k++ {
+							sc = num.Mul(sc, op.params.BaseModulus()[k].Value(), op.params.BaseModulus()[j])
+						}
+						vec.MulAddScalarTo(vOut.Value[0].Value.Coeffs[j], basis[i].Value.Body.Value.Coeffs[j], sc, op.params.BaseModulus()[j])
+						vec.MulAddScalarTo(vOut.Value[1].Value.Coeffs[j], basis[i].Value.Mask.Value.Coeffs[j], sc, op.params.BaseModulus()[j])
+					}
 				}
 
+				scNoise := op.noise.noise.ModSwitch(basis[i].noise, basis[i].ModLen(), ctLen)
 				switch op.noise.estimType {
 				case heint.VarianceType:
-					ctOut.noise += ctBuf.noise * float64(val[0]) * float64(val[0])
+					ctOut.noise += scNoise * float64(val[0]) * float64(val[0])
 				case heint.WorstCaseType:
-					ctOut.noise += ctBuf.noise * float64(val[0])
+					ctOut.noise += scNoise * float64(val[0])
 				}
 			}
 		}
@@ -291,16 +298,24 @@ func (op *Operator) evalRecurseTo(ctOut *Ciphertext, vOut *rlwe.Vector, lo, hi i
 			}
 			tarLen, auxIdx, auxMod := op.noise.getAuxMod(ctHi, basis[halfDeg])
 			vHiTar := vHi.WithModLen(tarLen, 0)
-			ctHiTar := ctHi.WithModLen(tarLen)
 
 			op.tensorTo(vHiTar, ctHi, basis[halfDeg], tarLen, auxIdx, auxMod, true)
-			pOp.ScaleTo(vHi.Value[0], vHiTar.Value[0], ctLen, true)
-			pOp.ScaleTo(vHi.Value[1], vHiTar.Value[1], ctLen, true)
-			pOp.ScaleTo(vHi.Value[2], vHiTar.Value[2], ctLen, true)
+			for j := 0; j < tarLen; j++ {
+				sc := uint64(1)
+				for k := tarLen; k < ctLen; k++ {
+					sc = num.Mul(sc, op.params.BaseModulus()[k].Value(), op.params.BaseModulus()[j])
+				}
+				vec.MulScalarTo(vHi.Value[0].Value.Coeffs[j], vHiTar.Value[0].Value.Coeffs[j], sc, op.params.BaseModulus()[j])
+				vec.MulScalarTo(vHi.Value[1].Value.Coeffs[j], vHiTar.Value[1].Value.Coeffs[j], sc, op.params.BaseModulus()[j])
+				vec.MulScalarTo(vHi.Value[2].Value.Coeffs[j], vHiTar.Value[2].Value.Coeffs[j], sc, op.params.BaseModulus()[j])
+			}
+			for j := tarLen; j < ctLen; j++ {
+				clear(vHi.Value[0].Value.Coeffs[j])
+				clear(vHi.Value[1].Value.Coeffs[j])
+				clear(vHi.Value[2].Value.Coeffs[j])
+			}
 
-			ctHiTar.noise = op.noise.tensorTo(ctHi, basis[halfDeg], tarLen, auxIdx, auxMod)
-			op.noise.ModSwitchTo(ctHi, ctHiTar, ctLen)
-
+			ctHi.noise = op.noise.noise.ModSwitch(op.noise.tensor(ctHi, basis[halfDeg], tarLen, auxIdx, auxMod), tarLen, ctLen)
 			if !isTensorLo {
 				// Add the output ciphertext to the result.
 				pOp.AddTo(vOut.Value[0], vHi.Value[0], ctOut.Value.Body)
