@@ -300,20 +300,9 @@ func (op *Operator) evalRecurseTo(ctOut *Ciphertext, vOut *rlwe.Vector, lo, hi i
 			vHiTar := vHi.WithModLen(tarLen, 0)
 
 			op.tensorTo(vHiTar, ctHi, basis[halfDeg], tarLen, auxIdx, auxMod, true)
-			for j := 0; j < tarLen; j++ {
-				sc := uint64(1)
-				for k := tarLen; k < ctLen; k++ {
-					sc = num.Mul(sc, op.params.BaseModulus()[k].Value(), op.params.BaseModulus()[j])
-				}
-				vec.MulScalarTo(vHi.Value[0].Value.Coeffs[j], vHiTar.Value[0].Value.Coeffs[j], sc, op.params.BaseModulus()[j])
-				vec.MulScalarTo(vHi.Value[1].Value.Coeffs[j], vHiTar.Value[1].Value.Coeffs[j], sc, op.params.BaseModulus()[j])
-				vec.MulScalarTo(vHi.Value[2].Value.Coeffs[j], vHiTar.Value[2].Value.Coeffs[j], sc, op.params.BaseModulus()[j])
-			}
-			for j := tarLen; j < ctLen; j++ {
-				clear(vHi.Value[0].Value.Coeffs[j])
-				clear(vHi.Value[1].Value.Coeffs[j])
-				clear(vHi.Value[2].Value.Coeffs[j])
-			}
+			pOp.ScaleTo(vHi.Value[0], vHiTar.Value[0], ctLen, true)
+			pOp.ScaleTo(vHi.Value[1], vHiTar.Value[1], ctLen, true)
+			pOp.ScaleTo(vHi.Value[2], vHiTar.Value[2], ctLen, true)
 
 			ctHi.noise = op.noise.noise.ModSwitch(op.noise.tensor(ctHi, basis[halfDeg], tarLen, auxIdx, auxMod), tarLen, ctLen)
 			if !isTensorLo {
