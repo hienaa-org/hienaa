@@ -69,13 +69,6 @@ func (op *Operator) EvaluatePoly(p *Polynomial, ct *Ciphertext, rlk *rlwe.RelinK
 
 // Evaluate evaluates the polynomial at the given ciphertext.
 func (op *Operator) EvaluatePolyTo(ctOut *Ciphertext, p *Polynomial, ct *Ciphertext, rlk *rlwe.RelinKey, isNTT bool) {
-	// Handle the edge case.
-	if p.Degree() == 0 {
-		ctOut.Clear()
-		op.AddPlainTo(ctOut, ctOut, p.coeffs[0], isNTT)
-		return
-	}
-
 	// First compute the basis.
 	basis := make(map[int]*Ciphertext)
 	basisLazy := make(map[int]*rlwe.Vector)
@@ -89,7 +82,14 @@ func (op *Operator) EvaluatePolyTo(ctOut *Ciphertext, p *Polynomial, ct *Ciphert
 	babyLevel := polyutils.BabyLevel(deg)
 	babyDeg := polyutils.BabyDeg(deg)
 
-	// BABYSTEP COMPUTATION
+	ctOut.Resize(ctLen)
+	// Handle the edge case.
+	if p.Degree() == 0 {
+		ctOut.Clear()
+		op.AddPlainTo(ctOut, ctOut, p.coeffs[0], isNTT)
+		return
+	}
+
 	// Compute the power-of-two monomials.
 	basis[1] = op.ctPool.Get()
 	defer op.ctPool.Put(basis[1])

@@ -69,13 +69,6 @@ func (op *Operator) EvaluatePoly(p *Polynomial, ct *Ciphertext, rlk *rlwe.RelinK
 
 // EvaluatePoly evaluates the polynomial at the given ciphertext.
 func (op *Operator) EvaluatePolyTo(ctOut *Ciphertext, p *Polynomial, ct *Ciphertext, rlk *rlwe.RelinKey, isNTT bool) {
-	// Handle the edge case.
-	if p.Degree() == 0 {
-		ctOut.Clear()
-		op.AddPlainTo(ctOut, ctOut, p.coeffs[0], isNTT)
-		return
-	}
-
 	// First compute the basis.
 	basis := make(map[int]*Ciphertext)
 	basisLazy := make(map[int]*rlwe.Vector)
@@ -88,10 +81,19 @@ func (op *Operator) EvaluatePolyTo(ctOut *Ciphertext, p *Polynomial, ct *Ciphert
 	babyLevel := polyutils.BabyLevel(deg)
 	babyDeg := polyutils.BabyDeg(deg)
 
+	ctOut.Resize(ctLen)
+	// Handle the edge case.
+	if p.Degree() == 0 {
+		ctOut.Clear()
+		op.AddPlainTo(ctOut, ctOut, p.coeffs[0], isNTT)
+		return
+	}
+
 	// Compute the power-of-two monomials.
 	basis[1] = op.ctPool.Get()
 	defer op.ctPool.Put(basis[1])
 	basis[1] = basis[1].WithModLen(ctLen)
+
 	if ct.IsNTT() {
 		basis[1].CopyFrom(ct)
 	} else {
@@ -145,18 +147,18 @@ func (op *Operator) EvaluatePolyTo(ctOut *Ciphertext, p *Polynomial, ct *Ciphert
 			basisLazy[i] = op.vPool.Get()
 			defer op.vPool.Put(basisLazy[i])
 
-			basis[i] = &Ciphertext{
-				Value: &rlwe.Ciphertext{
-					Body: basisLazy[i].Value[0].WithModLen(ctLen, 0),
-					Mask: basisLazy[i].Value[1].WithModLen(ctLen, 0),
-				},
-			}
-
 			idx1 := 1 << int(math.Floor(num.Log2(i)))
 			idx2 := i - idx1
 
 			tarLen, auxIdx, auxMod := op.noise.getAuxMod(basis[idx1], basis[idx2])
 			basisLazy[i] = basisLazy[i].WithModLen(tarLen, 0)
+			basis[i] = &Ciphertext{
+				Value: &rlwe.Ciphertext{
+					Body: basisLazy[i].Value[0],
+					Mask: basisLazy[i].Value[1],
+				},
+			}
+
 			op.tensorTo(basisLazy[i], basis[idx1], basis[idx2], tarLen, auxIdx, auxMod, true)
 
 			basis[i].noise = op.noise.tensorTo(basis[idx1], basis[idx2], tarLen, auxIdx, auxMod)
