@@ -594,6 +594,9 @@ func (sc *Scaler) scaleNTTTo(eOutNTT, eNTT *Element) {
 	inLen, gcdLen, outLen := len(eNTT.Coeffs), sc.vecSc.modGCDLen, len(eOutNTT.Coeffs)
 	if inLen != len(sc.vecSc.modIn) || outLen != len(sc.vecSc.modOut) {
 		panic("input(s) not consistent")
+	} else if inLen == outLen && inLen == gcdLen {
+		eOutNTT.CopyFrom(eNTT)
+		return
 	}
 
 	if len(sc.vecSc.modIn) == sc.vecSc.modGCDLen {
@@ -964,6 +967,11 @@ func (sc *VecScaler) ScaleTo(vOut, v [][]uint64) {
 	inLen, gcdLen, outLen := len(sc.modIn), sc.modGCDLen, len(sc.modOut)
 	if len(v) != len(sc.modIn) || len(vOut) != len(sc.modOut) {
 		panic("input(s) not consistent")
+	} else if inLen == outLen && inLen == gcdLen {
+		for i := 0; i < inLen; i++ {
+			copy(vOut[i][:], v[i][:])
+		}
+		return
 	}
 
 	if len(sc.modIn) == sc.modGCDLen {

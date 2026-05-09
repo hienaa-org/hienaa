@@ -107,8 +107,9 @@ func (op *Operator) ModSwitch(ct *Ciphertext, l int, isNTT bool) *Ciphertext {
 
 // ModSwitchTo switches the modulus of the ciphertext to the given length.
 func (op *Operator) ModSwitchTo(ctOut, ct *Ciphertext, l int, isNTT bool) {
+	ctOutTmp := ctOut.WithModLen(l)
+	op.rlweOp.ScaleTo(ctOutTmp.Value, ct.Value, l, isNTT)
 	ctOut.Value.Resize(l, 0)
-	op.rlweOp.ScaleTo(ctOut.Value, ct.Value, l, isNTT)
 	op.noise.ModSwitchTo(ctOut, ct, l)
 }
 
@@ -375,9 +376,9 @@ func (op *Operator) scaleFromMulModTo(vOut *rlwe.Vector, vIn *rlwe.Vector, auxId
 	}
 
 	sc := crt.NewScaler(opOut, opIn).WithPool(op.embPool)
-	sc.ScaleTo(vOut.Value[0].Value, vOut.Value[0].Value, isNTT)
-	sc.ScaleTo(vOut.Value[1].Value, vOut.Value[1].Value, isNTT)
-	sc.ScaleTo(vOut.Value[2].Value, vOut.Value[2].Value, isNTT)
+	sc.ScaleTo(vOut.Value[0].Value, vIn.Value[0].Value, isNTT)
+	sc.ScaleTo(vOut.Value[1].Value, vIn.Value[1].Value, isNTT)
+	sc.ScaleTo(vOut.Value[2].Value, vIn.Value[2].Value, isNTT)
 }
 
 // MulPlain computes ctOut = ct * pt.

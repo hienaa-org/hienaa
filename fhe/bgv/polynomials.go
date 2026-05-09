@@ -115,6 +115,7 @@ func (op *Operator) EvaluatePolyTo(ctOut *Ciphertext, p *Polynomial, ct *Ciphert
 	}
 
 	// Compute other monomials.
+	pOp := op.rlweOp.PlainOperator()
 	for i := 1; i < babyDeg; i++ {
 		if num.IsPowerOfTwo(i) {
 			continue
@@ -171,7 +172,6 @@ func (op *Operator) EvaluatePolyTo(ctOut *Ciphertext, p *Polynomial, ct *Ciphert
 			lazyTmp := basisLazy[i].WithModLen(tarLen, 0)
 			op.tensorTo(lazyTmp, basis[idx1], basis[idx2], tarLen, auxIdx, auxMod, true)
 
-			pOp := op.rlweOp.PlainOperator()
 			pOp.ScaleTo(basisLazy[i].Value[0], lazyTmp.Value[0], ctLen, true)
 			pOp.ScaleTo(basisLazy[i].Value[1], lazyTmp.Value[1], ctLen, true)
 			pOp.ScaleTo(basisLazy[i].Value[2], lazyTmp.Value[2], ctLen, true)
