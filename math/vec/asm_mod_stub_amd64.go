@@ -177,3 +177,6 @@ func sMulAddLazyToAVX512(vOut []uint64, v0 []uint64, v1 []uint64, v1S []uint64, 
 
 //go:noescape
 func sMulSubLazyToAVX512(vOut []uint64, v0 []uint64, v1 []uint64, v1S []uint64, q uint64)
+
+//go:noescape
+func reduceToAVX512(vOut []uint64, v []uint64, q uint64, divHi uint64)

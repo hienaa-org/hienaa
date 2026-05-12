@@ -518,39 +518,3 @@ func Reduce[T num.Integer](v []T, q *num.Modulus) []uint64 {
 	ReduceTo(vOut, v, q)
 	return vOut
 }
-
-// ReduceTo computes vOut = v mod q.
-//
-// Panics if q is nil.
-func ReduceTo[T num.Integer](vOut []uint64, v []T, q *num.Modulus) {
-	checkLength(len(vOut), len(v))
-
-	qv := q.Value()
-	divHi, _ := q.Div()
-
-	M := (len(vOut) >> 3) << 3
-	L := unsafe.Sizeof(uint64(0))
-	LT := unsafe.Sizeof(T(0))
-
-	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
-	r := unsafe.Pointer(unsafe.SliceData(v))
-
-	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
-		w := (*[8]T)(unsafe.Add(r, uintptr(i)*LT))
-
-		wOut[0] = modops.BMod(w[0], qv, divHi)
-		wOut[1] = modops.BMod(w[1], qv, divHi)
-		wOut[2] = modops.BMod(w[2], qv, divHi)
-		wOut[3] = modops.BMod(w[3], qv, divHi)
-
-		wOut[4] = modops.BMod(w[4], qv, divHi)
-		wOut[5] = modops.BMod(w[5], qv, divHi)
-		wOut[6] = modops.BMod(w[6], qv, divHi)
-		wOut[7] = modops.BMod(w[7], qv, divHi)
-	}
-
-	for i := M; i < len(vOut); i++ {
-		vOut[i] = modops.BMod(v[i], qv, divHi)
-	}
-}

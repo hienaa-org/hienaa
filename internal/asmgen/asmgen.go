@@ -107,6 +107,8 @@ func main() {
 		VecSMulToAVX512(OpPure, true)
 		VecSMulToAVX512(OpAdd, true)
 		VecSMulToAVX512(OpSub, true)
+
+		VecReduceToAVX512()
 	}
 
 	if *ntt {

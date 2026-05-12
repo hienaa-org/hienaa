@@ -1182,9 +1182,8 @@ func VecSMulScalarToAVX512(opType OpType, isLazy bool) {
 	VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_LO"), 0), maskLo)
 
 	q64 := Load(Param("q"), GP64())
-	q, qHi := ZMM(), ZMM()
+	q := ZMM()
 	VPBROADCASTQ(NewParamAddr("q", 64), q)
-	VPSRLQ(Imm(32), q, qHi)
 
 	c64 := Load(Param("c"), GP64())
 	cS64 := Load(Param("cS"), GP64())
@@ -1710,9 +1709,8 @@ func VecSMulToAVX512(opType OpType, isLazy bool) {
 	VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_LO"), 0), maskLo)
 
 	q64 := Load(Param("q"), GP64())
-	q, qHi := ZMM(), ZMM()
+	q := ZMM()
 	VPBROADCASTQ(NewParamAddr("q", 96), q)
-	VPSRLQ(Imm(32), q, qHi)
 
 	N := Load(Param("vOut").Len(), GP64())
 	vOut := Load(Param("vOut").Base(), GP64())
@@ -1848,6 +1846,95 @@ func VecSMulToAVX512(opType OpType, isLazy bool) {
 	}
 
 	MOVQ(yOut, Mem{Base: vOut, Index: i, Scale: 8})
+
+	ADDQ(Imm(1), i)
+
+	Label("leftover_loop_end")
+	CMPQ(i, N)
+	JL(LabelRef("leftover_loop_body"))
+
+	RET()
+}
+
+func VecReduceToAVX512() {
+	TEXT("reduceToAVX512", NOSPLIT, "func(vOut, v []uint64, q, divHi uint64)")
+	Pragma("noescape")
+
+	maskLo := ZMM()
+	VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_LO"), 0), maskLo)
+
+	q64 := Load(Param("q"), GP64())
+	q := ZMM()
+	VPBROADCASTQ(NewParamAddr("q", 48), q)
+
+	divHi64 := Load(Param("divHi"), GP64())
+	divHi := ZMM()
+	VPBROADCASTQ(NewParamAddr("divHi", 56), divHi)
+
+	divHiHi := ZMM()
+	VPSRLQ(Imm(32), divHi, divHiHi)
+
+	N := Load(Param("vOut").Len(), GP64())
+	vOut := Load(Param("vOut").Base(), GP64())
+	v := Load(Param("v").Base(), GP64())
+
+	M := GP64()
+	MOVQ(N, M)
+	SHRQ(Imm(3), M)
+	SHLQ(Imm(3), M)
+
+	i := GP64()
+	XORQ(i, i)
+	JMP(LabelRef("loop_end"))
+	Label("loop_body")
+
+	x := ZMM()
+	VMOVDQU64(Mem{Base: v, Index: i, Scale: 8}, x)
+
+	xOut := ZMM()
+
+	xHi := ZMM()
+	VPSRLQ(Imm(32), x, xHi)
+
+	quo := ZMM()
+	Mul64HiAVX512(x, xHi, divHi, divHiHi, maskLo, quo)
+	VPMULLQ(quo, q, quo)
+	VPSUBQ(quo, x, xOut)
+
+	xSubQ := ZMM()
+	VPSUBQ(q, xOut, xSubQ)
+	VPMINUQ(xSubQ, xOut, xOut)
+
+	VMOVDQU64(xOut, Mem{Base: vOut, Index: i, Scale: 8})
+
+	ADDQ(Imm(8), i)
+
+	Label("loop_end")
+	CMPQ(i, M)
+	JL(LabelRef("loop_body"))
+
+	JMP(LabelRef("leftover_loop_end"))
+	Label("leftover_loop_body")
+
+	y := GP64()
+	MOVQ(Mem{Base: v, Index: i, Scale: 8}, y)
+
+	yOut := GP64()
+
+	quo64 := GP64()
+	MOVQ(divHi64, reg.RDX)
+	MULXQ(y, yOut, quo64)
+	IMULQ(q64, quo64)
+
+	SUBQ(quo64, y)
+
+	subQ := GP64()
+	MOVQ(y, subQ)
+	SUBQ(q64, subQ)
+	CMPQ(q64, y)
+	CMOVQLS(subQ, y)
+
+	MOVQ(y, Mem{Base: vOut, Index: i, Scale: 8})
 
 	ADDQ(Imm(1), i)
 
