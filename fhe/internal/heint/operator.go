@@ -126,21 +126,62 @@ func (op *Operator) NegTo(ctOut, ct *rlwe.Ciphertext, isNTT bool) {
 
 // AddTo computes ctOut = ct0 + ct1.
 func (op *Operator) AddTo(ctOut, ct0, ct1 *rlwe.Ciphertext, isNTT bool) {
-	tarLen := min(ct0.BaseModLen(), ct1.BaseModLen())
-
-	c0 := op.ctPool.Get()
-	c1 := op.ctPool.Get()
-	defer op.ctPool.Put(c0)
-	defer op.ctPool.Put(c1)
-
-	c0 = c0.WithModLen(tarLen, 0)
-	c1 = c1.WithModLen(tarLen, 0)
-
-	op.rlweOp.ScaleTo(c0, ct0, tarLen, isNTT)
-	op.rlweOp.ScaleTo(c1, ct1, tarLen, isNTT)
+	// Ensure ct0 has smaller modulus.
+	if ct0.BaseModLen() > ct1.BaseModLen() {
+		ct0, ct1 = ct1, ct0
+	}
+	tarLen := ct0.BaseModLen()
 
 	ctOut.Resize(tarLen, 0)
-	op.rlweOp.AddTo(ctOut, c0, c1)
+	if ct0.IsNTT() != isNTT {
+		c0 := op.ctPool.Get()
+		defer op.ctPool.Put(c0)
+		c0 = c0.WithModLen(tarLen, 0)
+
+		if isNTT {
+			op.rlweOp.FwdNTTTo(c0, ct0)
+		} else {
+			op.rlweOp.InvNTTTo(c0, ct0)
+		}
+
+		if ct1.BaseModLen() == tarLen {
+			if ct1.IsNTT() == isNTT {
+				op.rlweOp.AddTo(ctOut, c0, ct1)
+			} else if ct1.IsNTT() {
+				op.rlweOp.InvNTTTo(ctOut, ct1)
+				op.rlweOp.AddTo(ctOut, c0, ctOut)
+			} else {
+				op.rlweOp.FwdNTTTo(ctOut, ct1)
+				op.rlweOp.AddTo(ctOut, c0, ctOut)
+			}
+		} else {
+			c1 := op.ctPool.Get()
+			defer op.ctPool.Put(c1)
+			c1 = c1.WithModLen(tarLen, 0)
+
+			op.rlweOp.ScaleTo(c1, ct1, tarLen, isNTT)
+			op.rlweOp.AddTo(ctOut, c0, c1)
+		}
+	} else {
+		if ct1.BaseModLen() == tarLen {
+			if ct1.IsNTT() == isNTT {
+				op.rlweOp.AddTo(ctOut, ct0, ct1)
+			} else if ct1.IsNTT() {
+				op.rlweOp.InvNTTTo(ctOut, ct1)
+				op.rlweOp.AddTo(ctOut, ct0, ctOut)
+			} else {
+				op.rlweOp.FwdNTTTo(ctOut, ct1)
+				op.rlweOp.AddTo(ctOut, ct0, ctOut)
+			}
+		} else {
+			c1 := op.ctPool.Get()
+			defer op.ctPool.Put(c1)
+			c1 = c1.WithModLen(tarLen, 0)
+
+			op.rlweOp.ScaleTo(c1, ct1, tarLen, isNTT)
+			op.rlweOp.AddTo(ctOut, ct0, c1)
+		}
+	}
 }
 
 // AddPlainTo computes ctOut = ct + pt.
@@ -215,21 +256,62 @@ func (op *Operator) AddElementTo(ctOut, ct *rlwe.Ciphertext, e *rlwe.Element, is
 
 // SubTo computes ctOut = ct0 - ct1.
 func (op *Operator) SubTo(ctOut, ct0, ct1 *rlwe.Ciphertext, isNTT bool) {
-	tarLen := min(ct0.BaseModLen(), ct1.BaseModLen())
-
-	c0 := op.ctPool.Get()
-	c1 := op.ctPool.Get()
-	defer op.ctPool.Put(c0)
-	defer op.ctPool.Put(c1)
-
-	c0 = c0.WithModLen(tarLen, 0)
-	c1 = c1.WithModLen(tarLen, 0)
-
-	op.rlweOp.ScaleTo(c0, ct0, tarLen, isNTT)
-	op.rlweOp.ScaleTo(c1, ct1, tarLen, isNTT)
+	// Ensure ct0 has smaller modulus.
+	if ct0.BaseModLen() > ct1.BaseModLen() {
+		ct0, ct1 = ct1, ct0
+	}
+	tarLen := ct0.BaseModLen()
 
 	ctOut.Resize(tarLen, 0)
-	op.rlweOp.SubTo(ctOut, c0, c1)
+	if ct0.IsNTT() != isNTT {
+		c0 := op.ctPool.Get()
+		defer op.ctPool.Put(c0)
+		c0 = c0.WithModLen(tarLen, 0)
+
+		if isNTT {
+			op.rlweOp.FwdNTTTo(c0, ct0)
+		} else {
+			op.rlweOp.InvNTTTo(c0, ct0)
+		}
+
+		if ct1.BaseModLen() == tarLen {
+			if ct1.IsNTT() == isNTT {
+				op.rlweOp.SubTo(ctOut, c0, ct1)
+			} else if ct1.IsNTT() {
+				op.rlweOp.InvNTTTo(ctOut, ct1)
+				op.rlweOp.SubTo(ctOut, c0, ctOut)
+			} else {
+				op.rlweOp.FwdNTTTo(ctOut, ct1)
+				op.rlweOp.SubTo(ctOut, c0, ctOut)
+			}
+		} else {
+			c1 := op.ctPool.Get()
+			defer op.ctPool.Put(c1)
+			c1 = c1.WithModLen(tarLen, 0)
+
+			op.rlweOp.ScaleTo(c1, ct1, tarLen, isNTT)
+			op.rlweOp.SubTo(ctOut, c0, c1)
+		}
+	} else {
+		if ct1.BaseModLen() == tarLen {
+			if ct1.IsNTT() == isNTT {
+				op.rlweOp.SubTo(ctOut, ct0, ct1)
+			} else if ct1.IsNTT() {
+				op.rlweOp.InvNTTTo(ctOut, ct1)
+				op.rlweOp.SubTo(ctOut, ct0, ctOut)
+			} else {
+				op.rlweOp.FwdNTTTo(ctOut, ct1)
+				op.rlweOp.SubTo(ctOut, ct0, ctOut)
+			}
+		} else {
+			c1 := op.ctPool.Get()
+			defer op.ctPool.Put(c1)
+			c1 = c1.WithModLen(tarLen, 0)
+
+			op.rlweOp.ScaleTo(c1, ct1, tarLen, isNTT)
+			op.rlweOp.SubTo(ctOut, ct0, c1)
+		}
+	}
 }
 
 // SubPlainTo computes ctOut = ct - pt.
