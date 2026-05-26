@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	BOUND_128BIT = 12
+	GaussianTailCut = 12
 )
 
 // SamplerParameters is the parameters for [Sampler].
@@ -29,7 +29,7 @@ type UniformSamplerParameters struct {
 	// If BoundMax is set but BoundMin is nil, then it is set to -q/2.
 	// If both BoundMin and BoundMax are nil, then it is ignored.
 	BoundMin *big.Int
-	// BoundMax is the maximum bound that is sampled.
+	// BoundMax is the maximum bound (exclusive) that is sampled.
 	// If BoundMin is set but BoundMax is nil, then it is set to q/2.
 	// If both BoundMin and BoundMax are nil, then it is ignored.
 	BoundMax *big.Int
@@ -49,27 +49,23 @@ func (p UniformSamplerParameters) Sampler() Sampler {
 func (p UniformSamplerParameters) Bound() float64 {
 	if p.BoundMin == nil || p.BoundMax == nil {
 		panic("bound min and max must be set")
-	} else {
-		if p.BoundMin.Cmp(p.BoundMax) > 0 {
-			bMax, _ := p.BoundMax.Float64()
-			return bMax
-		} else {
-			bMin, _ := p.BoundMin.Float64()
-			return bMin
-		}
 	}
+
+	bMax, _ := p.BoundMax.Float64()
+	bMin, _ := p.BoundMin.Float64()
+	return max(math.Abs(bMax-1), math.Abs(bMin))
 }
 
 // Variance returns the inf-norm bound of the variance of the sampler.
 func (p UniformSamplerParameters) Variance() float64 {
 	if p.BoundMin == nil || p.BoundMax == nil {
 		panic("bound min and max must be set")
-	} else {
-		bMax, _ := p.BoundMax.Float64()
-		bMin, _ := p.BoundMin.Float64()
-
-		return ((bMax-bMin+1)*(bMax-bMin+1) - 1) / 12
 	}
+
+	bMax, _ := p.BoundMax.Float64()
+	bMin, _ := p.BoundMin.Float64()
+
+	return ((bMax-bMin)*(bMax-bMin) - 1) / 12
 }
 
 // TernarySamplerParameters is the parameters for [TernarySampler].
@@ -96,6 +92,8 @@ func (p TernarySamplerParameters) Sampler() Sampler {
 		panic("positive + negative must be in [0, 1]")
 	} else if p.HammingWeight < 0 {
 		panic("hamming weight must be in [0, rank]")
+	} else if p.HammingWeight > 0 && p.Positive+p.Negative == 0 {
+		panic("positive+negative must be nonzero if hamming weight is set")
 	}
 
 	return &TernarySampler{
@@ -179,11 +177,16 @@ func (p RoundedGaussianSamplerParameters[T]) Bound() float64 {
 		center = any(p.Center).(float64)
 		stdDev = any(p.StdDev).(float64)
 	case *big.Float:
-		center, _ = any(p.Center).(*big.Float).Float64()
+		centerBig := any(p.Center).(*big.Float)
+		if centerBig == nil {
+			center = 0
+		} else {
+			center, _ = centerBig.Float64()
+		}
 		stdDev, _ = any(p.StdDev).(*big.Float).Float64()
 	}
 
-	return center + stdDev*BOUND_128BIT
+	return math.Abs(center) + stdDev*GaussianTailCut
 }
 
 // Variance returns the inf-norm bound of the variance of the sampler.

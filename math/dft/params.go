@@ -104,8 +104,8 @@ func NewAutFixedParameters(cycloOrd, rank int) RingParameters {
 
 // NewOtherParameters creates a new [RingParameters] for arbitrary quotient ring.
 func NewOtherParameters(modPoly []int64) RingParameters {
-	if len(modPoly) == 0 {
-		panic("modPoly must be non-empty")
+	if len(modPoly) <= 1 {
+		panic("rank must be larger than 1")
 	}
 
 	return RingParameters{
@@ -156,6 +156,9 @@ func (p RingParameters) Equal(p0 RingParameters) bool {
 // cyclotomicExpFac computes the expansion factor for cyclotomic ring.
 func cyclotomicExpFac(cycloOrd int, cycloPoly []int64) int {
 	if num.IsPowerOfTwo(cycloOrd) {
+		if cycloOrd == 1 {
+			return 1
+		}
 		return cycloOrd >> 1
 	}
 
@@ -300,7 +303,7 @@ func IsNTTFriendly(params RingParameters, mod *num.Modulus) bool {
 
 	primes, _ := num.Factor(mod.Value())
 	for _, f := range primes {
-		if f%gap != 1 {
+		if (f-1)%gap != 0 {
 			return false
 		}
 	}
@@ -308,7 +311,7 @@ func IsNTTFriendly(params RingParameters, mod *num.Modulus) bool {
 }
 
 // MustFindNextNTTPrimes finds a list of prime moduli that are NTT-friendly with respect to the given ring parameters.
-// Specifically, it outputs the first cnt NTT-friendly primes greater than or equal to 2^bits.
+// Specifically, it outputs the first cnt NTT-friendly primes greater than to 2^bits.
 // It panics if an error occurs.
 func MustFindNextNTTPrimes(params RingParameters, bits float64, cnt int) []*num.Modulus {
 	primes, err := FindNextNTTPrimes(params, bits, cnt)
@@ -319,7 +322,7 @@ func MustFindNextNTTPrimes(params RingParameters, bits float64, cnt int) []*num.
 }
 
 // FindNextNTTPrimes finds a list of prime moduli that are NTT-friendly with respect to the given ring parameters.
-// Specifically, it outputs the first cnt NTT-friendly primes greater than or equal to 2^bits.
+// Specifically, it outputs the first cnt NTT-friendly primes greater than to 2^bits.
 func FindNextNTTPrimes(params RingParameters, bits float64, cnt int) ([]*num.Modulus, error) {
 	gap, err := NTTPrimeGap(params)
 	if err != nil {
@@ -342,7 +345,7 @@ func FindNextNTTPrimes(params RingParameters, bits float64, cnt int) ([]*num.Mod
 }
 
 // MustFindPrevNTTPrimes finds a list of prime moduli that are NTT-friendly with respect to the given ring parameters.
-// Specifically, it outputs the first cnt NTT-friendly primes less than or equal to 2^bits.
+// Specifically, it outputs the first cnt NTT-friendly primes less than to 2^bits.
 // It panics if an error occurs.
 func MustFindPrevNTTPrimes(params RingParameters, bits float64, cnt int) []*num.Modulus {
 	primes, err := FindPrevNTTPrimes(params, bits, cnt)
@@ -353,7 +356,7 @@ func MustFindPrevNTTPrimes(params RingParameters, bits float64, cnt int) []*num.
 }
 
 // FindPrevNTTPrimes finds a list of prime moduli that are NTT-friendly with respect to the given ring parameters.
-// Specifically, it outputs the first cnt NTT-friendly primes less than or equal to 2^bits.
+// Specifically, it outputs the first cnt NTT-friendly primes less than 2^bits.
 func FindPrevNTTPrimes(params RingParameters, bits float64, cnt int) ([]*num.Modulus, error) {
 	gap, err := NTTPrimeGap(params)
 	if err != nil {

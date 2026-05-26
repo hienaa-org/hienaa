@@ -32,11 +32,14 @@ func newPow2CyclotomicTransformer(params RingParameters, mod *num.Modulus) *pow2
 
 	tw := make([]uint64, params.rank)
 	twInv := make([]uint64, params.rank)
-	tw[0], tw[1] = 1, num.NthRoot(params.cycloOrd, root, mod)
-	twInv[0], twInv[1] = 1, num.Inv(tw[1], mod)
-	for i := 2; i < params.rank; i++ {
-		tw[i] = num.Mul(tw[i-1], tw[1], mod)
-		twInv[i] = num.Mul(twInv[i-1], twInv[1], mod)
+	tw[0], twInv[0] = 1, 1
+	if params.rank > 1 {
+		tw[1] = num.NthRoot(params.cycloOrd, root, mod)
+		twInv[1] = num.Inv(tw[1], mod)
+		for i := 2; i < params.rank; i++ {
+			tw[i] = num.Mul(tw[i-1], tw[1], mod)
+			twInv[i] = num.Mul(twInv[i-1], twInv[1], mod)
+		}
 	}
 	vec.RadixReverseInPlace(tw, 2)
 	vec.RadixReverseInPlace(twInv, 2)

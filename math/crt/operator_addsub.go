@@ -76,6 +76,7 @@ func (op *baseAddSubOperator) AddTo(eOut, e0, e1 *Element) {
 				eOut.Coeffs[i][0] = num.Add(eOut.Coeffs[i][0], c.Coeffs[i][0], op.mod[i])
 			}
 		}
+
 		eOut.IsNTT = p.IsNTT
 	}
 }
@@ -111,6 +112,13 @@ func (op *baseAddSubOperator) SubTo(eOut, e0, e1 *Element) {
 				eOut.Coeffs[i][0] = num.Sub(eOut.Coeffs[i][0], c.Coeffs[i][0], op.mod[i])
 			}
 		}
+
+		if e0.Type() == TypeScalar {
+			for i := range op.mod {
+				vec.NegTo(eOut.Coeffs[i], eOut.Coeffs[i], op.mod[i])
+			}
+		}
+
 		eOut.IsNTT = p.IsNTT
 	}
 }
@@ -225,6 +233,13 @@ func (op *primeAutFixedAddSubOperator) SubTo(eOut, e0, e1 *Element) {
 				vec.AddScalarTo(eOut.Coeffs[i], p.Coeffs[i], c.Coeffs[i][0], op.mod[i])
 			}
 		}
+
+		if e0.Type() == TypeScalar {
+			for i := range op.mod {
+				vec.NegTo(eOut.Coeffs[i], eOut.Coeffs[i], op.mod[i])
+			}
+		}
+
 		eOut.IsNTT = p.IsNTT
 	}
 }

@@ -152,7 +152,7 @@ func BMod64(x, q, divHi uint64) uint64 {
 // BMod returns x mod q using Barrett reduction.
 func BMod[T Integer](x T, q, divHi uint64) uint64 {
 	if x < 0 {
-		return Neg(BMod64(uint64(-x), q, divHi), q)
+		return Neg(BMod64(uint64(-int64(x)), q, divHi), q)
 	}
 	return BMod64(uint64(x), q, divHi)
 }

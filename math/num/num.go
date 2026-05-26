@@ -6,12 +6,17 @@ import (
 	"math/bits"
 )
 
+// absUint64 returns the abs(x) in uint64.
+func absUint64[T Integer](x T) uint64 {
+	if x < 0 {
+		return uint64(^x) + 1
+	}
+	return uint64(x)
+}
+
 // Abs returns the absolute value of x.
 func Abs[T Integer](x T) T {
-	if x < 0 {
-		return T(-x)
-	}
-	return T(x)
+	return T(absUint64(x))
 }
 
 // IsPowerOfTwo returns whether x is a power of two.
@@ -30,7 +35,7 @@ func Log2[T Real](x T) float64 {
 
 // GCD returns the greatest common divisor of x0 and x1.
 func GCD[T Integer](x0, x1 T) T {
-	return T(gcdUint64(uint64(Abs(x0)), uint64(Abs(x1))))
+	return T(gcdUint64(absUint64(x0), absUint64(x1)))
 }
 
 // gcdUint64 returns the greatest common divisor of x0 and x1.
@@ -68,15 +73,34 @@ func LCM[T Integer](x0, x1 T) T {
 		return 0
 	}
 
-	return (x0 / GCD(x0, x1)) * x1
+	return T(absUint64(x0/GCD(x0, x1)) * absUint64(x1))
 }
 
 // DivCeil returns ceil(x/y).
 func DivCeil[T Integer](x, y T) T {
-	return T(math.Ceil(float64(x) / float64(y)))
+	q := x / y
+	r := x % y
+
+	if r != 0 && ((x < 0) == (y < 0)) {
+		q++
+	}
+	return q
 }
 
 // DivRound returns round(x/y).
 func DivRound[T Integer](x, y T) T {
-	return T(math.Round(float64(x) / float64(y)))
+	q := x / y
+	r := x % y
+
+	rr := absUint64(r)
+	yy := absUint64(y)
+
+	if rr >= (yy>>1)+(yy&1) {
+		if (x < 0) == (y < 0) {
+			q++
+		} else {
+			q--
+		}
+	}
+	return q
 }

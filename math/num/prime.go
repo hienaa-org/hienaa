@@ -68,11 +68,11 @@ func MustPrevPrime[T Integer](x T, skip T) T {
 // If skip <= 0, or there is no prime number meets the condition, it returns an error.
 func PrevPrime[T Integer](x T, skip T) (T, error) {
 	if skip <= 0 {
-		return 0, errors.New("PrevPrime: skip must be positive")
+		return 0, errors.New("skip must be positive")
 	}
 
 	for t := x - skip; ; t -= skip {
-		if uint64(t) > MaxModulus || t <= 1 {
+		if uint64(t) > MaxModulus || t >= x {
 			return 0, errors.New("PrevPrime: underflow")
 		}
 
@@ -96,11 +96,11 @@ func MustNextPrime[T Integer](x T, skip T) T {
 // If skip <= 0, or there is no prime number meets the condition, it returns an error.
 func NextPrime[T Integer](x T, skip T) (T, error) {
 	if skip <= 0 {
-		panic("skip must be positive")
+		return 0, errors.New("skip must be positive")
 	}
 
 	for t := x + skip; ; t += skip {
-		if uint64(t) > MaxModulus {
+		if uint64(t) > MaxModulus || t <= x {
 			return 0, errors.New("overflow")
 		}
 
@@ -111,9 +111,22 @@ func NextPrime[T Integer](x T, skip T) (T, error) {
 }
 
 // IsProdPowerOf checks if x can be expressed as a product of the powers of given factors.
+//
+// Panics if factors is empty.
 func IsProdPowerOf[T Integer](x T, factors []T) bool {
+	if len(factors) == 0 {
+		panic("factors should not be empty")
+	}
+
+	switch x {
+	case 0:
+		return false
+	case 1:
+		return true
+	}
+
 	for _, f := range factors {
-		if f == 0 {
+		if f == 0 || Abs(f) == 1 {
 			continue
 		}
 		for x%f == 0 {
@@ -134,11 +147,12 @@ func NextProdPower[T Integer](x T, factors []T) T {
 }
 
 // Factor factors x. The resulting primes are sorted in ascending order.
+// When x == 1, it returns [1], [1].
 //
-// Panics when x < 0.
+// Panics when x <= 0.
 func Factor[T Integer](x T) (primes []T, exps []T) {
-	if x < 0 {
-		panic("x must be non-negative")
+	if x <= 0 {
+		panic("x must be positive")
 	}
 
 	factors := make(map[uint64]uint64)
@@ -185,7 +199,7 @@ func factorRecurse(x uint64, factors map[uint64]uint64) {
 	}
 
 	n := NewModulus(x)
-	y, c, m := randUint64n(x), 1+randUint64n(x-3), randUint64n(x)
+	y, c, m := randUint64n(x), 1+randUint64n(x-3), 1+randUint64n(x-1)
 	g, r, q := uint64(1), uint64(1), uint64(1)
 
 	var t, ys uint64
@@ -249,7 +263,7 @@ func Order(x uint64, q *Modulus) uint64 {
 
 // Totient returns the Euler-Phi function of x.
 //
-// Panics when x < 0.
+// Panics when x <= 0.
 func Totient[T Integer](x T) T {
 	primes, exps := Factor(x)
 	return TotientWithFactors(x, primes, exps)
@@ -257,11 +271,11 @@ func Totient[T Integer](x T) T {
 
 // TotientWithFactors returns the Euler-Phi function of x, given its factorization.
 //
-// Panics when x < 0.
+// Panics when x <= 0.
 func TotientWithFactors[T Integer](x T, primes, exps []T) T {
-	if x < 0 {
-		panic("x must be non-negative")
-	} else if x == 0 || x == 1 {
+	if x <= 0 {
+		panic("x must be positive")
+	} else if x == 1 {
 		return x
 	}
 

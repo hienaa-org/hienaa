@@ -23,10 +23,6 @@ type Operator struct {
 
 // NewOperator creates a new [Operator].
 func NewOperator(params dft.RingParameters, mod []*num.Modulus) *Operator {
-	if !isCoprime(mod) {
-		panic("modulus must be coprime")
-	}
-
 	switch params.RingType() {
 	case dft.TypeCyclotomic:
 		switch {

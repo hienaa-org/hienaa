@@ -61,7 +61,7 @@ func NewScalarFrom[T num.Integer | *big.Int](x T, mod []*num.Modulus) *Element {
 	case int16:
 		u := any(x).(int16)
 		for i := range r.Coeffs {
-			r.Coeffs[0][i] = num.Reduce(u, mod[i])
+			r.Coeffs[i][0] = num.Reduce(u, mod[i])
 		}
 	case int32:
 		u := any(x).(int32)

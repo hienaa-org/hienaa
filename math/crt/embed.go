@@ -267,10 +267,6 @@ type VecEmbedder struct {
 
 // NewVecEmbedder creates a new [VecEmbedder].
 func NewVecEmbedder(modOut []*num.Modulus, modIn []*num.Modulus) *VecEmbedder {
-	if !isCoprime(modIn) || !isCoprime(modOut) {
-		panic("modulus must be coprime")
-	}
-
 	modInHalf := make([]uint64, len(modIn))
 	for i := 0; i < len(modIn); i++ {
 		modInHalf[i] = modIn[i].Value() >> 1
@@ -406,8 +402,12 @@ func (emb *VecEmbedder) EmbedTo(vOut, v [][]uint64) {
 	vBuf := make([]*[embedBatch]uint64, inLen)
 	for i := range vBuf {
 		vBuf[i] = embed64Pool.Get()
-		defer embed64Pool.Put(vBuf[i])
 	}
+	defer func() {
+		for i := range vBuf {
+			embed64Pool.Put(vBuf[i])
+		}
+	}()
 
 	vBool := embed64Pool.Get()
 	defer embed64Pool.Put(vBool)
@@ -806,10 +806,6 @@ type VecScaler struct {
 }
 
 func NewVecScaler(modOut, modIn []*num.Modulus) *VecScaler {
-	if !isCoprime(modIn) || !isCoprime(modOut) {
-		panic("modulus must be coprime")
-	}
-
 	modGCD := make([]*num.Modulus, 0, min(len(modOut), len(modIn)))
 	isGCDOut := make([]bool, len(modOut))
 	isGCDIn := make([]bool, len(modIn))
@@ -978,8 +974,12 @@ func (sc *VecScaler) ScaleTo(vOut, v [][]uint64) {
 		vBuf := make([]*[embedBatch]uint64, inLen)
 		for i := range vBuf {
 			vBuf[i] = embed64Pool.Get()
-			defer embed64Pool.Put(vBuf[i])
 		}
+		defer func() {
+			for i := range vBuf {
+				embed64Pool.Put(vBuf[i])
+			}
+		}()
 
 		for k := 0; k < M; k += embedBatch {
 			for i := 0; i < inLen; i++ {
@@ -1027,13 +1027,22 @@ func (sc *VecScaler) ScaleTo(vOut, v [][]uint64) {
 	vMul := make([]*[embedBatch]uint64, gcdLen)
 	for i := range vMul {
 		vMul[i] = embed64Pool.Get()
-		defer embed64Pool.Put(vMul[i])
 	}
+	defer func() {
+		for i := range vMul {
+			embed64Pool.Put(vMul[i])
+		}
+	}()
+
 	vBuf := make([]*[embedBatch]uint64, inLen-gcdLen)
 	for i := range vBuf {
 		vBuf[i] = embed64Pool.Get()
-		defer embed64Pool.Put(vBuf[i])
 	}
+	defer func() {
+		for i := range vBuf {
+			embed64Pool.Put(vBuf[i])
+		}
+	}()
 
 	vBool := embed64Pool.Get()
 	defer embed64Pool.Put(vBool)

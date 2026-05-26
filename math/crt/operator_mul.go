@@ -118,11 +118,15 @@ func (op *baseMulOperator) MulTo(eOut, e0, e1 *Element) {
 			if op.ambModLen[i] > 0 {
 				e0Amb = op.pool.Get()
 				e1Amb = op.pool.Get()
-				defer op.pool.Put(e0Amb)
-				defer op.pool.Put(e1Amb)
 				break
 			}
 		}
+		defer func() {
+			if e0Amb != nil && e1Amb != nil {
+				op.pool.Put(e0Amb)
+				op.pool.Put(e1Amb)
+			}
+		}()
 
 		for i := range op.mod {
 			if op.ambModLen[i] == 0 {
@@ -167,11 +171,15 @@ func (op *baseMulOperator) MulAddTo(eOut, e0, e1 *Element) {
 			if op.ambModLen[i] > 0 {
 				e0Amb = op.pool.Get()
 				e1Amb = op.pool.Get()
-				defer op.pool.Put(e0Amb)
-				defer op.pool.Put(e1Amb)
 				break
 			}
 		}
+		defer func() {
+			if e0Amb != nil && e1Amb != nil {
+				op.pool.Put(e0Amb)
+				op.pool.Put(e1Amb)
+			}
+		}()
 
 		for i := range op.mod {
 			if op.ambModLen[i] == 0 {
@@ -217,11 +225,15 @@ func (op *baseMulOperator) MulSubTo(eOut, e0, e1 *Element) {
 			if op.ambModLen[i] > 0 {
 				e0Amb = op.pool.Get()
 				e1Amb = op.pool.Get()
-				defer op.pool.Put(e0Amb)
-				defer op.pool.Put(e1Amb)
 				break
 			}
 		}
+		defer func() {
+			if e0Amb != nil && e1Amb != nil {
+				op.pool.Put(e0Amb)
+				op.pool.Put(e1Amb)
+			}
+		}()
 
 		for i := range op.mod {
 			if op.ambModLen[i] == 0 {
@@ -398,11 +410,15 @@ func (op *anyCyclotomicMulOperator) MulTo(eOut, e0, e1 *Element) {
 			if op.ambModLen[i] > 0 {
 				e0Amb = op.pool.Get()
 				e1Amb = op.pool.Get()
-				defer op.pool.Put(e0Amb)
-				defer op.pool.Put(e1Amb)
 				break
 			}
 		}
+		defer func() {
+			if e0Amb != nil && e1Amb != nil {
+				op.pool.Put(e0Amb)
+				op.pool.Put(e1Amb)
+			}
+		}()
 
 		for i := range op.mod {
 			if op.ambModLen[i] == 0 {
@@ -455,11 +471,15 @@ func (op *anyCyclotomicMulOperator) MulAddTo(eOut, e0, e1 *Element) {
 			if op.ambModLen[i] > 0 {
 				e0Amb = op.pool.Get()
 				e1Amb = op.pool.Get()
-				defer op.pool.Put(e0Amb)
-				defer op.pool.Put(e1Amb)
 				break
 			}
 		}
+		defer func() {
+			if e0Amb != nil && e1Amb != nil {
+				op.pool.Put(e0Amb)
+				op.pool.Put(e1Amb)
+			}
+		}()
 
 		for i := range op.mod {
 			if op.ambModLen[i] == 0 {
@@ -513,11 +533,15 @@ func (op *anyCyclotomicMulOperator) MulSubTo(eOut, e0, e1 *Element) {
 			if op.ambModLen[i] > 0 {
 				e0Amb = op.pool.Get()
 				e1Amb = op.pool.Get()
-				defer op.pool.Put(e0Amb)
-				defer op.pool.Put(e1Amb)
 				break
 			}
 		}
+		defer func() {
+			if e0Amb != nil && e1Amb != nil {
+				op.pool.Put(e0Amb)
+				op.pool.Put(e1Amb)
+			}
+		}()
 
 		for i := range op.mod {
 			if op.ambModLen[i] == 0 {

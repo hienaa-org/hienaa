@@ -102,7 +102,7 @@ func (ne *NoiseEstimator) getAuxMod(ct0, ct1 *Ciphertext) (int, int, *num.Modulu
 	var scale float64
 	switch ne.estimType {
 	case heint.VarianceType:
-		scale = math.Max(1, crt.BOUND_128BIT*math.Sqrt(ct0.noise/ne.noise.RoundNoise()))
+		scale = math.Max(1, crt.GaussianTailCut*math.Sqrt(ct0.noise/ne.noise.RoundNoise()))
 	case heint.WorstCaseType:
 		scale = math.Max(1, ct0.noise/ne.noise.RoundNoise())
 	}

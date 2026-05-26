@@ -2,6 +2,7 @@ package num_test
 
 import (
 	crand "crypto/rand"
+	"math"
 	"testing"
 
 	"github.com/hienaa-org/hienaa/math/csprng"
@@ -34,4 +35,10 @@ func TestFactor(t *testing.T) {
 	}
 
 	assert.Equal(t, x, xComp)
+}
+
+func TestDivRound(t *testing.T) {
+	assert.Equal(t, int64(0), num.DivRound[int64](1, math.MinInt64))
+	assert.Equal(t, int64(1), num.DivRound[int64](2, 3))
+	assert.Equal(t, int64(-1), num.DivRound[int64](-2, 3))
 }

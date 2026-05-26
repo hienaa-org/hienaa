@@ -944,6 +944,7 @@ func (r *Reducer) reduceTo(pOut, p []uint64, idx int) {
 	defer r.pool.Put(pInPtr)
 
 	copy(pIn, p)
+	clear(pIn[len(p):])
 
 	pQuoPtr := r.pool.Get()
 	pQuo := *pQuoPtr
