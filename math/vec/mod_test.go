@@ -692,359 +692,359 @@ func TestOps(t *testing.T) {
 	testOps(t, num.MaxModulusIFMABits)
 }
 
-func benchmarkOps(b *testing.B, logQ int) {
+func benchmarkOps(b *testing.B, logN, logQ int) {
 	q := num.NewModulus(rSrc.SampleN(1<<logQ) | 1)
 
-	for _, logN := range benchLogN {
-		N := 1 << logN
-		v0 := make([]uint64, N)
-		v1 := make([]uint64, N)
-		v1S := make([]uint64, N)
-		vOut := make([]uint64, N)
+	N := 1 << logN
+	v0 := make([]uint64, N)
+	v1 := make([]uint64, N)
+	v1S := make([]uint64, N)
+	vOut := make([]uint64, N)
 
-		for i := 0; i < N; i++ {
-			v0[i] = rSrc.SampleN(q.Value())
-			v1[i] = rSrc.SampleN(q.Value())
-			v1S[i] = rSrc.SampleN(q.Value())
-		}
-
-		b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
-			b.Run(fmt.Sprintf("LogQ=%v", logQ), func(b *testing.B) {
-				b.Run("Add", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.AddTo(vOut, v0, v1, q)
-					}
-				})
-
-				b.Run("AddWord", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.AddTo(vOut, v0, v1, nil)
-					}
-				})
-
-				b.Run("AddScalar", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.AddScalarTo(vOut, v0, v1[0], q)
-					}
-				})
-
-				b.Run("AddScalarWord", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.AddScalarTo(vOut, v0, v1[0], nil)
-					}
-				})
-
-				b.Run("Sub", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.SubTo(vOut, v0, v1, q)
-					}
-				})
-
-				b.Run("SubWord", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.SubTo(vOut, v0, v1, nil)
-					}
-				})
-
-				b.Run("SubScalar", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.SubScalarTo(vOut, v0, v1[0], q)
-					}
-				})
-
-				b.Run("SubScalarWord", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.SubScalarTo(vOut, v0, v1[0], nil)
-					}
-				})
-
-				b.Run("Neg", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.NegTo(vOut, v0, q)
-					}
-				})
-
-				b.Run("MulScalar", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MulScalarTo(vOut, v0, v1[0], q)
-					}
-				})
-
-				b.Run("MulAddScalar", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MulAddScalarTo(vOut, v0, v1[0], q)
-					}
-				})
-
-				b.Run("MulSubScalar", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MulSubScalarTo(vOut, v0, v1[0], q)
-					}
-				})
-
-				b.Run("MulScalarLazy", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MulScalarLazyTo(vOut, v0, v1[0], q)
-					}
-				})
-
-				b.Run("MulAddScalarLazy", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MulAddScalarLazyTo(vOut, v0, v1[0], q)
-					}
-				})
-
-				b.Run("MulSubScalarLazy", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MulSubScalarLazyTo(vOut, v0, v1[0], q)
-					}
-				})
-
-				b.Run("MulScalarWord", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MulScalarTo(vOut, v0, v1[0], nil)
-					}
-				})
-
-				b.Run("MulAddScalarWord", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MulAddScalarTo(vOut, v0, v1[0], nil)
-					}
-				})
-
-				b.Run("MulSubScalarWord", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MulSubScalarTo(vOut, v0, v1[0], nil)
-					}
-				})
-
-				b.Run("MMulScalar", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MMulScalarTo(vOut, v0, v1[0], q)
-					}
-				})
-
-				b.Run("MMulAddScalar", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MMulAddScalarTo(vOut, v0, v1[0], q)
-					}
-				})
-
-				b.Run("MMulSubScalar", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MMulSubScalarTo(vOut, v0, v1[0], q)
-					}
-				})
-
-				b.Run("MMulScalarLazy", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MMulScalarLazyTo(vOut, v0, v1[0], q)
-					}
-				})
-
-				b.Run("MMulAddScalarLazy", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MMulAddScalarLazyTo(vOut, v0, v1[0], q)
-					}
-				})
-
-				b.Run("MMulSubScalarLazy", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MMulSubScalarLazyTo(vOut, v0, v1[0], q)
-					}
-				})
-
-				b.Run("SMulScalar", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.SMulScalarTo(vOut, v0, v1[0], v1S[0], q)
-					}
-				})
-
-				b.Run("SMulAddScalar", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.SMulAddScalarTo(vOut, v0, v1[0], v1S[0], q)
-					}
-				})
-
-				b.Run("SMulSubScalar", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.SMulSubScalarTo(vOut, v0, v1[0], v1S[0], q)
-					}
-				})
-
-				b.Run("SMulScalarLazy", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.SMulScalarLazyTo(vOut, v0, v1[0], v1S[0], q)
-					}
-				})
-
-				b.Run("SMulAddScalarLazy", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.SMulAddScalarLazyTo(vOut, v0, v1[0], v1S[0], q)
-					}
-				})
-
-				b.Run("SMulSubScalarLazy", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.SMulSubScalarLazyTo(vOut, v0, v1[0], v1S[0], q)
-					}
-				})
-
-				b.Run("Mul", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MulTo(vOut, v0, v1, q)
-					}
-				})
-
-				b.Run("MulAdd", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MulAddTo(vOut, v0, v1, q)
-					}
-				})
-
-				b.Run("MulSub", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MulSubTo(vOut, v0, v1, q)
-					}
-				})
-
-				b.Run("MulLazy", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MulLazyTo(vOut, v0, v1, q)
-					}
-				})
-
-				b.Run("MulAddLazy", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MulAddLazyTo(vOut, v0, v1, q)
-					}
-				})
-
-				b.Run("MulSubLazy", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MulSubLazyTo(vOut, v0, v1, q)
-					}
-				})
-
-				b.Run("MulWord", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MulTo(vOut, v0, v1, nil)
-					}
-				})
-
-				b.Run("MulAddWord", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MulAddTo(vOut, v0, v1, nil)
-					}
-				})
-
-				b.Run("MulSubWord", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MulSubTo(vOut, v0, v1, nil)
-					}
-				})
-
-				b.Run("MForm", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MFormTo(vOut, v0, q)
-					}
-				})
-
-				b.Run("InvMForm", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.InvMFormTo(vOut, v0, q)
-					}
-				})
-
-				b.Run("MMul", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MMulTo(vOut, v0, v1, q)
-					}
-				})
-
-				b.Run("MMulAdd", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MMulAddTo(vOut, v0, v1, q)
-					}
-				})
-
-				b.Run("MMulSub", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MMulSubTo(vOut, v0, v1, q)
-					}
-				})
-
-				b.Run("MMulLazy", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MMulLazyTo(vOut, v0, v1, q)
-					}
-				})
-
-				b.Run("MMulAddLazy", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MMulAddLazyTo(vOut, v0, v1, q)
-					}
-				})
-
-				b.Run("MMulSubLazy", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.MMulSubLazyTo(vOut, v0, v1, q)
-					}
-				})
-
-				b.Run("SForm", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.SFormTo(vOut, v0, q)
-					}
-				})
-
-				b.Run("SMul", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.SMulTo(vOut, v0, v1, v1S, q)
-					}
-				})
-
-				b.Run("SMulAdd", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.SMulAddTo(vOut, v0, v1, v1S, q)
-					}
-				})
-
-				b.Run("SMulSub", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.SMulSubTo(vOut, v0, v1, v1S, q)
-					}
-				})
-
-				b.Run("SMulLazy", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.SMulLazyTo(vOut, v0, v1, v1S, q)
-					}
-				})
-
-				b.Run("SMulAddLazy", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.SMulAddLazyTo(vOut, v0, v1, v1S, q)
-					}
-				})
-
-				b.Run("SMulSubLazy", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.SMulSubLazyTo(vOut, v0, v1, v1S, q)
-					}
-				})
-
-				b.Run("Reduce", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						vec.ReduceTo(vOut, v0, q)
-					}
-				})
-			})
-		})
+	for i := 0; i < N; i++ {
+		v0[i] = rSrc.SampleN(q.Value())
+		v1[i] = rSrc.SampleN(q.Value())
+		v1S[i] = rSrc.SampleN(q.Value())
 	}
+
+	b.Run(fmt.Sprintf("LogQ=%v", logQ), func(b *testing.B) {
+		b.Run("Add", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.AddTo(vOut, v0, v1, q)
+			}
+		})
+
+		b.Run("AddWord", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.AddTo(vOut, v0, v1, nil)
+			}
+		})
+
+		b.Run("AddScalar", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.AddScalarTo(vOut, v0, v1[0], q)
+			}
+		})
+
+		b.Run("AddScalarWord", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.AddScalarTo(vOut, v0, v1[0], nil)
+			}
+		})
+
+		b.Run("Sub", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.SubTo(vOut, v0, v1, q)
+			}
+		})
+
+		b.Run("SubWord", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.SubTo(vOut, v0, v1, nil)
+			}
+		})
+
+		b.Run("SubScalar", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.SubScalarTo(vOut, v0, v1[0], q)
+			}
+		})
+
+		b.Run("SubScalarWord", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.SubScalarTo(vOut, v0, v1[0], nil)
+			}
+		})
+
+		b.Run("Neg", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.NegTo(vOut, v0, q)
+			}
+		})
+
+		b.Run("MulScalar", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MulScalarTo(vOut, v0, v1[0], q)
+			}
+		})
+
+		b.Run("MulAddScalar", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MulAddScalarTo(vOut, v0, v1[0], q)
+			}
+		})
+
+		b.Run("MulSubScalar", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MulSubScalarTo(vOut, v0, v1[0], q)
+			}
+		})
+
+		b.Run("MulScalarLazy", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MulScalarLazyTo(vOut, v0, v1[0], q)
+			}
+		})
+
+		b.Run("MulAddScalarLazy", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MulAddScalarLazyTo(vOut, v0, v1[0], q)
+			}
+		})
+
+		b.Run("MulSubScalarLazy", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MulSubScalarLazyTo(vOut, v0, v1[0], q)
+			}
+		})
+
+		b.Run("MulScalarWord", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MulScalarTo(vOut, v0, v1[0], nil)
+			}
+		})
+
+		b.Run("MulAddScalarWord", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MulAddScalarTo(vOut, v0, v1[0], nil)
+			}
+		})
+
+		b.Run("MulSubScalarWord", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MulSubScalarTo(vOut, v0, v1[0], nil)
+			}
+		})
+
+		b.Run("MMulScalar", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MMulScalarTo(vOut, v0, v1[0], q)
+			}
+		})
+
+		b.Run("MMulAddScalar", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MMulAddScalarTo(vOut, v0, v1[0], q)
+			}
+		})
+
+		b.Run("MMulSubScalar", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MMulSubScalarTo(vOut, v0, v1[0], q)
+			}
+		})
+
+		b.Run("MMulScalarLazy", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MMulScalarLazyTo(vOut, v0, v1[0], q)
+			}
+		})
+
+		b.Run("MMulAddScalarLazy", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MMulAddScalarLazyTo(vOut, v0, v1[0], q)
+			}
+		})
+
+		b.Run("MMulSubScalarLazy", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MMulSubScalarLazyTo(vOut, v0, v1[0], q)
+			}
+		})
+
+		b.Run("SMulScalar", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.SMulScalarTo(vOut, v0, v1[0], v1S[0], q)
+			}
+		})
+
+		b.Run("SMulAddScalar", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.SMulAddScalarTo(vOut, v0, v1[0], v1S[0], q)
+			}
+		})
+
+		b.Run("SMulSubScalar", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.SMulSubScalarTo(vOut, v0, v1[0], v1S[0], q)
+			}
+		})
+
+		b.Run("SMulScalarLazy", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.SMulScalarLazyTo(vOut, v0, v1[0], v1S[0], q)
+			}
+		})
+
+		b.Run("SMulAddScalarLazy", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.SMulAddScalarLazyTo(vOut, v0, v1[0], v1S[0], q)
+			}
+		})
+
+		b.Run("SMulSubScalarLazy", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.SMulSubScalarLazyTo(vOut, v0, v1[0], v1S[0], q)
+			}
+		})
+
+		b.Run("Mul", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MulTo(vOut, v0, v1, q)
+			}
+		})
+
+		b.Run("MulAdd", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MulAddTo(vOut, v0, v1, q)
+			}
+		})
+
+		b.Run("MulSub", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MulSubTo(vOut, v0, v1, q)
+			}
+		})
+
+		b.Run("MulLazy", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MulLazyTo(vOut, v0, v1, q)
+			}
+		})
+
+		b.Run("MulAddLazy", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MulAddLazyTo(vOut, v0, v1, q)
+			}
+		})
+
+		b.Run("MulSubLazy", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MulSubLazyTo(vOut, v0, v1, q)
+			}
+		})
+
+		b.Run("MulWord", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MulTo(vOut, v0, v1, nil)
+			}
+		})
+
+		b.Run("MulAddWord", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MulAddTo(vOut, v0, v1, nil)
+			}
+		})
+
+		b.Run("MulSubWord", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MulSubTo(vOut, v0, v1, nil)
+			}
+		})
+
+		b.Run("MForm", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MFormTo(vOut, v0, q)
+			}
+		})
+
+		b.Run("InvMForm", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.InvMFormTo(vOut, v0, q)
+			}
+		})
+
+		b.Run("MMul", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MMulTo(vOut, v0, v1, q)
+			}
+		})
+
+		b.Run("MMulAdd", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MMulAddTo(vOut, v0, v1, q)
+			}
+		})
+
+		b.Run("MMulSub", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MMulSubTo(vOut, v0, v1, q)
+			}
+		})
+
+		b.Run("MMulLazy", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MMulLazyTo(vOut, v0, v1, q)
+			}
+		})
+
+		b.Run("MMulAddLazy", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MMulAddLazyTo(vOut, v0, v1, q)
+			}
+		})
+
+		b.Run("MMulSubLazy", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.MMulSubLazyTo(vOut, v0, v1, q)
+			}
+		})
+
+		b.Run("SForm", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.SFormTo(vOut, v0, q)
+			}
+		})
+
+		b.Run("SMul", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.SMulTo(vOut, v0, v1, v1S, q)
+			}
+		})
+
+		b.Run("SMulAdd", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.SMulAddTo(vOut, v0, v1, v1S, q)
+			}
+		})
+
+		b.Run("SMulSub", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.SMulSubTo(vOut, v0, v1, v1S, q)
+			}
+		})
+
+		b.Run("SMulLazy", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.SMulLazyTo(vOut, v0, v1, v1S, q)
+			}
+		})
+
+		b.Run("SMulAddLazy", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.SMulAddLazyTo(vOut, v0, v1, v1S, q)
+			}
+		})
+
+		b.Run("SMulSubLazy", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.SMulSubLazyTo(vOut, v0, v1, v1S, q)
+			}
+		})
+
+		b.Run("Reduce", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.ReduceTo(vOut, v0, q)
+			}
+		})
+	})
 }
 
 func BenchmarkOps(b *testing.B) {
-	benchmarkOps(b, num.MaxModulusBits)
-	benchmarkOps(b, num.MaxModulusIFMABits)
+	for _, logN := range benchLogN {
+		b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
+			benchmarkOps(b, logN, num.MaxModulusBits)
+			benchmarkOps(b, logN, num.MaxModulusIFMABits)
+		})
+	}
 }

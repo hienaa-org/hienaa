@@ -114,11 +114,8 @@ func main() {
 	if *ntt {
 		NTTConstants()
 
-		FwdNTTInPlacePow2UnrollAVX512(false)
-		FwdNTTInPlacePow2UnrollAVX512(true)
-
-		InvNTTInPlacePow2UnrollAVX512(false)
-		InvNTTInPlacePow2UnrollAVX512(true)
+		FwdNTTInPlacePow2UnrollAVX512()
+		InvNTTInPlacePow2UnrollAVX512()
 	}
 
 	Generate()
