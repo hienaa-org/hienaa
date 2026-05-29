@@ -29,7 +29,7 @@ type pow2AutFixedMod1IntPacker struct {
 	// cubeGen is the corresponding generator for the hypercube structure.
 	cubeGen []uint64
 
-	cycloOrdMod *num.Modulus
+	cycloIdxMod *num.Modulus
 
 	pool *pool.Pool[*[]uint64]
 }
@@ -37,7 +37,7 @@ type pow2AutFixedMod1IntPacker struct {
 // newPow2AutFixedMod1IntPacker creates a new [pow2AutFixedMod1IntPacker].
 func newPow2AutFixedMod1IntPacker(params dft.RingParameters, mod *num.Modulus) *pow2AutFixedMod1IntPacker {
 	primes, _ := num.Factor(mod.Value())
-	packLen := params.CycloOrder() >> 2
+	packLen := params.CycloIndex() >> 2
 	for i := range primes {
 		ithLogPackLen := bits.TrailingZeros64(primes[i]-1) - 2
 		if packLen > (1 << ithLogPackLen) {
@@ -58,7 +58,7 @@ func newPow2AutFixedMod1IntPacker(params dft.RingParameters, mod *num.Modulus) *
 		cube:    []int{packLen},
 		cubeGen: []uint64{5},
 
-		cycloOrdMod: num.NewModulus(params.CycloOrder()),
+		cycloIdxMod: num.NewModulus(params.CycloIndex()),
 
 		pool: pool.NewPool(func() *[]uint64 {
 			v := make([]uint64, packLen)
@@ -110,7 +110,7 @@ func (p *pow2AutFixedMod1IntPacker) PackTo(vPack, v []uint64) {
 	}
 
 	invPow5 := 1
-	inv5 := int(num.Inv(5, p.cycloOrdMod))
+	inv5 := int(num.Inv(5, p.cycloIdxMod))
 	mask := p.packLen<<2 - 1
 	revShiftBits := 64 - int(num.Log2(uint64(p.packLen))+1)
 	for i := 0; i < p.packLen; i++ {
@@ -169,7 +169,7 @@ func (p *pow2AutFixedMod1IntPacker) UnPackTo(v, vPack []uint64) {
 	vec.InvMFormTo(vBuf, vBuf, p.mod)
 
 	invPow5 := 1
-	inv5 := int(num.Inv(5, p.cycloOrdMod))
+	inv5 := int(num.Inv(5, p.cycloIdxMod))
 	mask := p.packLen<<2 - 1
 	revShiftBits := 64 - int(num.Log2(uint64(p.packLen))+1)
 	for i := 0; i < p.packLen; i++ {
@@ -205,7 +205,7 @@ func (p *pow2AutFixedMod1IntPacker) RotIdxToAutIdx(idx []int) int {
 	if len(idx) != 1 {
 		panic("input(s) shape not consistent")
 	}
-	return int(num.Exp(5, uint64(idx[0]), nil)) & (p.params.CycloOrder() - 1)
+	return int(num.Exp(5, uint64(idx[0]), nil)) & (p.params.CycloIndex() - 1)
 }
 
 // pow2AutFixedMod3IntPacker is a packer for the power-of-two autfixed ring,
@@ -240,14 +240,14 @@ type pow2AutFixedMod3IntPacker struct {
 // newPow2AutFixedMod3IntPacker creates a new [pow2AutFixedMod3IntPacker].
 func newPow2AutFixedMod3IntPacker(params dft.RingParameters, mod *num.Modulus) *pow2AutFixedMod3IntPacker {
 	primes, _ := num.Factor(mod.Value())
-	packLen := params.CycloOrder() >> 2
+	packLen := params.CycloIndex() >> 2
 	logPackLen := bits.TrailingZeros64(primes[0]+1) - 1
 	if packLen > (1 << logPackLen) {
 		packLen = 1 << logPackLen
 	}
 
 	nttRank := packLen
-	if int(primes[0])%params.CycloOrder() != params.CycloOrder()-1 {
+	if int(primes[0])%params.CycloIndex() != params.CycloIndex()-1 {
 		packLen >>= 1
 	}
 
@@ -466,7 +466,7 @@ func (p *pow2AutFixedMod3IntPacker) RotIdxToAutIdx(idx []int) int {
 	if len(idx) != 1 {
 		panic("input(s) shape not consistent")
 	}
-	return int(num.Exp(5, uint64(idx[0]), nil)) & (p.params.CycloOrder() - 1)
+	return int(num.Exp(5, uint64(idx[0]), nil)) & (p.params.CycloIndex() - 1)
 }
 
 // primeAutFixedIntPacker is a packer for prime autfixed ring.
@@ -487,8 +487,8 @@ type primeAutFixedIntPacker struct {
 	// invResol is the inverse resolution of unity.
 	invResol [][]uint64
 
-	// cycloOrdMod is the cyclotomic order modulus.
-	cycloOrdMod *num.Modulus
+	// cycloIdxMod is the cyclotomic index modulus.
+	cycloIdxMod *num.Modulus
 
 	// ambRank is the rank of the ambient NTT.
 	ambRank int
@@ -504,7 +504,7 @@ type primeAutFixedIntPacker struct {
 
 // newAutFixedPrimeIntPacker creates a new [primeAutFixedIntPacker].
 func newAutFixedPrimeIntPacker(params dft.RingParameters, mod *num.Modulus) *primeAutFixedIntPacker {
-	cycloOrd := params.CycloOrder()
+	cycloIdx := params.CycloIndex()
 
 	// Compute the resolution of unity.
 	primes, exps := num.Factor(mod.Value())
@@ -512,9 +512,9 @@ func newAutFixedPrimeIntPacker(params dft.RingParameters, mod *num.Modulus) *pri
 		panic("mod must be a prime power")
 	}
 	prime, exp := primes[0], exps[0]
-	resolution := findResolutionOfUnity(cycloOrd, prime, exp)
+	resolution := findResolutionOfUnity(cycloIdx, prime, exp)
 	invResolution := make([]uint64, len(resolution))
-	ord := num.Order(prime, num.NewModulus(cycloOrd))
+	ord := num.Order(prime, num.NewModulus(cycloIdx))
 	if ord&1 == 1 {
 		copy(invResolution[len(resolution)/2:], resolution[:len(resolution)/2])
 		copy(invResolution[:len(resolution)/2], resolution[len(resolution)/2:])
@@ -522,7 +522,7 @@ func newAutFixedPrimeIntPacker(params dft.RingParameters, mod *num.Modulus) *pri
 		copy(invResolution, resolution)
 	}
 
-	vec.MulScalarTo(invResolution, invResolution, num.Reduce(uint64(cycloOrd), mod), mod)
+	vec.MulScalarTo(invResolution, invResolution, num.Reduce(uint64(cycloIdx), mod), mod)
 	vec.AddScalarTo(invResolution, invResolution, num.Reduce(ord, mod), mod)
 
 	// Reduce the resolution of unity to the packing length.
@@ -564,7 +564,7 @@ func newAutFixedPrimeIntPacker(params dft.RingParameters, mod *num.Modulus) *pri
 
 	embedder := crt.NewVecEmbedder([]*num.Modulus{mod}, ambMod)
 
-	cycloOrdMod := num.NewModulus(cycloOrd)
+	cycloIdxMod := num.NewModulus(cycloIdx)
 
 	return &primeAutFixedIntPacker{
 		params: params,
@@ -573,12 +573,12 @@ func newAutFixedPrimeIntPacker(params dft.RingParameters, mod *num.Modulus) *pri
 		packLen: packLen,
 
 		cube:    []int{packLen},
-		cubeGen: []uint64{num.Inv(num.Generators(cycloOrdMod)[0], cycloOrdMod)},
+		cubeGen: []uint64{num.Inv(num.Generators(cycloIdxMod)[0], cycloIdxMod)},
 
 		resol:    resol,
 		invResol: invResol,
 
-		cycloOrdMod: cycloOrdMod,
+		cycloIdxMod: cycloIdxMod,
 
 		ambRank:  ambRank,
 		ambMod:   ambMod,
@@ -595,21 +595,21 @@ func newAutFixedPrimeIntPacker(params dft.RingParameters, mod *num.Modulus) *pri
 	}
 }
 
-// findResolutionOfUnity finds the resolution of unity for the given cyclotomic order, prime, and exponent.
+// findResolutionOfUnity finds the resolution of unity for the given cyclotomic index, prime, and exponent.
 // The algorithm is from https://eprint.iacr.org/2024/2032.
-func findResolutionOfUnity(cycloOrd int, prime uint64, exp uint64) []uint64 {
-	if !num.IsPrime(cycloOrd) {
-		panic("cycloOrd must be a prime number")
+func findResolutionOfUnity(cycloIdx int, prime uint64, exp uint64) []uint64 {
+	if !num.IsPrime(cycloIdx) {
+		panic("cycloIdx must be a prime number")
 	}
 	if !num.IsPrime(prime) {
 		panic("prime must be a prime number")
 	}
 
-	cycloOrdMod := num.NewModulus(cycloOrd)
-	ord := num.Order(prime, cycloOrdMod)
-	rank := int(num.Totient(uint64(cycloOrd)) / ord)
+	cycloIdxMod := num.NewModulus(cycloIdx)
+	ord := num.Order(prime, cycloIdxMod)
+	rank := int(num.Totient(uint64(cycloIdx)) / ord)
 	r := gr.NewGaloisRing(uint64(num.Exp(prime, exp, nil)), int(ord))
-	root := grNthRoot(r, cycloOrd)
+	root := grNthRoot(r, cycloIdx)
 
 	// Compute the first factor of the cyclotomic polynomial.
 	factorPoly := make([]*gr.Element, int(ord)+1)
@@ -625,7 +625,7 @@ func findResolutionOfUnity(cycloOrd int, prime uint64, exp uint64) []uint64 {
 
 	rootPow := r.NewElement()
 	for i := 0; i < int(ord); i++ {
-		r.ExpTo(rootPow, root, num.Exp(prime, uint64(i), cycloOrdMod))
+		r.ExpTo(rootPow, root, num.Exp(prime, uint64(i), cycloIdxMod))
 
 		// tmpPoly = factor * rootPow
 		for j := 0; j <= i; j++ {
@@ -651,7 +651,7 @@ func findResolutionOfUnity(cycloOrd int, prime uint64, exp uint64) []uint64 {
 		factorInt[i] = int64(factorPoly[i].Coeffs()[0])
 	}
 
-	cycloPoly := dft.CyclotomicPolynomial(cycloOrd)
+	cycloPoly := dft.CyclotomicPolynomial(cycloIdx)
 	cycloPolyMod := make([]uint64, len(cycloPoly))
 	modulus := num.NewModulus(num.Exp(prime, exp, nil))
 	for i := 0; i < len(cycloPoly); i++ {
@@ -671,7 +671,7 @@ func findResolutionOfUnity(cycloOrd int, prime uint64, exp uint64) []uint64 {
 	rFactor.InvTo(remEl, remEl)
 
 	// Compute the resolution of unity.
-	tf := crt.NewOperator(dft.NewCyclicParameters(num.NextProdPower(cycloOrd, []int{2})), []*num.Modulus{modulus})
+	tf := crt.NewOperator(dft.NewCyclicParameters(num.NextProdPower(cycloIdx, []int{2})), []*num.Modulus{modulus})
 	resolPoly := tf.NewPoly()
 	remInvPoly := tf.NewPoly()
 
@@ -686,14 +686,14 @@ func findResolutionOfUnity(cycloOrd int, prime uint64, exp uint64) []uint64 {
 
 	// Extract the meaningful values.
 	resolution := make([]uint64, rank)
-	gen := num.Generators(cycloOrdMod)[0]
+	gen := num.Generators(cycloIdxMod)[0]
 	idx := uint64(1)
 	for i := 0; i < rank; i++ {
 		resolution[i] = resolPoly.Coeffs[0][idx] + modulus.Value() - resolPoly.Coeffs[0][0]
 		if resolution[i] >= modulus.Value() {
 			resolution[i] -= modulus.Value()
 		}
-		idx = num.Mul(idx, gen, cycloOrdMod)
+		idx = num.Mul(idx, gen, cycloIdxMod)
 	}
 
 	return resolution
@@ -805,5 +805,5 @@ func (p *primeAutFixedIntPacker) RotIdxToAutIdx(idx []int) int {
 	if len(idx) != 1 {
 		panic("input(s) shape not consistent")
 	}
-	return int(num.Exp(p.cubeGen[0], uint64(idx[0]), p.cycloOrdMod))
+	return int(num.Exp(p.cubeGen[0], uint64(idx[0]), p.cycloIdxMod))
 }

@@ -322,7 +322,7 @@ func (e *Encryptor) NewAutomorphismKey(idx int) *AutomorphismKey {
 	skAut := e.ptPool.Get()
 	defer e.ptPool.Put(skAut)
 
-	idxInv := int(num.Inv(uint64(idx), num.NewModulus(e.params.RingParams().CycloOrder())))
+	idxInv := int(num.Inv(uint64(idx), num.NewModulus(e.params.RingParams().CycloIndex())))
 	pOp.AutTo(skAut, (*Element)(e.sk), idxInv)
 
 	gadVec := e.dcmp.GadgetVector()

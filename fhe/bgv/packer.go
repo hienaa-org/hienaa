@@ -217,7 +217,7 @@ func (p *Packer) GenPlainMatrixCustom(mat map[[2]int]uint64, dim, baseLen, auxLe
 	bs := make([]int, 0)
 	gs := make([]int, 0)
 	diag := make(map[int]map[int]*rlwe.Element)
-	cycloOrd := num.NewModulus(p.params.RingParams().CycloOrder())
+	cycloIdx := num.NewModulus(p.params.RingParams().CycloIndex())
 	for _, idx := range usedIdx {
 		for j := range tmpRotIdx {
 			tmpRotIdx[j] = idx % p.Cube()[j]
@@ -260,7 +260,7 @@ func (p *Packer) GenPlainMatrixCustom(mat map[[2]int]uint64, dim, baseLen, auxLe
 			gs = append(gs, gsIdx)
 		}
 
-		gsInv := int(num.Inv(uint64(gsIdx), cycloOrd))
+		gsInv := int(num.Inv(uint64(gsIdx), cycloIdx))
 		if diag[gsIdx] == nil {
 			diag[gsIdx] = make(map[int]*rlwe.Element)
 		}

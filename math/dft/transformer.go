@@ -29,7 +29,7 @@ func NewTransformer(params RingParameters, mod *num.Modulus) Transformer {
 	switch params.ringType {
 	case TypeCyclotomic:
 		switch {
-		case num.IsPowerOfTwo(params.cycloOrd):
+		case num.IsPowerOfTwo(params.cycloIdx):
 			return newPow2CyclotomicTransformer(params, mod)
 		default:
 			return newAnyCyclotomicTransformer(params, mod)
@@ -43,9 +43,9 @@ func NewTransformer(params RingParameters, mod *num.Modulus) Transformer {
 		}
 	case TypeAutFixed:
 		switch {
-		case num.IsPowerOfTwo(params.cycloOrd):
+		case num.IsPowerOfTwo(params.cycloIdx):
 			return newPow2AutFixedTransformer(params, mod)
-		case num.IsPrime(params.cycloOrd):
+		case num.IsPrime(params.cycloIdx):
 			return newPrimeAutFixedTransformer(params, mod)
 		}
 	}

@@ -20,7 +20,7 @@ type addSubOperator interface {
 
 	withModIdx(idx ...int) addSubOperator
 	append(op0 addSubOperator) addSubOperator
-	appendAuxModulus(mod *num.Modulus) addSubOperator
+	appendTmpModulus(mod *num.Modulus) addSubOperator
 }
 
 // baseAddSubOperator is a [addSubOperator] for every ring
@@ -140,7 +140,7 @@ func (op *baseAddSubOperator) append(op0 addSubOperator) addSubOperator {
 	}
 }
 
-func (op *baseAddSubOperator) appendAuxModulus(mod *num.Modulus) addSubOperator {
+func (op *baseAddSubOperator) appendTmpModulus(mod *num.Modulus) addSubOperator {
 	return &baseAddSubOperator{
 		rank:          op.rank,
 		mod:           vec.Concat(op.mod, []*num.Modulus{mod}),
@@ -261,7 +261,7 @@ func (op *primeAutFixedAddSubOperator) append(op0 addSubOperator) addSubOperator
 	}
 }
 
-func (op *primeAutFixedAddSubOperator) appendAuxModulus(mod *num.Modulus) addSubOperator {
+func (op *primeAutFixedAddSubOperator) appendTmpModulus(mod *num.Modulus) addSubOperator {
 	return &primeAutFixedAddSubOperator{
 		rank:          op.rank,
 		mod:           vec.Concat(op.mod, []*num.Modulus{mod}),

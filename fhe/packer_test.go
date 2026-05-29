@@ -92,7 +92,7 @@ func TestPackerInt(t *testing.T) {
 		var prime uint64
 		for {
 			prime = uint64(4*rSrc.SampleN(1<<20) + 1)
-			if num.IsPrime(prime) && rP.CycloOrder()/int(num.Order(prime, num.NewModulus(rP.CycloOrder()))) >= 8 {
+			if num.IsPrime(prime) && rP.CycloIndex()/int(num.Order(prime, num.NewModulus(rP.CycloIndex()))) >= 8 {
 				break
 			}
 		}
@@ -107,7 +107,7 @@ func TestPackerInt(t *testing.T) {
 		var prime uint64
 		for {
 			prime = uint64(4*rSrc.SampleN(1<<20) + 3)
-			if num.IsPrime(prime) && rP.CycloOrder()/int(num.Order(prime, num.NewModulus(rP.CycloOrder()))) >= 8 {
+			if num.IsPrime(prime) && rP.CycloIndex()/int(num.Order(prime, num.NewModulus(rP.CycloIndex()))) >= 8 {
 				break
 			}
 		}
@@ -135,7 +135,7 @@ func TestPackerInt(t *testing.T) {
 		var prime uint64
 		for {
 			prime = uint64(4*rSrc.SampleN(1<<20) + 1)
-			if num.IsPrime(prime) && rP.CycloOrder()/int(num.Order(prime, num.NewModulus(rP.CycloOrder()))) >= 16 {
+			if num.IsPrime(prime) && rP.CycloIndex()/int(num.Order(prime, num.NewModulus(rP.CycloIndex()))) >= 16 {
 				break
 			}
 		}
@@ -151,7 +151,7 @@ func TestPackerInt(t *testing.T) {
 		var prime uint64
 		for {
 			prime = uint64(4*rSrc.SampleN(1<<20) + 3)
-			if num.IsPrime(prime) && rP.CycloOrder()/int(num.Order(prime, num.NewModulus(rP.CycloOrder()))) >= 32 {
+			if num.IsPrime(prime) && rP.CycloIndex()/int(num.Order(prime, num.NewModulus(rP.CycloIndex()))) >= 32 {
 				break
 			}
 		}

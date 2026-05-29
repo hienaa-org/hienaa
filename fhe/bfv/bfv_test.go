@@ -100,7 +100,7 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 			ct := enc.Encrypt(bfv.NewScalarFrom(msg, q), true)
 			res := enc.Decrypt(ct)
 
-			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloOrder()) {
+			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloIndex()) {
 				for i := range res {
 					assert.Equal(t, msg, num.Neg(res[i], q))
 				}
@@ -150,7 +150,7 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 			ctOut := o.AddPlain(ct, pt, true)
 			res := enc.Decrypt(ctOut)
 
-			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloOrder()) {
+			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloIndex()) {
 				for i := range res {
 					assert.Equal(t, msgRef, num.Neg(res[i], q))
 				}
@@ -190,7 +190,7 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 			ctOut := o.AddElement(ct, el, true)
 			res := enc.Decrypt(ctOut)
 
-			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloOrder()) {
+			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloIndex()) {
 				for i := range res {
 					assert.Equal(t, msgRef, num.Neg(res[i], q))
 				}
@@ -245,7 +245,7 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 			ctOut := o.SubPlain(ct, pt, true)
 			res := enc.Decrypt(ctOut)
 
-			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloOrder()) {
+			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloIndex()) {
 				for i := range res {
 					assert.Equal(t, msgRef, num.Neg(res[i], q))
 				}
@@ -285,7 +285,7 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 			ctOut := o.SubElement(ct, el, true)
 			res := enc.Decrypt(ctOut)
 
-			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloOrder()) {
+			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloIndex()) {
 				for i := range res {
 					assert.Equal(t, msgRef, num.Neg(res[i], q))
 				}
@@ -341,7 +341,7 @@ func testOperator(t *testing.T, rP dft.RingParameters, q *num.Modulus) {
 			ctOut := o.MulPlain(ct, pt, true)
 			res := enc.Decrypt(ctOut)
 
-			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloOrder()) {
+			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloIndex()) {
 				for i := range res {
 					assert.Equal(t, msgRef, num.Neg(res[i], q))
 				}

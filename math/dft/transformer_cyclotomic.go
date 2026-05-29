@@ -34,7 +34,7 @@ func newPow2CyclotomicTransformer(params RingParameters, mod *num.Modulus) *pow2
 	twInv := make([]uint64, params.rank)
 	tw[0], twInv[0] = 1, 1
 	if params.rank > 1 {
-		tw[1] = num.NthRoot(params.cycloOrd, root, mod)
+		tw[1] = num.NthRoot(params.cycloIdx, root, mod)
 		twInv[1] = num.Inv(tw[1], mod)
 		for i := 2; i < params.rank; i++ {
 			tw[i] = num.Mul(tw[i-1], tw[1], mod)
@@ -104,8 +104,8 @@ type anyCyclotomicTransformer struct {
 
 // newAnyCyclotomicTransformer creates a new [anyCyclotomicTransformer].
 func newAnyCyclotomicTransformer(params RingParameters, mod *num.Modulus) *anyCyclotomicTransformer {
-	cycloOrdMod := num.NewModulus(params.cycloOrd)
-	primes, exps := num.Factor(params.cycloOrd)
+	cycloIdxMod := num.NewModulus(params.cycloIdx)
+	primes, exps := num.Factor(params.cycloIdx)
 
 	dims := make([]int, len(primes))
 	for i := range dims {
@@ -124,7 +124,7 @@ func newAnyCyclotomicTransformer(params RingParameters, mod *num.Modulus) *anyCy
 		}
 	}
 
-	root := num.GeneratorsWithFactors(cycloOrdMod, vec.Cast[uint64](primes), vec.Cast[uint64](exps))
+	root := num.GeneratorsWithFactors(cycloIdxMod, vec.Cast[uint64](primes), vec.Cast[uint64](exps))
 	idx := make([]int, params.rank)
 
 	idxDigits := make([]int, len(dims))
@@ -136,37 +136,37 @@ func newAnyCyclotomicTransformer(params RingParameters, mod *num.Modulus) *anyCy
 		}
 		idxOut := 1
 		for j := 0; j < len(dims); j++ {
-			idxOut = int(num.Mul(uint64(idxOut), num.Exp(root[j], uint64(idxDigits[j]), cycloOrdMod), cycloOrdMod))
+			idxOut = int(num.Mul(uint64(idxOut), num.Exp(root[j], uint64(idxDigits[j]), cycloIdxMod), cycloIdxMod))
 		}
 		idx[i] = idxOut
 	}
 
-	if num.IsProdPowerOf(params.cycloOrd, cyclicNTTFactors) {
-		cycloOrdFactors := make([]int, len(cyclicNTTFactors))
-		cycloOrdFactorsMod := make([]*num.Modulus, len(cyclicNTTFactors))
+	if num.IsProdPowerOf(params.cycloIdx, cyclicNTTFactors) {
+		cycloIdxFactors := make([]int, len(cyclicNTTFactors))
+		cycloIdxFactorsMod := make([]*num.Modulus, len(cyclicNTTFactors))
 		exps := make([]int, len(cyclicNTTFactors))
 
-		t := params.cycloOrd
+		t := params.cycloIdx
 		for i, f := range cyclicNTTFactors {
-			cycloOrdFactors[i] = 1
+			cycloIdxFactors[i] = 1
 			for t%f == 0 {
 				t /= f
-				cycloOrdFactors[i] *= f
+				cycloIdxFactors[i] *= f
 				exps[i]++
 			}
 
-			if cycloOrdFactors[i] != 1 {
-				cycloOrdFactorsMod[i] = num.NewModulus(cycloOrdFactors[i])
+			if cycloIdxFactors[i] != 1 {
+				cycloIdxFactorsMod[i] = num.NewModulus(cycloIdxFactors[i])
 			}
 		}
 
 		for i := 0; i < params.rank; i++ {
 			idxOut := idx[i]
 			idx[i] = 0
-			for j := range cycloOrdFactors {
+			for j := range cycloIdxFactors {
 				var t, r int
-				if cycloOrdFactors[j] != 1 {
-					t = int(num.Mul(uint64(idxOut), num.Inv(uint64(params.cycloOrd/cycloOrdFactors[j]), cycloOrdFactorsMod[j]), cycloOrdFactorsMod[j]))
+				if cycloIdxFactors[j] != 1 {
+					t = int(num.Mul(uint64(idxOut), num.Inv(uint64(params.cycloIdx/cycloIdxFactors[j]), cycloIdxFactorsMod[j]), cycloIdxFactorsMod[j]))
 				}
 
 				for d := 0; d < int(exps[j]); d++ {
@@ -175,7 +175,7 @@ func newAnyCyclotomicTransformer(params RingParameters, mod *num.Modulus) *anyCy
 				}
 
 				for k := 0; k < j; k++ {
-					r *= cycloOrdFactors[k]
+					r *= cycloIdxFactors[k]
 				}
 				idx[i] += r
 			}
@@ -186,13 +186,13 @@ func newAnyCyclotomicTransformer(params RingParameters, mod *num.Modulus) *anyCy
 		params: params,
 		mod:    mod,
 
-		ambNTT:  NewTransformer(NewCyclicParameters(params.cycloOrd), mod),
+		ambNTT:  NewTransformer(NewCyclicParameters(params.cycloIdx), mod),
 		reducer: newCyclotomicReducer(params, mod),
 
 		idx: idx,
 
 		pool: pool.NewPool(func() *[]uint64 {
-			v := make([]uint64, params.cycloOrd)
+			v := make([]uint64, params.cycloIdx)
 			return &v
 		}),
 	}

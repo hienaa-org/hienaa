@@ -35,7 +35,7 @@ func NewIntPacker(params dft.RingParameters, mod *num.Modulus) IntPacker {
 	switch params.RingType() {
 	case dft.TypeCyclotomic:
 		switch {
-		case num.IsPowerOfTwo(params.CycloOrder()):
+		case num.IsPowerOfTwo(params.CycloIndex()):
 			primes, _ := num.Factor(mod.Value())
 			isMod1 := true
 			for _, prime := range primes {
@@ -62,7 +62,7 @@ func NewIntPacker(params dft.RingParameters, mod *num.Modulus) IntPacker {
 
 	case dft.TypeAutFixed:
 		switch {
-		case num.IsPowerOfTwo(params.CycloOrder()):
+		case num.IsPowerOfTwo(params.CycloIndex()):
 			primes, _ := num.Factor(mod.Value())
 			isMod1 := true
 			for _, prime := range primes {
@@ -77,7 +77,7 @@ func NewIntPacker(params dft.RingParameters, mod *num.Modulus) IntPacker {
 				return newPow2AutFixedMod3IntPacker(params, mod)
 			}
 
-		case num.IsPrime(params.CycloOrder()):
+		case num.IsPrime(params.CycloIndex()):
 			primes, _ := num.Factor(mod.Value())
 			if len(primes) == 1 {
 				return newAutFixedPrimeIntPacker(params, mod)
@@ -147,7 +147,7 @@ func NewComplexPacker(params dft.RingParameters) ComplexPacker {
 	switch params.RingType() {
 	case dft.TypeCyclotomic:
 		switch {
-		case num.IsPowerOfTwo(params.CycloOrder()):
+		case num.IsPowerOfTwo(params.CycloIndex()):
 			return newPow2CyclotomicComplexPacker(params)
 
 		default:

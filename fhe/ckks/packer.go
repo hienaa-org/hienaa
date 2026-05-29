@@ -32,7 +32,7 @@ func NewComplexPacker(params rlwe.Parameters) *ComplexPacker {
 	rP := params.RingParams()
 	switch rP.RingType() {
 	case dft.TypeAutFixed:
-		if num.IsPowerOfTwo(rP.CycloOrder()) || ((rP.CycloOrder()-1)/rP.Rank())&1 == 0 {
+		if num.IsPowerOfTwo(rP.CycloIndex()) || ((rP.CycloIndex()-1)/rP.Rank())&1 == 0 {
 			panic("unsupported ring type.")
 		}
 	}

@@ -26,7 +26,7 @@ func NewOperator(params dft.RingParameters, mod []*num.Modulus) *Operator {
 	switch params.RingType() {
 	case dft.TypeCyclotomic:
 		switch {
-		case num.IsPowerOfTwo(params.CycloOrder()):
+		case num.IsPowerOfTwo(params.CycloIndex()):
 			return &Operator{
 				baseOperator:   newBaseOperator(params, mod),
 				addSubOperator: newBaseAddSubOperator(params, mod),
@@ -53,14 +53,14 @@ func NewOperator(params dft.RingParameters, mod []*num.Modulus) *Operator {
 
 	case dft.TypeAutFixed:
 		switch {
-		case num.IsPowerOfTwo(params.CycloOrder()):
+		case num.IsPowerOfTwo(params.CycloIndex()):
 			return &Operator{
 				baseOperator:   newBaseOperator(params, mod),
 				addSubOperator: newBaseAddSubOperator(params, mod),
 				mulOperator:    newBaseMulOperator(params, mod),
 				autOperator:    newPow2AutFixedAutOperator(params, mod),
 			}
-		case num.IsPrime(params.CycloOrder()):
+		case num.IsPrime(params.CycloIndex()):
 			return &Operator{
 				baseOperator:   newBaseOperator(params, mod),
 				addSubOperator: newPrimeAutFixedAddSubOperator(params, mod),
@@ -111,13 +111,13 @@ func (op *Operator) Append(op0 *Operator) *Operator {
 	}
 }
 
-// AppendAuxModulus appends "auxillary" modulus to the moduli chain and returns the new [Operator].
+// AppendTmpModulus appends "temporary" modulus to the moduli chain and returns the new [Operator].
 // This assumes that modulus is NTT-unfriendly, trading the appending performance with operation performance.
-func (op *Operator) AppendAuxModulus(mod *num.Modulus) *Operator {
+func (op *Operator) AppendTmpModulus(mod *num.Modulus) *Operator {
 	return &Operator{
-		baseOperator:   op.baseOperator.appendAuxModulus(mod),
-		addSubOperator: op.addSubOperator.appendAuxModulus(mod),
-		mulOperator:    op.mulOperator.appendAuxModulus(mod),
-		autOperator:    op.autOperator.appendAuxModulus(mod),
+		baseOperator:   op.baseOperator.appendTmpModulus(mod),
+		addSubOperator: op.addSubOperator.appendTmpModulus(mod),
+		mulOperator:    op.mulOperator.appendTmpModulus(mod),
+		autOperator:    op.autOperator.appendTmpModulus(mod),
 	}
 }

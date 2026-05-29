@@ -25,9 +25,9 @@ const (
 
 // RingParameters contains the parameters for the ring.
 type RingParameters struct {
-	// cycloOrder is the order of the underlying cyclotomic polynomial.
+	// cycloIdx is the order of the underlying cyclotomic polynomial.
 	// 0 if the RingType is not [Cyclotomic] or [AutFixed].
-	cycloOrd int
+	cycloIdx int
 	// rank is the number of coefficients of the polynomial in the ring.
 	rank int
 	// expFac is the expansion factor of the ring.
@@ -39,17 +39,17 @@ type RingParameters struct {
 }
 
 // NewCyclotomicParameters creates a new [RingParameters] for a cyclotomic ring.
-func NewCyclotomicParameters(cycloOrd int) RingParameters {
-	if cycloOrd <= 0 {
-		panic("cycloOrd must be positive")
+func NewCyclotomicParameters(cycloIdx int) RingParameters {
+	if cycloIdx <= 0 {
+		panic("cycloIdx must be positive")
 	}
 
-	cycloPoly := CyclotomicPolynomial(cycloOrd)
+	cycloPoly := CyclotomicPolynomial(cycloIdx)
 
 	return RingParameters{
-		cycloOrd: cycloOrd,
+		cycloIdx: cycloIdx,
 		rank:     len(cycloPoly) - 1,
-		expFac:   cyclotomicExpFac(cycloOrd, cycloPoly),
+		expFac:   cyclotomicExpFac(cycloIdx, cycloPoly),
 		ringType: TypeCyclotomic,
 		modPoly:  cycloPoly,
 	}
@@ -66,7 +66,7 @@ func NewCyclicParameters(rank int) RingParameters {
 	modPoly[rank] = 1
 
 	return RingParameters{
-		cycloOrd: 0,
+		cycloIdx: 0,
 		rank:     rank,
 		expFac:   cyclicExpFac(rank),
 		ringType: TypeCyclic,
@@ -75,30 +75,30 @@ func NewCyclicParameters(rank int) RingParameters {
 }
 
 // NewAutFixedParameters creates a new [RingParameters] for an autfixed ring.
-func NewAutFixedParameters(cycloOrd, rank int) RingParameters {
+func NewAutFixedParameters(cycloIdx, rank int) RingParameters {
 	if rank <= 0 {
 		panic("rank must be positive")
 	}
 
 	switch {
-	case num.IsPowerOfTwo(cycloOrd):
-		if cycloOrd != 4*rank {
-			panic("cycloOrd must be four times the rank for power-of-two cycloOrd")
+	case num.IsPowerOfTwo(cycloIdx):
+		if cycloIdx != 4*rank {
+			panic("cycloIdx must be four times the rank for power-of-two cycloIdx")
 		}
-	case num.IsPrime(cycloOrd):
-		if (cycloOrd-1)%rank != 0 {
-			panic("rank should divide cycloOrd-1 for prime cycloOrd")
+	case num.IsPrime(cycloIdx):
+		if (cycloIdx-1)%rank != 0 {
+			panic("rank should divide cycloIdx-1 for prime cycloIdx")
 		}
 	default:
-		panic("cycloOrd must be a prime or a power of two")
+		panic("cycloIdx must be a prime or a power of two")
 	}
 
 	return RingParameters{
-		cycloOrd: cycloOrd,
+		cycloIdx: cycloIdx,
 		rank:     rank,
-		expFac:   autFixedExpFac(cycloOrd),
+		expFac:   autFixedExpFac(cycloIdx),
 		ringType: TypeAutFixed,
-		modPoly:  CyclotomicPolynomial(cycloOrd),
+		modPoly:  CyclotomicPolynomial(cycloIdx),
 	}
 }
 
@@ -109,7 +109,7 @@ func NewOtherParameters(modPoly []int64) RingParameters {
 	}
 
 	return RingParameters{
-		cycloOrd: 0,
+		cycloIdx: 0,
 		rank:     len(modPoly) - 1,
 		expFac:   otherExpFac(modPoly),
 		ringType: TypeOther,
@@ -117,10 +117,10 @@ func NewOtherParameters(modPoly []int64) RingParameters {
 	}
 }
 
-// CycloOrder is the order of the underlying cyclotomic polynomial.
+// CycloIndex is the order of the underlying cyclotomic polynomial.
 // 0 if the RingType is [TypeCyclic].
-func (p RingParameters) CycloOrder() int {
-	return p.cycloOrd
+func (p RingParameters) CycloIndex() int {
+	return p.cycloIdx
 }
 
 // Rank is the number of coefficients of the polynomial in the ring.
@@ -145,7 +145,7 @@ func (p RingParameters) RingType() RingType {
 
 // Equal checks if two parameters are equal.
 func (p RingParameters) Equal(p0 RingParameters) bool {
-	eq := p.cycloOrd == p0.cycloOrd && p.rank == p0.rank && p.ringType == p0.ringType
+	eq := p.cycloIdx == p0.cycloIdx && p.rank == p0.rank && p.ringType == p0.ringType
 
 	if p.ringType == TypeOther {
 		return eq && slices.Equal(p.modPoly, p0.modPoly)
@@ -154,24 +154,24 @@ func (p RingParameters) Equal(p0 RingParameters) bool {
 }
 
 // cyclotomicExpFac computes the expansion factor for cyclotomic ring.
-func cyclotomicExpFac(cycloOrd int, cycloPoly []int64) int {
-	if num.IsPowerOfTwo(cycloOrd) {
-		if cycloOrd == 1 {
+func cyclotomicExpFac(cycloIdx int, cycloPoly []int64) int {
+	if num.IsPowerOfTwo(cycloIdx) {
+		if cycloIdx == 1 {
 			return 1
 		}
-		return cycloOrd >> 1
+		return cycloIdx >> 1
 	}
 
 	rank := len(cycloPoly) - 1
-	primes, _ := num.Factor(cycloOrd)
+	primes, _ := num.Factor(cycloIdx)
 	if len(primes) == 1 {
 		return 2 * rank
 	}
 
 	var max int
-	for i := 0; i < 2*rank-cycloOrd; i++ {
+	for i := 0; i < 2*rank-cycloIdx; i++ {
 		var sum int
-		for j := 0; j < cycloOrd-rank; j++ {
+		for j := 0; j < cycloIdx-rank; j++ {
 			sum += num.Abs(int(cycloPoly[j+i]))
 		}
 		if sum > max {
@@ -188,13 +188,13 @@ func cyclicExpFac(rank int) int {
 }
 
 // autFixedExpFac computes the expansion factor of the autfixed ring.
-func autFixedExpFac(cycloOrd int) int {
+func autFixedExpFac(cycloIdx int) int {
 	// TODO: Can we reduce the factor with respect to the rank?
-	if num.IsPowerOfTwo(cycloOrd) {
-		return cycloOrd >> 1
+	if num.IsPowerOfTwo(cycloIdx) {
+		return cycloIdx >> 1
 	}
 
-	return 2*cycloOrd - 2
+	return 2*cycloIdx - 2
 }
 
 // otherExpFac is the expansion factor of the arbitrary quotient ring.
@@ -224,28 +224,28 @@ func otherExpFac(modPoly []int64) int {
 }
 
 // cyclotomicGap finds the "gap" of the NTT-friendly modulus for cyclotomic rings.
-func cyclotomicGap(cycloOrd, rank int) uint64 {
+func cyclotomicGap(cycloIdx, rank int) uint64 {
 	var gap int
 
-	if num.IsPowerOfTwo(cycloOrd) {
-		gap = cycloOrd
+	if num.IsPowerOfTwo(cycloIdx) {
+		gap = cycloIdx
 	} else {
-		bluesteinRank := num.NextProdPower(2*cycloOrd-1, []int{2})
+		bluesteinRank := num.NextProdPower(2*cycloIdx-1, []int{2})
 
-		primes, _ := num.Factor(cycloOrd)
+		primes, _ := num.Factor(cycloIdx)
 		var redDeg int
-		if cycloOrd%2 == 1 {
-			redDeg = cycloOrd - cycloOrd/primes[0]
+		if cycloIdx%2 == 1 {
+			redDeg = cycloIdx - cycloIdx/primes[0]
 		} else {
-			redDeg = cycloOrd/2 - (cycloOrd/2)/primes[1]
+			redDeg = cycloIdx/2 - (cycloIdx/2)/primes[1]
 		}
 
 		if redDeg == rank {
-			gap = num.LCM(cycloOrd, bluesteinRank)
+			gap = num.LCM(cycloIdx, bluesteinRank)
 		} else {
 			degNext := num.NextProdPower(rank, []int{2})
 			diffDegNext := num.NextProdPower(2*(redDeg-rank)+1, []int{2})
-			gap = num.LCM(num.LCM(degNext, diffDegNext), num.LCM(cycloOrd, bluesteinRank))
+			gap = num.LCM(num.LCM(degNext, diffDegNext), num.LCM(cycloIdx, bluesteinRank))
 		}
 	}
 
@@ -266,15 +266,15 @@ func cyclicGap(rank int) uint64 {
 }
 
 // autFixedGap finds the "gap" of the NTT-friendly modulus for autfixed rings.
-func autFixedGap(cycloOrd, rank int) uint64 {
+func autFixedGap(cycloIdx, rank int) uint64 {
 	var gap int
 
-	if num.IsPowerOfTwo(cycloOrd) {
-		gap = cycloOrd
+	if num.IsPowerOfTwo(cycloIdx) {
+		gap = cycloIdx
 	} else if num.IsProdPowerOf(rank, []int{2}) {
-		gap = cycloOrd * rank
+		gap = cycloIdx * rank
 	} else {
-		gap = cycloOrd * num.NextProdPower(2*rank-1, []int{2})
+		gap = cycloIdx * num.NextProdPower(2*rank-1, []int{2})
 	}
 
 	return uint64(gap)
@@ -286,9 +286,9 @@ func NTTPrimeGap(params RingParameters) (uint64, error) {
 	case TypeCyclic:
 		return cyclicGap(params.rank), nil
 	case TypeCyclotomic:
-		return cyclotomicGap(params.cycloOrd, params.rank), nil
+		return cyclotomicGap(params.cycloIdx, params.rank), nil
 	case TypeAutFixed:
-		return autFixedGap(params.cycloOrd, params.rank), nil
+		return autFixedGap(params.cycloIdx, params.rank), nil
 	default:
 		return 0, errors.New("unsupported parameters")
 	}

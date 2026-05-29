@@ -210,7 +210,7 @@ func (op *baseOperator) append(op0 *baseOperator) *baseOperator {
 	}
 }
 
-func (op *baseOperator) appendAuxModulus(mod *num.Modulus) *baseOperator {
+func (op *baseOperator) appendTmpModulus(mod *num.Modulus) *baseOperator {
 	return &baseOperator{
 		params: op.params,
 		mod:    vec.Concat(op.mod, []*num.Modulus{mod}),

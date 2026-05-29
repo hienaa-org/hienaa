@@ -31,16 +31,16 @@ type pow2CyclotomicComplexPacker struct {
 
 // newPow2CyclotomicComplexPacker creates a new [pow2CyclotomicComplexPacker].
 func newPow2CyclotomicComplexPacker(params dft.RingParameters) *pow2CyclotomicComplexPacker {
-	roots := make([]complex128, params.CycloOrder())
-	for i := 0; i < params.CycloOrder(); i++ {
-		cos := math.Cos(2 * math.Pi * float64(i) / float64(params.CycloOrder()))
-		sin := math.Sin(2 * math.Pi * float64(i) / float64(params.CycloOrder()))
+	roots := make([]complex128, params.CycloIndex())
+	for i := 0; i < params.CycloIndex(); i++ {
+		cos := math.Cos(2 * math.Pi * float64(i) / float64(params.CycloIndex()))
+		sin := math.Sin(2 * math.Pi * float64(i) / float64(params.CycloIndex()))
 		roots[i] = complex(cos, sin)
 	}
 
 	group := make([]int, params.Rank())
 	for i := 0; i < params.Rank(); i++ {
-		group[i] = int(num.Exp(uint64(5), uint64(i), nil)) & (params.CycloOrder() - 1)
+		group[i] = int(num.Exp(uint64(5), uint64(i), nil)) & (params.CycloIndex() - 1)
 	}
 
 	return &pow2CyclotomicComplexPacker{
@@ -51,7 +51,7 @@ func newPow2CyclotomicComplexPacker(params dft.RingParameters) *pow2CyclotomicCo
 		roots: roots,
 		group: group,
 
-		cube:    []int{params.CycloOrder() >> 1},
+		cube:    []int{params.CycloIndex() >> 1},
 		cubeGen: []uint64{5},
 
 		pool: pool.NewPool(func() *[]complex128 {
@@ -94,7 +94,7 @@ func (p *pow2CyclotomicComplexPacker) PackTo(vPack []float64, v []complex128) {
 	for idx := int(num.Log2(len(v))); idx >= 1; idx-- {
 		for i := 0; i < len(v); i += (1 << idx) {
 			lenh, lenQ := (1<<idx)>>1, (1<<idx)<<2
-			gap := p.params.CycloOrder() / lenQ
+			gap := p.params.CycloIndex() / lenQ
 			for j := 0; j < lenh; j++ {
 				idx1, idx2 := i+j, i+j+lenh
 				rootsi := p.roots[(lenQ-(p.group[j]&(lenQ-1)))*gap]
@@ -134,7 +134,7 @@ func (p *pow2CyclotomicComplexPacker) UnPackTo(v []complex128, vPack []float64) 
 	for idx := 1; idx <= int(num.Log2(len(buf))); idx++ {
 		for i := 0; i < len(buf); i += (1 << idx) {
 			lenh, lenQ := (1<<idx)>>1, (1<<idx)<<2
-			gap := p.params.CycloOrder() / lenQ
+			gap := p.params.CycloIndex() / lenQ
 			for j := 0; j < lenh; j++ {
 				tmp := p.roots[(p.group[j]&(lenQ-1))*gap] * buf[i+j+lenh]
 				buf[i+j], buf[i+j+lenh] = buf[i+j]+tmp, buf[i+j]-tmp
@@ -157,7 +157,7 @@ func (p *pow2CyclotomicComplexPacker) RotIdxToAutIdx(idx []int) int {
 	if len(idx) != 1 {
 		panic("input(s) shape not consistent")
 	}
-	return int(num.Exp(5, uint64(idx[0]), nil)) & (p.params.CycloOrder() - 1)
+	return int(num.Exp(5, uint64(idx[0]), nil)) & (p.params.CycloIndex() - 1)
 }
 
 type trivialComplexPacker struct {

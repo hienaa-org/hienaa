@@ -55,7 +55,7 @@ func reduce(p0, p1 []uint64, q *num.Modulus) []uint64 {
 
 func expandAutFixedPoly(params dft.RingParameters, p []uint64, q *num.Modulus) []uint64 {
 	var pFull []uint64
-	if num.IsPowerOfTwo(params.CycloOrder()) {
+	if num.IsPowerOfTwo(params.CycloIndex()) {
 		pFull = make([]uint64, params.Rank()<<1)
 		copy(pFull[:params.Rank()], p)
 		pFull[params.Rank()] = 0
@@ -63,20 +63,20 @@ func expandAutFixedPoly(params dft.RingParameters, p []uint64, q *num.Modulus) [
 			pFull[i+params.Rank()] = num.Neg(p[params.Rank()-i], q)
 		}
 	} else {
-		pFull = make([]uint64, params.CycloOrder())
-		cycloOrdMod := num.NewModulus(params.CycloOrder())
-		root := num.Generators(cycloOrdMod)[0]
+		pFull = make([]uint64, params.CycloIndex())
+		cycloIdxMod := num.NewModulus(params.CycloIndex())
+		root := num.Generators(cycloIdxMod)[0]
 		idx := uint64(1)
-		for i := 0; i < (params.CycloOrder()-1)/params.Rank(); i++ {
+		for i := 0; i < (params.CycloIndex()-1)/params.Rank(); i++ {
 			for j := 0; j < params.Rank(); j++ {
 				pFull[idx] = p[j]
-				idx = num.Mul(idx, root, cycloOrdMod)
+				idx = num.Mul(idx, root, cycloIdxMod)
 			}
 		}
-		for i := 0; i < params.CycloOrder()-1; i++ {
-			pFull[i] = num.Sub(pFull[i], pFull[params.CycloOrder()-1], q)
+		for i := 0; i < params.CycloIndex()-1; i++ {
+			pFull[i] = num.Sub(pFull[i], pFull[params.CycloIndex()-1], q)
 		}
-		pFull = pFull[:params.CycloOrder()-1]
+		pFull = pFull[:params.CycloIndex()-1]
 	}
 	return pFull
 }
@@ -160,12 +160,12 @@ func testOperator(t *testing.T, params dft.RingParameters) {
 		t.Run("Aut", func(t *testing.T) {
 			var idx uint64
 			for {
-				idx = rSrc.SampleN(uint64(params.CycloOrder()))
+				idx = rSrc.SampleN(uint64(params.CycloIndex()))
 				if op.CanAut(int(idx)) {
 					break
 				}
 			}
-			idxInv := num.Inv(idx, num.NewModulus(params.CycloOrder()))
+			idxInv := num.Inv(idx, num.NewModulus(params.CycloIndex()))
 
 			pOut := op.Aut(p0, int(idx))
 			op.FwdNTTTo(pOut, pOut)
@@ -331,7 +331,7 @@ func benchmarkOperator(b *testing.B, params dft.RingParameters) {
 			case dft.TypeCyclotomic, dft.TypeAutFixed:
 				var idx uint64
 				for {
-					idx = rSrc.SampleN(uint64(params.CycloOrder()))
+					idx = rSrc.SampleN(uint64(params.CycloIndex()))
 					if op.CanAut(int(idx)) {
 						break
 					}

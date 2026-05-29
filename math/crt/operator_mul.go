@@ -24,7 +24,7 @@ type mulOperator interface {
 
 	withModIdx(idx ...int) mulOperator
 	append(op0 mulOperator) mulOperator
-	appendAuxModulus(mod *num.Modulus) mulOperator
+	appendTmpModulus(mod *num.Modulus) mulOperator
 }
 
 // baseMulOperator is a [mulOperator] for rings that do not require reduction after
@@ -289,7 +289,7 @@ func (op *baseMulOperator) append(op0 mulOperator) mulOperator {
 	}
 }
 
-func (op *baseMulOperator) appendAuxModulus(mod *num.Modulus) mulOperator {
+func (op *baseMulOperator) appendTmpModulus(mod *num.Modulus) mulOperator {
 	ambModLen := 0
 	ambBits := num.Log2(op.params.ExpandFactor()) + 2*num.Log2(mod.Value())
 	bits := 0.0
@@ -333,7 +333,7 @@ type anyCyclotomicMulOperator struct {
 
 // newAnyCyclotomicMulOperator creates a new [anyCyclotomicMulOperator].
 func newAnyCyclotomicMulOperator(params dft.RingParameters, mod []*num.Modulus, reducer *CyclotomicReducer) *anyCyclotomicMulOperator {
-	ambParams := dft.NewCyclicParameters(params.CycloOrder())
+	ambParams := dft.NewCyclicParameters(params.CycloIndex())
 	ambMod := dft.MustFindAmbientPrimes(ambParams, num.Log2(params.ExpandFactor())+2*num.MaxModulusBits)
 	ambNTT := make([]dft.Transformer, len(ambMod))
 	for i := range ambMod {
@@ -377,7 +377,7 @@ func newAnyCyclotomicMulOperator(params dft.RingParameters, mod []*num.Modulus, 
 		reducer: reducer,
 
 		pool: pool.NewPool(func() *Element {
-			return NewPoly(params.CycloOrder(), len(ambMod))
+			return NewPoly(params.CycloIndex(), len(ambMod))
 		}),
 	}
 }
@@ -609,7 +609,7 @@ func (op *anyCyclotomicMulOperator) append(op0 mulOperator) mulOperator {
 	}
 }
 
-func (op *anyCyclotomicMulOperator) appendAuxModulus(mod *num.Modulus) mulOperator {
+func (op *anyCyclotomicMulOperator) appendTmpModulus(mod *num.Modulus) mulOperator {
 	ambModLen := 0
 	ambBits := num.Log2(op.params.ExpandFactor()) + 2*num.Log2(mod.Value())
 	bits := 0.0
@@ -632,7 +632,7 @@ func (op *anyCyclotomicMulOperator) appendAuxModulus(mod *num.Modulus) mulOperat
 		ambNTT:    op.ambNTT,
 		embedder:  vec.Concat(op.embedder, []*VecEmbedder{embedder}),
 
-		reducer: op.reducer.AppendAuxModulus(mod),
+		reducer: op.reducer.AppendTmpModulus(mod),
 
 		pool: op.pool,
 	}
@@ -944,7 +944,7 @@ func (op *reduceMulOperator) append(op0 mulOperator) mulOperator {
 	}
 }
 
-func (op *reduceMulOperator) appendAuxModulus(mod *num.Modulus) mulOperator {
+func (op *reduceMulOperator) appendTmpModulus(mod *num.Modulus) mulOperator {
 	ambModLen := 0
 	ambBits := num.Log2(op.ambParams.ExpandFactor()) + 2*num.Log2(mod.Value())
 	bits := 0.0
@@ -970,7 +970,7 @@ func (op *reduceMulOperator) appendAuxModulus(mod *num.Modulus) mulOperator {
 		ambNTT:    op.ambNTT,
 		embedder:  vec.Concat(op.embedder, []*VecEmbedder{embedder}),
 
-		reducer: op.reducer.AppendAuxModulus(mod),
+		reducer: op.reducer.AppendTmpModulus(mod),
 
 		pool: op.pool,
 	}

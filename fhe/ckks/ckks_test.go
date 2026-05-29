@@ -68,7 +68,7 @@ func testOperator(t *testing.T, rP dft.RingParameters, scFac float64) {
 			res := enc.Decrypt(ct)
 
 			tol := p.NoiseParams().Bound() / scFac * float64(rP.Rank())
-			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloOrder()) {
+			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloIndex()) {
 				// TODO: Implement
 			} else {
 				assert.True(t, math.Abs(msg-res.Value[0]) < tol)
@@ -126,7 +126,7 @@ func testOperator(t *testing.T, rP dft.RingParameters, scFac float64) {
 			res := enc.Decrypt(ctOut)
 			tol := p.NoiseParams().Bound()/scFac*float64(rP.Rank()) + 1/scFac
 
-			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloOrder()) {
+			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloIndex()) {
 				// TODO: Implement
 			} else {
 				assert.True(t, math.Abs(msgRef-res.Value[0]) < tol)
@@ -170,7 +170,7 @@ func testOperator(t *testing.T, rP dft.RingParameters, scFac float64) {
 			res := enc.Decrypt(ctOut)
 			tol := p.NoiseParams().Bound()/scFac*float64(rP.Rank()) + 1/scFac
 
-			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloOrder()) {
+			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloIndex()) {
 				// TODO: Implement
 			} else {
 				assert.True(t, math.Abs(msgRef-res.Value[0]) < tol)
@@ -238,7 +238,7 @@ func testOperator(t *testing.T, rP dft.RingParameters, scFac float64) {
 			res := enc.Decrypt(ctOut)
 			tol := p.NoiseParams().Bound()/scFac*float64(rP.Rank()) + 1/scFac
 
-			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloOrder()) {
+			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloIndex()) {
 				// TODO: Implement
 			} else {
 				assert.True(t, math.Abs(msgRef-res.Value[0]) < tol)
@@ -282,7 +282,7 @@ func testOperator(t *testing.T, rP dft.RingParameters, scFac float64) {
 			res := enc.Decrypt(ctOut)
 			tol := p.NoiseParams().Bound()/scFac*float64(rP.Rank()) + 1/scFac
 
-			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloOrder()) {
+			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloIndex()) {
 				// TODO: Implement
 			} else {
 				assert.True(t, math.Abs(msgRef-res.Value[0]) < tol)
@@ -353,7 +353,7 @@ func testOperator(t *testing.T, rP dft.RingParameters, scFac float64) {
 
 			// TODO: More precise noise bound.
 			tol := float64(rP.Rank()) / scFac
-			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloOrder()) {
+			if rP.RingType() == dft.TypeAutFixed && num.IsPrime(rP.CycloIndex()) {
 				// TODO: Implement
 			} else {
 				assert.True(t, math.Abs(msgRef-res.Value[0]) < tol)

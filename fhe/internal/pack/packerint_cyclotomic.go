@@ -32,7 +32,7 @@ type pow2CyclotomicMod1IntPacker struct {
 // newPow2CyclotomicMod1IntPacker creates a new [pow2CyclotomicMod1IntPacker].
 func newPow2CyclotomicMod1IntPacker(params dft.RingParameters, mod *num.Modulus) *pow2CyclotomicMod1IntPacker {
 	primes, _ := num.Factor(mod.Value())
-	packLen := params.CycloOrder() >> 1
+	packLen := params.CycloIndex() >> 1
 	for i := range primes {
 		ithLogPackLen := bits.TrailingZeros64(primes[i]-1) - 1
 		if packLen > (1 << ithLogPackLen) {
@@ -50,7 +50,7 @@ func newPow2CyclotomicMod1IntPacker(params dft.RingParameters, mod *num.Modulus)
 		ntt:     ntt,
 
 		cube:    []int{packLen >> 1, 2},
-		cubeGen: []uint64{5, uint64(params.CycloOrder() - 1)},
+		cubeGen: []uint64{5, uint64(params.CycloIndex() - 1)},
 
 		pool: pool.NewPool(func() *[]uint64 {
 			v := make([]uint64, packLen)
@@ -181,15 +181,15 @@ func (p *pow2CyclotomicMod1IntPacker) RotIdxToAutIdx(idx []int) int {
 		if len(idx) != 1 {
 			panic("input(s) shape not consistent")
 		}
-		return int(num.Exp(5, uint64(idx[0]), nil)) & (p.params.CycloOrder() - 1)
+		return int(num.Exp(5, uint64(idx[0]), nil)) & (p.params.CycloIndex() - 1)
 
 	default:
 		if len(idx) != 2 {
 			panic("input(s) shape not consistent")
 		}
-		autIdx := int(num.Exp(5, uint64(idx[0]), nil)) & (p.params.CycloOrder() - 1)
+		autIdx := int(num.Exp(5, uint64(idx[0]), nil)) & (p.params.CycloIndex() - 1)
 		if idx[1]&1 == 1 {
-			autIdx = p.params.CycloOrder() - autIdx
+			autIdx = p.params.CycloIndex() - autIdx
 		}
 		return autIdx
 	}
@@ -225,7 +225,7 @@ type pow2CyclotomicMod3IntPacker struct {
 // newPow2CyclotomicMod3IntPacker creates a new [pow2CyclotomicMod3Packer].
 func newPow2CyclotomicMod3IntPacker(params dft.RingParameters, mod *num.Modulus) *pow2CyclotomicMod3IntPacker {
 	primes, _ := num.Factor(mod.Value())
-	packLen := params.CycloOrder() >> 2
+	packLen := params.CycloIndex() >> 2
 	logPackLen := bits.TrailingZeros64(primes[0]+1) - 1
 	if packLen > (1 << logPackLen) {
 		packLen = 1 << logPackLen
@@ -376,7 +376,7 @@ func (p *pow2CyclotomicMod3IntPacker) RotIdxToAutIdx(idx []int) int {
 	if len(idx) != 1 {
 		panic("input(s) shape not consistent")
 	}
-	return int(num.Exp(5, uint64(idx[0]), nil)) & (p.params.CycloOrder() - 1)
+	return int(num.Exp(5, uint64(idx[0]), nil)) & (p.params.CycloIndex() - 1)
 }
 
 // anyCyclotomicIntPacker is a packer for arbitrary cyclotomic rings,
@@ -395,8 +395,8 @@ type anyCyclotomicIntPacker struct {
 	// cubeGen is the corresponding generator for the hypercube structure.
 	cubeGen []uint64
 
-	// cycloOrdMod is the cyclotomic order modulus.
-	cycloOrdMod *num.Modulus
+	// cycloIdxMod is the cyclotomic index modulus.
+	cycloIdxMod *num.Modulus
 }
 
 // newAnyCyclotomicIntPacker creates a new [anyCyclotomicIntPacker].
@@ -404,33 +404,33 @@ func newAnyCyclotomicIntPacker(params dft.RingParameters, mod *num.Modulus) *any
 	packLen := int(params.Rank())
 	ntt := dft.NewTransformer(params, mod)
 
-	cycloOrdMod := num.NewModulus(params.CycloOrder())
-	primes, exps := num.Factor(cycloOrdMod.Value())
-	cubeGen := num.GeneratorsWithFactors(cycloOrdMod, primes, exps)
+	cycloIdxMod := num.NewModulus(params.CycloIndex())
+	primes, exps := num.Factor(cycloIdxMod.Value())
+	cubeGen := num.GeneratorsWithFactors(cycloIdxMod, primes, exps)
 	cube := make([]int, len(cubeGen))
 	if primes[0] == 2 && exps[0] == 1 {
 		for i := range cube {
 			pExp := num.Exp(primes[i+1], exps[i+1], nil)
 			cube[i] = int(pExp - pExp/primes[i+1])
-			cubeGen[i] = num.Inv(cubeGen[i], cycloOrdMod)
+			cubeGen[i] = num.Inv(cubeGen[i], cycloIdxMod)
 		}
 	} else if primes[0] == 2 && exps[0] > 2 {
 		cube[0] = 1 << (exps[0] - 2)
-		cubeGen[0] = num.Inv(cubeGen[0], cycloOrdMod)
+		cubeGen[0] = num.Inv(cubeGen[0], cycloIdxMod)
 
 		cube[1] = 2
-		cubeGen[1] = num.Inv(cubeGen[1], cycloOrdMod)
+		cubeGen[1] = num.Inv(cubeGen[1], cycloIdxMod)
 
 		for i := 2; i < len(cube); i++ {
 			pExp := num.Exp(primes[i-1], exps[i-1], nil)
 			cube[i] = int(pExp - pExp/primes[i-1])
-			cubeGen[i] = num.Inv(cubeGen[i], cycloOrdMod)
+			cubeGen[i] = num.Inv(cubeGen[i], cycloIdxMod)
 		}
 	} else {
 		for i := range cube {
 			pExp := num.Exp(primes[i], exps[i], nil)
 			cube[i] = int(pExp - pExp/primes[i])
-			cubeGen[i] = num.Inv(cubeGen[i], cycloOrdMod)
+			cubeGen[i] = num.Inv(cubeGen[i], cycloIdxMod)
 		}
 	}
 
@@ -444,7 +444,7 @@ func newAnyCyclotomicIntPacker(params dft.RingParameters, mod *num.Modulus) *any
 		cube:    cube,
 		cubeGen: cubeGen,
 
-		cycloOrdMod: cycloOrdMod,
+		cycloIdxMod: cycloIdxMod,
 	}
 }
 
@@ -514,7 +514,7 @@ func (p *anyCyclotomicIntPacker) RotIdxToAutIdx(idx []int) int {
 	}
 	autIdx := uint64(1)
 	for i := range p.cubeGen {
-		autIdx = num.Mul(autIdx, num.Exp(p.cubeGen[i], uint64(idx[i]), p.cycloOrdMod), p.cycloOrdMod)
+		autIdx = num.Mul(autIdx, num.Exp(p.cubeGen[i], uint64(idx[i]), p.cycloIdxMod), p.cycloIdxMod)
 	}
 	return int(autIdx)
 }

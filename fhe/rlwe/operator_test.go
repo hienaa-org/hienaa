@@ -434,7 +434,7 @@ func testOperator(t *testing.T, rP dft.RingParameters) {
 
 		var idx int
 		for {
-			idx = int(rSrc.SampleN(uint64(rP.CycloOrder() - 1)))
+			idx = int(rSrc.SampleN(uint64(rP.CycloIndex() - 1)))
 			if pOp.CanAut(idx) {
 				break
 			}

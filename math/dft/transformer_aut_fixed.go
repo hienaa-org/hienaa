@@ -34,7 +34,7 @@ func newPow2AutFixedTransformer(params RingParameters, mod *num.Modulus) *pow2Au
 
 	twLarge := make([]uint64, 2*params.rank)
 	twInvLarge := make([]uint64, 2*params.rank)
-	twLarge[0], twLarge[1] = 1, num.NthRoot(params.cycloOrd, root, mod)
+	twLarge[0], twLarge[1] = 1, num.NthRoot(params.cycloIdx, root, mod)
 	twInvLarge[0], twInvLarge[1] = 1, num.Inv(twLarge[1], mod)
 	for i := 2; i < 2*params.rank; i++ {
 		twLarge[i] = num.Mul(twLarge[i-1], twLarge[1], mod)
@@ -187,25 +187,25 @@ type primeAutFixedTransformer struct {
 	// Pre-transformed for a fast convolution.
 	rootInv []uint64
 
-	// fold is cyclotomic order divided by rank.
+	// fold is cyclotomic index divided by rank.
 	fold uint64
 	// ambRankInvM is the modular inverse of the rank of the ambient NTT in Montgomery form.
 	ambRankInvM uint64
-	// cycloOrdInv is the modular inverse of the cyclotomic order.
-	cycloOrdInv uint64
+	// cycloIdxInv is the modular inverse of the cyclotomic index.
+	cycloIdxInv uint64
 
 	pool *pool.Pool[*[]uint64]
 }
 
 // newPrimeAutFixedTransformer creates a new [primeAutFixedTransformer].
 func newPrimeAutFixedTransformer(params RingParameters, mod *num.Modulus) *primeAutFixedTransformer {
-	fold := int((params.cycloOrd - 1) / params.rank)
+	fold := int((params.cycloIdx - 1) / params.rank)
 
 	isPow2 := num.IsPowerOfTwo(params.rank)
 
-	cycloOrdMod := num.NewModulus(params.cycloOrd)
-	cycloRoot := num.Generators(cycloOrdMod)[0]
-	modRoot := num.NthRoot(params.cycloOrd, num.Generators(mod), mod)
+	cycloIdxMod := num.NewModulus(params.cycloIdx)
+	cycloRoot := num.Generators(cycloIdxMod)[0]
+	modRoot := num.NthRoot(params.cycloIdx, num.Generators(mod), mod)
 
 	var ambRank int
 	if isPow2 {
@@ -219,7 +219,7 @@ func newPrimeAutFixedTransformer(params RingParameters, mod *num.Modulus) *prime
 	modRootPowSum := make([]uint64, ambRank)
 	modRootPowInvSum := make([]uint64, ambRank)
 
-	cycloRootPowRank := num.Exp(cycloRoot, uint64(params.rank), cycloOrdMod)
+	cycloRootPowRank := num.Exp(cycloRoot, uint64(params.rank), cycloIdxMod)
 	modRootPow := modRoot
 	modRootPowInv := num.Inv(modRoot, mod)
 
@@ -256,7 +256,7 @@ func newPrimeAutFixedTransformer(params RingParameters, mod *num.Modulus) *prime
 
 		fold:        uint64(fold),
 		ambRankInvM: ambRankInv,
-		cycloOrdInv: num.Inv(uint64(params.cycloOrd), mod),
+		cycloIdxInv: num.Inv(uint64(params.cycloIdx), mod),
 
 		pool: pool.NewPool(func() *[]uint64 {
 			v := make([]uint64, ambRank)
@@ -377,7 +377,7 @@ func (ntt *primeAutFixedTransformer) InverseTo(v, vNTT []uint64) {
 
 	sumFold = num.MMul(sumFold, ntt.fold, ntt.mod)
 	vec.SubScalarTo(v, vBuf[:ntt.params.rank], sumFold, ntt.mod)
-	vec.MulScalarTo(v, v, ntt.cycloOrdInv, ntt.mod)
+	vec.MulScalarTo(v, v, ntt.cycloIdxInv, ntt.mod)
 }
 
 // Params returns the ring parameters.

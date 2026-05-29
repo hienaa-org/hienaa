@@ -206,9 +206,9 @@ func (r *LongDivReducer) Append(r0 *LongDivReducer) *LongDivReducer {
 	}
 }
 
-// AppendAuxModulus appends "auxillary" modulus to the moduli chain and returns the new [LongDivReducer].
+// AppendTmpModulus appends "temporary" modulus to the moduli chain and returns the new [LongDivReducer].
 // This assumes that modulus is NTT-unfriendly, trading the appending performance with operation performance.
-func (r *LongDivReducer) AppendAuxModulus(mod *num.Modulus) *LongDivReducer {
+func (r *LongDivReducer) AppendTmpModulus(mod *num.Modulus) *LongDivReducer {
 	return &LongDivReducer{
 		params: r.params,
 		mod:    vec.Concat(r.mod, []*num.Modulus{mod}),
@@ -272,16 +272,16 @@ type CyclotomicReducer struct {
 
 // NewCyclotomicReducer creates a new [CyclotomicReducer].
 func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *CyclotomicReducer {
-	cycloOrd, rank := params.CycloOrder(), params.Rank()
-	primes, _ := num.Factor(cycloOrd)
+	cycloIdx, rank := params.CycloIndex(), params.Rank()
+	primes, _ := num.Factor(cycloIdx)
 
 	var redDeg, leastFactor int
-	if cycloOrd%2 == 1 {
+	if cycloIdx%2 == 1 {
 		leastFactor = primes[0]
-		redDeg = cycloOrd - cycloOrd/leastFactor
+		redDeg = cycloIdx - cycloIdx/leastFactor
 	} else {
 		leastFactor = primes[1]
-		redDeg = cycloOrd/2 - (cycloOrd/2)/leastFactor
+		redDeg = cycloIdx/2 - (cycloIdx/2)/leastFactor
 	}
 
 	isTrivial := redDeg == rank
@@ -413,7 +413,7 @@ func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *Cyclot
 		pool: pool.NewPool(func() *[][]uint64 {
 			p := make([][]uint64, max(1, len(ambMod)))
 			for i := range p {
-				p[i] = make([]uint64, max(cycloOrd, diffDegNext, degNext))
+				p[i] = make([]uint64, max(cycloIdx, diffDegNext, degNext))
 			}
 			return &p
 		}),
@@ -422,39 +422,39 @@ func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *Cyclot
 
 // reduceTo reduces p to pOut with the idx-th modulus.
 func (r *CyclotomicReducer) reduceTo(pOut, p []uint64, idx int) {
-	cycloOrd, rank := r.params.CycloOrder(), r.params.Rank()
+	cycloIdx, rank := r.params.CycloIndex(), r.params.Rank()
 
 	pInPtr := r.pool.Get()
-	pIn := (*pInPtr)[0][:cycloOrd]
+	pIn := (*pInPtr)[0][:cycloIdx]
 	defer r.pool.Put(pInPtr)
 
 	copy(pIn, p)
-	if cycloOrd%2 == 1 {
-		skip := cycloOrd / r.leastFac
+	if cycloIdx%2 == 1 {
+		skip := cycloIdx / r.leastFac
 
 		for j := 0; j < skip; j++ {
 			for i := 0; i < r.leastFac-1; i++ {
-				pIn[i*skip+j] = num.Sub(pIn[i*skip+j], pIn[cycloOrd-skip+j], r.mod[idx])
+				pIn[i*skip+j] = num.Sub(pIn[i*skip+j], pIn[cycloIdx-skip+j], r.mod[idx])
 			}
-			pIn[cycloOrd-skip+j] = 0
+			pIn[cycloIdx-skip+j] = 0
 		}
 	} else {
-		skip := (cycloOrd / 2) / r.leastFac
+		skip := (cycloIdx / 2) / r.leastFac
 
-		for i := 0; i < cycloOrd/2; i++ {
-			pIn[i] = num.Sub(pIn[i], pIn[cycloOrd/2+i], r.mod[idx])
-			pIn[cycloOrd/2+i] = 0
+		for i := 0; i < cycloIdx/2; i++ {
+			pIn[i] = num.Sub(pIn[i], pIn[cycloIdx/2+i], r.mod[idx])
+			pIn[cycloIdx/2+i] = 0
 		}
 
 		for j := 0; j < skip; j++ {
 			for i := 0; i < r.leastFac-1; i++ {
 				if i%2 == 0 {
-					pIn[i*skip+j] = num.Sub(pIn[i*skip+j], pIn[cycloOrd/2-skip+j], r.mod[idx])
+					pIn[i*skip+j] = num.Sub(pIn[i*skip+j], pIn[cycloIdx/2-skip+j], r.mod[idx])
 				} else {
-					pIn[i*skip+j] = num.Add(pIn[i*skip+j], pIn[cycloOrd/2-skip+j], r.mod[idx])
+					pIn[i*skip+j] = num.Add(pIn[i*skip+j], pIn[cycloIdx/2-skip+j], r.mod[idx])
 				}
 			}
-			pIn[cycloOrd/2-skip+j] = 0
+			pIn[cycloIdx/2-skip+j] = 0
 		}
 	}
 
@@ -549,7 +549,7 @@ func (r *CyclotomicReducer) reduceTo(pOut, p []uint64, idx int) {
 
 // Reduce reduces p.
 //
-// Panics when p is in NTT form, or the rank of p is larger than CycloOrd.
+// Panics when p is in NTT form, or the rank of p is larger than CycloIdx.
 func (r *CyclotomicReducer) Reduce(p *Element) *Element {
 	pOut := NewPoly(r.params.Rank(), p.ModLen())
 	r.ReduceTo(pOut, p)
@@ -558,14 +558,14 @@ func (r *CyclotomicReducer) Reduce(p *Element) *Element {
 
 // ReduceTo reduces p to pOut.
 //
-// Panics when p is in NTT form, or the rank of p is larger than CycloOrd.
+// Panics when p is in NTT form, or the rank of p is larger than CycloIdx.
 func (r *CyclotomicReducer) ReduceTo(pOut, p *Element) {
 	if p.Type() != TypePoly {
 		panic("input(s) must be polynomial")
 	} else if p.IsNTT {
 		panic("input(s) must be in standard form")
-	} else if p.Rank() > r.params.CycloOrder() {
-		panic("rank must be less than or equal to cycloOrd")
+	} else if p.Rank() > r.params.CycloIndex() {
+		panic("rank must be less than or equal to cycloIdx")
 	} else if pOut.ModLen() != len(r.mod) || p.ModLen() != len(r.mod) {
 		panic("input(s) not consistent")
 	}
@@ -677,9 +677,9 @@ func (r *CyclotomicReducer) Append(r0 *CyclotomicReducer) *CyclotomicReducer {
 	}
 }
 
-// AppendAuxModulus appends "auxillary" modulus to the moduli chain and returns the new [CyclotomicReducer].
+// AppendTmpModulus appends "temporary" modulus to the moduli chain and returns the new [CyclotomicReducer].
 // This assumes that modulus is NTT-unfriendly, trading the appending performance with operation performance.
-func (r *CyclotomicReducer) AppendAuxModulus(mod *num.Modulus) *CyclotomicReducer {
+func (r *CyclotomicReducer) AppendTmpModulus(mod *num.Modulus) *CyclotomicReducer {
 	if r.isTrivial {
 		return &CyclotomicReducer{
 			params: r.params,
@@ -1133,9 +1133,9 @@ func (r *Reducer) Append(r0 *Reducer) *Reducer {
 	}
 }
 
-// AppendAuxModulus appends "auxillary" modulus to the moduli chain and returns the new [Reducer].
+// AppendTmpModulus appends "temporary" modulus to the moduli chain and returns the new [Reducer].
 // This assumes that modulus is NTT-unfriendly, trading the appending performance with operation performance.
-func (r *Reducer) AppendAuxModulus(mod *num.Modulus) *Reducer {
+func (r *Reducer) AppendTmpModulus(mod *num.Modulus) *Reducer {
 	ambModLen := 0
 	ambExpFactorBits := num.Log2(2 * max(r.diffDegNext, r.degNext))
 	ambBits := ambExpFactorBits + 2*num.Log2(mod.Value())

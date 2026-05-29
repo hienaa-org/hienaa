@@ -44,15 +44,15 @@ type cyclotomicReducer struct {
 
 // newCyclotomicReducer creates a new [cyclotomicReducer].
 func newCyclotomicReducer(params RingParameters, mod *num.Modulus) *cyclotomicReducer {
-	primes, _ := num.Factor(params.cycloOrd)
+	primes, _ := num.Factor(params.cycloIdx)
 
 	var redDeg, leastFactor int
-	if params.cycloOrd%2 == 1 {
+	if params.cycloIdx%2 == 1 {
 		leastFactor = primes[0]
-		redDeg = params.cycloOrd - params.cycloOrd/leastFactor
+		redDeg = params.cycloIdx - params.cycloIdx/leastFactor
 	} else {
 		leastFactor = primes[1]
-		redDeg = params.cycloOrd/2 - (params.cycloOrd/2)/leastFactor
+		redDeg = params.cycloIdx/2 - (params.cycloIdx/2)/leastFactor
 	}
 
 	isTrivial := redDeg == params.rank
@@ -101,46 +101,46 @@ func newCyclotomicReducer(params RingParameters, mod *num.Modulus) *cyclotomicRe
 		divPoly:   divPoly,
 
 		pool: pool.NewPool(func() *[]uint64 {
-			p := make([]uint64, max(params.cycloOrd, diffDegNext, degNext))
+			p := make([]uint64, max(params.cycloIdx, diffDegNext, degNext))
 			return &p
 		}),
 	}
 }
 
 func (r *cyclotomicReducer) reduceTo(pOut, p []uint64) {
-	cycloOrd, rank := r.params.cycloOrd, r.params.rank
+	cycloIdx, rank := r.params.cycloIdx, r.params.rank
 
 	pInPtr := r.pool.Get()
-	pIn := (*pInPtr)[:cycloOrd]
+	pIn := (*pInPtr)[:cycloIdx]
 	defer r.pool.Put(pInPtr)
 
 	copy(pIn, p)
-	if cycloOrd%2 == 1 {
-		skip := cycloOrd / r.leastFac
+	if cycloIdx%2 == 1 {
+		skip := cycloIdx / r.leastFac
 
 		for j := 0; j < skip; j++ {
 			for i := 0; i < r.leastFac-1; i++ {
-				pIn[i*skip+j] = num.Sub(pIn[i*skip+j], pIn[cycloOrd-skip+j], r.mod)
+				pIn[i*skip+j] = num.Sub(pIn[i*skip+j], pIn[cycloIdx-skip+j], r.mod)
 			}
-			pIn[cycloOrd-skip+j] = 0
+			pIn[cycloIdx-skip+j] = 0
 		}
 	} else {
-		skip := (cycloOrd / 2) / r.leastFac
+		skip := (cycloIdx / 2) / r.leastFac
 
-		for i := 0; i < cycloOrd/2; i++ {
-			pIn[i] = num.Sub(pIn[i], pIn[cycloOrd/2+i], r.mod)
-			pIn[cycloOrd/2+i] = 0
+		for i := 0; i < cycloIdx/2; i++ {
+			pIn[i] = num.Sub(pIn[i], pIn[cycloIdx/2+i], r.mod)
+			pIn[cycloIdx/2+i] = 0
 		}
 
 		for j := 0; j < skip; j++ {
 			for i := 0; i < r.leastFac-1; i++ {
 				if i%2 == 0 {
-					pIn[i*skip+j] = num.Sub(pIn[i*skip+j], pIn[cycloOrd/2-skip+j], r.mod)
+					pIn[i*skip+j] = num.Sub(pIn[i*skip+j], pIn[cycloIdx/2-skip+j], r.mod)
 				} else {
-					pIn[i*skip+j] = num.Add(pIn[i*skip+j], pIn[cycloOrd/2-skip+j], r.mod)
+					pIn[i*skip+j] = num.Add(pIn[i*skip+j], pIn[cycloIdx/2-skip+j], r.mod)
 				}
 			}
-			pIn[cycloOrd/2-skip+j] = 0
+			pIn[cycloIdx/2-skip+j] = 0
 		}
 	}
 
@@ -205,28 +205,28 @@ func (r *cyclotomicReducer) reduceTo(pOut, p []uint64) {
 	}
 }
 
-// CyclotomicPolynomial computes the cyclotomic polynomial of the given cyclotomic order.
-func CyclotomicPolynomial(cycloOrd int) []int64 {
+// CyclotomicPolynomial computes the cyclotomic polynomial of the given cyclotomic index.
+func CyclotomicPolynomial(cycloIdx int) []int64 {
 	switch {
-	case cycloOrd <= 0:
-		panic("cycloOrd must be positive")
-	case cycloOrd == 1:
+	case cycloIdx <= 0:
+		panic("cycloIdx must be positive")
+	case cycloIdx == 1:
 		return []int64{-1, 1}
-	case num.IsPowerOfTwo(cycloOrd):
-		cycloPoly := make([]int64, cycloOrd>>1+1)
+	case num.IsPowerOfTwo(cycloIdx):
+		cycloPoly := make([]int64, cycloIdx>>1+1)
 		cycloPoly[0] = 1
-		cycloPoly[cycloOrd>>1] = 1
+		cycloPoly[cycloIdx>>1] = 1
 		return cycloPoly
-	case num.IsPrime(cycloOrd):
-		cycloPoly := make([]int64, cycloOrd)
+	case num.IsPrime(cycloIdx):
+		cycloPoly := make([]int64, cycloIdx)
 		for i := range cycloPoly {
 			cycloPoly[i] = 1
 		}
 		return cycloPoly
 	}
 
-	primes, exps := num.Factor(cycloOrd)
-	phi := num.TotientWithFactors(cycloOrd, primes, exps)
+	primes, exps := num.Factor(cycloIdx)
+	phi := num.TotientWithFactors(cycloIdx, primes, exps)
 
 	var twoExp int
 	if primes[0] == 2 {
@@ -235,18 +235,18 @@ func CyclotomicPolynomial(cycloOrd int) []int64 {
 		exps = exps[1:]
 	}
 
-	cycloOrdSqFree := 1
+	cycloIdxSqFree := 1
 	phiSqFree := 1
 	for i := range primes {
-		cycloOrdSqFree *= primes[i]
+		cycloIdxSqFree *= primes[i]
 		phiSqFree *= primes[i] - 1
 	}
 
-	mobius := make([]int, cycloOrdSqFree+1)
+	mobius := make([]int, cycloIdxSqFree+1)
 	mobius[1] = 1
-	for i := 1; i <= cycloOrdSqFree; i++ {
+	for i := 1; i <= cycloIdxSqFree; i++ {
 		j := 2 * i
-		for j <= cycloOrdSqFree {
+		for j <= cycloIdxSqFree {
 			mobius[j] -= mobius[i]
 			j += i
 		}
@@ -255,11 +255,11 @@ func CyclotomicPolynomial(cycloOrd int) []int64 {
 	degSqFree := phiSqFree / 2
 	cycloPolySqFree := make([]int64, phiSqFree+1)
 	cycloPolySqFree[0] = 1
-	for d := 1; d < cycloOrdSqFree; d++ {
-		if cycloOrdSqFree%d != 0 {
+	for d := 1; d < cycloIdxSqFree; d++ {
+		if cycloIdxSqFree%d != 0 {
 			continue
 		}
-		if mobius[cycloOrdSqFree/d] == 1 {
+		if mobius[cycloIdxSqFree/d] == 1 {
 			for i := degSqFree; i >= d; i-- {
 				cycloPolySqFree[i] -= cycloPolySqFree[i-d]
 			}
@@ -274,7 +274,7 @@ func CyclotomicPolynomial(cycloOrd int) []int64 {
 		cycloPolySqFree[i] = cycloPolySqFree[phiSqFree-i]
 	}
 
-	gap := (cycloOrd / cycloOrdSqFree) >> twoExp
+	gap := (cycloIdx / cycloIdxSqFree) >> twoExp
 	if twoExp >= 1 {
 		gap <<= twoExp - 1
 	}

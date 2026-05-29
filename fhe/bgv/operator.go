@@ -275,7 +275,7 @@ func (op *Operator) scaleToMulModTo(ctOut *Ciphertext, ctIn *Ciphertext, auxIdx 
 	if auxMod == nil {
 		opOut = opIn.WithModIdx(vec.Range(0, outLen)...)
 	} else {
-		opOut = opIn.WithModIdx(vec.Range(0, auxIdx)...).AppendAuxModulus(auxMod).Append(opIn.WithModIdx(vec.Range(auxIdx+1, outLen)...))
+		opOut = opIn.WithModIdx(vec.Range(0, auxIdx)...).AppendTmpModulus(auxMod).Append(opIn.WithModIdx(vec.Range(auxIdx+1, outLen)...))
 	}
 
 	sc := crt.NewScaler(opOut, opIn).WithPool(op.embPool)
@@ -315,7 +315,7 @@ func (op *Operator) tensorTo(v *rlwe.Vector, ct0, ct1 *Ciphertext, tarLen int, a
 	if auxMod == nil {
 		opAux = baseOp
 	} else {
-		opAux = baseOp.WithModIdx(vec.Range(0, auxIdx)...).AppendAuxModulus(auxMod).Append(baseOp.WithModIdx(vec.Range(auxIdx+1, tarLen)...))
+		opAux = baseOp.WithModIdx(vec.Range(0, auxIdx)...).AppendTmpModulus(auxMod).Append(baseOp.WithModIdx(vec.Range(auxIdx+1, tarLen)...))
 	}
 
 	// Tensoring the ciphertexts.
@@ -372,7 +372,7 @@ func (op *Operator) scaleFromMulModTo(vOut *rlwe.Vector, vIn *rlwe.Vector, auxId
 	if auxMod == nil {
 		opIn = opOut
 	} else {
-		opIn = opOut.WithModIdx(vec.Range(0, auxIdx)...).AppendAuxModulus(auxMod).Append(opOut.WithModIdx(vec.Range(auxIdx+1, inLen)...))
+		opIn = opOut.WithModIdx(vec.Range(0, auxIdx)...).AppendTmpModulus(auxMod).Append(opOut.WithModIdx(vec.Range(auxIdx+1, inLen)...))
 	}
 
 	sc := crt.NewScaler(opOut, opIn).WithPool(op.embPool)
