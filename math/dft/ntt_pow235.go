@@ -4,10 +4,10 @@ import (
 	"math/bits"
 )
 
-// nttInPlacePow2 computes the NTT transform in-place for power-of-two length coefficients.
-func nttInPlacePow2(coeffs, tw, twS []uint64, q uint64) {
+// fwdNTTInPlacePow2 computes the NTT transform in-place for power-of-two length coefficients.
+func fwdNTTInPlacePow2(coeffs, tw, twS []uint64, q uint64) {
 	if len(coeffs) < 32 {
-		nttInPlacePow2Ref(coeffs, tw, twS, q)
+		fwdNTTInPlacePow2Ref(coeffs, tw, twS, q)
 		return
 	}
 	fwdNTTInPlacePow2Unroll(coeffs, tw, twS, q)
@@ -23,8 +23,8 @@ func fwdButterflyPow2(u, v, w, wS, q, twoQ uint64) (uint64, uint64) {
 	return u + t, u - t + twoQ
 }
 
-// nttInPlacePow2Ref computes the NTT transform in-place for power-of-two length coefficients.
-func nttInPlacePow2Ref(coeffs, tw, twS []uint64, q uint64) {
+// fwdNTTInPlacePow2Ref computes the NTT transform in-place for power-of-two length coefficients.
+func fwdNTTInPlacePow2Ref(coeffs, tw, twS []uint64, q uint64) {
 	N := len(coeffs)
 	twoQ := q << 1
 
@@ -42,10 +42,10 @@ func nttInPlacePow2Ref(coeffs, tw, twS []uint64, q uint64) {
 	}
 }
 
-// inttInPlacePow2 computes the inverse NTT transform in-place for power-of-two length coefficients.
-func inttInPlacePow2(coeffs, twInv, twInvS []uint64, q uint64) {
+// invNTTInPlacePow2 computes the inverse NTT transform in-place for power-of-two length coefficients.
+func invNTTInPlacePow2(coeffs, twInv, twInvS []uint64, q uint64) {
 	if len(coeffs) < 32 {
-		inttInPlacePow2Ref(coeffs, twInv, twInvS, q)
+		invNTTInPlacePow2Ref(coeffs, twInv, twInvS, q)
 		return
 	}
 	invNTTInPlacePow2Unroll(coeffs, twInv, twInvS, q)
@@ -61,8 +61,8 @@ func invButterflyPow2(u, v, w, wS, q, twoQ uint64) (uint64, uint64) {
 	return u, v*w - quo*q
 }
 
-// inttInPlacePow2Ref computes the inverse NTT transform in-place for power-of-two length coefficients.
-func inttInPlacePow2Ref(coeffs, twInv, twInvS []uint64, q uint64) {
+// invNTTInPlacePow2Ref computes the inverse NTT transform in-place for power-of-two length coefficients.
+func invNTTInPlacePow2Ref(coeffs, twInv, twInvS []uint64, q uint64) {
 	N := len(coeffs)
 	twoQ := q << 1
 
@@ -80,8 +80,8 @@ func inttInPlacePow2Ref(coeffs, twInv, twInvS []uint64, q uint64) {
 	}
 }
 
-// nttInPlacePow3 computes the NTT transform in-place for power-of-three length coefficients.
-func nttInPlacePow3(skip int, coeffs, tw, twS, root, rootS []uint64, q uint64) {
+// fwdNTTInPlacePow3 computes the NTT transform in-place for power-of-three length coefficients.
+func fwdNTTInPlacePow3(skip int, coeffs, tw, twS, root, rootS []uint64, q uint64) {
 	N := len(coeffs)
 	twoQ := q << 1
 
@@ -139,8 +139,8 @@ func nttInPlacePow3(skip int, coeffs, tw, twS, root, rootS []uint64, q uint64) {
 	}
 }
 
-// inttInPlacePow3 computes the inverse NTT transform in-place for power-of-three length coefficients.
-func inttInPlacePow3(skip int, coeffs, twInv, twInvS, root, rootS []uint64, q uint64) {
+// invNTTInPlacePow3 computes the inverse NTT transform in-place for power-of-three length coefficients.
+func invNTTInPlacePow3(skip int, coeffs, twInv, twInvS, root, rootS []uint64, q uint64) {
 	N := len(coeffs)
 	twoQ := q << 1
 
@@ -197,8 +197,8 @@ func inttInPlacePow3(skip int, coeffs, twInv, twInvS, root, rootS []uint64, q ui
 	}
 }
 
-// nttInPlacePow5 computes the NTT transform in-place for power-of-five length coefficients.
-func nttInPlacePow5(skip int, coeffs, tw, twS, root, rootS []uint64, q uint64) {
+// fwdNTTInPlacePow5 computes the NTT transform in-place for power-of-five length coefficients.
+func fwdNTTInPlacePow5(skip int, coeffs, tw, twS, root, rootS []uint64, q uint64) {
 	N := len(coeffs)
 	twoQ := q << 1
 
@@ -318,8 +318,8 @@ func nttInPlacePow5(skip int, coeffs, tw, twS, root, rootS []uint64, q uint64) {
 	}
 }
 
-// inttInPlacePow5 computes the inverse NTT transform in-place for power-of-five length coefficients.
-func inttInPlacePow5(skip int, coeffs, twInv, twInvS, root, rootS []uint64, q uint64) {
+// invNTTInPlacePow5 computes the inverse NTT transform in-place for power-of-five length coefficients.
+func invNTTInPlacePow5(skip int, coeffs, twInv, twInvS, root, rootS []uint64, q uint64) {
 	N := len(coeffs)
 	twoQ := q << 1
 

@@ -65,7 +65,7 @@ func (ntt *pow2CyclotomicTransformer) ForwardTo(vNTT, v []uint64) {
 	checkLength(ntt.params.rank, len(vNTT), len(v))
 
 	copy(vNTT, v)
-	nttInPlacePow2(vNTT, ntt.tw, ntt.twS, ntt.mod.Value())
+	fwdNTTInPlacePow2(vNTT, ntt.tw, ntt.twS, ntt.mod.Value())
 	vec.MFormTo(vNTT, vNTT, ntt.mod)
 }
 
@@ -74,7 +74,7 @@ func (ntt *pow2CyclotomicTransformer) InverseTo(v, vNTT []uint64) {
 	checkLength(ntt.params.rank, len(vNTT), len(v))
 
 	copy(v, vNTT)
-	inttInPlacePow2(v, ntt.twInv, ntt.twInvS, ntt.mod.Value())
+	invNTTInPlacePow2(v, ntt.twInv, ntt.twInvS, ntt.mod.Value())
 	vec.SMulScalarTo(v, v, ntt.rankInv, ntt.rankInvS, ntt.mod)
 }
 
