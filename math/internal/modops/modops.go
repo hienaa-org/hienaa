@@ -41,57 +41,6 @@ func Neg(x, q uint64) uint64 {
 	return q - x
 }
 
-// BMul returns x0 * x1 mod q using Barrett reduction.
-func BMul(x0, x1, q, divHi, divLo uint64) uint64 {
-	xOutHi, xOutLo := bits.Mul64(x0, x1)
-
-	quo := xOutHi * divHi
-
-	quoLo, _ := bits.Mul64(xOutLo, divLo)
-
-	quoMid0, quoMid0Lo := bits.Mul64(xOutLo, divHi)
-	quo += quoMid0
-
-	quoMid1, quoMid1Lo := bits.Mul64(xOutHi, divLo)
-	quo += quoMid1
-
-	quoMidSum, quoMidCarry := bits.Add64(quoMid0Lo, quoMid1Lo, 0)
-	quo, _ = bits.Add64(quo, 0, quoMidCarry)
-
-	_, quoMidCarry = bits.Add64(quoMidSum, quoLo, 0)
-	quo, _ = bits.Add64(quo, 0, quoMidCarry)
-
-	xOut := xOutLo - quo*q
-	if xOut >= q {
-		xOut -= q
-	}
-	return xOut
-}
-
-// BMulLazy returns x0 * x1 mod q using Barrett reduction,
-// but the result is in [0, 2q).
-func BMulLazy(x0, x1, q, divHi, divLo uint64) uint64 {
-	xOutHi, xOutLo := bits.Mul64(x0, x1)
-
-	quo := xOutHi * divHi
-
-	quoLo, _ := bits.Mul64(xOutLo, divLo)
-
-	quoMid0, quoMid0Lo := bits.Mul64(xOutLo, divHi)
-	quo += quoMid0
-
-	quoMid1, quoMid1Lo := bits.Mul64(xOutHi, divLo)
-	quo += quoMid1
-
-	quoMidSum, quoMidCarry := bits.Add64(quoMid0Lo, quoMid1Lo, 0)
-	quo, _ = bits.Add64(quo, 0, quoMidCarry)
-
-	_, quoMidCarry = bits.Add64(quoMidSum, quoLo, 0)
-	quo, _ = bits.Add64(quo, 0, quoMidCarry)
-
-	return xOutLo - quo*q
-}
-
 // BMod128 returns x mod q using Barrett reduction.
 func BMod128(xHi, xLo, q, divHi, divLo uint64) uint64 {
 	quo := xHi * divHi

@@ -132,7 +132,6 @@ func TestCyclotomicNTT(t *testing.T) {
 		N := 1 << 10
 
 		testNTT(t, dft.NewCyclotomicParameters(N<<1), num.MaxModulusBits)
-		testNTT(t, dft.NewCyclotomicParameters(N<<1), num.MaxModulusIFMABits)
 	})
 
 	t.Run("type=Any", func(t *testing.T) {
@@ -142,7 +141,6 @@ func TestCyclotomicNTT(t *testing.T) {
 		M := m0 * m1
 
 		testNTT(t, dft.NewCyclotomicParameters(M), num.MaxModulusBits)
-		testNTT(t, dft.NewCyclotomicParameters(M), num.MaxModulusIFMABits)
 	})
 }
 
@@ -151,7 +149,6 @@ func TestCyclicNTT(t *testing.T) {
 		N := num.NextProdPower(int(rSrc.SampleN(1<<10)), []int{2, 3, 5})
 
 		testNTT(t, dft.NewCyclicParameters(N), num.MaxModulusBits)
-		testNTT(t, dft.NewCyclicParameters(N), num.MaxModulusIFMABits)
 	})
 
 	t.Run("type=Any", func(t *testing.T) {
@@ -164,7 +161,6 @@ func TestCyclicNTT(t *testing.T) {
 		}
 
 		testNTT(t, dft.NewCyclicParameters(N), num.MaxModulusBits)
-		testNTT(t, dft.NewCyclicParameters(N), num.MaxModulusIFMABits)
 	})
 }
 
@@ -173,7 +169,6 @@ func TestAutFixedNTT(t *testing.T) {
 		N := 1 << 10
 
 		testNTT(t, dft.NewAutFixedParameters(N<<2, N), num.MaxModulusBits)
-		testNTT(t, dft.NewAutFixedParameters(N<<2, N), num.MaxModulusIFMABits)
 	})
 
 	t.Run("type=Prime", func(t *testing.T) {
@@ -189,7 +184,6 @@ func TestAutFixedNTT(t *testing.T) {
 		N := (M - 1) / fold
 
 		testNTT(t, dft.NewAutFixedParameters(M, N), num.MaxModulusBits)
-		testNTT(t, dft.NewAutFixedParameters(M, N), num.MaxModulusIFMABits)
 	})
 }
 
@@ -219,7 +213,6 @@ func BenchmarkCyclotomicNTT(b *testing.B) {
 		for _, logN := range benchLogN {
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 				benchmarkNTT(b, dft.NewCyclotomicParameters(1<<(logN+1)), num.MaxModulusBits)
-				benchmarkNTT(b, dft.NewCyclotomicParameters(1<<(logN+1)), num.MaxModulusIFMABits)
 			})
 		}
 	})
@@ -233,7 +226,6 @@ func BenchmarkCyclotomicNTT(b *testing.B) {
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 				benchmarkNTT(b, dft.NewCyclotomicParameters(M), num.MaxModulusBits)
-				benchmarkNTT(b, dft.NewCyclotomicParameters(M), num.MaxModulusIFMABits)
 			})
 		}
 	})
@@ -245,7 +237,6 @@ func BenchmarkCyclicNTT(b *testing.B) {
 			N := num.NextProdPower((1<<logN)+1, []int{2, 3, 5})
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 				benchmarkNTT(b, dft.NewCyclicParameters(N), num.MaxModulusBits)
-				benchmarkNTT(b, dft.NewCyclicParameters(N), num.MaxModulusIFMABits)
 			})
 		}
 	})
@@ -256,7 +247,6 @@ func BenchmarkCyclicNTT(b *testing.B) {
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 				benchmarkNTT(b, dft.NewCyclicParameters(N), num.MaxModulusBits)
-				benchmarkNTT(b, dft.NewCyclicParameters(N), num.MaxModulusIFMABits)
 			})
 		}
 	})
@@ -269,7 +259,6 @@ func BenchmarkAutFixedNTT(b *testing.B) {
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 				benchmarkNTT(b, dft.NewAutFixedParameters(N<<2, N), num.MaxModulusBits)
-				benchmarkNTT(b, dft.NewAutFixedParameters(N<<2, N), num.MaxModulusIFMABits)
 			})
 		}
 	})
@@ -281,7 +270,6 @@ func BenchmarkAutFixedNTT(b *testing.B) {
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 				benchmarkNTT(b, dft.NewAutFixedParameters(M, N), num.MaxModulusBits)
-				benchmarkNTT(b, dft.NewAutFixedParameters(M, N), num.MaxModulusIFMABits)
 			})
 		}
 	})

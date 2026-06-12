@@ -178,6 +178,7 @@ func mulTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 
 	qv := q.Value()
 	divHi, divLo := q.Div()
+	qf, qfInv := q.Float(), q.FloatInv()
 
 	M := (len(vOut) >> 3) << 3
 	L := unsafe.Sizeof(uint64(0))
@@ -191,19 +192,19 @@ func mulTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
 		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
 
-		wOut[0] = modops.BMul(w0[0], w1[0], qv, divHi, divLo)
-		wOut[1] = modops.BMul(w0[1], w1[1], qv, divHi, divLo)
-		wOut[2] = modops.BMul(w0[2], w1[2], qv, divHi, divLo)
-		wOut[3] = modops.BMul(w0[3], w1[3], qv, divHi, divLo)
+		wOut[0] = modops.Mul(w0[0], w1[0], qv, divHi, divLo, qf, qfInv)
+		wOut[1] = modops.Mul(w0[1], w1[1], qv, divHi, divLo, qf, qfInv)
+		wOut[2] = modops.Mul(w0[2], w1[2], qv, divHi, divLo, qf, qfInv)
+		wOut[3] = modops.Mul(w0[3], w1[3], qv, divHi, divLo, qf, qfInv)
 
-		wOut[4] = modops.BMul(w0[4], w1[4], qv, divHi, divLo)
-		wOut[5] = modops.BMul(w0[5], w1[5], qv, divHi, divLo)
-		wOut[6] = modops.BMul(w0[6], w1[6], qv, divHi, divLo)
-		wOut[7] = modops.BMul(w0[7], w1[7], qv, divHi, divLo)
+		wOut[4] = modops.Mul(w0[4], w1[4], qv, divHi, divLo, qf, qfInv)
+		wOut[5] = modops.Mul(w0[5], w1[5], qv, divHi, divLo, qf, qfInv)
+		wOut[6] = modops.Mul(w0[6], w1[6], qv, divHi, divLo, qf, qfInv)
+		wOut[7] = modops.Mul(w0[7], w1[7], qv, divHi, divLo, qf, qfInv)
 	}
 
 	for i := M; i < len(vOut); i++ {
-		vOut[i] = modops.BMul(v0[i], v1[i], qv, divHi, divLo)
+		vOut[i] = modops.Mul(v0[i], v1[i], qv, divHi, divLo, qf, qfInv)
 	}
 }
 
@@ -223,6 +224,7 @@ func mulAddTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 
 	qv := q.Value()
 	divHi, divLo := q.Div()
+	qf, qfInv := q.Float(), q.FloatInv()
 
 	M := (len(vOut) >> 3) << 3
 	L := unsafe.Sizeof(uint64(0))
@@ -236,19 +238,19 @@ func mulAddTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
 		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
 
-		wOut[0] = modops.Add(wOut[0], modops.BMul(w0[0], w1[0], qv, divHi, divLo), qv)
-		wOut[1] = modops.Add(wOut[1], modops.BMul(w0[1], w1[1], qv, divHi, divLo), qv)
-		wOut[2] = modops.Add(wOut[2], modops.BMul(w0[2], w1[2], qv, divHi, divLo), qv)
-		wOut[3] = modops.Add(wOut[3], modops.BMul(w0[3], w1[3], qv, divHi, divLo), qv)
+		wOut[0] = modops.Add(wOut[0], modops.Mul(w0[0], w1[0], qv, divHi, divLo, qf, qfInv), qv)
+		wOut[1] = modops.Add(wOut[1], modops.Mul(w0[1], w1[1], qv, divHi, divLo, qf, qfInv), qv)
+		wOut[2] = modops.Add(wOut[2], modops.Mul(w0[2], w1[2], qv, divHi, divLo, qf, qfInv), qv)
+		wOut[3] = modops.Add(wOut[3], modops.Mul(w0[3], w1[3], qv, divHi, divLo, qf, qfInv), qv)
 
-		wOut[4] = modops.Add(wOut[4], modops.BMul(w0[4], w1[4], qv, divHi, divLo), qv)
-		wOut[5] = modops.Add(wOut[5], modops.BMul(w0[5], w1[5], qv, divHi, divLo), qv)
-		wOut[6] = modops.Add(wOut[6], modops.BMul(w0[6], w1[6], qv, divHi, divLo), qv)
-		wOut[7] = modops.Add(wOut[7], modops.BMul(w0[7], w1[7], qv, divHi, divLo), qv)
+		wOut[4] = modops.Add(wOut[4], modops.Mul(w0[4], w1[4], qv, divHi, divLo, qf, qfInv), qv)
+		wOut[5] = modops.Add(wOut[5], modops.Mul(w0[5], w1[5], qv, divHi, divLo, qf, qfInv), qv)
+		wOut[6] = modops.Add(wOut[6], modops.Mul(w0[6], w1[6], qv, divHi, divLo, qf, qfInv), qv)
+		wOut[7] = modops.Add(wOut[7], modops.Mul(w0[7], w1[7], qv, divHi, divLo, qf, qfInv), qv)
 	}
 
 	for i := M; i < len(vOut); i++ {
-		vOut[i] = modops.Add(vOut[i], modops.BMul(v0[i], v1[i], qv, divHi, divLo), qv)
+		vOut[i] = modops.Add(vOut[i], modops.Mul(v0[i], v1[i], qv, divHi, divLo, qf, qfInv), qv)
 	}
 }
 
@@ -268,6 +270,7 @@ func mulSubTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 
 	qv := q.Value()
 	divHi, divLo := q.Div()
+	qf, qfInv := q.Float(), q.FloatInv()
 
 	M := (len(vOut) >> 3) << 3
 	L := unsafe.Sizeof(uint64(0))
@@ -281,19 +284,19 @@ func mulSubTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
 		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
 
-		wOut[0] = modops.Sub(wOut[0], modops.BMul(w0[0], w1[0], qv, divHi, divLo), qv)
-		wOut[1] = modops.Sub(wOut[1], modops.BMul(w0[1], w1[1], qv, divHi, divLo), qv)
-		wOut[2] = modops.Sub(wOut[2], modops.BMul(w0[2], w1[2], qv, divHi, divLo), qv)
-		wOut[3] = modops.Sub(wOut[3], modops.BMul(w0[3], w1[3], qv, divHi, divLo), qv)
+		wOut[0] = modops.Sub(wOut[0], modops.Mul(w0[0], w1[0], qv, divHi, divLo, qf, qfInv), qv)
+		wOut[1] = modops.Sub(wOut[1], modops.Mul(w0[1], w1[1], qv, divHi, divLo, qf, qfInv), qv)
+		wOut[2] = modops.Sub(wOut[2], modops.Mul(w0[2], w1[2], qv, divHi, divLo, qf, qfInv), qv)
+		wOut[3] = modops.Sub(wOut[3], modops.Mul(w0[3], w1[3], qv, divHi, divLo, qf, qfInv), qv)
 
-		wOut[4] = modops.Sub(wOut[4], modops.BMul(w0[4], w1[4], qv, divHi, divLo), qv)
-		wOut[5] = modops.Sub(wOut[5], modops.BMul(w0[5], w1[5], qv, divHi, divLo), qv)
-		wOut[6] = modops.Sub(wOut[6], modops.BMul(w0[6], w1[6], qv, divHi, divLo), qv)
-		wOut[7] = modops.Sub(wOut[7], modops.BMul(w0[7], w1[7], qv, divHi, divLo), qv)
+		wOut[4] = modops.Sub(wOut[4], modops.Mul(w0[4], w1[4], qv, divHi, divLo, qf, qfInv), qv)
+		wOut[5] = modops.Sub(wOut[5], modops.Mul(w0[5], w1[5], qv, divHi, divLo, qf, qfInv), qv)
+		wOut[6] = modops.Sub(wOut[6], modops.Mul(w0[6], w1[6], qv, divHi, divLo, qf, qfInv), qv)
+		wOut[7] = modops.Sub(wOut[7], modops.Mul(w0[7], w1[7], qv, divHi, divLo, qf, qfInv), qv)
 	}
 
 	for i := M; i < len(vOut); i++ {
-		vOut[i] = modops.Sub(vOut[i], modops.BMul(v0[i], v1[i], qv, divHi, divLo), qv)
+		vOut[i] = modops.Sub(vOut[i], modops.Mul(v0[i], v1[i], qv, divHi, divLo, qf, qfInv), qv)
 	}
 }
 
@@ -306,6 +309,7 @@ func MulLazyTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 
 	qv := q.Value()
 	divHi, divLo := q.Div()
+	qf, qfInv := q.Float(), q.FloatInv()
 
 	M := (len(vOut) >> 3) << 3
 	L := unsafe.Sizeof(uint64(0))
@@ -319,19 +323,19 @@ func MulLazyTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
 		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
 
-		wOut[0] = modops.BMulLazy(w0[0], w1[0], qv, divHi, divLo)
-		wOut[1] = modops.BMulLazy(w0[1], w1[1], qv, divHi, divLo)
-		wOut[2] = modops.BMulLazy(w0[2], w1[2], qv, divHi, divLo)
-		wOut[3] = modops.BMulLazy(w0[3], w1[3], qv, divHi, divLo)
+		wOut[0] = modops.MulLazy(w0[0], w1[0], qv, divHi, divLo, qf, qfInv)
+		wOut[1] = modops.MulLazy(w0[1], w1[1], qv, divHi, divLo, qf, qfInv)
+		wOut[2] = modops.MulLazy(w0[2], w1[2], qv, divHi, divLo, qf, qfInv)
+		wOut[3] = modops.MulLazy(w0[3], w1[3], qv, divHi, divLo, qf, qfInv)
 
-		wOut[4] = modops.BMulLazy(w0[4], w1[4], qv, divHi, divLo)
-		wOut[5] = modops.BMulLazy(w0[5], w1[5], qv, divHi, divLo)
-		wOut[6] = modops.BMulLazy(w0[6], w1[6], qv, divHi, divLo)
-		wOut[7] = modops.BMulLazy(w0[7], w1[7], qv, divHi, divLo)
+		wOut[4] = modops.MulLazy(w0[4], w1[4], qv, divHi, divLo, qf, qfInv)
+		wOut[5] = modops.MulLazy(w0[5], w1[5], qv, divHi, divLo, qf, qfInv)
+		wOut[6] = modops.MulLazy(w0[6], w1[6], qv, divHi, divLo, qf, qfInv)
+		wOut[7] = modops.MulLazy(w0[7], w1[7], qv, divHi, divLo, qf, qfInv)
 	}
 
 	for i := M; i < len(vOut); i++ {
-		vOut[i] = modops.BMulLazy(v0[i], v1[i], qv, divHi, divLo)
+		vOut[i] = modops.MulLazy(v0[i], v1[i], qv, divHi, divLo, qf, qfInv)
 	}
 }
 
@@ -344,6 +348,7 @@ func MulAddLazyTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 
 	qv := q.Value()
 	divHi, divLo := q.Div()
+	qf, qfInv := q.Float(), q.FloatInv()
 
 	M := (len(vOut) >> 3) << 3
 	L := unsafe.Sizeof(uint64(0))
@@ -357,19 +362,19 @@ func MulAddLazyTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
 		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
 
-		wOut[0] += modops.BMulLazy(w0[0], w1[0], qv, divHi, divLo)
-		wOut[1] += modops.BMulLazy(w0[1], w1[1], qv, divHi, divLo)
-		wOut[2] += modops.BMulLazy(w0[2], w1[2], qv, divHi, divLo)
-		wOut[3] += modops.BMulLazy(w0[3], w1[3], qv, divHi, divLo)
+		wOut[0] += modops.MulLazy(w0[0], w1[0], qv, divHi, divLo, qf, qfInv)
+		wOut[1] += modops.MulLazy(w0[1], w1[1], qv, divHi, divLo, qf, qfInv)
+		wOut[2] += modops.MulLazy(w0[2], w1[2], qv, divHi, divLo, qf, qfInv)
+		wOut[3] += modops.MulLazy(w0[3], w1[3], qv, divHi, divLo, qf, qfInv)
 
-		wOut[4] += modops.BMulLazy(w0[4], w1[4], qv, divHi, divLo)
-		wOut[5] += modops.BMulLazy(w0[5], w1[5], qv, divHi, divLo)
-		wOut[6] += modops.BMulLazy(w0[6], w1[6], qv, divHi, divLo)
-		wOut[7] += modops.BMulLazy(w0[7], w1[7], qv, divHi, divLo)
+		wOut[4] += modops.MulLazy(w0[4], w1[4], qv, divHi, divLo, qf, qfInv)
+		wOut[5] += modops.MulLazy(w0[5], w1[5], qv, divHi, divLo, qf, qfInv)
+		wOut[6] += modops.MulLazy(w0[6], w1[6], qv, divHi, divLo, qf, qfInv)
+		wOut[7] += modops.MulLazy(w0[7], w1[7], qv, divHi, divLo, qf, qfInv)
 	}
 
 	for i := M; i < len(vOut); i++ {
-		vOut[i] += modops.BMulLazy(v0[i], v1[i], qv, divHi, divLo)
+		vOut[i] += modops.MulLazy(v0[i], v1[i], qv, divHi, divLo, qf, qfInv)
 	}
 }
 
@@ -382,6 +387,7 @@ func MulSubLazyTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 
 	qv := q.Value()
 	divHi, divLo := q.Div()
+	qf, qfInv := q.Float(), q.FloatInv()
 
 	M := (len(vOut) >> 3) << 3
 	L := unsafe.Sizeof(uint64(0))
@@ -395,19 +401,19 @@ func MulSubLazyTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
 		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
 
-		wOut[0] += modops.BMulLazy(qv-w0[0], w1[0], qv, divHi, divLo)
-		wOut[1] += modops.BMulLazy(qv-w0[1], w1[1], qv, divHi, divLo)
-		wOut[2] += modops.BMulLazy(qv-w0[2], w1[2], qv, divHi, divLo)
-		wOut[3] += modops.BMulLazy(qv-w0[3], w1[3], qv, divHi, divLo)
+		wOut[0] += modops.MulLazy(qv-w0[0], w1[0], qv, divHi, divLo, qf, qfInv)
+		wOut[1] += modops.MulLazy(qv-w0[1], w1[1], qv, divHi, divLo, qf, qfInv)
+		wOut[2] += modops.MulLazy(qv-w0[2], w1[2], qv, divHi, divLo, qf, qfInv)
+		wOut[3] += modops.MulLazy(qv-w0[3], w1[3], qv, divHi, divLo, qf, qfInv)
 
-		wOut[4] += modops.BMulLazy(qv-w0[4], w1[4], qv, divHi, divLo)
-		wOut[5] += modops.BMulLazy(qv-w0[5], w1[5], qv, divHi, divLo)
-		wOut[6] += modops.BMulLazy(qv-w0[6], w1[6], qv, divHi, divLo)
-		wOut[7] += modops.BMulLazy(qv-w0[7], w1[7], qv, divHi, divLo)
+		wOut[4] += modops.MulLazy(qv-w0[4], w1[4], qv, divHi, divLo, qf, qfInv)
+		wOut[5] += modops.MulLazy(qv-w0[5], w1[5], qv, divHi, divLo, qf, qfInv)
+		wOut[6] += modops.MulLazy(qv-w0[6], w1[6], qv, divHi, divLo, qf, qfInv)
+		wOut[7] += modops.MulLazy(qv-w0[7], w1[7], qv, divHi, divLo, qf, qfInv)
 	}
 
 	for i := M; i < len(vOut); i++ {
-		vOut[i] += modops.BMulLazy(qv-v0[i], v1[i], qv, divHi, divLo)
+		vOut[i] += modops.MulLazy(qv-v0[i], v1[i], qv, divHi, divLo, qf, qfInv)
 	}
 }
 

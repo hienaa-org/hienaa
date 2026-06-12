@@ -13,15 +13,9 @@ const (
 	// MaxModulusBits equals to log2(MaxModulus).
 	// See [MaxModulus] for details.
 	MaxModulusBits = 50
-	// MaxModulusIFMABits equals log2(MaxModulusIFMA).
-	// See [MaxModulusIFMA] for details.
-	MaxModulusIFMABits = 50
 	// MaxModulus is the maximum possible modulus value for the reduction.
 	// All numbers in HIENAA are assumed to be less than this value.
 	MaxModulus = 1 << MaxModulusBits
-	// MaxModulusIFMA is the maximum possible modulus value for using AVX512-IFMA instruction.
-	// While AVX512-IFMA is not currently used, we still test this bound just in case.
-	MaxModulusIFMA = 1 << MaxModulusIFMABits
 )
 
 // Modulus holds precomputed constants for efficient modulus reduction.
@@ -34,9 +28,9 @@ type Modulus struct {
 	// Zero if modulus is even.
 	inv uint64
 
-	// float is the float64 representation of modulus.
+	// float equals float64(modulus).
 	float float64
-	// floatInv equals 1 / modulus in float64 representation.
+	// floatInv equals 1 / float64(modulus).
 	floatInv float64
 
 	// divHi is a constant used for Barrett reduction.
@@ -102,6 +96,16 @@ func (q *Modulus) Div() (hi, lo uint64) {
 	return q.divHi, q.divLo
 }
 
+// Float equals float64(q).
+func (q *Modulus) Float() float64 {
+	return q.float
+}
+
+// FloatInv equals 1 / float64(q).
+func (q *Modulus) FloatInv() float64 {
+	return q.floatInv
+}
+
 // String implements the [fmt.Stringer] interface.
 func (q *Modulus) String() string {
 	return fmt.Sprintf("%v", q.modulus)
@@ -141,7 +145,7 @@ func Neg(x uint64, q *Modulus) uint64 {
 // If q is nil, then it returns x0 * x1.
 func Mul(x0, x1 uint64, q *Modulus) uint64 {
 	if q != nil {
-		return modops.BMul(x0, x1, q.modulus, q.divHi, q.divLo)
+		return modops.Mul(x0, x1, q.modulus, q.divHi, q.divLo, q.float, q.floatInv)
 	}
 	return x0 * x1
 }
@@ -151,7 +155,7 @@ func Mul(x0, x1 uint64, q *Modulus) uint64 {
 //
 // Panics if q is nil.
 func MulLazy(x0, x1 uint64, q *Modulus) uint64 {
-	return modops.BMulLazy(x0, x1, q.modulus, q.divHi, q.divLo)
+	return modops.MulLazy(x0, x1, q.modulus, q.divHi, q.divLo, q.float, q.floatInv)
 }
 
 // Reduce returns x mod q using Barrett reduction.

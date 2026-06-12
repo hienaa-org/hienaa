@@ -533,7 +533,6 @@ func testOps(t *testing.T, logQ int) {
 
 func TestOps(t *testing.T) {
 	testOps(t, num.MaxModulusBits)
-	testOps(t, num.MaxModulusIFMABits)
 }
 
 func benchmarkOps(b *testing.B, logN, logQ int) {
@@ -804,7 +803,6 @@ func BenchmarkOps(b *testing.B) {
 	for _, logN := range benchLogN {
 		b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 			benchmarkOps(b, logN, num.MaxModulusBits)
-			benchmarkOps(b, logN, num.MaxModulusIFMABits)
 		})
 	}
 }
