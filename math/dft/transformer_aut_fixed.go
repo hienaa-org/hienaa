@@ -69,7 +69,7 @@ func newPow2AutFixedTransformer(params RingParameters, mod *num.Modulus) *pow2Au
 		twInv:  twInv,
 		twInvS: twInvS,
 
-		rankInv: num.InvMForm(num.Inv(uint64(2*params.rank), mod), mod),
+		rankInv: num.Inv(uint64(2*params.rank), mod),
 
 		pool: pool.NewPool(func() *[]uint64 {
 			v := make([]uint64, params.rank)
@@ -116,7 +116,7 @@ func (ntt *pow2AutFixedTransformer) ForwardTo(vNTT, v []uint64) {
 	}
 
 	fwdNTTInPlacePow2(vBuf, ntt.tw, ntt.twS, ntt.mod.Value())
-	vec.MFormTo(vNTT, vBuf, ntt.mod)
+	vec.ReduceTo(vNTT, vBuf, ntt.mod)
 }
 
 // InverseTo transforms the uint64 vector to Standard form.
@@ -189,8 +189,8 @@ type primeAutFixedTransformer struct {
 
 	// fold is cyclotomic index divided by rank.
 	fold uint64
-	// ambRankInvM is the modular inverse of the rank of the ambient NTT in Montgomery form.
-	ambRankInvM uint64
+	// ambRankInv is the modular inverse of the rank of the ambient NTT in Montgomery form.
+	ambRankInv uint64
 	// cycloIdxInv is the modular inverse of the cyclotomic index.
 	cycloIdxInv uint64
 
@@ -214,7 +214,7 @@ func newPrimeAutFixedTransformer(params RingParameters, mod *num.Modulus) *prime
 		ambRank = num.NextProdPower(2*params.rank-1, []int{2})
 	}
 	ambNTT := newCyclicPow235Transformer(NewCyclicParameters(ambRank), mod)
-	ambRankInv := num.MForm(num.Inv(uint64(ambRank), mod), mod)
+	ambRankInv := num.Inv(uint64(ambRank), mod)
 
 	modRootPowSum := make([]uint64, ambRank)
 	modRootPowInvSum := make([]uint64, ambRank)
@@ -255,7 +255,7 @@ func newPrimeAutFixedTransformer(params RingParameters, mod *num.Modulus) *prime
 		rootInv: modRootPowInvSum,
 
 		fold:        uint64(fold),
-		ambRankInvM: ambRankInv,
+		ambRankInv:  ambRankInv,
 		cycloIdxInv: num.Inv(uint64(params.cycloIdx), mod),
 
 		pool: pool.NewPool(func() *[]uint64 {
@@ -302,12 +302,11 @@ func (ntt *primeAutFixedTransformer) ForwardTo(vNTT, v []uint64) {
 	clear(vBuf[ntt.params.rank:])
 
 	fwdNTTInPlacePow2(vBuf, ntt.ambNTT.tw[0], ntt.ambNTT.twS[0], ntt.mod.Value())
-	vec.MFormTo(vBuf, vBuf, ntt.mod)
 
-	vec.MMulLazyTo(vBuf, vBuf, ntt.root, ntt.mod)
+	vec.MulLazyTo(vBuf, vBuf, ntt.root, ntt.mod)
 
 	invNTTInPlacePow2(vBuf, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvS[0], ntt.mod.Value())
-	vec.MMulScalarTo(vBuf, vBuf, ntt.ambRankInvM, ntt.mod)
+	vec.MulScalarTo(vBuf, vBuf, ntt.ambRankInv, ntt.mod)
 
 	if ntt.isPow2 {
 		copy(vNTT, vBuf)
@@ -366,7 +365,7 @@ func (ntt *primeAutFixedTransformer) InverseTo(v, vNTT []uint64) {
 
 	fwdNTTInPlacePow2(vBuf, ntt.ambNTT.tw[0], ntt.ambNTT.twS[0], ntt.mod.Value())
 
-	vec.MMulLazyTo(vBuf, vBuf, ntt.rootInv, ntt.mod)
+	vec.MulLazyTo(vBuf, vBuf, ntt.rootInv, ntt.mod)
 
 	invNTTInPlacePow2(vBuf, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvS[0], ntt.mod.Value())
 	vec.MulScalarLazyTo(vBuf, vBuf, ntt.ambNTT.rankInv, ntt.mod)
@@ -375,7 +374,7 @@ func (ntt *primeAutFixedTransformer) InverseTo(v, vNTT []uint64) {
 		vec.AddTo(vBuf[:ntt.params.rank-1], vBuf[:ntt.params.rank-1], vBuf[ntt.params.rank:2*ntt.params.rank-1], ntt.mod)
 	}
 
-	sumFold = num.MMul(sumFold, ntt.fold, ntt.mod)
+	sumFold = num.Mul(sumFold, ntt.fold, ntt.mod)
 	vec.SubScalarTo(v, vBuf[:ntt.params.rank], sumFold, ntt.mod)
 	vec.MulScalarTo(v, v, ntt.cycloIdxInv, ntt.mod)
 }

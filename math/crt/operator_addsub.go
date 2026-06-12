@@ -70,7 +70,7 @@ func (op *baseAddSubOperator) AddTo(eOut, e0, e1 *Element) {
 		c, p := orderByType(e0, e1)
 		for i := range op.mod {
 			if p.IsNTT && op.isNTTFriendly[i] {
-				vec.AddScalarTo(eOut.Coeffs[i], p.Coeffs[i], num.MForm(c.Coeffs[i][0], op.mod[i]), op.mod[i])
+				vec.AddScalarTo(eOut.Coeffs[i], p.Coeffs[i], c.Coeffs[i][0], op.mod[i])
 			} else {
 				copy(eOut.Coeffs[i], p.Coeffs[i])
 				eOut.Coeffs[i][0] = num.Add(eOut.Coeffs[i][0], c.Coeffs[i][0], op.mod[i])
@@ -106,7 +106,7 @@ func (op *baseAddSubOperator) SubTo(eOut, e0, e1 *Element) {
 		c, p := orderByType(e0, e1)
 		for i := range op.mod {
 			if p.IsNTT && op.isNTTFriendly[i] {
-				vec.SubScalarTo(eOut.Coeffs[i], p.Coeffs[i], num.MForm(c.Coeffs[i][0], op.mod[i]), op.mod[i])
+				vec.SubScalarTo(eOut.Coeffs[i], p.Coeffs[i], c.Coeffs[i][0], op.mod[i])
 			} else {
 				copy(eOut.Coeffs[i], p.Coeffs[i])
 				eOut.Coeffs[i][0] = num.Sub(eOut.Coeffs[i][0], c.Coeffs[i][0], op.mod[i])
@@ -194,7 +194,7 @@ func (op *primeAutFixedAddSubOperator) AddTo(eOut, e0, e1 *Element) {
 		c, p := orderByType(e0, e1)
 		for i := range op.mod {
 			if p.IsNTT && op.isNTTFriendly[i] {
-				vec.AddScalarTo(eOut.Coeffs[i], p.Coeffs[i], num.MForm(c.Coeffs[i][0], op.mod[i]), op.mod[i])
+				vec.AddScalarTo(eOut.Coeffs[i], p.Coeffs[i], c.Coeffs[i][0], op.mod[i])
 			} else {
 				vec.SubScalarTo(eOut.Coeffs[i], p.Coeffs[i], c.Coeffs[i][0], op.mod[i])
 			}
@@ -228,7 +228,7 @@ func (op *primeAutFixedAddSubOperator) SubTo(eOut, e0, e1 *Element) {
 		c, p := orderByType(e0, e1)
 		for i := range op.mod {
 			if p.IsNTT && op.isNTTFriendly[i] {
-				vec.SubScalarTo(eOut.Coeffs[i], p.Coeffs[i], num.MForm(c.Coeffs[i][0], op.mod[i]), op.mod[i])
+				vec.SubScalarTo(eOut.Coeffs[i], p.Coeffs[i], c.Coeffs[i][0], op.mod[i])
 			} else {
 				vec.AddScalarTo(eOut.Coeffs[i], p.Coeffs[i], c.Coeffs[i][0], op.mod[i])
 			}

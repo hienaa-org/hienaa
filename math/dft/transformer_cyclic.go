@@ -140,7 +140,7 @@ func newCyclicPow235Transformer(params RingParameters, mod *num.Modulus) *pow235
 		rootExpS[i] = vec.SForm(rootExp[i], mod)
 	}
 
-	rankInv := num.InvMForm(num.Inv(uint64(params.rank), mod), mod)
+	rankInv := num.Inv(uint64(params.rank), mod)
 
 	var idx []int
 	if !slices.Contains(rankFactors, params.rank) {
@@ -212,7 +212,7 @@ func (ntt *pow235CyclicTransformer) ForwardTo(vNTT, v []uint64) {
 		fwdNTTInPlacePow5(ntt.rankFactors[0]*ntt.rankFactors[1], vNTT, ntt.tw[2], ntt.twS[2], ntt.root[2], ntt.rootS[2], ntt.mod.Value())
 	}
 
-	vec.MFormTo(vNTT, vNTT, ntt.mod)
+	vec.ReduceTo(vNTT, vNTT, ntt.mod)
 }
 
 // InverseTo transforms the uint64 vector to Standard form.
@@ -276,10 +276,10 @@ type anyCyclicTransformer struct {
 	// zInvS is the Shoup form of zInv.
 	zInvS []uint64
 
-	// chirpM is the chirp factor for Bluestein NTT in Montgomery form.
-	chirpM []uint64
-	// chirpMS is the Shoup form of chirpM.
-	chirpMS []uint64
+	// chirp is the chirp factor for Bluestein NTT in Montgomery form.
+	chirp []uint64
+	// chirpS is the Shoup form of chirpM.
+	chirpS []uint64
 	// chirpInv is the inverse chirp factor for Bluestein NTT.
 	chirpInv []uint64
 	// chirpInvS is the Shoup form of chirpInv.
@@ -306,14 +306,14 @@ func newAnyCyclicTransformer(params RingParameters, mod *num.Modulus) *anyCyclic
 
 	ambNTT := newCyclicPow235Transformer(NewCyclicParameters(ambRank), mod)
 
-	chirpM := make([]uint64, ambRank)
-	copy(chirpM, zInv)
-	copy(chirpM[ambRank-params.rank+1:], zInv[1:])
-	slices.Reverse(chirpM[ambRank-params.rank+1:])
+	chirp := make([]uint64, ambRank)
+	copy(chirp, zInv)
+	copy(chirp[ambRank-params.rank+1:], zInv[1:])
+	slices.Reverse(chirp[ambRank-params.rank+1:])
 
-	vec.MulScalarTo(chirpM, chirpM, num.Inv(uint64(ambRank), mod), mod)
-	fwdNTTInPlacePow2(chirpM, ambNTT.tw[0], ambNTT.twS[0], mod.Value())
-	vec.MFormTo(chirpM, chirpM, mod)
+	vec.MulScalarTo(chirp, chirp, num.Inv(uint64(ambRank), mod), mod)
+	fwdNTTInPlacePow2(chirp, ambNTT.tw[0], ambNTT.twS[0], mod.Value())
+	vec.ReduceTo(chirp, chirp, mod)
 
 	chirpInv := make([]uint64, ambRank)
 	copy(chirpInv, z)
@@ -321,7 +321,6 @@ func newAnyCyclicTransformer(params RingParameters, mod *num.Modulus) *anyCyclic
 	slices.Reverse(chirpInv[ambRank-params.rank+1:])
 
 	vec.MulScalarTo(chirpInv, chirpInv, num.Inv(uint64(ambRank*params.rank), mod), mod)
-	vec.InvMFormTo(chirpInv, chirpInv, mod)
 	fwdNTTInPlacePow2(chirpInv, ambNTT.tw[0], ambNTT.twS[0], mod.Value())
 	vec.ReduceTo(chirpInv, chirpInv, mod)
 
@@ -336,8 +335,8 @@ func newAnyCyclicTransformer(params RingParameters, mod *num.Modulus) *anyCyclic
 		zInv:  zInv,
 		zInvS: vec.SForm(zInv, mod),
 
-		chirpM:    chirpM,
-		chirpMS:   vec.SForm(chirpM, mod),
+		chirp:     chirp,
+		chirpS:    vec.SForm(chirp, mod),
 		chirpInv:  chirpInv,
 		chirpInvS: vec.SForm(chirpInv, mod),
 
@@ -359,7 +358,7 @@ func (ntt *anyCyclicTransformer) ForwardTo(vNTT, v []uint64) {
 
 	fwdNTTInPlacePow2(vBuf, ntt.ambNTT.tw[0], ntt.ambNTT.twS[0], ntt.mod.Value())
 
-	vec.SMulLazyTo(vBuf, vBuf, ntt.chirpM, ntt.chirpMS, ntt.mod)
+	vec.SMulLazyTo(vBuf, vBuf, ntt.chirp, ntt.chirpS, ntt.mod)
 
 	invNTTInPlacePow2(vBuf, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvS[0], ntt.mod.Value())
 

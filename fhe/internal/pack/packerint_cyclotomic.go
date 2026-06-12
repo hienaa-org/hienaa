@@ -108,7 +108,6 @@ func (p *pow2CyclotomicMod1IntPacker) PackTo(vPack, v []uint64) {
 	}
 
 	vec.RadixReverseInPlace(vBufPow5, 2)
-	vec.MFormTo(vBufPow5, vBufPow5, p.mod)
 	p.ntt.InverseTo(vBufPow5, vBufPow5)
 
 	clear(vPack)
@@ -145,7 +144,6 @@ func (p *pow2CyclotomicMod1IntPacker) UnPackTo(v, vPack []uint64) {
 		vBuf[i] = vPack[i*skip]
 	}
 	p.ntt.ForwardTo(vBuf, vBuf)
-	vec.InvMFormTo(vBuf, vBuf, p.mod)
 	vec.RadixReverseInPlace(vBuf, 2)
 
 	pow5 := 1
@@ -476,8 +474,7 @@ func (p *anyCyclotomicIntPacker) PackTo(vPack, v []uint64) {
 		panic("input(s) shape not consistent")
 	}
 
-	vec.MFormTo(vPack, v, p.mod)
-	p.ntt.InverseTo(vPack, vPack)
+	p.ntt.InverseTo(vPack, v)
 }
 
 // UnPack returns the unpacking of vPack.
@@ -494,7 +491,6 @@ func (p *anyCyclotomicIntPacker) UnPackTo(v, vPack []uint64) {
 	}
 
 	p.ntt.ForwardTo(v, vPack)
-	vec.InvMFormTo(v, v, p.mod)
 }
 
 // Cube returns the form of the hypercube structure.

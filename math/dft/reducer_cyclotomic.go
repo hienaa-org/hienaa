@@ -157,7 +157,7 @@ func (r *cyclotomicReducer) reduceTo(pOut, p []uint64) {
 
 		// pQuo = pQuo * floor(X^(deg+diffDeg)/\Phi_m(X))
 		r.diffDegNextNTT.ForwardTo(pQuo, pQuo)
-		vec.MMulLazyTo(pQuo, pQuo, r.divPoly, r.mod)
+		vec.MulLazyTo(pQuo, pQuo, r.divPoly, r.mod)
 		r.diffDegNextNTT.InverseTo(pQuo, pQuo)
 
 		pRemPtr := r.pool.Get()
@@ -182,7 +182,7 @@ func (r *cyclotomicReducer) reduceTo(pOut, p []uint64) {
 
 		// pRem = pRem * cycloPoly % (X^degNext - 1)
 		r.degNextNTT.ForwardTo(pRem, pRem)
-		vec.MMulLazyTo(pRem, pRem, r.cycloPoly, r.mod)
+		vec.MulLazyTo(pRem, pRem, r.cycloPoly, r.mod)
 		r.degNextNTT.InverseTo(pRem, pRem)
 
 		// pIn = pIn % X^degNext - 1

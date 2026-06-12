@@ -3,6 +3,7 @@ package num
 import (
 	"cmp"
 	"fmt"
+	"math"
 	"math/bits"
 
 	"github.com/hienaa-org/hienaa/math/internal/modops"
@@ -11,7 +12,7 @@ import (
 const (
 	// MaxModulusBits equals to log2(MaxModulus).
 	// See [MaxModulus] for details.
-	MaxModulusBits = 62
+	MaxModulusBits = 50
 	// MaxModulusIFMABits equals log2(MaxModulusIFMA).
 	// See [MaxModulusIFMA] for details.
 	MaxModulusIFMABits = 50
@@ -32,6 +33,11 @@ type Modulus struct {
 	// Equals to the modular inverse of modulus modulo 2^64.
 	// Zero if modulus is even.
 	inv uint64
+
+	// float is the float64 representation of modulus.
+	float float64
+	// floatInv equals 1 / modulus in float64 representation.
+	floatInv float64
 
 	// divHi is a constant used for Barrett reduction.
 	// Equals to floor(2^128 / modulus).
@@ -69,6 +75,9 @@ func NewModulus[T Integer](mod T) *Modulus {
 		modulus: q,
 
 		inv: inv,
+
+		float:    float64(q),
+		floatInv: math.Nextafter(1/float64(q), math.Inf(1)),
 
 		divHi: divHi,
 		divLo: divLo,
@@ -165,41 +174,6 @@ func Reduce128(xHi, xLo uint64, q *Modulus) uint64 {
 // Panics if q is nil.
 func Reduce128Lazy(xHi, xLo uint64, q *Modulus) uint64 {
 	return modops.BMod128Lazy(xHi, xLo, q.modulus, q.divHi, q.divLo)
-}
-
-// MForm transforms x into Montgomery form.
-//
-// Panics if q is even or nil.
-func MForm(x uint64, q *Modulus) uint64 {
-	if q.inv == 0 {
-		panic("modulus must be odd")
-	}
-	return modops.MForm(x, q.modulus, q.divHi, q.divLo)
-}
-
-// InvMForm transforms xM to Normal form.
-//
-// Panics if q is even or nil.
-func InvMForm(xM uint64, q *Modulus) uint64 {
-	if q.inv == 0 {
-		panic("modulus must be odd")
-	}
-	return modops.InvMForm(xM, q.modulus, q.inv)
-}
-
-// MMul returns x0 * x1 mod q in Montgomery form.
-//
-// Panics if q is nil.
-func MMul(x0M, x1M uint64, q *Modulus) uint64 {
-	return modops.MMul(x0M, x1M, q.modulus, q.inv)
-}
-
-// MMulLazy returns x0 * x1 mod q in Montgomery form,
-// but the result is in [0, 2q).
-//
-// Panics if q is nil.
-func MMulLazy(x0M, y0M uint64, q *Modulus) uint64 {
-	return modops.MMulLazy(x0M, y0M, q.modulus, q.inv)
 }
 
 // SForm transforms x into Shoup form.

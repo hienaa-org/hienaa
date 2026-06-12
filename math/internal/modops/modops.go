@@ -157,50 +157,6 @@ func BMod[T Integer](x T, q, divHi uint64) uint64 {
 	return BMod64(uint64(x), q, divHi)
 }
 
-// MForm transforms x into Montgomery form.
-func MForm(x, q, divHi, divLo uint64) uint64 {
-	xM, _ := bits.Mul64(x, divLo)
-	xM += x * divHi
-
-	xOutM := -xM * q
-	if xOutM >= q {
-		xOutM -= q
-	}
-	return xOutM
-}
-
-// InvMForm transforms xM to Normal form.
-func InvMForm(xM, q, inv uint64) uint64 {
-	x, _ := bits.Mul64(xM*inv, q)
-
-	xOut := q - x
-	if xOut >= q {
-		xOut -= q
-	}
-	return xOut
-}
-
-// MMul returns x0 * x1 mod q in Montgomery form.
-func MMul(x0M, x1M, q, inv uint64) uint64 {
-	xOutMHi, xOutMLo := bits.Mul64(x0M, x1M)
-	wHi, _ := bits.Mul64(xOutMLo*inv, q)
-
-	xOutM := xOutMHi - wHi + q
-	if xOutM >= q {
-		xOutM -= q
-	}
-	return xOutM
-}
-
-// MMulLazy returns x0 * x1 mod q in Montgomery form,
-// but the result is in [0, 2q).
-func MMulLazy(x0M, x1M, q, inv uint64) uint64 {
-	xOutMHi, xOutMLo := bits.Mul64(x0M, x1M)
-	wHi, _ := bits.Mul64(xOutMLo*inv, q)
-
-	return xOutMHi - wHi + q
-}
-
 // SForm transforms x into Shoup form.
 func SForm(x, q uint64) uint64 {
 	xS, _ := bits.Div64(x, 0, q)

@@ -87,8 +87,7 @@ func expandAutFixedPoly(params dft.RingParameters, p []uint64, q *num.Modulus) [
 
 func testNTT(t *testing.T, params dft.RingParameters, logQ int) {
 	N := params.Rank()
-	qs := dft.MustFindNearestNTTPrimes(params, float64((logQ>>1)-1), 2)
-	q := num.NewModulus(qs[0].Value() * qs[1].Value())
+	q := dft.MustFindPrevNTTPrimes(params, float64(logQ), 1)[0]
 
 	t.Run(fmt.Sprintf("LogQ=%v", logQ), func(t *testing.T) {
 		ntt := dft.NewTransformer(params, q)
@@ -113,7 +112,7 @@ func testNTT(t *testing.T, params dft.RingParameters, logQ int) {
 
 		ntt.ForwardTo(p0NTT, p0)
 		ntt.ForwardTo(p1NTT, p1)
-		vec.MMulTo(pOutNTT, p0NTT, p1NTT, q)
+		vec.MulTo(pOutNTT, p0NTT, p1NTT, q)
 		ntt.InverseTo(pOut, pOutNTT)
 
 		switch params.RingType() {

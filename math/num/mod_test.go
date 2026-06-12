@@ -61,14 +61,6 @@ func TestOps(t *testing.T) {
 		assert.Equal(t, xMulBig.Uint64(), xMul)
 	})
 
-	t.Run("Montgomery", func(t *testing.T) {
-		x0M := num.MForm(x0, q)
-		x1M := num.MForm(x1, q)
-		xMulM := num.MMul(x0M, x1M, q)
-		xMul := num.InvMForm(xMulM, q)
-		assert.Equal(t, xMulBig.Uint64(), xMul)
-	})
-
 	t.Run("Shoup", func(t *testing.T) {
 		x1S := num.SForm(x1, q)
 		xMul := num.SMul(x0, x1, x1S, q)

@@ -44,7 +44,7 @@ func newPow2CyclotomicTransformer(params RingParameters, mod *num.Modulus) *pow2
 	vec.RadixReverseInPlace(tw, 2)
 	vec.RadixReverseInPlace(twInv, 2)
 
-	rankInv := num.InvMForm(num.Inv(uint64(params.rank), mod), mod)
+	rankInv := num.Inv(uint64(params.rank), mod)
 
 	return &pow2CyclotomicTransformer{
 		params: params,
@@ -66,7 +66,7 @@ func (ntt *pow2CyclotomicTransformer) ForwardTo(vNTT, v []uint64) {
 
 	copy(vNTT, v)
 	fwdNTTInPlacePow2(vNTT, ntt.tw, ntt.twS, ntt.mod.Value())
-	vec.MFormTo(vNTT, vNTT, ntt.mod)
+	vec.ReduceTo(vNTT, vNTT, ntt.mod)
 }
 
 // InverseTo transforms the uint64 vector to Standard form.

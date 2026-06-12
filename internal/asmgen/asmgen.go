@@ -68,14 +68,6 @@ func main() {
 		VecMulScalarWordToAVX512(OpAdd)
 		VecMulScalarWordToAVX512(OpSub)
 
-		VecMMulScalarToAVX512(OpPure, false)
-		VecMMulScalarToAVX512(OpAdd, false)
-		VecMMulScalarToAVX512(OpSub, false)
-
-		VecMMulScalarToAVX512(OpPure, true)
-		VecMMulScalarToAVX512(OpAdd, true)
-		VecMMulScalarToAVX512(OpSub, true)
-
 		VecSMulScalarToAVX512(OpPure, false)
 		VecSMulScalarToAVX512(OpAdd, false)
 		VecSMulScalarToAVX512(OpSub, false)
@@ -91,14 +83,6 @@ func main() {
 		VecMulWordToAVX512(OpPure)
 		VecMulWordToAVX512(OpAdd)
 		VecMulWordToAVX512(OpSub)
-
-		VecMMulToAVX512(OpPure, false)
-		VecMMulToAVX512(OpAdd, false)
-		VecMMulToAVX512(OpSub, false)
-
-		VecMMulToAVX512(OpPure, true)
-		VecMMulToAVX512(OpAdd, true)
-		VecMMulToAVX512(OpSub, true)
 
 		VecSMulToAVX512(OpPure, false)
 		VecSMulToAVX512(OpAdd, false)

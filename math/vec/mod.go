@@ -63,24 +63,6 @@ func NegTo(vOut, v []uint64, q *num.Modulus) {
 	negWordTo(vOut, v)
 }
 
-// MForm returns v in Montgomery form.
-//
-// Panics if q is even or nil.
-func MForm(v []uint64, q *num.Modulus) []uint64 {
-	vOut := make([]uint64, len(v))
-	MFormTo(vOut, v, q)
-	return vOut
-}
-
-// InvMForm transforms vM to Normal form.
-//
-// Panics if q is even or nil.
-func InvMForm(vM []uint64, q *num.Modulus) []uint64 {
-	vOut := make([]uint64, len(vM))
-	InvMFormTo(vOut, vM, q)
-	return vOut
-}
-
 // MulScalar returns v * c mod q using Shoup multiplication.
 //
 // Panics if q is nil.
@@ -171,16 +153,6 @@ func SMulScalarLazy(v []uint64, c, cS uint64, q *num.Modulus) []uint64 {
 	vOut := make([]uint64, len(v))
 	SMulScalarLazyTo(vOut, v, c, cS, q)
 	return vOut
-}
-
-// MMulScalar returns v * c mod q using Montgomery multiplication.
-// When c is in Montgomery form, the output is the same form as v.
-//
-// Panics if q is nil.
-func MMulScalar(vM []uint64, cM uint64, q *num.Modulus) []uint64 {
-	vOutM := make([]uint64, len(vM))
-	MMulScalarTo(vOutM, vM, cM, q)
-	return vOutM
 }
 
 // Mul returns v0 * v1 mod q using Barrett reduction.
@@ -437,25 +409,6 @@ func MulSubLazyTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 	for i := M; i < len(vOut); i++ {
 		vOut[i] += modops.BMulLazy(qv-v0[i], v1[i], qv, divHi, divLo)
 	}
-}
-
-// MMul returns v0 * v1 mod q in Montgomery form.
-//
-// Panics if q is nil.
-func MMul(v0M, v1M []uint64, q *num.Modulus) []uint64 {
-	vOutM := make([]uint64, len(v0M))
-	MMulTo(vOutM, v0M, v1M, q)
-	return vOutM
-}
-
-// MMulLazy returns v0 * v1 mod q in Montgomery form,
-// but the result is in [0, 2q).
-//
-// Panics if q is nil.
-func MMulLazy(v0M, v1M []uint64, q *num.Modulus) []uint64 {
-	vOutM := make([]uint64, len(v0M))
-	MMulLazyTo(vOutM, v0M, v1M, q)
-	return vOutM
 }
 
 // SForm returns v in Shoup form.

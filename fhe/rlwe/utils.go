@@ -27,8 +27,8 @@ func FindNTTPrimes(params dft.RingParameters, baseModBits, auxModBits float64) (
 		}
 
 		limbBit := math.Ceil(baseModBits / float64(modLen))
-		if limbBit >= 62 {
-			limbBit = 61
+		if limbBit >= num.MaxModulusBits {
+			limbBit = num.MaxModulusBits - 1
 		}
 
 		start := (uint64(math.Round(math.Exp2(limbBit)))/gap)*gap + 1
@@ -46,20 +46,16 @@ func FindNTTPrimes(params dft.RingParameters, baseModBits, auxModBits float64) (
 			}
 		}
 
-		if bitlen >= 62 {
+		if bitlen >= num.MaxModulusBits {
 			modLen++
 		} else {
-			slices.SortFunc(modulus[:modLen-1], func(a, b *num.Modulus) int {
-				return cmp.Compare(a.Value(), b.Value())
-			})
+			slices.SortFunc(modulus[:modLen-1], num.CmpModulus)
 
 			start := (uint64(math.Round(math.Exp2(bitlen)))/gap)*gap + 1
 			prime := num.MustPrevPrime(start, gap)
 			primemod := num.NewModulus(prime)
 			for {
-				_, ok := slices.BinarySearchFunc(modulus[:modLen-1], primemod, func(a, b *num.Modulus) int {
-					return cmp.Compare(a.Value(), b.Value())
-				})
+				_, ok := slices.BinarySearchFunc(modulus[:modLen-1], primemod, num.CmpModulus)
 
 				if !ok {
 					break
@@ -100,16 +96,13 @@ func FindNTTPrimes(params dft.RingParameters, baseModBits, auxModBits float64) (
 			for cnt < auxModLen-1 {
 				primemod := num.NewModulus(prime)
 				for {
-					_, ok := slices.BinarySearchFunc(modulus, primemod, func(a, b *num.Modulus) int {
-						return cmp.Compare(a.Value(), b.Value())
-					})
-
+					_, ok := slices.BinarySearchFunc(modulus, primemod, num.CmpModulus)
 					if !ok {
 						break
-					} else {
-						prime = num.MustPrevPrime(prime, gap)
-						primemod = num.NewModulus(prime)
 					}
+
+					prime = num.MustPrevPrime(prime, gap)
+					primemod = num.NewModulus(prime)
 				}
 				auxModulus[cnt] = primemod
 				bitlen -= num.Log2(primemod.Value())
@@ -117,31 +110,24 @@ func FindNTTPrimes(params dft.RingParameters, baseModBits, auxModBits float64) (
 				cnt++
 			}
 
-			if bitlen >= 62 {
+			if bitlen >= num.MaxModulusBits {
 				auxModLen++
 			} else {
-				slices.SortFunc(auxModulus[:auxModLen-1], func(a, b *num.Modulus) int {
-					return cmp.Compare(a.Value(), b.Value())
-				})
+				slices.SortFunc(auxModulus[:auxModLen-1], num.CmpModulus)
 
 				start := (uint64(math.Round(math.Exp2(bitlen)))/gap)*gap + 1
 				prime := num.MustPrevPrime(start, gap)
 				primemod := num.NewModulus(prime)
 				for {
-					_, okMod := slices.BinarySearchFunc(modulus, primemod, func(a, b *num.Modulus) int {
-						return cmp.Compare(a.Value(), b.Value())
-					})
-
-					_, okAux := slices.BinarySearchFunc(auxModulus[:auxModLen-1], primemod, func(a, b *num.Modulus) int {
-						return cmp.Compare(a.Value(), b.Value())
-					})
-
+					_, okMod := slices.BinarySearchFunc(modulus, primemod, num.CmpModulus)
+					_, okAux := slices.BinarySearchFunc(auxModulus[:auxModLen-1], primemod, num.CmpModulus)
 					if !(okMod || okAux) {
 						break
-					} else {
-						prime = num.MustPrevPrime(prime, gap)
-						primemod = num.NewModulus(prime)
 					}
+
+					prime = num.MustPrevPrime(prime, gap)
+					primemod = num.NewModulus(prime)
+
 				}
 				auxModulus[auxModLen-1] = primemod
 
@@ -153,9 +139,7 @@ func FindNTTPrimes(params dft.RingParameters, baseModBits, auxModBits float64) (
 			}
 		}
 
-		slices.SortFunc(auxModulus, func(a, b *num.Modulus) int {
-			return int(a.Value() - b.Value())
-		})
+		slices.SortFunc(auxModulus, num.CmpModulus)
 	}
 
 	return modulus, auxModulus

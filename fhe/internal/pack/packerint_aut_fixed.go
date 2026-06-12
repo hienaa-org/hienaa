@@ -128,7 +128,6 @@ func (p *pow2AutFixedMod1IntPacker) PackTo(vPack, v []uint64) {
 		invPow5 = (inv5 * invPow5) & mask
 	}
 
-	vec.MFormTo(vBufPow5, vBufPow5, p.mod)
 	p.ntt.InverseTo(vBufPow5, vBufPow5)
 
 	clear(vPack)
@@ -166,7 +165,6 @@ func (p *pow2AutFixedMod1IntPacker) UnPackTo(v, vPack []uint64) {
 		vBuf[i] = vPack[i*skip]
 	}
 	p.ntt.ForwardTo(vBuf, vBuf)
-	vec.InvMFormTo(vBuf, vBuf, p.mod)
 
 	invPow5 := 1
 	inv5 := int(num.Inv(5, p.cycloIdxMod))
@@ -740,7 +738,7 @@ func (p *primeAutFixedIntPacker) PackTo(vPack, v []uint64) {
 		clear(vBuf[i][p.packLen:])
 
 		p.ambNTT[i].ForwardTo(vBuf[i], vBuf[i])
-		vec.MMulLazyTo(vBuf[i], vBuf[i], p.resol[i], p.ambMod[i])
+		vec.MulLazyTo(vBuf[i], vBuf[i], p.resol[i], p.ambMod[i])
 		p.ambNTT[i].InverseTo(vBuf[i], vBuf[i])
 	}
 
@@ -778,7 +776,7 @@ func (p *primeAutFixedIntPacker) UnPackTo(v, vPack []uint64) {
 		clear(vBuf[i][p.packLen:])
 
 		p.ambNTT[i].ForwardTo(vBuf[i], vBuf[i])
-		vec.MMulLazyTo(vBuf[i], vBuf[i], p.invResol[i], p.ambMod[i])
+		vec.MulLazyTo(vBuf[i], vBuf[i], p.invResol[i], p.ambMod[i])
 		p.ambNTT[i].InverseTo(vBuf[i], vBuf[i])
 	}
 	p.embedder.EmbedTo(vBuf[:1], vBuf)

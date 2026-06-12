@@ -329,84 +329,6 @@ func testOps(t *testing.T, logQ int) {
 			assert.Equal(t, vOutCheck, vOut)
 		})
 
-		t.Run("MMulScalar", func(t *testing.T) {
-			vec.MMulScalarTo(vOut, v0, v1[0], q)
-			for i := 0; i < N; i++ {
-				vOutCheck[i] = num.MMul(v0[i], v1[0], q)
-			}
-			assert.Equal(t, vOutCheck, vOut)
-
-			assert.Less(t, vec.Max(vOut), q.Value())
-		})
-
-		t.Run("MMulAddScalar", func(t *testing.T) {
-			copy(vOut, vOutInit)
-			copy(vOutCheck, vOutInit)
-
-			vec.MMulAddScalarTo(vOut, v0, v1[0], q)
-			for i := 0; i < N; i++ {
-				vOutCheck[i] = num.Add(vOutCheck[i], num.MMul(v0[i], v1[0], q), q)
-			}
-			assert.Equal(t, vOutCheck, vOut)
-
-			assert.Less(t, vec.Max(vOut), q.Value())
-		})
-
-		t.Run("MMulSubScalar", func(t *testing.T) {
-			copy(vOut, vOutInit)
-			copy(vOutCheck, vOutInit)
-
-			vec.MMulSubScalarTo(vOut, v0, v1[0], q)
-			for i := 0; i < N; i++ {
-				vOutCheck[i] = num.Sub(vOutCheck[i], num.MMul(v0[i], v1[0], q), q)
-			}
-			assert.Equal(t, vOutCheck, vOut)
-
-			assert.Less(t, vec.Max(vOut), q.Value())
-		})
-
-		t.Run("MMulScalarLazy", func(t *testing.T) {
-			vec.MMulScalarLazyTo(vOut, v0, v1[0], q)
-
-			assert.Less(t, vec.Max(vOut), 2*q.Value())
-
-			for i := 0; i < N; i++ {
-				vOut[i] %= q.Value()
-				vOutCheck[i] = num.MMul(v0[i], v1[0], q)
-			}
-			assert.Equal(t, vOutCheck, vOut)
-		})
-
-		t.Run("MMulAddScalarLazy", func(t *testing.T) {
-			copy(vOut, vOutInit)
-			copy(vOutCheck, vOutInit)
-
-			vec.MMulAddScalarLazyTo(vOut, v0, v1[0], q)
-
-			assert.Less(t, vec.Max(vOut), 3*q.Value())
-
-			for i := 0; i < N; i++ {
-				vOut[i] %= q.Value()
-				vOutCheck[i] = num.Add(vOutInit[i], num.MMul(v0[i], v1[0], q), q)
-			}
-			assert.Equal(t, vOutCheck, vOut)
-		})
-
-		t.Run("MMulSubScalarLazy", func(t *testing.T) {
-			copy(vOut, vOutInit)
-			copy(vOutCheck, vOutInit)
-
-			vec.MMulSubScalarLazyTo(vOut, v0, v1[0], q)
-
-			assert.Less(t, vec.Max(vOut), 3*q.Value())
-
-			for i := 0; i < N; i++ {
-				vOut[i] %= q.Value()
-				vOutCheck[i] = num.Sub(vOutInit[i], num.MMul(v0[i], v1[0], q), q)
-			}
-			assert.Equal(t, vOutCheck, vOut)
-		})
-
 		t.Run("Mul", func(t *testing.T) {
 			vec.MulTo(vOut, v0, v1, q)
 			for i := 0; i < N; i++ {
@@ -511,84 +433,6 @@ func testOps(t *testing.T, logQ int) {
 			vec.MulSubTo(vOut, v0, v1, nil)
 			for i := 0; i < N; i++ {
 				vOutCheck[i] -= v0[i] * v1[i]
-			}
-			assert.Equal(t, vOutCheck, vOut)
-		})
-
-		t.Run("MMul", func(t *testing.T) {
-			vec.MMulTo(vOut, v0, v1, q)
-			for i := 0; i < N; i++ {
-				vOutCheck[i] = num.MMul(v0[i], v1[i], q)
-			}
-			assert.Equal(t, vOutCheck, vOut)
-
-			assert.Less(t, vec.Max(vOut), q.Value())
-		})
-
-		t.Run("MMulAdd", func(t *testing.T) {
-			copy(vOut, vOutInit)
-			copy(vOutCheck, vOutInit)
-
-			vec.MMulAddTo(vOut, v0, v1, q)
-			for i := 0; i < N; i++ {
-				vOutCheck[i] = num.Add(vOutCheck[i], num.MMul(v0[i], v1[i], q), q)
-			}
-			assert.Equal(t, vOutCheck, vOut)
-
-			assert.Less(t, vec.Max(vOut), q.Value())
-		})
-
-		t.Run("MMulSub", func(t *testing.T) {
-			copy(vOut, vOutInit)
-			copy(vOutCheck, vOutInit)
-
-			vec.MMulSubTo(vOut, v0, v1, q)
-			for i := 0; i < N; i++ {
-				vOutCheck[i] = num.Sub(vOutCheck[i], num.MMul(v0[i], v1[i], q), q)
-			}
-			assert.Equal(t, vOutCheck, vOut)
-
-			assert.Less(t, vec.Max(vOut), q.Value())
-		})
-
-		t.Run("MMulLazy", func(t *testing.T) {
-			vec.MMulLazyTo(vOut, v0, v1, q)
-
-			assert.Less(t, vec.Max(vOut), 2*q.Value())
-
-			for i := 0; i < N; i++ {
-				vOut[i] %= q.Value()
-				vOutCheck[i] = num.MMul(v0[i], v1[i], q)
-			}
-			assert.Equal(t, vOutCheck, vOut)
-		})
-
-		t.Run("MMulAddLazy", func(t *testing.T) {
-			copy(vOut, vOutInit)
-			copy(vOutCheck, vOutInit)
-
-			vec.MMulAddLazyTo(vOut, v0, v1, q)
-
-			assert.Less(t, vec.Max(vOut), 3*q.Value())
-
-			for i := 0; i < N; i++ {
-				vOut[i] %= q.Value()
-				vOutCheck[i] = num.Add(vOutInit[i], num.MMul(v0[i], v1[i], q), q)
-			}
-			assert.Equal(t, vOutCheck, vOut)
-		})
-
-		t.Run("MMulSubLazy", func(t *testing.T) {
-			copy(vOut, vOutInit)
-			copy(vOutCheck, vOutInit)
-
-			vec.MMulSubLazyTo(vOut, v0, v1, q)
-
-			assert.Less(t, vec.Max(vOut), 3*q.Value())
-
-			for i := 0; i < N; i++ {
-				vOut[i] %= q.Value()
-				vOutCheck[i] = num.Sub(vOutInit[i], num.MMul(v0[i], v1[i], q), q)
 			}
 			assert.Equal(t, vOutCheck, vOut)
 		})
@@ -816,42 +660,6 @@ func benchmarkOps(b *testing.B, logN, logQ int) {
 			}
 		})
 
-		b.Run("MMulScalar", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				vec.MMulScalarTo(vOut, v0, v1[0], q)
-			}
-		})
-
-		b.Run("MMulAddScalar", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				vec.MMulAddScalarTo(vOut, v0, v1[0], q)
-			}
-		})
-
-		b.Run("MMulSubScalar", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				vec.MMulSubScalarTo(vOut, v0, v1[0], q)
-			}
-		})
-
-		b.Run("MMulScalarLazy", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				vec.MMulScalarLazyTo(vOut, v0, v1[0], q)
-			}
-		})
-
-		b.Run("MMulAddScalarLazy", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				vec.MMulAddScalarLazyTo(vOut, v0, v1[0], q)
-			}
-		})
-
-		b.Run("MMulSubScalarLazy", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				vec.MMulSubScalarLazyTo(vOut, v0, v1[0], q)
-			}
-		})
-
 		b.Run("SMulScalar", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				vec.SMulScalarTo(vOut, v0, v1[0], v1S[0], q)
@@ -939,54 +747,6 @@ func benchmarkOps(b *testing.B, logN, logQ int) {
 		b.Run("MulSubWord", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				vec.MulSubTo(vOut, v0, v1, nil)
-			}
-		})
-
-		b.Run("MForm", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				vec.MFormTo(vOut, v0, q)
-			}
-		})
-
-		b.Run("InvMForm", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				vec.InvMFormTo(vOut, v0, q)
-			}
-		})
-
-		b.Run("MMul", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				vec.MMulTo(vOut, v0, v1, q)
-			}
-		})
-
-		b.Run("MMulAdd", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				vec.MMulAddTo(vOut, v0, v1, q)
-			}
-		})
-
-		b.Run("MMulSub", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				vec.MMulSubTo(vOut, v0, v1, q)
-			}
-		})
-
-		b.Run("MMulLazy", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				vec.MMulLazyTo(vOut, v0, v1, q)
-			}
-		})
-
-		b.Run("MMulAddLazy", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				vec.MMulAddLazyTo(vOut, v0, v1, q)
-			}
-		})
-
-		b.Run("MMulSubLazy", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				vec.MMulSubLazyTo(vOut, v0, v1, q)
 			}
 		})
 
