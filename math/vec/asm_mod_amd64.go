@@ -578,11 +578,143 @@ func mulSubScalarWordTo(vOut, v []uint64, c uint64) {
 	}
 }
 
+// mulScalarTo computes vOut = v * c mod q using Barrett or Float reduction.
+func mulScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v))
+
+	switch {
+	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasFMA && cpu.X86.HasSSE41:
+		mulScalarToAVX512(vOut, v, c, q.Value(), q.Float(), q.FloatInv())
+		return
+	case cpu.X86.HasAVX2 && cpu.X86.HasAVX && cpu.X86.HasFMA && cpu.X86.HasSSE41:
+		mulScalarToAVX2(vOut, v, c, q.Value(), q.Float(), q.FloatInv())
+		return
+	}
+
+	qv := q.Value()
+	divHi, divLo := q.Div()
+	qf, qfInv := q.Float(), q.FloatInv()
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] = modops.Mul(w[0], c, qv, divHi, divLo, qf, qfInv)
+		wOut[1] = modops.Mul(w[1], c, qv, divHi, divLo, qf, qfInv)
+		wOut[2] = modops.Mul(w[2], c, qv, divHi, divLo, qf, qfInv)
+		wOut[3] = modops.Mul(w[3], c, qv, divHi, divLo, qf, qfInv)
+
+		wOut[4] = modops.Mul(w[4], c, qv, divHi, divLo, qf, qfInv)
+		wOut[5] = modops.Mul(w[5], c, qv, divHi, divLo, qf, qfInv)
+		wOut[6] = modops.Mul(w[6], c, qv, divHi, divLo, qf, qfInv)
+		wOut[7] = modops.Mul(w[7], c, qv, divHi, divLo, qf, qfInv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.Mul(v[i], c, qv, divHi, divLo, qf, qfInv)
+	}
+}
+
+// mulAddScalarTo computes vOut += v * c mod q using Barrett or Float reduction.
+func mulAddScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v))
+
+	switch {
+	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasFMA && cpu.X86.HasSSE41:
+		mulAddScalarToAVX512(vOut, v, c, q.Value(), q.Float(), q.FloatInv())
+		return
+	case cpu.X86.HasAVX2 && cpu.X86.HasAVX && cpu.X86.HasFMA && cpu.X86.HasSSE41:
+		mulAddScalarToAVX2(vOut, v, c, q.Value(), q.Float(), q.FloatInv())
+		return
+	}
+
+	qv := q.Value()
+	divHi, divLo := q.Div()
+	qf, qfInv := q.Float(), q.FloatInv()
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] = modops.Add(wOut[0], modops.Mul(w[0], c, qv, divHi, divLo, qf, qfInv), qv)
+		wOut[1] = modops.Add(wOut[1], modops.Mul(w[1], c, qv, divHi, divLo, qf, qfInv), qv)
+		wOut[2] = modops.Add(wOut[2], modops.Mul(w[2], c, qv, divHi, divLo, qf, qfInv), qv)
+		wOut[3] = modops.Add(wOut[3], modops.Mul(w[3], c, qv, divHi, divLo, qf, qfInv), qv)
+
+		wOut[4] = modops.Add(wOut[4], modops.Mul(w[4], c, qv, divHi, divLo, qf, qfInv), qv)
+		wOut[5] = modops.Add(wOut[5], modops.Mul(w[5], c, qv, divHi, divLo, qf, qfInv), qv)
+		wOut[6] = modops.Add(wOut[6], modops.Mul(w[6], c, qv, divHi, divLo, qf, qfInv), qv)
+		wOut[7] = modops.Add(wOut[7], modops.Mul(w[7], c, qv, divHi, divLo, qf, qfInv), qv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.Add(vOut[i], modops.Mul(v[i], c, qv, divHi, divLo, qf, qfInv), qv)
+	}
+}
+
+// mulScalarTo computes vOut -= v * c mod q using Barrett or Float reduction.
+func mulSubScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v))
+
+	switch {
+	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasFMA && cpu.X86.HasSSE41:
+		mulSubScalarToAVX512(vOut, v, c, q.Value(), q.Float(), q.FloatInv())
+		return
+	case cpu.X86.HasAVX2 && cpu.X86.HasAVX && cpu.X86.HasFMA && cpu.X86.HasSSE41:
+		mulSubScalarToAVX2(vOut, v, c, q.Value(), q.Float(), q.FloatInv())
+		return
+	}
+
+	qv := q.Value()
+	divHi, divLo := q.Div()
+	qf, qfInv := q.Float(), q.FloatInv()
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] = modops.Sub(wOut[0], modops.Mul(w[0], c, qv, divHi, divLo, qf, qfInv), qv)
+		wOut[1] = modops.Sub(wOut[1], modops.Mul(w[1], c, qv, divHi, divLo, qf, qfInv), qv)
+		wOut[2] = modops.Sub(wOut[2], modops.Mul(w[2], c, qv, divHi, divLo, qf, qfInv), qv)
+		wOut[3] = modops.Sub(wOut[3], modops.Mul(w[3], c, qv, divHi, divLo, qf, qfInv), qv)
+
+		wOut[4] = modops.Sub(wOut[4], modops.Mul(w[4], c, qv, divHi, divLo, qf, qfInv), qv)
+		wOut[5] = modops.Sub(wOut[5], modops.Mul(w[5], c, qv, divHi, divLo, qf, qfInv), qv)
+		wOut[6] = modops.Sub(wOut[6], modops.Mul(w[6], c, qv, divHi, divLo, qf, qfInv), qv)
+		wOut[7] = modops.Sub(wOut[7], modops.Mul(w[7], c, qv, divHi, divLo, qf, qfInv), qv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.Sub(vOut[i], modops.Mul(v[i], c, qv, divHi, divLo, qf, qfInv), qv)
+	}
+}
+
 // SMulScalarTo computes vOut = v * c mod q using Shoup multiplication.
 func SMulScalarTo(vOut, v []uint64, c, cS uint64, q *num.Modulus) {
 	checkLength(len(vOut), len(v))
 
 	switch {
+	case cpu.X86.HasAVX512IFMA && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
+		sMulScalarToAVX512IFMA(vOut, v, c, cS, q.Value())
+		return
 	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
 		sMulScalarToAVX512(vOut, v, c, cS, q.Value())
 		return
@@ -621,6 +753,9 @@ func SMulAddScalarTo(vOut, v []uint64, c, cS uint64, q *num.Modulus) {
 	checkLength(len(vOut), len(v))
 
 	switch {
+	case cpu.X86.HasAVX512IFMA && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
+		sMulAddScalarToAVX512IFMA(vOut, v, c, cS, q.Value())
+		return
 	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
 		sMulAddScalarToAVX512(vOut, v, c, cS, q.Value())
 		return
@@ -659,6 +794,9 @@ func SMulSubScalarTo(vOut, v []uint64, c, cS uint64, q *num.Modulus) {
 	checkLength(len(vOut), len(v))
 
 	switch {
+	case cpu.X86.HasAVX512IFMA && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
+		sMulSubScalarToAVX512IFMA(vOut, v, c, cS, q.Value())
+		return
 	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
 		sMulSubScalarToAVX512(vOut, v, c, cS, q.Value())
 		return
@@ -689,146 +827,6 @@ func SMulSubScalarTo(vOut, v []uint64, c, cS uint64, q *num.Modulus) {
 
 	for i := M; i < len(vOut); i++ {
 		vOut[i] = modops.Sub(vOut[i], modops.SMul(v[i], c, cS, qv), qv)
-	}
-}
-
-// SMulScalarLazyTo computes vOut = v * c mod q using Shoup multiplication,
-// but the result is in [0, 2q).
-//
-// Panics if q is nil.
-func SMulScalarLazyTo(vOut, v []uint64, c, cS uint64, q *num.Modulus) {
-	checkLength(len(vOut), len(v))
-
-	switch {
-	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
-		sMulScalarLazyToAVX512(vOut, v, c, cS, q.Value())
-		return
-	}
-
-	qv := q.Value()
-
-	M := (len(vOut) >> 3) << 3
-	L := unsafe.Sizeof(uint64(0))
-
-	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
-	r := unsafe.Pointer(unsafe.SliceData(v))
-
-	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
-		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
-
-		wOut[0] = modops.SMulLazy(w[0], c, cS, qv)
-		wOut[1] = modops.SMulLazy(w[1], c, cS, qv)
-		wOut[2] = modops.SMulLazy(w[2], c, cS, qv)
-		wOut[3] = modops.SMulLazy(w[3], c, cS, qv)
-
-		wOut[4] = modops.SMulLazy(w[4], c, cS, qv)
-		wOut[5] = modops.SMulLazy(w[5], c, cS, qv)
-		wOut[6] = modops.SMulLazy(w[6], c, cS, qv)
-		wOut[7] = modops.SMulLazy(w[7], c, cS, qv)
-	}
-
-	for i := M; i < len(vOut); i++ {
-		vOut[i] = modops.SMulLazy(v[i], c, cS, qv)
-	}
-}
-
-// SMulAddScalarLazyTo computes vOut += v * c mod q using Shoup multiplication,
-// but the result is in [0, 3q).
-//
-// Panics if q is nil.
-func SMulAddScalarLazyTo(vOut, v []uint64, c, cS uint64, q *num.Modulus) {
-	checkLength(len(vOut), len(v))
-
-	switch {
-	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
-		sMulAddScalarLazyToAVX512(vOut, v, c, cS, q.Value())
-		return
-	}
-
-	qv := q.Value()
-
-	M := (len(vOut) >> 3) << 3
-	L := unsafe.Sizeof(uint64(0))
-
-	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
-	r := unsafe.Pointer(unsafe.SliceData(v))
-
-	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
-		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
-
-		wOut[0] += modops.SMulLazy(w[0], c, cS, qv)
-		wOut[1] += modops.SMulLazy(w[1], c, cS, qv)
-		wOut[2] += modops.SMulLazy(w[2], c, cS, qv)
-		wOut[3] += modops.SMulLazy(w[3], c, cS, qv)
-
-		wOut[4] += modops.SMulLazy(w[4], c, cS, qv)
-		wOut[5] += modops.SMulLazy(w[5], c, cS, qv)
-		wOut[6] += modops.SMulLazy(w[6], c, cS, qv)
-		wOut[7] += modops.SMulLazy(w[7], c, cS, qv)
-	}
-
-	for i := M; i < len(vOut); i++ {
-		vOut[i] += modops.SMulLazy(v[i], c, cS, qv)
-	}
-}
-
-// SMulSubScalarLazyTo computes vOut -= v * c mod q using Shoup multiplication,
-// but the result is in [0, 3q).
-//
-// Panics if q is nil.
-func SMulSubScalarLazyTo(vOut, v []uint64, c, cS uint64, q *num.Modulus) {
-	checkLength(len(vOut), len(v))
-
-	switch {
-	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
-		qv := q.Value()
-		cNeg := modops.Neg(c, qv)
-		var cNegS uint64
-		if qv&1 == 1 {
-			cNegS = -cS - 1
-		} else {
-			cNegS = modops.SForm(cNeg, qv)
-		}
-
-		sMulSubScalarLazyToAVX512(vOut, v, cNeg, cNegS, qv)
-		return
-	}
-
-	qv := q.Value()
-
-	cNeg := modops.Neg(c, qv)
-	var cNegS uint64
-	if qv&1 == 1 {
-		cNegS = -cS - 1
-	} else {
-		cNegS = modops.SForm(cNeg, qv)
-	}
-
-	M := (len(vOut) >> 3) << 3
-	L := unsafe.Sizeof(uint64(0))
-
-	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
-	r := unsafe.Pointer(unsafe.SliceData(v))
-
-	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
-		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
-
-		wOut[0] += modops.SMulLazy(w[0], cNeg, cNegS, qv)
-		wOut[1] += modops.SMulLazy(w[1], cNeg, cNegS, qv)
-		wOut[2] += modops.SMulLazy(w[2], cNeg, cNegS, qv)
-		wOut[3] += modops.SMulLazy(w[3], cNeg, cNegS, qv)
-
-		wOut[4] += modops.SMulLazy(w[4], cNeg, cNegS, qv)
-		wOut[5] += modops.SMulLazy(w[5], cNeg, cNegS, qv)
-		wOut[6] += modops.SMulLazy(w[6], cNeg, cNegS, qv)
-		wOut[7] += modops.SMulLazy(w[7], cNeg, cNegS, qv)
-	}
-
-	for i := M; i < len(vOut); i++ {
-		vOut[i] += modops.SMulLazy(v[i], cNeg, cNegS, qv)
 	}
 }
 
@@ -955,6 +953,141 @@ func mulSubWordTo(vOut, v0, v1 []uint64) {
 	}
 }
 
+// mulTo computes vOut = v0 * v1 mod q using Barrett or Float reduction.
+func mulTo(vOut, v0, v1 []uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v0), len(v1))
+
+	switch {
+	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasFMA && cpu.X86.HasSSE41:
+		mulToAVX512(vOut, v0, v1, q.Value(), q.Float(), q.FloatInv())
+		return
+	case cpu.X86.HasAVX2 && cpu.X86.HasAVX && cpu.X86.HasFMA && cpu.X86.HasSSE41:
+		mulToAVX2(vOut, v0, v1, q.Value(), q.Float(), q.FloatInv())
+		return
+	}
+
+	qv := q.Value()
+	divHi, divLo := q.Div()
+	qf, qfInv := q.Float(), q.FloatInv()
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r0 := unsafe.Pointer(unsafe.SliceData(v0))
+	r1 := unsafe.Pointer(unsafe.SliceData(v1))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
+		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
+
+		wOut[0] = modops.Mul(w0[0], w1[0], qv, divHi, divLo, qf, qfInv)
+		wOut[1] = modops.Mul(w0[1], w1[1], qv, divHi, divLo, qf, qfInv)
+		wOut[2] = modops.Mul(w0[2], w1[2], qv, divHi, divLo, qf, qfInv)
+		wOut[3] = modops.Mul(w0[3], w1[3], qv, divHi, divLo, qf, qfInv)
+
+		wOut[4] = modops.Mul(w0[4], w1[4], qv, divHi, divLo, qf, qfInv)
+		wOut[5] = modops.Mul(w0[5], w1[5], qv, divHi, divLo, qf, qfInv)
+		wOut[6] = modops.Mul(w0[6], w1[6], qv, divHi, divLo, qf, qfInv)
+		wOut[7] = modops.Mul(w0[7], w1[7], qv, divHi, divLo, qf, qfInv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.Mul(v0[i], v1[i], qv, divHi, divLo, qf, qfInv)
+	}
+}
+
+// mulAddTo computes vOut += v0 * v1 mod q using Barrett or Float reduction.
+func mulAddTo(vOut, v0, v1 []uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v0), len(v1))
+
+	switch {
+	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasFMA && cpu.X86.HasSSE41:
+		mulAddToAVX512(vOut, v0, v1, q.Value(), q.Float(), q.FloatInv())
+		return
+	case cpu.X86.HasAVX2 && cpu.X86.HasAVX && cpu.X86.HasFMA && cpu.X86.HasSSE41:
+		mulAddToAVX2(vOut, v0, v1, q.Value(), q.Float(), q.FloatInv())
+		return
+	}
+
+	qv := q.Value()
+	divHi, divLo := q.Div()
+	qf, qfInv := q.Float(), q.FloatInv()
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r0 := unsafe.Pointer(unsafe.SliceData(v0))
+	r1 := unsafe.Pointer(unsafe.SliceData(v1))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
+		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
+
+		wOut[0] = modops.Add(wOut[0], modops.Mul(w0[0], w1[0], qv, divHi, divLo, qf, qfInv), qv)
+		wOut[1] = modops.Add(wOut[1], modops.Mul(w0[1], w1[1], qv, divHi, divLo, qf, qfInv), qv)
+		wOut[2] = modops.Add(wOut[2], modops.Mul(w0[2], w1[2], qv, divHi, divLo, qf, qfInv), qv)
+		wOut[3] = modops.Add(wOut[3], modops.Mul(w0[3], w1[3], qv, divHi, divLo, qf, qfInv), qv)
+
+		wOut[4] = modops.Add(wOut[4], modops.Mul(w0[4], w1[4], qv, divHi, divLo, qf, qfInv), qv)
+		wOut[5] = modops.Add(wOut[5], modops.Mul(w0[5], w1[5], qv, divHi, divLo, qf, qfInv), qv)
+		wOut[6] = modops.Add(wOut[6], modops.Mul(w0[6], w1[6], qv, divHi, divLo, qf, qfInv), qv)
+		wOut[7] = modops.Add(wOut[7], modops.Mul(w0[7], w1[7], qv, divHi, divLo, qf, qfInv), qv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.Add(vOut[i], modops.Mul(v0[i], v1[i], qv, divHi, divLo, qf, qfInv), qv)
+	}
+}
+
+// mulSubTo computes vOut -= v0 * v1 mod q using Barrett or Float reduction.
+func mulSubTo(vOut, v0, v1 []uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v0), len(v1))
+
+	switch {
+	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasFMA && cpu.X86.HasSSE41:
+		mulSubToAVX512(vOut, v0, v1, q.Value(), q.Float(), q.FloatInv())
+		return
+	case cpu.X86.HasAVX2 && cpu.X86.HasAVX && cpu.X86.HasFMA && cpu.X86.HasSSE41:
+		mulSubToAVX2(vOut, v0, v1, q.Value(), q.Float(), q.FloatInv())
+		return
+	}
+
+	qv := q.Value()
+	divHi, divLo := q.Div()
+	qf, qfInv := q.Float(), q.FloatInv()
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r0 := unsafe.Pointer(unsafe.SliceData(v0))
+	r1 := unsafe.Pointer(unsafe.SliceData(v1))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
+		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
+
+		wOut[0] = modops.Sub(wOut[0], modops.Mul(w0[0], w1[0], qv, divHi, divLo, qf, qfInv), qv)
+		wOut[1] = modops.Sub(wOut[1], modops.Mul(w0[1], w1[1], qv, divHi, divLo, qf, qfInv), qv)
+		wOut[2] = modops.Sub(wOut[2], modops.Mul(w0[2], w1[2], qv, divHi, divLo, qf, qfInv), qv)
+		wOut[3] = modops.Sub(wOut[3], modops.Mul(w0[3], w1[3], qv, divHi, divLo, qf, qfInv), qv)
+
+		wOut[4] = modops.Sub(wOut[4], modops.Mul(w0[4], w1[4], qv, divHi, divLo, qf, qfInv), qv)
+		wOut[5] = modops.Sub(wOut[5], modops.Mul(w0[5], w1[5], qv, divHi, divLo, qf, qfInv), qv)
+		wOut[6] = modops.Sub(wOut[6], modops.Mul(w0[6], w1[6], qv, divHi, divLo, qf, qfInv), qv)
+		wOut[7] = modops.Sub(wOut[7], modops.Mul(w0[7], w1[7], qv, divHi, divLo, qf, qfInv), qv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.Sub(vOut[i], modops.Mul(v0[i], v1[i], qv, divHi, divLo, qf, qfInv), qv)
+	}
+}
+
 // SMulTo computes vOut = v0 * v1 mod q using Shoup multiplication.
 //
 // Panics if q is nil.
@@ -962,6 +1095,9 @@ func SMulTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
 	checkLength(len(vOut), len(v0), len(v1), len(v1S))
 
 	switch {
+	case cpu.X86.HasAVX512IFMA && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
+		sMulToAVX512IFMA(vOut, v0, v1, v1S, q.Value())
+		return
 	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
 		sMulToAVX512(vOut, v0, v1, v1S, q.Value())
 		return
@@ -1006,6 +1142,9 @@ func SMulAddTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
 	checkLength(len(vOut), len(v0), len(v1), len(v1S))
 
 	switch {
+	case cpu.X86.HasAVX512IFMA && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
+		sMulAddToAVX512IFMA(vOut, v0, v1, v1S, q.Value())
+		return
 	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
 		sMulAddToAVX512(vOut, v0, v1, v1S, q.Value())
 		return
@@ -1050,6 +1189,9 @@ func SMulSubTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
 	checkLength(len(vOut), len(v0), len(v1), len(v1S))
 
 	switch {
+	case cpu.X86.HasAVX512IFMA && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
+		sMulSubToAVX512IFMA(vOut, v0, v1, v1S, q.Value())
+		return
 	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
 		sMulSubToAVX512(vOut, v0, v1, v1S, q.Value())
 		return
@@ -1084,141 +1226,6 @@ func SMulSubTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
 
 	for i := M; i < len(vOut); i++ {
 		vOut[i] = modops.Sub(vOut[i], modops.SMul(v0[i], v1[i], v1S[i], qv), qv)
-	}
-}
-
-// SMulLazyTo computes vOut = v0 * v1 mod q using Shoup multiplication,
-// but the result is in [0, 2q).
-//
-// Panics if q is nil.
-func SMulLazyTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
-	checkLength(len(vOut), len(v0), len(v1), len(v1S))
-
-	switch {
-	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
-		sMulLazyToAVX512(vOut, v0, v1, v1S, q.Value())
-		return
-	}
-
-	qv := q.Value()
-
-	M := (len(vOut) >> 3) << 3
-	L := unsafe.Sizeof(uint64(0))
-
-	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
-	r0 := unsafe.Pointer(unsafe.SliceData(v0))
-	r1 := unsafe.Pointer(unsafe.SliceData(v1))
-	r1S := unsafe.Pointer(unsafe.SliceData(v1S))
-
-	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
-		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
-		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
-		w1S := (*[8]uint64)(unsafe.Add(r1S, uintptr(i)*L))
-
-		wOut[0] = modops.SMulLazy(w0[0], w1[0], w1S[0], qv)
-		wOut[1] = modops.SMulLazy(w0[1], w1[1], w1S[1], qv)
-		wOut[2] = modops.SMulLazy(w0[2], w1[2], w1S[2], qv)
-		wOut[3] = modops.SMulLazy(w0[3], w1[3], w1S[3], qv)
-
-		wOut[4] = modops.SMulLazy(w0[4], w1[4], w1S[4], qv)
-		wOut[5] = modops.SMulLazy(w0[5], w1[5], w1S[5], qv)
-		wOut[6] = modops.SMulLazy(w0[6], w1[6], w1S[6], qv)
-		wOut[7] = modops.SMulLazy(w0[7], w1[7], w1S[7], qv)
-	}
-
-	for i := M; i < len(vOut); i++ {
-		vOut[i] = modops.SMulLazy(v0[i], v1[i], v1S[i], qv)
-	}
-}
-
-// SMulAddLazyTo computes vOut += v0 * v1 mod q using Shoup multiplication,
-// but the result is in [0, 3q).
-//
-// Panics if q is nil.
-func SMulAddLazyTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
-	checkLength(len(vOut), len(v0), len(v1), len(v1S))
-
-	switch {
-	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
-		sMulAddLazyToAVX512(vOut, v0, v1, v1S, q.Value())
-		return
-	}
-
-	qv := q.Value()
-
-	M := (len(vOut) >> 3) << 3
-	L := unsafe.Sizeof(uint64(0))
-
-	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
-	r0 := unsafe.Pointer(unsafe.SliceData(v0))
-	r1 := unsafe.Pointer(unsafe.SliceData(v1))
-	r1S := unsafe.Pointer(unsafe.SliceData(v1S))
-
-	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
-		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
-		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
-		w1S := (*[8]uint64)(unsafe.Add(r1S, uintptr(i)*L))
-
-		wOut[0] += modops.SMulLazy(w0[0], w1[0], w1S[0], qv)
-		wOut[1] += modops.SMulLazy(w0[1], w1[1], w1S[1], qv)
-		wOut[2] += modops.SMulLazy(w0[2], w1[2], w1S[2], qv)
-		wOut[3] += modops.SMulLazy(w0[3], w1[3], w1S[3], qv)
-
-		wOut[4] += modops.SMulLazy(w0[4], w1[4], w1S[4], qv)
-		wOut[5] += modops.SMulLazy(w0[5], w1[5], w1S[5], qv)
-		wOut[6] += modops.SMulLazy(w0[6], w1[6], w1S[6], qv)
-		wOut[7] += modops.SMulLazy(w0[7], w1[7], w1S[7], qv)
-	}
-
-	for i := M; i < len(vOut); i++ {
-		vOut[i] += modops.SMulLazy(v0[i], v1[i], v1S[i], qv)
-	}
-}
-
-// SMulSubLazyTo computes vOut -= v0 * v1 mod q using Shoup multiplication,
-// but the result is in [0, 3q).
-//
-// Panics if q is nil.
-func SMulSubLazyTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
-	checkLength(len(vOut), len(v0), len(v1), len(v1S))
-
-	switch {
-	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasBMI2:
-		sMulSubLazyToAVX512(vOut, v0, v1, v1S, q.Value())
-		return
-	}
-
-	qv := q.Value()
-
-	M := (len(vOut) >> 3) << 3
-	L := unsafe.Sizeof(uint64(0))
-
-	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
-	r0 := unsafe.Pointer(unsafe.SliceData(v0))
-	r1 := unsafe.Pointer(unsafe.SliceData(v1))
-	r1S := unsafe.Pointer(unsafe.SliceData(v1S))
-
-	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
-		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
-		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
-		w1S := (*[8]uint64)(unsafe.Add(r1S, uintptr(i)*L))
-
-		wOut[0] += modops.SMulLazy(qv-w0[0], w1[0], w1S[0], qv)
-		wOut[1] += modops.SMulLazy(qv-w0[1], w1[1], w1S[1], qv)
-		wOut[2] += modops.SMulLazy(qv-w0[2], w1[2], w1S[2], qv)
-		wOut[3] += modops.SMulLazy(qv-w0[3], w1[3], w1S[3], qv)
-
-		wOut[4] += modops.SMulLazy(qv-w0[4], w1[4], w1S[4], qv)
-		wOut[5] += modops.SMulLazy(qv-w0[5], w1[5], w1S[5], qv)
-		wOut[6] += modops.SMulLazy(qv-w0[6], w1[6], w1S[6], qv)
-		wOut[7] += modops.SMulLazy(qv-w0[7], w1[7], w1S[7], qv)
-	}
-
-	for i := M; i < len(vOut); i++ {
-		vOut[i] += modops.SMulLazy(qv-v0[i], v1[i], v1S[i], qv)
 	}
 }
 
@@ -1266,5 +1273,92 @@ func ReduceTo[T num.Integer](vOut []uint64, v []T, q *num.Modulus) {
 
 	for i := M; i < len(vOut); i++ {
 		vOut[i] = modops.BMod(v[i], qv, divHi)
+	}
+}
+
+// Reduce2QTo computes vOut = v mod q assuming v is in [0, 2q).
+//
+// Panics if q is nil.
+func Reduce2QTo(vOut []uint64, v []uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v))
+
+	switch {
+	case cpu.X86.HasAVX512F:
+		reduce2QToAVX512(vOut, v, q.Value())
+		return
+	case cpu.X86.HasAVX2 && cpu.X86.HasAVX:
+		reduce2QToAVX2(vOut, v, q.Value())
+		return
+	}
+
+	qv := q.Value()
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] = modops.Reduce2Q(w[0], qv)
+		wOut[1] = modops.Reduce2Q(w[1], qv)
+		wOut[2] = modops.Reduce2Q(w[2], qv)
+		wOut[3] = modops.Reduce2Q(w[3], qv)
+
+		wOut[4] = modops.Reduce2Q(w[4], qv)
+		wOut[5] = modops.Reduce2Q(w[5], qv)
+		wOut[6] = modops.Reduce2Q(w[6], qv)
+		wOut[7] = modops.Reduce2Q(w[7], qv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.Reduce2Q(v[i], qv)
+	}
+}
+
+// Reduce4QTo computes vOut = v mod q assuming v is in [0, 4q).
+//
+// Panics if q is nil.
+func Reduce4QTo(vOut []uint64, v []uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v))
+
+	switch {
+	case cpu.X86.HasAVX512F:
+		reduce4QToAVX512(vOut, v, q.Value())
+		return
+	case cpu.X86.HasAVX2 && cpu.X86.HasAVX:
+		reduce4QToAVX2(vOut, v, q.Value())
+		return
+	}
+
+	qv := q.Value()
+	twoQv := qv << 1
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] = modops.Reduce4Q(w[0], qv, twoQv)
+		wOut[1] = modops.Reduce4Q(w[1], qv, twoQv)
+		wOut[2] = modops.Reduce4Q(w[2], qv, twoQv)
+		wOut[3] = modops.Reduce4Q(w[3], qv, twoQv)
+
+		wOut[4] = modops.Reduce4Q(w[4], qv, twoQv)
+		wOut[5] = modops.Reduce4Q(w[5], qv, twoQv)
+		wOut[6] = modops.Reduce4Q(w[6], qv, twoQv)
+		wOut[7] = modops.Reduce4Q(w[7], qv, twoQv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.Reduce4Q(v[i], qv, twoQv)
 	}
 }

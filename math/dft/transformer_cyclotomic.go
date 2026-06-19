@@ -66,7 +66,6 @@ func (ntt *pow2CyclotomicTransformer) ForwardTo(vNTT, v []uint64) {
 
 	copy(vNTT, v)
 	fwdNTTInPlacePow2(vNTT, ntt.tw, ntt.twS, ntt.mod.Value())
-	vec.ReduceTo(vNTT, vNTT, ntt.mod)
 }
 
 // InverseTo transforms the uint64 vector to Standard form.

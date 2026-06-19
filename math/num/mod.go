@@ -16,6 +16,9 @@ const (
 	// MaxModulus is the maximum possible modulus value for the reduction.
 	// All numbers in HIENAA are assumed to be less than this value.
 	MaxModulus = 1 << MaxModulusBits
+	// MinAmbModulusBits is the minimum possible bits for ambient modulus limbs.
+	// Currently this is set to 48, because we use [vec.Reduce4Q] for embedding to ambient modulus.
+	MinAmbModulusBits = 48
 )
 
 // Modulus holds precomputed constants for efficient modulus reduction.
@@ -150,14 +153,6 @@ func Mul(x0, x1 uint64, q *Modulus) uint64 {
 	return x0 * x1
 }
 
-// MulLazy returns x0 * x1 mod q using Barrett reduction,
-// but the result is in [0, 2q).
-//
-// Panics if q is nil.
-func MulLazy(x0, x1 uint64, q *Modulus) uint64 {
-	return modops.MulLazy(x0, x1, q.modulus, q.divHi, q.divLo, q.float, q.floatInv)
-}
-
 // Reduce returns x mod q using Barrett reduction.
 //
 // Panics if q is nil.
@@ -172,14 +167,6 @@ func Reduce128(xHi, xLo uint64, q *Modulus) uint64 {
 	return modops.BMod128(xHi, xLo, q.modulus, q.divHi, q.divLo)
 }
 
-// Reduce128Lazy returns x mod q using Barret reduction,
-// but the result is in [0, 2q).
-//
-// Panics if q is nil.
-func Reduce128Lazy(xHi, xLo uint64, q *Modulus) uint64 {
-	return modops.BMod128Lazy(xHi, xLo, q.modulus, q.divHi, q.divLo)
-}
-
 // SForm transforms x into Shoup form.
 //
 // Panics if q is nil.
@@ -192,14 +179,6 @@ func SForm(x uint64, q *Modulus) uint64 {
 // Panics if q is nil.
 func SMul(x0, x1, x1S uint64, q *Modulus) uint64 {
 	return modops.SMul(x0, x1, x1S, q.modulus)
-}
-
-// SMulLazy returns x0 * x1 mod q using Shoup multiplication,
-// but the result is in [0, 2q).
-//
-// Panics if q is nil.
-func SMulLazy(x0, x1, x1S uint64, q *Modulus) uint64 {
-	return modops.SMulLazy(x0, x1, x1S, q.modulus)
 }
 
 // Exp returns x^e mod q.

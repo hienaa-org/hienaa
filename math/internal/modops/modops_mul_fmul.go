@@ -27,18 +27,3 @@ func Mul(x0, x1, q, divHi, divLo uint64, qf, qfInv float64) uint64 {
 	}
 	return xOut
 }
-
-// MulLazy returns x0 * x1 mod q using float64 reduction,
-// but the result is in [0, 2q).
-func MulLazy(x0, x1, q, divHi, divLo uint64, qf, qfInv float64) uint64 {
-	x0f := float64(x0)
-	x1f := float64(x1)
-
-	hi := x0f * x1f
-	lo := math.FMA(x0f, x1f, -hi)
-
-	quo := math.Floor(hi * qfInv)
-	xOutf := math.FMA(-quo, qf, hi) + lo + qf
-
-	return uint64(xOutf)
-}

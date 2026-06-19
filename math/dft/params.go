@@ -491,6 +491,12 @@ func FindAmbientPrimes(params RingParameters, minBits float64) ([]*num.Modulus, 
 
 		bits += num.Log2(prime)
 		if bits > minBits {
+			for _, p := range primes {
+				if p.Value() < 1<<num.MinAmbModulusBits {
+					return nil, errors.New("FindAmbientPrimes: no suitable ambient modulus exists")
+				}
+			}
+
 			return primes, nil
 		}
 	}
@@ -505,6 +511,12 @@ func FindAmbientPrimes(params RingParameters, minBits float64) ([]*num.Modulus, 
 
 		bits += num.Log2(prime)
 		if bits > minBits {
+			for _, p := range primes {
+				if p.Value() < 1<<num.MinAmbModulusBits {
+					return nil, errors.New("FindAmbientPrimes: no suitable ambient modulus exists")
+				}
+			}
+
 			return primes, nil
 		}
 	}

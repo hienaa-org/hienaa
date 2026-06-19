@@ -178,48 +178,6 @@ func testOps(t *testing.T, logQ int) {
 			assert.Less(t, vec.Max(vOut), q.Value())
 		})
 
-		t.Run("MulScalarLazy", func(t *testing.T) {
-			vec.MulScalarLazyTo(vOut, v0, v1[0], q)
-
-			assert.Less(t, vec.Max(vOut), 2*q.Value())
-
-			for i := 0; i < N; i++ {
-				vOut[i] %= q.Value()
-				vOutCheck[i] = num.Mul(v0[i], v1[0], q)
-			}
-			assert.Equal(t, vOutCheck, vOut)
-		})
-
-		t.Run("MulAddScalarLazy", func(t *testing.T) {
-			copy(vOut, vOutInit)
-			copy(vOutCheck, vOutInit)
-
-			vec.MulAddScalarLazyTo(vOut, v0, v1[0], q)
-
-			assert.Less(t, vec.Max(vOut), 3*q.Value())
-
-			for i := 0; i < N; i++ {
-				vOut[i] %= q.Value()
-				vOutCheck[i] = num.Add(vOutInit[i], num.Mul(v0[i], v1[0], q), q)
-			}
-			assert.Equal(t, vOutCheck, vOut)
-		})
-
-		t.Run("MulSubScalarLazy", func(t *testing.T) {
-			copy(vOut, vOutInit)
-			copy(vOutCheck, vOutInit)
-
-			vec.MulSubScalarLazyTo(vOut, v0, v1[0], q)
-
-			assert.Less(t, vec.Max(vOut), 3*q.Value())
-
-			for i := 0; i < N; i++ {
-				vOut[i] %= q.Value()
-				vOutCheck[i] = num.Sub(vOutInit[i], num.Mul(v0[i], v1[0], q), q)
-			}
-			assert.Equal(t, vOutCheck, vOut)
-		})
-
 		t.Run("MulScalarWord", func(t *testing.T) {
 			vec.MulScalarTo(vOut, v0, v1[0], nil)
 			for i := 0; i < N; i++ {
@@ -287,48 +245,6 @@ func testOps(t *testing.T, logQ int) {
 			assert.Less(t, vec.Max(vOut), q.Value())
 		})
 
-		t.Run("SMulScalarLazy", func(t *testing.T) {
-			vec.SMulScalarLazyTo(vOut, v0, v1[0], v1cS, q)
-
-			assert.Less(t, vec.Max(vOut), 2*q.Value())
-
-			for i := 0; i < N; i++ {
-				vOut[i] %= q.Value()
-				vOutCheck[i] = num.Mul(v0[i], v1[0], q)
-			}
-			assert.Equal(t, vOutCheck, vOut)
-		})
-
-		t.Run("SMulAddScalarLazy", func(t *testing.T) {
-			copy(vOut, vOutInit)
-			copy(vOutCheck, vOutInit)
-
-			vec.SMulAddScalarLazyTo(vOut, v0, v1[0], v1cS, q)
-
-			assert.Less(t, vec.Max(vOut), 3*q.Value())
-
-			for i := 0; i < N; i++ {
-				vOut[i] %= q.Value()
-				vOutCheck[i] = num.Add(vOutInit[i], num.Mul(v0[i], v1[0], q), q)
-			}
-			assert.Equal(t, vOutCheck, vOut)
-		})
-
-		t.Run("SMulSubScalarLazy", func(t *testing.T) {
-			copy(vOut, vOutInit)
-			copy(vOutCheck, vOutInit)
-
-			vec.SMulSubScalarLazyTo(vOut, v0, v1[0], v1cS, q)
-
-			assert.Less(t, vec.Max(vOut), 3*q.Value())
-
-			for i := 0; i < N; i++ {
-				vOut[i] %= q.Value()
-				vOutCheck[i] = num.Sub(vOutInit[i], num.Mul(v0[i], v1[0], q), q)
-			}
-			assert.Equal(t, vOutCheck, vOut)
-		})
-
 		t.Run("Mul", func(t *testing.T) {
 			vec.MulTo(vOut, v0, v1, q)
 			for i := 0; i < N; i++ {
@@ -363,48 +279,6 @@ func testOps(t *testing.T, logQ int) {
 			assert.Equal(t, vOutCheck, vOut)
 
 			assert.Less(t, vec.Max(vOut), q.Value())
-		})
-
-		t.Run("MulLazy", func(t *testing.T) {
-			vec.MulLazyTo(vOut, v0, v1, q)
-
-			assert.Less(t, vec.Max(vOut), 2*q.Value())
-
-			for i := 0; i < N; i++ {
-				vOut[i] %= q.Value()
-				vOutCheck[i] = num.Mul(v0[i], v1[i], q)
-			}
-			assert.Equal(t, vOutCheck, vOut)
-		})
-
-		t.Run("MulAddLazy", func(t *testing.T) {
-			copy(vOut, vOutInit)
-			copy(vOutCheck, vOutInit)
-
-			vec.MulAddLazyTo(vOut, v0, v1, q)
-
-			assert.Less(t, vec.Max(vOut), 3*q.Value())
-
-			for i := 0; i < N; i++ {
-				vOut[i] %= q.Value()
-				vOutCheck[i] = num.Add(vOutInit[i], num.Mul(v0[i], v1[i], q), q)
-			}
-			assert.Equal(t, vOutCheck, vOut)
-		})
-
-		t.Run("MulSubLazy", func(t *testing.T) {
-			copy(vOut, vOutInit)
-			copy(vOutCheck, vOutInit)
-
-			vec.MulSubLazyTo(vOut, v0, v1, q)
-
-			assert.Less(t, vec.Max(vOut), 3*q.Value())
-
-			for i := 0; i < N; i++ {
-				vOut[i] %= q.Value()
-				vOutCheck[i] = num.Sub(vOutInit[i], num.Mul(v0[i], v1[i], q), q)
-			}
-			assert.Equal(t, vOutCheck, vOut)
 		})
 
 		t.Run("MulWord", func(t *testing.T) {
@@ -475,54 +349,36 @@ func testOps(t *testing.T, logQ int) {
 			assert.Less(t, vec.Max(vOut), q.Value())
 		})
 
-		t.Run("SMulLazy", func(t *testing.T) {
-			vec.SMulLazyTo(vOut, v0, v1, v1S, q)
-
-			assert.Less(t, vec.Max(vOut), 2*q.Value())
-
-			for i := 0; i < N; i++ {
-				vOut[i] %= q.Value()
-				vOutCheck[i] = num.SMul(v0[i], v1[i], v1S[i], q)
-			}
-			assert.Equal(t, vOutCheck, vOut)
-		})
-
-		t.Run("SMulAddLazy", func(t *testing.T) {
-			copy(vOut, vOutInit)
-			copy(vOutCheck, vOutInit)
-
-			vec.SMulAddLazyTo(vOut, v0, v1, v1S, q)
-
-			assert.Less(t, vec.Max(vOut), 3*q.Value())
-
-			for i := 0; i < N; i++ {
-				vOut[i] %= q.Value()
-				vOutCheck[i] = num.Add(vOutInit[i], num.SMul(v0[i], v1[i], v1S[i], q), q)
-			}
-			assert.Equal(t, vOutCheck, vOut)
-		})
-
-		t.Run("SMulSubLazy", func(t *testing.T) {
-			copy(vOut, vOutInit)
-			copy(vOutCheck, vOutInit)
-
-			vec.SMulSubLazyTo(vOut, v0, v1, v1S, q)
-
-			assert.Less(t, vec.Max(vOut), 3*q.Value())
-
-			for i := 0; i < N; i++ {
-				vOut[i] %= q.Value()
-				vOutCheck[i] = num.Sub(vOutInit[i], num.SMul(v0[i], v1[i], v1S[i], q), q)
-			}
-			assert.Equal(t, vOutCheck, vOut)
-		})
-
 		t.Run("Reduce", func(t *testing.T) {
 			for i := 0; i < N; i++ {
 				v0[i] = rSrc.Sample()
 			}
 
 			vec.ReduceTo(vOut, v0, q)
+			for i := 0; i < N; i++ {
+				vOutCheck[i] = v0[i] % q.Value()
+			}
+			assert.Equal(t, vOutCheck, vOut)
+		})
+
+		t.Run("Reduce2Q", func(t *testing.T) {
+			for i := 0; i < N; i++ {
+				v0[i] = rSrc.Sample() % (2 * q.Value())
+			}
+
+			vec.Reduce2QTo(vOut, v0, q)
+			for i := 0; i < N; i++ {
+				vOutCheck[i] = v0[i] % q.Value()
+			}
+			assert.Equal(t, vOutCheck, vOut)
+		})
+
+		t.Run("Reduce4Q", func(t *testing.T) {
+			for i := 0; i < N; i++ {
+				v0[i] = rSrc.Sample() % (4 * q.Value())
+			}
+
+			vec.Reduce4QTo(vOut, v0, q)
 			for i := 0; i < N; i++ {
 				vOutCheck[i] = v0[i] % q.Value()
 			}
@@ -623,24 +479,6 @@ func benchmarkOps(b *testing.B, logN, logQ int) {
 			}
 		})
 
-		b.Run("MulScalarLazy", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				vec.MulScalarLazyTo(vOut, v0, v1[0], q)
-			}
-		})
-
-		b.Run("MulAddScalarLazy", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				vec.MulAddScalarLazyTo(vOut, v0, v1[0], q)
-			}
-		})
-
-		b.Run("MulSubScalarLazy", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				vec.MulSubScalarLazyTo(vOut, v0, v1[0], q)
-			}
-		})
-
 		b.Run("MulScalarWord", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				vec.MulScalarTo(vOut, v0, v1[0], nil)
@@ -677,24 +515,6 @@ func benchmarkOps(b *testing.B, logN, logQ int) {
 			}
 		})
 
-		b.Run("SMulScalarLazy", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				vec.SMulScalarLazyTo(vOut, v0, v1[0], v1S[0], q)
-			}
-		})
-
-		b.Run("SMulAddScalarLazy", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				vec.SMulAddScalarLazyTo(vOut, v0, v1[0], v1S[0], q)
-			}
-		})
-
-		b.Run("SMulSubScalarLazy", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				vec.SMulSubScalarLazyTo(vOut, v0, v1[0], v1S[0], q)
-			}
-		})
-
 		b.Run("Mul", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				vec.MulTo(vOut, v0, v1, q)
@@ -710,24 +530,6 @@ func benchmarkOps(b *testing.B, logN, logQ int) {
 		b.Run("MulSub", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				vec.MulSubTo(vOut, v0, v1, q)
-			}
-		})
-
-		b.Run("MulLazy", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				vec.MulLazyTo(vOut, v0, v1, q)
-			}
-		})
-
-		b.Run("MulAddLazy", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				vec.MulAddLazyTo(vOut, v0, v1, q)
-			}
-		})
-
-		b.Run("MulSubLazy", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				vec.MulSubLazyTo(vOut, v0, v1, q)
 			}
 		})
 
@@ -773,27 +575,21 @@ func benchmarkOps(b *testing.B, logN, logQ int) {
 			}
 		})
 
-		b.Run("SMulLazy", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				vec.SMulLazyTo(vOut, v0, v1, v1S, q)
-			}
-		})
-
-		b.Run("SMulAddLazy", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				vec.SMulAddLazyTo(vOut, v0, v1, v1S, q)
-			}
-		})
-
-		b.Run("SMulSubLazy", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				vec.SMulSubLazyTo(vOut, v0, v1, v1S, q)
-			}
-		})
-
 		b.Run("Reduce", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				vec.ReduceTo(vOut, v0, q)
+			}
+		})
+
+		b.Run("Reduce2Q", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.Reduce2QTo(vOut, v0, q)
+			}
+		})
+
+		b.Run("Reduce4Q", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				vec.Reduce4QTo(vOut, v0, q)
 			}
 		})
 	})

@@ -44,7 +44,7 @@ type baseMulOperator struct {
 
 // newBaseMulOperator creates a new [baseMulOperator].
 func newBaseMulOperator(params dft.RingParameters, mod []*num.Modulus) *baseMulOperator {
-	ambMod := dft.MustFindAmbientPrimes(params, num.Log2(params.ExpandFactor())+2*num.MaxModulusBits)
+	ambMod := dft.MustFindAmbientPrimes(params, num.Log2(params.ExpandFactor())+2*num.MaxModulusBits+1)
 	ambNTT := make([]dft.Transformer, len(ambMod))
 	for i := range ambMod {
 		ambNTT[i] = dft.NewTransformer(params, ambMod[i])
@@ -133,8 +133,10 @@ func (op *baseMulOperator) MulTo(eOut, e0, e1 *Element) {
 				vec.MulTo(eOut.Coeffs[i], e0.Coeffs[i], e1.Coeffs[i], op.mod[i])
 			} else {
 				for j := 0; j < op.ambModLen[i]; j++ {
-					op.ambNTT[j].ForwardTo(e0Amb.Coeffs[j], e0.Coeffs[i])
-					op.ambNTT[j].ForwardTo(e1Amb.Coeffs[j], e1.Coeffs[i])
+					vec.Reduce4QTo(e0Amb.Coeffs[j], e0.Coeffs[i], op.ambMod[j])
+					op.ambNTT[j].ForwardTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
+					vec.Reduce4QTo(e1Amb.Coeffs[j], e1.Coeffs[i], op.ambMod[j])
+					op.ambNTT[j].ForwardTo(e1Amb.Coeffs[j], e1Amb.Coeffs[j])
 					vec.MulTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j], e1Amb.Coeffs[j], op.ambMod[j])
 					op.ambNTT[j].InverseTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 				}
@@ -186,8 +188,10 @@ func (op *baseMulOperator) MulAddTo(eOut, e0, e1 *Element) {
 				vec.MulAddTo(eOut.Coeffs[i], e0.Coeffs[i], e1.Coeffs[i], op.mod[i])
 			} else {
 				for j := 0; j < op.ambModLen[i]; j++ {
-					op.ambNTT[j].ForwardTo(e0Amb.Coeffs[j], e0.Coeffs[i])
-					op.ambNTT[j].ForwardTo(e1Amb.Coeffs[j], e1.Coeffs[i])
+					vec.Reduce4QTo(e0Amb.Coeffs[j], e0.Coeffs[i], op.ambMod[j])
+					op.ambNTT[j].ForwardTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
+					vec.Reduce4QTo(e1Amb.Coeffs[j], e1.Coeffs[i], op.ambMod[j])
+					op.ambNTT[j].ForwardTo(e1Amb.Coeffs[j], e1Amb.Coeffs[j])
 					vec.MulTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j], e1Amb.Coeffs[j], op.ambMod[j])
 					op.ambNTT[j].InverseTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 				}
@@ -240,8 +244,10 @@ func (op *baseMulOperator) MulSubTo(eOut, e0, e1 *Element) {
 				vec.MulSubTo(eOut.Coeffs[i], e0.Coeffs[i], e1.Coeffs[i], op.mod[i])
 			} else {
 				for j := 0; j < op.ambModLen[i]; j++ {
-					op.ambNTT[j].ForwardTo(e0Amb.Coeffs[j], e0.Coeffs[i])
-					op.ambNTT[j].ForwardTo(e1Amb.Coeffs[j], e1.Coeffs[i])
+					vec.Reduce4QTo(e0Amb.Coeffs[j], e0.Coeffs[i], op.ambMod[j])
+					op.ambNTT[j].ForwardTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
+					vec.Reduce4QTo(e1Amb.Coeffs[j], e1.Coeffs[i], op.ambMod[j])
+					op.ambNTT[j].ForwardTo(e1Amb.Coeffs[j], e1Amb.Coeffs[j])
 					vec.MulTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j], e1Amb.Coeffs[j], op.ambMod[j])
 					op.ambNTT[j].InverseTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 				}
@@ -426,11 +432,11 @@ func (op *anyCyclotomicMulOperator) MulTo(eOut, e0, e1 *Element) {
 			} else {
 				rank := op.params.Rank()
 				for j := 0; j < op.ambModLen[i]; j++ {
-					copy(e0Amb.Coeffs[j], e0.Coeffs[i])
+					vec.Reduce4QTo(e0Amb.Coeffs[j][:rank], e0.Coeffs[i], op.ambMod[j])
 					clear(e0Amb.Coeffs[j][rank:])
 					op.ambNTT[j].ForwardTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 
-					copy(e1Amb.Coeffs[j], e1.Coeffs[i])
+					vec.Reduce4QTo(e1Amb.Coeffs[j][:rank], e1.Coeffs[i], op.ambMod[j])
 					clear(e1Amb.Coeffs[j][rank:])
 					op.ambNTT[j].ForwardTo(e1Amb.Coeffs[j], e1Amb.Coeffs[j])
 
@@ -487,11 +493,11 @@ func (op *anyCyclotomicMulOperator) MulAddTo(eOut, e0, e1 *Element) {
 			} else {
 				rank := op.params.Rank()
 				for j := 0; j < op.ambModLen[i]; j++ {
-					copy(e0Amb.Coeffs[j], e0.Coeffs[i])
+					vec.Reduce4QTo(e0Amb.Coeffs[j][:rank], e0.Coeffs[i], op.ambMod[j])
 					clear(e0Amb.Coeffs[j][rank:])
 					op.ambNTT[j].ForwardTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 
-					copy(e1Amb.Coeffs[j], e1.Coeffs[i])
+					vec.Reduce4QTo(e1Amb.Coeffs[j][:rank], e1.Coeffs[i], op.ambMod[j])
 					clear(e1Amb.Coeffs[j][rank:])
 					op.ambNTT[j].ForwardTo(e1Amb.Coeffs[j], e1Amb.Coeffs[j])
 
@@ -549,11 +555,11 @@ func (op *anyCyclotomicMulOperator) MulSubTo(eOut, e0, e1 *Element) {
 			} else {
 				rank := op.params.Rank()
 				for j := 0; j < op.ambModLen[i]; j++ {
-					copy(e0Amb.Coeffs[j], e0.Coeffs[i])
+					vec.Reduce4QTo(e0Amb.Coeffs[j][:rank], e0.Coeffs[i], op.ambMod[j])
 					clear(e0Amb.Coeffs[j][rank:])
 					op.ambNTT[j].ForwardTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 
-					copy(e1Amb.Coeffs[j], e1.Coeffs[i])
+					vec.Reduce4QTo(e1Amb.Coeffs[j][:rank], e1.Coeffs[i], op.ambMod[j])
 					clear(e1Amb.Coeffs[j][rank:])
 					op.ambNTT[j].ForwardTo(e1Amb.Coeffs[j], e1Amb.Coeffs[j])
 
@@ -742,11 +748,11 @@ func (op *reduceMulOperator) MulTo(eOut, e0, e1 *Element) {
 
 		for i := range op.mod {
 			if op.ambModLen[i] == 0 {
-				copy(e0Amb.Coeffs[0], e0.Coeffs[i])
+				vec.Reduce4QTo(e0Amb.Coeffs[0][:op.rank], e0.Coeffs[i], op.ambMod[0])
 				clear(e0Amb.Coeffs[0][op.rank:])
 				op.ntt[i].ForwardTo(e0Amb.Coeffs[0], e0Amb.Coeffs[0])
 
-				copy(e1Amb.Coeffs[0], e1.Coeffs[i])
+				vec.Reduce4QTo(e1Amb.Coeffs[0][:op.rank], e1.Coeffs[i], op.ambMod[0])
 				clear(e1Amb.Coeffs[0][op.rank:])
 				op.ntt[i].ForwardTo(e1Amb.Coeffs[0], e1Amb.Coeffs[0])
 
@@ -755,11 +761,11 @@ func (op *reduceMulOperator) MulTo(eOut, e0, e1 *Element) {
 				op.reducer.reduceTo(eOut.Coeffs[i], e0Amb.Coeffs[0], i)
 			} else {
 				for j := 0; j < op.ambModLen[i]; j++ {
-					copy(e0Amb.Coeffs[j], e0.Coeffs[i])
+					vec.Reduce4QTo(e0Amb.Coeffs[j][:op.rank], e0.Coeffs[i], op.ambMod[j])
 					clear(e0Amb.Coeffs[j][op.rank:])
 					op.ambNTT[j].ForwardTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 
-					copy(e1Amb.Coeffs[j], e1.Coeffs[i])
+					vec.Reduce4QTo(e1Amb.Coeffs[j][:op.rank], e1.Coeffs[i], op.ambMod[j])
 					clear(e1Amb.Coeffs[j][op.rank:])
 					op.ambNTT[j].ForwardTo(e1Amb.Coeffs[j], e1Amb.Coeffs[j])
 
@@ -802,11 +808,11 @@ func (op *reduceMulOperator) MulAddTo(eOut, e0, e1 *Element) {
 
 		for i := range op.mod {
 			if op.ambModLen[i] == 0 {
-				copy(e0Amb.Coeffs[0], e0.Coeffs[i])
+				vec.Reduce4QTo(e0Amb.Coeffs[0][:op.rank], e0.Coeffs[i], op.ambMod[0])
 				clear(e0Amb.Coeffs[0][op.rank:])
 				op.ntt[i].ForwardTo(e0Amb.Coeffs[0], e0Amb.Coeffs[0])
 
-				copy(e1Amb.Coeffs[0], e1.Coeffs[i])
+				vec.Reduce4QTo(e1Amb.Coeffs[0][:op.rank], e1.Coeffs[i], op.ambMod[0])
 				clear(e1Amb.Coeffs[0][op.rank:])
 				op.ntt[i].ForwardTo(e1Amb.Coeffs[0], e1Amb.Coeffs[0])
 
@@ -816,11 +822,11 @@ func (op *reduceMulOperator) MulAddTo(eOut, e0, e1 *Element) {
 				vec.AddTo(eOut.Coeffs[i], eOut.Coeffs[i], e0Amb.Coeffs[0][:op.rank], op.mod[i])
 			} else {
 				for j := 0; j < op.ambModLen[i]; j++ {
-					copy(e0Amb.Coeffs[j], e0.Coeffs[i])
+					vec.Reduce4QTo(e0Amb.Coeffs[j][:op.rank], e0.Coeffs[i], op.ambMod[j])
 					clear(e0Amb.Coeffs[j][op.rank:])
 					op.ambNTT[j].ForwardTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 
-					copy(e1Amb.Coeffs[j], e1.Coeffs[i])
+					vec.Reduce4QTo(e1Amb.Coeffs[j][:op.rank], e1.Coeffs[i], op.ambMod[j])
 					clear(e1Amb.Coeffs[j][op.rank:])
 					op.ambNTT[j].ForwardTo(e1Amb.Coeffs[j], e1Amb.Coeffs[j])
 
@@ -864,11 +870,11 @@ func (op *reduceMulOperator) MulSubTo(eOut, e0, e1 *Element) {
 
 		for i := range op.mod {
 			if op.ambModLen[i] == 0 {
-				copy(e0Amb.Coeffs[0], e0.Coeffs[i])
+				vec.Reduce4QTo(e0Amb.Coeffs[0][:op.rank], e0.Coeffs[i], op.ambMod[0])
 				clear(e0Amb.Coeffs[0][op.rank:])
 				op.ntt[i].ForwardTo(e0Amb.Coeffs[0], e0Amb.Coeffs[0])
 
-				copy(e1Amb.Coeffs[0], e1.Coeffs[i])
+				vec.Reduce4QTo(e1Amb.Coeffs[0][:op.rank], e1.Coeffs[i], op.ambMod[0])
 				clear(e1Amb.Coeffs[0][op.rank:])
 				op.ntt[i].ForwardTo(e1Amb.Coeffs[0], e1Amb.Coeffs[0])
 
@@ -878,11 +884,11 @@ func (op *reduceMulOperator) MulSubTo(eOut, e0, e1 *Element) {
 				vec.SubTo(eOut.Coeffs[i], eOut.Coeffs[i], e0Amb.Coeffs[0][:op.rank], op.mod[i])
 			} else {
 				for j := 0; j < op.ambModLen[i]; j++ {
-					copy(e0Amb.Coeffs[j], e0.Coeffs[i])
+					vec.Reduce4QTo(e0Amb.Coeffs[j][:op.rank], e0.Coeffs[i], op.ambMod[j])
 					clear(e0Amb.Coeffs[j][op.rank:])
 					op.ambNTT[j].ForwardTo(e0Amb.Coeffs[j], e0Amb.Coeffs[j])
 
-					copy(e1Amb.Coeffs[j], e1.Coeffs[i])
+					vec.Reduce4QTo(e1Amb.Coeffs[j][:op.rank], e1.Coeffs[i], op.ambMod[j])
 					clear(e1Amb.Coeffs[j][op.rank:])
 					op.ambNTT[j].ForwardTo(e1Amb.Coeffs[j], e1Amb.Coeffs[j])
 

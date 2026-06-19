@@ -738,7 +738,7 @@ func (p *primeAutFixedIntPacker) PackTo(vPack, v []uint64) {
 		clear(vBuf[i][p.packLen:])
 
 		p.ambNTT[i].ForwardTo(vBuf[i], vBuf[i])
-		vec.MulLazyTo(vBuf[i], vBuf[i], p.resol[i], p.ambMod[i])
+		vec.MulTo(vBuf[i], vBuf[i], p.resol[i], p.ambMod[i])
 		p.ambNTT[i].InverseTo(vBuf[i], vBuf[i])
 	}
 
@@ -776,7 +776,7 @@ func (p *primeAutFixedIntPacker) UnPackTo(v, vPack []uint64) {
 		clear(vBuf[i][p.packLen:])
 
 		p.ambNTT[i].ForwardTo(vBuf[i], vBuf[i])
-		vec.MulLazyTo(vBuf[i], vBuf[i], p.invResol[i], p.ambMod[i])
+		vec.MulTo(vBuf[i], vBuf[i], p.invResol[i], p.ambMod[i])
 		p.ambNTT[i].InverseTo(vBuf[i], vBuf[i])
 	}
 	p.embedder.EmbedTo(vBuf[:1], vBuf)

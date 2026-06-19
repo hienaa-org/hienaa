@@ -477,12 +477,13 @@ func (r *CyclotomicReducer) reduceTo(pOut, p []uint64, idx int) {
 		// pQuo = pQuo * floor(X^(deg+diffDeg)/\Phi_m(X))
 		if r.ambModLen[idx] == 0 {
 			r.diffDegNextNTT[idx].ForwardTo(pQuo[0], pQuo[0])
-			vec.MulLazyTo(pQuo[0], pQuo[0], r.divPoly[idx][0], r.mod[idx])
+			vec.MulTo(pQuo[0], pQuo[0], r.divPoly[idx][0], r.mod[idx])
 			r.diffDegNextNTT[idx].InverseTo(pQuo[0], pQuo[0])
 		} else {
 			for i := 0; i < r.ambModLen[idx]; i++ {
+				vec.Reduce4QTo(pQuo[i], pQuo[i], r.ambMod[i])
 				r.diffDegNextAmbNTT[i].ForwardTo(pQuo[i], pQuo[i])
-				vec.MulLazyTo(pQuo[i], pQuo[i], r.divPoly[idx][i], r.ambMod[i])
+				vec.MulTo(pQuo[i], pQuo[i], r.divPoly[idx][i], r.ambMod[i])
 				r.diffDegNextAmbNTT[i].InverseTo(pQuo[i], pQuo[i])
 			}
 			r.embedder[idx].EmbedTo(pQuo[:1], pQuo[:r.ambModLen[idx]])
@@ -516,12 +517,13 @@ func (r *CyclotomicReducer) reduceTo(pOut, p []uint64, idx int) {
 		// pRem = pRem * cycloPoly % (X^degNext - 1)
 		if r.ambModLen[idx] == 0 {
 			r.degNextNTT[idx].ForwardTo(pRem[0], pRem[0])
-			vec.MulLazyTo(pRem[0], pRem[0], r.cycloPoly[idx][0], r.mod[idx])
+			vec.MulTo(pRem[0], pRem[0], r.cycloPoly[idx][0], r.mod[idx])
 			r.degNextNTT[idx].InverseTo(pRem[0], pRem[0])
 		} else {
 			for i := 0; i < r.ambModLen[idx]; i++ {
+				vec.Reduce4QTo(pRem[i], pRem[i], r.ambMod[i])
 				r.degNextAmbNTT[i].ForwardTo(pRem[i], pRem[i])
-				vec.MulLazyTo(pRem[i], pRem[i], r.cycloPoly[idx][i], r.ambMod[i])
+				vec.MulTo(pRem[i], pRem[i], r.cycloPoly[idx][i], r.ambMod[i])
 				r.degNextAmbNTT[i].InverseTo(pRem[i], pRem[i])
 			}
 			r.embedder[idx].EmbedTo(pRem[:1], pRem[:r.ambModLen[idx]])
@@ -964,12 +966,13 @@ func (r *Reducer) reduceTo(pOut, p []uint64, idx int) {
 	// pQuo = pQuo * floor(X^(deg+diffDeg)/modPoly(X))
 	if r.ambModLen[idx] == 0 {
 		r.diffDegNextNTT[idx].ForwardTo(pQuo[0], pQuo[0])
-		vec.MulLazyTo(pQuo[0], pQuo[0], r.divPoly[idx][0], r.mod[idx])
+		vec.MulTo(pQuo[0], pQuo[0], r.divPoly[idx][0], r.mod[idx])
 		r.diffDegNextNTT[idx].InverseTo(pQuo[0], pQuo[0])
 	} else {
 		for i := 0; i < r.ambModLen[idx]; i++ {
+			vec.Reduce4QTo(pQuo[i], pQuo[i], r.ambMod[i])
 			r.diffDegNextAmbNTT[i].ForwardTo(pQuo[i], pQuo[i])
-			vec.MulLazyTo(pQuo[i], pQuo[i], r.divPoly[idx][i], r.ambMod[i])
+			vec.MulTo(pQuo[i], pQuo[i], r.divPoly[idx][i], r.ambMod[i])
 			r.diffDegNextAmbNTT[i].InverseTo(pQuo[i], pQuo[i])
 		}
 		r.embedder[idx].EmbedTo(pQuo[:1], pQuo[:r.ambModLen[idx]])
@@ -1003,12 +1006,13 @@ func (r *Reducer) reduceTo(pOut, p []uint64, idx int) {
 	// pRem = pRem * modPoly % (X^degNext - 1)
 	if r.ambModLen[idx] == 0 {
 		r.degNextNTT[idx].ForwardTo(pRem[0], pRem[0])
-		vec.MulLazyTo(pRem[0], pRem[0], r.modPoly[idx][0], r.mod[idx])
+		vec.MulTo(pRem[0], pRem[0], r.modPoly[idx][0], r.mod[idx])
 		r.degNextNTT[idx].InverseTo(pRem[0], pRem[0])
 	} else {
 		for i := 0; i < r.ambModLen[idx]; i++ {
+			vec.Reduce4QTo(pRem[i], pRem[i], r.ambMod[i])
 			r.degNextAmbNTT[i].ForwardTo(pRem[i], pRem[i])
-			vec.MulLazyTo(pRem[i], pRem[i], r.modPoly[idx][i], r.ambMod[i])
+			vec.MulTo(pRem[i], pRem[i], r.modPoly[idx][i], r.ambMod[i])
 			r.degNextAmbNTT[i].InverseTo(pRem[i], pRem[i])
 		}
 		r.embedder[idx].EmbedTo(pRem[:1], pRem[:r.ambModLen[idx]])

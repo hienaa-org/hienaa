@@ -63,7 +63,7 @@ func NegTo(vOut, v []uint64, q *num.Modulus) {
 	negWordTo(vOut, v)
 }
 
-// MulScalar returns v * c mod q using Shoup multiplication.
+// MulScalar returns v * c mod q using Barrett or Float reduction.
 //
 // Panics if q is nil.
 func MulScalar(v []uint64, c uint64, q *num.Modulus) []uint64 {
@@ -72,21 +72,21 @@ func MulScalar(v []uint64, c uint64, q *num.Modulus) []uint64 {
 	return vOut
 }
 
-// MulScalarTo computes vOut = v * c mod q using Shoup multiplication.
+// MulScalarTo computes vOut = v * c mod q using Barrett or Float reduction.
 // If q is nil, then it returns x0 * x1.
 func MulScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	if q != nil {
-		SMulScalarTo(vOut, v, c, modops.SForm(c, q.Value()), q)
+		mulScalarTo(vOut, v, c, q)
 		return
 	}
 	mulScalarWordTo(vOut, v, c)
 }
 
-// MulAddScalarTo computes vOut += v * c mod q using Shoup multiplication.
+// MulAddScalarTo computes vOut += v * c mod q using Barrett or Float reduction.
 // If q is nil, then it returns vOut += v * c.
 func MulAddScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	if q != nil {
-		SMulAddScalarTo(vOut, v, c, modops.SForm(c, q.Value()), q)
+		mulAddScalarTo(vOut, v, c, q)
 		return
 	}
 	mulAddScalarWordTo(vOut, v, c)
@@ -96,7 +96,7 @@ func MulAddScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 // If q is nil, then it returns vOut -= v * c.
 func MulSubScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	if q != nil {
-		SMulSubScalarTo(vOut, v, c, modops.SForm(c, q.Value()), q)
+		mulSubScalarTo(vOut, v, c, q)
 		return
 	}
 	mulSubScalarWordTo(vOut, v, c)
@@ -111,50 +111,6 @@ func SMulScalar(v []uint64, c, cS uint64, q *num.Modulus) []uint64 {
 	return vOut
 }
 
-// MulScalarLazy returns v * c mod q using Shoup multiplication,
-// but the result is in [0, 2q).
-//
-// Panics if q is nil.
-func MulScalarLazy(v []uint64, c uint64, q *num.Modulus) []uint64 {
-	vOut := make([]uint64, len(v))
-	MulScalarLazyTo(vOut, v, c, q)
-	return vOut
-}
-
-// MulScalarLazyTo computes vOut = c * v mod q using Shoup multiplication,
-// but the result is in [0, 2q).
-//
-// Panics if q is nil.
-func MulScalarLazyTo(vOut, v []uint64, c uint64, q *num.Modulus) {
-	SMulScalarLazyTo(vOut, v, c, modops.SForm(c, q.Value()), q)
-}
-
-// MulAddScalarLazyTo computes vOut += c * v mod q using Shoup multiplication,
-// but the result is in [0, 3q).
-//
-// Panics if q is nil.
-func MulAddScalarLazyTo(vOut, v []uint64, c uint64, q *num.Modulus) {
-	SMulAddScalarLazyTo(vOut, v, c, modops.SForm(c, q.Value()), q)
-}
-
-// MulSubScalarLazyTo computes vOut -= c * v mod q using Shoup multiplication,
-// but the result is in [0, 3q).
-//
-// Panics if q is nil.
-func MulSubScalarLazyTo(vOut, v []uint64, c uint64, q *num.Modulus) {
-	SMulSubScalarLazyTo(vOut, v, c, modops.SForm(c, q.Value()), q)
-}
-
-// SMulScalarLazy returns v * c mod q using Shoup multiplication,
-// but the result is in [0, 2q).
-//
-// Panics if q is nil.
-func SMulScalarLazy(v []uint64, c, cS uint64, q *num.Modulus) []uint64 {
-	vOut := make([]uint64, len(v))
-	SMulScalarLazyTo(vOut, v, c, cS, q)
-	return vOut
-}
-
 // Mul returns v0 * v1 mod q using Barrett reduction.
 func Mul(v0, v1 []uint64, q *num.Modulus) []uint64 {
 	vOut := make([]uint64, len(v0))
@@ -162,7 +118,7 @@ func Mul(v0, v1 []uint64, q *num.Modulus) []uint64 {
 	return vOut
 }
 
-// MulTo computes vOut = v0 * v1 mod q using Barrett reduction.
+// MulTo computes vOut = v0 * v1 mod q using Barrett or Float reduction.
 // If q is nil, then it returns v0 * v1.
 func MulTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 	if q != nil {
@@ -172,43 +128,7 @@ func MulTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 	mulWordTo(vOut, v0, v1)
 }
 
-// mulTo computes vOut = v0 * v1 mod q using Barrett reduction.
-func mulTo(vOut, v0, v1 []uint64, q *num.Modulus) {
-	checkLength(len(vOut), len(v0), len(v1))
-
-	qv := q.Value()
-	divHi, divLo := q.Div()
-	qf, qfInv := q.Float(), q.FloatInv()
-
-	M := (len(vOut) >> 3) << 3
-	L := unsafe.Sizeof(uint64(0))
-
-	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
-	r0 := unsafe.Pointer(unsafe.SliceData(v0))
-	r1 := unsafe.Pointer(unsafe.SliceData(v1))
-
-	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
-		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
-		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
-
-		wOut[0] = modops.Mul(w0[0], w1[0], qv, divHi, divLo, qf, qfInv)
-		wOut[1] = modops.Mul(w0[1], w1[1], qv, divHi, divLo, qf, qfInv)
-		wOut[2] = modops.Mul(w0[2], w1[2], qv, divHi, divLo, qf, qfInv)
-		wOut[3] = modops.Mul(w0[3], w1[3], qv, divHi, divLo, qf, qfInv)
-
-		wOut[4] = modops.Mul(w0[4], w1[4], qv, divHi, divLo, qf, qfInv)
-		wOut[5] = modops.Mul(w0[5], w1[5], qv, divHi, divLo, qf, qfInv)
-		wOut[6] = modops.Mul(w0[6], w1[6], qv, divHi, divLo, qf, qfInv)
-		wOut[7] = modops.Mul(w0[7], w1[7], qv, divHi, divLo, qf, qfInv)
-	}
-
-	for i := M; i < len(vOut); i++ {
-		vOut[i] = modops.Mul(v0[i], v1[i], qv, divHi, divLo, qf, qfInv)
-	}
-}
-
-// MulAddTo computes vOut += v0 * v1 mod q using Barrett reduction.
+// MulAddTo computes vOut += v0 * v1 mod q using Barrett or Float reduction.
 // If q is nil, then it returns vOut += v0 * v1.
 func MulAddTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 	if q != nil {
@@ -218,43 +138,7 @@ func MulAddTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 	mulAddWordTo(vOut, v0, v1)
 }
 
-// mulAddTo computes vOut += v0 * v1 mod q using Barrett reduction.
-func mulAddTo(vOut, v0, v1 []uint64, q *num.Modulus) {
-	checkLength(len(vOut), len(v0), len(v1))
-
-	qv := q.Value()
-	divHi, divLo := q.Div()
-	qf, qfInv := q.Float(), q.FloatInv()
-
-	M := (len(vOut) >> 3) << 3
-	L := unsafe.Sizeof(uint64(0))
-
-	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
-	r0 := unsafe.Pointer(unsafe.SliceData(v0))
-	r1 := unsafe.Pointer(unsafe.SliceData(v1))
-
-	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
-		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
-		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
-
-		wOut[0] = modops.Add(wOut[0], modops.Mul(w0[0], w1[0], qv, divHi, divLo, qf, qfInv), qv)
-		wOut[1] = modops.Add(wOut[1], modops.Mul(w0[1], w1[1], qv, divHi, divLo, qf, qfInv), qv)
-		wOut[2] = modops.Add(wOut[2], modops.Mul(w0[2], w1[2], qv, divHi, divLo, qf, qfInv), qv)
-		wOut[3] = modops.Add(wOut[3], modops.Mul(w0[3], w1[3], qv, divHi, divLo, qf, qfInv), qv)
-
-		wOut[4] = modops.Add(wOut[4], modops.Mul(w0[4], w1[4], qv, divHi, divLo, qf, qfInv), qv)
-		wOut[5] = modops.Add(wOut[5], modops.Mul(w0[5], w1[5], qv, divHi, divLo, qf, qfInv), qv)
-		wOut[6] = modops.Add(wOut[6], modops.Mul(w0[6], w1[6], qv, divHi, divLo, qf, qfInv), qv)
-		wOut[7] = modops.Add(wOut[7], modops.Mul(w0[7], w1[7], qv, divHi, divLo, qf, qfInv), qv)
-	}
-
-	for i := M; i < len(vOut); i++ {
-		vOut[i] = modops.Add(vOut[i], modops.Mul(v0[i], v1[i], qv, divHi, divLo, qf, qfInv), qv)
-	}
-}
-
-// MulSubTo computes vOut -= v0 * v1 mod q using Barrett reduction.
+// MulSubTo computes vOut -= v0 * v1 mod q using Barrett or Float reduction.
 // If q is nil, then it returns vOut -= v0 * v1.
 func MulSubTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 	if q != nil {
@@ -262,159 +146,6 @@ func MulSubTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 		return
 	}
 	mulSubWordTo(vOut, v0, v1)
-}
-
-// mulSubTo computes vOut -= v0 * v1 mod q using Barrett reduction.
-func mulSubTo(vOut, v0, v1 []uint64, q *num.Modulus) {
-	checkLength(len(vOut), len(v0), len(v1))
-
-	qv := q.Value()
-	divHi, divLo := q.Div()
-	qf, qfInv := q.Float(), q.FloatInv()
-
-	M := (len(vOut) >> 3) << 3
-	L := unsafe.Sizeof(uint64(0))
-
-	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
-	r0 := unsafe.Pointer(unsafe.SliceData(v0))
-	r1 := unsafe.Pointer(unsafe.SliceData(v1))
-
-	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
-		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
-		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
-
-		wOut[0] = modops.Sub(wOut[0], modops.Mul(w0[0], w1[0], qv, divHi, divLo, qf, qfInv), qv)
-		wOut[1] = modops.Sub(wOut[1], modops.Mul(w0[1], w1[1], qv, divHi, divLo, qf, qfInv), qv)
-		wOut[2] = modops.Sub(wOut[2], modops.Mul(w0[2], w1[2], qv, divHi, divLo, qf, qfInv), qv)
-		wOut[3] = modops.Sub(wOut[3], modops.Mul(w0[3], w1[3], qv, divHi, divLo, qf, qfInv), qv)
-
-		wOut[4] = modops.Sub(wOut[4], modops.Mul(w0[4], w1[4], qv, divHi, divLo, qf, qfInv), qv)
-		wOut[5] = modops.Sub(wOut[5], modops.Mul(w0[5], w1[5], qv, divHi, divLo, qf, qfInv), qv)
-		wOut[6] = modops.Sub(wOut[6], modops.Mul(w0[6], w1[6], qv, divHi, divLo, qf, qfInv), qv)
-		wOut[7] = modops.Sub(wOut[7], modops.Mul(w0[7], w1[7], qv, divHi, divLo, qf, qfInv), qv)
-	}
-
-	for i := M; i < len(vOut); i++ {
-		vOut[i] = modops.Sub(vOut[i], modops.Mul(v0[i], v1[i], qv, divHi, divLo, qf, qfInv), qv)
-	}
-}
-
-// MulLazyTo computes vOut = v0 * v1 mod q using Barrett reduction,
-// but the result is in [0, 2q).
-//
-// Panics if q is nil.
-func MulLazyTo(vOut, v0, v1 []uint64, q *num.Modulus) {
-	checkLength(len(vOut), len(v0), len(v1))
-
-	qv := q.Value()
-	divHi, divLo := q.Div()
-	qf, qfInv := q.Float(), q.FloatInv()
-
-	M := (len(vOut) >> 3) << 3
-	L := unsafe.Sizeof(uint64(0))
-
-	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
-	r0 := unsafe.Pointer(unsafe.SliceData(v0))
-	r1 := unsafe.Pointer(unsafe.SliceData(v1))
-
-	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
-		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
-		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
-
-		wOut[0] = modops.MulLazy(w0[0], w1[0], qv, divHi, divLo, qf, qfInv)
-		wOut[1] = modops.MulLazy(w0[1], w1[1], qv, divHi, divLo, qf, qfInv)
-		wOut[2] = modops.MulLazy(w0[2], w1[2], qv, divHi, divLo, qf, qfInv)
-		wOut[3] = modops.MulLazy(w0[3], w1[3], qv, divHi, divLo, qf, qfInv)
-
-		wOut[4] = modops.MulLazy(w0[4], w1[4], qv, divHi, divLo, qf, qfInv)
-		wOut[5] = modops.MulLazy(w0[5], w1[5], qv, divHi, divLo, qf, qfInv)
-		wOut[6] = modops.MulLazy(w0[6], w1[6], qv, divHi, divLo, qf, qfInv)
-		wOut[7] = modops.MulLazy(w0[7], w1[7], qv, divHi, divLo, qf, qfInv)
-	}
-
-	for i := M; i < len(vOut); i++ {
-		vOut[i] = modops.MulLazy(v0[i], v1[i], qv, divHi, divLo, qf, qfInv)
-	}
-}
-
-// MulAddLazyTo computes vOut += v0 * v1 mod q using Barrett reduction,
-// but the result is in [0, 3q).
-//
-// Panics if q is nil.
-func MulAddLazyTo(vOut, v0, v1 []uint64, q *num.Modulus) {
-	checkLength(len(vOut), len(v0), len(v1))
-
-	qv := q.Value()
-	divHi, divLo := q.Div()
-	qf, qfInv := q.Float(), q.FloatInv()
-
-	M := (len(vOut) >> 3) << 3
-	L := unsafe.Sizeof(uint64(0))
-
-	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
-	r0 := unsafe.Pointer(unsafe.SliceData(v0))
-	r1 := unsafe.Pointer(unsafe.SliceData(v1))
-
-	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
-		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
-		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
-
-		wOut[0] += modops.MulLazy(w0[0], w1[0], qv, divHi, divLo, qf, qfInv)
-		wOut[1] += modops.MulLazy(w0[1], w1[1], qv, divHi, divLo, qf, qfInv)
-		wOut[2] += modops.MulLazy(w0[2], w1[2], qv, divHi, divLo, qf, qfInv)
-		wOut[3] += modops.MulLazy(w0[3], w1[3], qv, divHi, divLo, qf, qfInv)
-
-		wOut[4] += modops.MulLazy(w0[4], w1[4], qv, divHi, divLo, qf, qfInv)
-		wOut[5] += modops.MulLazy(w0[5], w1[5], qv, divHi, divLo, qf, qfInv)
-		wOut[6] += modops.MulLazy(w0[6], w1[6], qv, divHi, divLo, qf, qfInv)
-		wOut[7] += modops.MulLazy(w0[7], w1[7], qv, divHi, divLo, qf, qfInv)
-	}
-
-	for i := M; i < len(vOut); i++ {
-		vOut[i] += modops.MulLazy(v0[i], v1[i], qv, divHi, divLo, qf, qfInv)
-	}
-}
-
-// MulSubLazyTo computes vOut -= v0 * v1 mod q using Barrett reduction,
-// but the result is in [0, 3q).
-//
-// Panics if q is nil.
-func MulSubLazyTo(vOut, v0, v1 []uint64, q *num.Modulus) {
-	checkLength(len(vOut), len(v0), len(v1))
-
-	qv := q.Value()
-	divHi, divLo := q.Div()
-	qf, qfInv := q.Float(), q.FloatInv()
-
-	M := (len(vOut) >> 3) << 3
-	L := unsafe.Sizeof(uint64(0))
-
-	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
-	r0 := unsafe.Pointer(unsafe.SliceData(v0))
-	r1 := unsafe.Pointer(unsafe.SliceData(v1))
-
-	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
-		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
-		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
-
-		wOut[0] += modops.MulLazy(qv-w0[0], w1[0], qv, divHi, divLo, qf, qfInv)
-		wOut[1] += modops.MulLazy(qv-w0[1], w1[1], qv, divHi, divLo, qf, qfInv)
-		wOut[2] += modops.MulLazy(qv-w0[2], w1[2], qv, divHi, divLo, qf, qfInv)
-		wOut[3] += modops.MulLazy(qv-w0[3], w1[3], qv, divHi, divLo, qf, qfInv)
-
-		wOut[4] += modops.MulLazy(qv-w0[4], w1[4], qv, divHi, divLo, qf, qfInv)
-		wOut[5] += modops.MulLazy(qv-w0[5], w1[5], qv, divHi, divLo, qf, qfInv)
-		wOut[6] += modops.MulLazy(qv-w0[6], w1[6], qv, divHi, divLo, qf, qfInv)
-		wOut[7] += modops.MulLazy(qv-w0[7], w1[7], qv, divHi, divLo, qf, qfInv)
-	}
-
-	for i := M; i < len(vOut); i++ {
-		vOut[i] += modops.MulLazy(qv-v0[i], v1[i], qv, divHi, divLo, qf, qfInv)
-	}
 }
 
 // SForm returns v in Shoup form.

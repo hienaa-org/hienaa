@@ -211,8 +211,6 @@ func (ntt *pow235CyclicTransformer) ForwardTo(vNTT, v []uint64) {
 	if ntt.rankFactors[2] > 1 {
 		fwdNTTInPlacePow5(ntt.rankFactors[0]*ntt.rankFactors[1], vNTT, ntt.tw[2], ntt.twS[2], ntt.root[2], ntt.rootS[2], ntt.mod.Value())
 	}
-
-	vec.ReduceTo(vNTT, vNTT, ntt.mod)
 }
 
 // InverseTo transforms the uint64 vector to Standard form.
@@ -353,12 +351,12 @@ func (ntt *anyCyclicTransformer) ForwardTo(vNTT, v []uint64) {
 	vBuf := *vBufPtr
 	defer ntt.pool.Put(vBufPtr)
 
-	vec.SMulLazyTo(vBuf[:ntt.params.rank], v, ntt.z, ntt.zS, ntt.mod)
+	vec.SMulTo(vBuf[:ntt.params.rank], v, ntt.z, ntt.zS, ntt.mod)
 	clear(vBuf[ntt.params.rank:])
 
 	fwdNTTInPlacePow2(vBuf, ntt.ambNTT.tw[0], ntt.ambNTT.twS[0], ntt.mod.Value())
 
-	vec.SMulLazyTo(vBuf, vBuf, ntt.chirp, ntt.chirpS, ntt.mod)
+	vec.SMulTo(vBuf, vBuf, ntt.chirp, ntt.chirpS, ntt.mod)
 
 	invNTTInPlacePow2(vBuf, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvS[0], ntt.mod.Value())
 
@@ -371,12 +369,12 @@ func (ntt *anyCyclicTransformer) InverseTo(v, vNTT []uint64) {
 	vBuf := *vBufPtr
 	defer ntt.pool.Put(vBufPtr)
 
-	vec.SMulLazyTo(vBuf[:ntt.params.rank], vNTT, ntt.zInv, ntt.zInvS, ntt.mod)
+	vec.SMulTo(vBuf[:ntt.params.rank], vNTT, ntt.zInv, ntt.zInvS, ntt.mod)
 	clear(vBuf[ntt.params.rank:])
 
 	fwdNTTInPlacePow2(vBuf, ntt.ambNTT.tw[0], ntt.ambNTT.twS[0], ntt.mod.Value())
 
-	vec.SMulLazyTo(vBuf, vBuf, ntt.chirpInv, ntt.chirpInvS, ntt.mod)
+	vec.SMulTo(vBuf, vBuf, ntt.chirpInv, ntt.chirpInvS, ntt.mod)
 
 	invNTTInPlacePow2(vBuf, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvS[0], ntt.mod.Value())
 

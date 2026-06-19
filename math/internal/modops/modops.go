@@ -66,28 +66,6 @@ func BMod128(xHi, xLo, q, divHi, divLo uint64) uint64 {
 	return xOut
 }
 
-// BMod128Lazy returns x mod q using Barrett reduction,
-// but the result is in [0, 2q).
-func BMod128Lazy(xHi, xLo, q, divHi, divLo uint64) uint64 {
-	quo := xHi * divHi
-
-	quoLo, _ := bits.Mul64(xLo, divLo)
-
-	quoMid0, quoMid0Lo := bits.Mul64(xLo, divHi)
-	quo += quoMid0
-
-	quoMid1, quoMid1Lo := bits.Mul64(xHi, divLo)
-	quo += quoMid1
-
-	quoMidSum, quoMidCarry := bits.Add64(quoMid0Lo, quoMid1Lo, 0)
-	quo, _ = bits.Add64(quo, 0, quoMidCarry)
-
-	_, quoMidCarry = bits.Add64(quoMidSum, quoLo, 0)
-	quo, _ = bits.Add64(quo, 0, quoMidCarry)
-
-	return xLo - quo*q
-}
-
 // BMod64 returns x mod q using Barrett reduction.
 func BMod64(x, q, divHi uint64) uint64 {
 	quo, _ := bits.Mul64(x, divHi)
@@ -123,10 +101,21 @@ func SMul(x0, x1, x1S, q uint64) uint64 {
 	return xOut
 }
 
-// SMulLazy returns x0 * x1 mod q using Shoup multiplication,
-// but the result is in [0, 2q).
-func SMulLazy(x0, x1, x1S, q uint64) uint64 {
-	quo, _ := bits.Mul64(x0, x1S)
+// Reduce2Q reduces x assuming it is in [0, 2q).
+func Reduce2Q(x, q uint64) uint64 {
+	if x >= q {
+		x -= q
+	}
+	return x
+}
 
-	return x0*x1 - quo*q
+// Reduce4Q reduces x assuming it is in [0, 4q).
+func Reduce4Q(x, q, twoQ uint64) uint64 {
+	if x >= twoQ {
+		x -= twoQ
+	}
+	if x >= q {
+		x -= q
+	}
+	return x
 }

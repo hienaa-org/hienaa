@@ -2,6 +2,8 @@ package dft
 
 import (
 	"math/bits"
+
+	"github.com/hienaa-org/hienaa/math/internal/modops"
 )
 
 // fwdNTTInPlacePow2 computes the NTT transform in-place for power-of-two length coefficients.
@@ -40,6 +42,10 @@ func fwdNTTInPlacePow2Ref(coeffs, tw, twS []uint64, q uint64) {
 			}
 		}
 	}
+
+	for i := 0; i < N; i++ {
+		coeffs[i] = modops.Reduce4Q(coeffs[i], q, twoQ)
+	}
 }
 
 // invNTTInPlacePow2 computes the inverse NTT transform in-place for power-of-two length coefficients.
@@ -77,6 +83,10 @@ func invNTTInPlacePow2Ref(coeffs, twInv, twInvS []uint64, q uint64) {
 			}
 		}
 		t <<= 1
+	}
+
+	for i := 0; i < N; i++ {
+		coeffs[i] = modops.Reduce4Q(coeffs[i], q, twoQ)
 	}
 }
 
@@ -137,6 +147,10 @@ func fwdNTTInPlacePow3(skip int, coeffs, tw, twS, root, rootS []uint64, q uint64
 			}
 		}
 	}
+
+	for i := 0; i < N; i++ {
+		coeffs[i] = modops.Reduce4Q(coeffs[i], q, twoQ)
+	}
 }
 
 // invNTTInPlacePow3 computes the inverse NTT transform in-place for power-of-three length coefficients.
@@ -194,6 +208,10 @@ func invNTTInPlacePow3(skip int, coeffs, twInv, twInvS, root, rootS []uint64, q 
 			}
 		}
 		t *= 3
+	}
+
+	for i := 0; i < N; i++ {
+		coeffs[i] = modops.Reduce4Q(coeffs[i], q, twoQ)
 	}
 }
 
@@ -316,6 +334,10 @@ func fwdNTTInPlacePow5(skip int, coeffs, tw, twS, root, rootS []uint64, q uint64
 			}
 		}
 	}
+
+	for i := 0; i < N; i++ {
+		coeffs[i] = modops.Reduce4Q(coeffs[i], q, twoQ)
+	}
 }
 
 // invNTTInPlacePow5 computes the inverse NTT transform in-place for power-of-five length coefficients.
@@ -435,5 +457,9 @@ func invNTTInPlacePow5(skip int, coeffs, twInv, twInvS, root, rootS []uint64, q 
 			}
 		}
 		t *= 5
+	}
+
+	for i := 0; i < N; i++ {
+		coeffs[i] = modops.Reduce4Q(coeffs[i], q, twoQ)
 	}
 }

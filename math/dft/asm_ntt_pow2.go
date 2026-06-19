@@ -4,6 +4,8 @@ package dft
 
 import (
 	"unsafe"
+
+	"github.com/hienaa-org/hienaa/math/internal/modops"
 )
 
 // fwdNTTInPlacePow2Unroll computes the NTT transform in-place for power-of-two length coefficients.
@@ -98,6 +100,20 @@ func fwdNTTInPlacePow2Unroll(coeffs, tw, twS []uint64, q uint64) {
 		c[4], c[5] = fwdButterflyPow2(c[4], c[5], w[2], wS[2], q, twoQ)
 		c[6], c[7] = fwdButterflyPow2(c[6], c[7], w[3], wS[3], q, twoQ)
 	}
+
+	for i := 0; i < N; i += 8 {
+		c := (*[8]uint64)(unsafe.Add(v, uintptr(i)*L))
+
+		c[0] = modops.Reduce4Q(c[0], q, twoQ)
+		c[1] = modops.Reduce4Q(c[1], q, twoQ)
+		c[2] = modops.Reduce4Q(c[2], q, twoQ)
+		c[3] = modops.Reduce4Q(c[3], q, twoQ)
+
+		c[4] = modops.Reduce4Q(c[4], q, twoQ)
+		c[5] = modops.Reduce4Q(c[5], q, twoQ)
+		c[6] = modops.Reduce4Q(c[6], q, twoQ)
+		c[7] = modops.Reduce4Q(c[7], q, twoQ)
+	}
 }
 
 // invNTTInPlacePow2Unroll computes the Inverse NTT transform in-place for power-of-two length coefficients.
@@ -191,5 +207,19 @@ func invNTTInPlacePow2Unroll(coeffs, twInv, twInvS []uint64, q uint64) {
 		c0[5], c1[5] = invButterflyPow2(c0[5], c1[5], w, wS, q, twoQ)
 		c0[6], c1[6] = invButterflyPow2(c0[6], c1[6], w, wS, q, twoQ)
 		c0[7], c1[7] = invButterflyPow2(c0[7], c1[7], w, wS, q, twoQ)
+	}
+
+	for i := 0; i < N; i += 8 {
+		c := (*[8]uint64)(unsafe.Add(v, uintptr(i)*L))
+
+		c[0] = modops.Reduce4Q(c[0], q, twoQ)
+		c[1] = modops.Reduce4Q(c[1], q, twoQ)
+		c[2] = modops.Reduce4Q(c[2], q, twoQ)
+		c[3] = modops.Reduce4Q(c[3], q, twoQ)
+
+		c[4] = modops.Reduce4Q(c[4], q, twoQ)
+		c[5] = modops.Reduce4Q(c[5], q, twoQ)
+		c[6] = modops.Reduce4Q(c[6], q, twoQ)
+		c[7] = modops.Reduce4Q(c[7], q, twoQ)
 	}
 }
