@@ -2,6 +2,7 @@ package crt_test
 
 import (
 	"math/big"
+	"math/rand"
 	"testing"
 
 	"github.com/hienaa-org/hienaa/math/crt"
@@ -132,11 +133,19 @@ func genModInOut(modInLen, modOutLen int) (modIn, modOut []*num.Modulus) {
 		modIn[i] = num.NewModulus(p)
 	}
 
+	rand.Shuffle(modInLen, func(i, j int) {
+		modIn[i], modIn[j] = modIn[j], modIn[i]
+	})
+
 	modOut = make([]*num.Modulus, modOutLen)
 	for i := range modOut {
 		p = num.MustPrevPrime(p, 2)
 		modOut[i] = num.NewModulus(p)
 	}
+
+	rand.Shuffle(modOutLen, func(i, j int) {
+		modOut[i], modOut[j] = modOut[j], modOut[i]
+	})
 
 	return
 }

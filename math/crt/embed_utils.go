@@ -13,11 +13,26 @@ func embedToModOut(x uint64, qOut *num.Modulus, qIn, halfQIn uint64) uint64 {
 	return num.Neg(num.Reduce(qIn-x, qOut), qOut)
 }
 
+// halfProductMixedRadix returns the mixed-radix digits of floor(prod(mod) / 2).
+func halfProductMixedRadix(mod []*num.Modulus) []uint64 {
+	half := make([]uint64, len(mod))
+	isOdd := true
+	for i := len(mod) - 1; i >= 0; i-- {
+		if isOdd {
+			half[i] = mod[i].Value() >> 1
+		}
+		if mod[i].Value()&1 == 0 {
+			isOdd = false
+		}
+	}
+	return half
+}
+
 // isMixedRadixNegative checks if i-th index of v is negative in signed mixed radix representation.
-func isMixedRadixNegative[T *[embedBatch]uint64 | []uint64](v []T, i int, modInHalf []uint64) uint64 {
+func isMixedRadixNegative[T *[embedBatch]uint64 | []uint64](v []T, i int, half []uint64) uint64 {
 	for j := len(v) - 1; j >= 0; j-- {
 		x := v[j][i]
-		qHalf := modInHalf[j]
+		qHalf := half[j]
 
 		if x > qHalf {
 			return 1
