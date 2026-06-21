@@ -13,18 +13,8 @@ func TestReduce(t *testing.T) {
 	q := num.NewModulus(rSrc.SampleN(num.MaxModulus) | 1)
 
 	x64 := rSrc.Sample()
-	x128Hi := rSrc.Sample()
-	x128Lo := rSrc.Sample()
-	x128 := new(big.Int).Lsh(new(big.Int).SetUint64(x128Hi), 64)
-	x128.Add(x128, new(big.Int).SetUint64(x128Lo))
-
 	t.Run("Reduce", func(t *testing.T) {
 		assert.Equal(t, num.Reduce(x64, q), x64%q.Value())
-	})
-
-	t.Run("Reduce128", func(t *testing.T) {
-		x128.Mod(x128, new(big.Int).SetUint64(q.Value()))
-		assert.Equal(t, num.Reduce128(x128Hi, x128Lo, q), x128.Uint64())
 	})
 }
 

@@ -26,22 +26,15 @@ type Modulus struct {
 	// modulus is the raw modulus value.
 	modulus uint64
 
-	// inv is a constant used for Montgomery multiplication.
-	// Equals to the modular inverse of modulus modulo 2^64.
-	// Zero if modulus is even.
-	inv uint64
-
 	// float equals float64(modulus).
 	float float64
 	// floatInv equals 1 / float64(modulus).
 	floatInv float64
 
-	// divHi is a constant used for Barrett reduction.
-	// Equals to floor(2^128 / modulus).
-	divHi uint64
-	// divLo is a constant used for Barrett reduction.
-	// Equals to floor(2^128 / modulus).
-	divLo uint64
+	// div is a constant used for Barrett reduction.
+	div uint64
+	// log equals floor(log2(modulus)).
+	log uint64
 }
 
 // NewModulus creates a new [Modulus].
@@ -54,30 +47,20 @@ func NewModulus[T Integer](mod T) *Modulus {
 
 	q := uint64(mod)
 
-	var divHi, divLo, rem uint64
-	divHi, rem = bits.Div64(1, 0, q)
-	divLo, _ = bits.Div64(rem, 0, q)
-
-	var inv uint64
-	if q%2 == 1 {
-		inv = 1
-		acc := q
-		for i := 0; i < 63; i++ {
-			inv *= acc
-			acc *= acc
-		}
+	log := uint64(bits.Len64(q) - 1)
+	if IsPowerOfTwo(q) {
+		log -= 1
 	}
+	div, _ := bits.Div64(1<<log, 0, q)
 
 	return &Modulus{
 		modulus: q,
 
-		inv: inv,
-
 		float:    float64(q),
 		floatInv: math.Nextafter(1/float64(q), math.Inf(1)),
 
-		divHi: divHi,
-		divLo: divLo,
+		div: div,
+		log: log,
 	}
 }
 
@@ -86,17 +69,14 @@ func (q *Modulus) Value() uint64 {
 	return q.modulus
 }
 
-// Inv is a constant used for Montgomery multiplication.
-// Equals to the modular inverse of modulus modulo 2^64.
-// Zero if modulus is even.
-func (q *Modulus) Inv() uint64 {
-	return q.inv
+// Div is a constant used for Barrett reduction.
+func (q *Modulus) Div() uint64 {
+	return q.div
 }
 
-// Div is a constant used for Barrett reduction.
-// Equals to floor(2^128 / modulus).
-func (q *Modulus) Div() (hi, lo uint64) {
-	return q.divHi, q.divLo
+// Log equals floor(log2(modulus)).
+func (q *Modulus) Log() uint64 {
+	return q.log
 }
 
 // Float equals float64(q).
@@ -145,10 +125,11 @@ func Neg(x uint64, q *Modulus) uint64 {
 }
 
 // Mul returns x0 * x1 mod q using Barrett reduction.
+// x0 and x1 must be in [0, q).
 // If q is nil, then it returns x0 * x1.
 func Mul(x0, x1 uint64, q *Modulus) uint64 {
 	if q != nil {
-		return modops.Mul(x0, x1, q.modulus, q.divHi, q.divLo, q.float, q.floatInv)
+		return modops.Mul(x0, x1, q.modulus, q.div, q.log, q.float, q.floatInv)
 	}
 	return x0 * x1
 }
@@ -157,14 +138,7 @@ func Mul(x0, x1 uint64, q *Modulus) uint64 {
 //
 // Panics if q is nil.
 func Reduce[T Integer](x T, q *Modulus) uint64 {
-	return modops.BMod(x, q.modulus, q.divHi)
-}
-
-// Reduce128 returns x mod q using Barrett reduction.
-//
-// Panics if q is nil.
-func Reduce128(xHi, xLo uint64, q *Modulus) uint64 {
-	return modops.BMod128(xHi, xLo, q.modulus, q.divHi, q.divLo)
+	return modops.BMod(x, q.modulus, q.div, q.log)
 }
 
 // SForm transforms x into Shoup form.

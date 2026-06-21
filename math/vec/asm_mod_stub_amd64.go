@@ -173,7 +173,7 @@ func sMulAddToAVX512IFMA(vOut []uint64, v0 []uint64, v1 []uint64, v1S []uint64, 
 func sMulSubToAVX512IFMA(vOut []uint64, v0 []uint64, v1 []uint64, v1S []uint64, q uint64)
 
 //go:noescape
-func reduceToAVX512(vOut []uint64, v []uint64, q uint64, divHi uint64)
+func reduceToAVX512(vOut []uint64, v []uint64, q uint64, div uint64, logQ uint64)
 
 //go:noescape
 func reduce2QToAVX2(vOut []uint64, v []uint64, q uint64)

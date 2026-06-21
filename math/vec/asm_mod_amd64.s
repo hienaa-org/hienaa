@@ -3101,66 +3101,70 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
-// func reduceToAVX512(vOut []uint64, v []uint64, q uint64, divHi uint64)
+// func reduceToAVX512(vOut []uint64, v []uint64, q uint64, div uint64, logQ uint64)
 // Requires: AVX512DQ, AVX512F, BMI2, CMOV
-TEXT ·reduceToAVX512(SB), NOSPLIT, $0-64
+TEXT ·reduceToAVX512(SB), NOSPLIT, $0-72
 	VPBROADCASTQ MASK_LO<>+0(SB), Z0
 	MOVQ         q+48(FP), AX
 	VPBROADCASTQ q+48(FP), Z1
-	MOVQ         divHi+56(FP), CX
-	VPBROADCASTQ divHi+56(FP), Z2
-	VPSRLQ       $0x20, Z2, Z3
-	MOVQ         vOut_len+8(FP), BX
-	MOVQ         vOut_base+0(FP), SI
-	MOVQ         v_base+24(FP), DI
-	MOVQ         BX, DX
+	MOVQ         div+56(FP), CX
+	MOVQ         logQ+64(FP), BX
+	VPBROADCASTQ div+56(FP), Z2
+	VPBROADCASTQ logQ+64(FP), Z3
+	VPSRLQ       $0x20, Z2, Z4
+	MOVQ         vOut_len+8(FP), SI
+	MOVQ         vOut_base+0(FP), DI
+	MOVQ         v_base+24(FP), R8
+	MOVQ         SI, DX
 	SHRQ         $0x03, DX
 	SHLQ         $0x03, DX
-	XORQ         R8, R8
+	XORQ         R9, R9
 	JMP          loop_end
 
 loop_body:
-	VMOVDQU64 (DI)(R8*8), Z4
-	VPSRLQ    $0x20, Z4, Z5
-	VPMULUDQ  Z2, Z4, Z6
-	VPMULUDQ  Z3, Z4, Z7
-	VPMULUDQ  Z2, Z5, Z8
-	VPMULUDQ  Z3, Z5, Z5
+	VMOVDQU64 (R8)(R9*8), Z5
+	VPSRLVQ   Z3, Z5, Z6
+	VPSRLQ    $0x20, Z6, Z7
+	VPMULUDQ  Z2, Z6, Z8
+	VPMULUDQ  Z4, Z6, Z6
+	VPMULUDQ  Z2, Z7, Z9
+	VPMULUDQ  Z4, Z7, Z7
+	VPSRLQ    $0x20, Z8, Z8
+	VPADDQ    Z8, Z6, Z6
+	VPANDQ    Z0, Z6, Z8
 	VPSRLQ    $0x20, Z6, Z6
-	VPADDQ    Z6, Z7, Z6
-	VPANDQ    Z0, Z6, Z7
+	VPADDQ    Z7, Z6, Z7
+	VPADDQ    Z8, Z9, Z6
 	VPSRLQ    $0x20, Z6, Z6
-	VPADDQ    Z5, Z6, Z5
-	VPADDQ    Z7, Z8, Z6
-	VPSRLQ    $0x20, Z6, Z6
-	VPADDQ    Z5, Z6, Z5
-	VPMULLQ   Z5, Z1, Z5
-	VPSUBQ    Z5, Z4, Z4
-	VPSUBQ    Z1, Z4, Z5
-	VPMINUQ   Z5, Z4, Z4
-	VMOVDQU64 Z4, (SI)(R8*8)
-	ADDQ      $0x08, R8
+	VPADDQ    Z7, Z6, Z7
+	VPMULLQ   Z7, Z1, Z7
+	VPSUBQ    Z7, Z5, Z5
+	VPSUBQ    Z1, Z5, Z6
+	VPMINUQ   Z6, Z5, Z5
+	VMOVDQU64 Z5, (DI)(R9*8)
+	ADDQ      $0x08, R9
 
 loop_end:
-	CMPQ R8, DX
+	CMPQ R9, DX
 	JL   loop_body
 	JMP  leftover_loop_end
 
 leftover_loop_body:
-	MOVQ    (DI)(R8*8), R9
+	MOVQ    (R8)(R9*8), R10
+	SHRXQ   BX, R10, R11
 	MOVQ    CX, DX
-	MULXQ   R9, DX, R10
-	IMULQ   AX, R10
-	SUBQ    R10, R9
-	MOVQ    R9, DX
+	MULXQ   R11, DX, R11
+	IMULQ   AX, R11
+	SUBQ    R11, R10
+	MOVQ    R10, DX
 	SUBQ    AX, DX
-	CMPQ    AX, R9
-	CMOVQLS DX, R9
-	MOVQ    R9, (SI)(R8*8)
-	ADDQ    $0x01, R8
+	CMPQ    AX, R10
+	CMOVQLS DX, R10
+	MOVQ    R10, (DI)(R9*8)
+	ADDQ    $0x01, R9
 
 leftover_loop_end:
-	CMPQ R8, BX
+	CMPQ R9, SI
 	JL   leftover_loop_body
 	RET
 

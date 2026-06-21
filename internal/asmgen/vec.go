@@ -1211,328 +1211,6 @@ func VecMulToAVX(avxType AVXType, opType OpType) {
 	RET()
 }
 
-func VecMulToAVX2(opType OpType) {
-	switch opType {
-	case OpPure:
-		TEXT("mulToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64, qf, qfInv float64)")
-	case OpAdd:
-		TEXT("mulAddToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64, qf, qfInv float64)")
-	case OpSub:
-		TEXT("mulSubToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64, qf, qfInv float64)")
-	}
-	Pragma("noescape")
-
-	cvt52 := YMM()
-	VPBROADCASTQ(NewDataAddr(NewStaticSymbol("CVT_52"), 0), cvt52)
-
-	q64 := Load(Param("q"), GP64())
-	qf64 := Load(Param("qf"), XMM())
-	qfInv64 := Load(Param("qfInv"), XMM())
-	q, qf, qfInv := YMM(), YMM(), YMM()
-	VPBROADCASTQ(NewParamAddr("q", 72), q)
-	VPBROADCASTQ(NewParamAddr("qf", 80), qf)
-	VPBROADCASTQ(NewParamAddr("qfInv", 88), qfInv)
-
-	N := Load(Param("vOut").Len(), GP64())
-	vOut := Load(Param("vOut").Base(), GP64())
-	v0 := Load(Param("v0").Base(), GP64())
-	v1 := Load(Param("v1").Base(), GP64())
-
-	M := GP64()
-	MOVQ(N, M)
-	SHRQ(Imm(2), M)
-	SHLQ(Imm(2), M)
-
-	i := GP64()
-	XORQ(i, i)
-	JMP(LabelRef("loop_end"))
-	Label("loop_body")
-
-	x0, x1 := YMM(), YMM()
-	VMOVDQU(Mem{Base: v0, Index: i, Scale: 8}, x0)
-	VMOVDQU(Mem{Base: v1, Index: i, Scale: 8}, x1)
-
-	xOut, xMul := YMM(), YMM()
-
-	VORPD(cvt52, x0, x0)
-	VSUBPD(cvt52, x0, x0)
-	VORPD(cvt52, x1, x1)
-	VSUBPD(cvt52, x1, x1)
-
-	VMULPD(x0, x1, xMul)
-
-	VFMSUB213PD(xMul, x1, x0)
-	lo := x0
-
-	quo := YMM()
-	VMULPD(xMul, qfInv, quo)
-	VROUNDPD(Imm(1), quo, quo)
-
-	VFNMADD231PD(quo, qf, xMul)
-	VADDPD(xMul, lo, xMul)
-	VADDPD(xMul, qf, xMul)
-
-	VADDPD(cvt52, xMul, xMul)
-	VXORPD(cvt52, xMul, xMul)
-
-	xSubQ := YMM()
-	VPSUBQ(q, xMul, xSubQ)
-	VBLENDVPD(xSubQ, xMul, xSubQ, xMul)
-
-	switch opType {
-	case OpPure:
-		xOut = xMul
-	case OpAdd:
-		VMOVDQU(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
-		VPADDQ(xMul, xOut, xOut)
-		xSubQ := YMM()
-		VPSUBQ(q, xOut, xSubQ)
-		VBLENDVPD(xSubQ, xOut, xSubQ, xOut)
-	case OpSub:
-		VMOVDQU(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
-		VPSUBQ(xMul, xOut, xOut)
-		xAddQ := YMM()
-		VPADDQ(q, xOut, xAddQ)
-		VBLENDVPD(xOut, xAddQ, xOut, xOut)
-	}
-
-	VMOVDQU(xOut, Mem{Base: vOut, Index: i, Scale: 8})
-
-	ADDQ(Imm(4), i)
-
-	Label("loop_end")
-	CMPQ(i, M)
-	JL(LabelRef("loop_body"))
-
-	JMP(LabelRef("leftover_loop_end"))
-	Label("leftover_loop_body")
-
-	y0, y1 := GP64(), GP64()
-	MOVQ(Mem{Base: v0, Index: i, Scale: 8}, y0)
-	MOVQ(Mem{Base: v1, Index: i, Scale: 8}, y1)
-
-	yOut := GP64()
-
-	y0f, y1f := XMM(), XMM()
-	CVTSQ2SD(y0, y0f)
-	CVTSQ2SD(y1, y1f)
-
-	yMulf := XMM()
-	MOVSD(y0f, yMulf)
-	MULSD(y1f, yMulf)
-
-	VFMSUB213SD(yMulf, y1f, y0f)
-	lo64 := y0f
-
-	quo64 := XMM()
-	MOVSD(yMulf, quo64)
-	MULSD(qfInv64, quo64)
-	ROUNDSD(Imm(1), quo64, quo64)
-
-	VFNMADD231SD(quo64, qf64, yMulf)
-	ADDSD(lo64, yMulf)
-	ADDSD(qf64, yMulf)
-
-	CVTTSD2SQ(yMulf, y0)
-
-	subQ := GP64()
-	MOVQ(y0, subQ)
-	SUBQ(q64, subQ)
-	CMPQ(q64, y0)
-	CMOVQLS(subQ, y0)
-
-	switch opType {
-	case OpPure:
-		yOut = y0
-	case OpAdd:
-		MOVQ(Mem{Base: vOut, Index: i, Scale: 8}, yOut)
-		ADDQ(y0, yOut)
-
-		subQ := GP64()
-		MOVQ(yOut, subQ)
-		SUBQ(q64, subQ)
-		CMPQ(q64, yOut)
-		CMOVQLS(subQ, yOut)
-	case OpSub:
-		MOVQ(Mem{Base: vOut, Index: i, Scale: 8}, yOut)
-		SUBQ(y0, yOut)
-
-		subQ := GP64()
-		MOVQ(yOut, subQ)
-		ADDQ(q64, subQ)
-		CMPQ(q64, yOut)
-		CMOVQLS(subQ, yOut)
-	}
-
-	MOVQ(yOut, Mem{Base: vOut, Index: i, Scale: 8})
-
-	ADDQ(Imm(1), i)
-
-	Label("leftover_loop_end")
-	CMPQ(i, N)
-	JL(LabelRef("leftover_loop_body"))
-
-	RET()
-}
-
-func VecMulToAVX512(opType OpType) {
-	switch opType {
-	case OpPure:
-		TEXT("mulToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64, qf, qfInv float64)")
-	case OpAdd:
-		TEXT("mulAddToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64, qf, qfInv float64)")
-	case OpSub:
-		TEXT("mulSubToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64, qf, qfInv float64)")
-	}
-	Pragma("noescape")
-
-	q64 := Load(Param("q"), GP64())
-	qf64 := Load(Param("qf"), XMM())
-	qfInv64 := Load(Param("qfInv"), XMM())
-	q, qf, qfInv := ZMM(), ZMM(), ZMM()
-	VPBROADCASTQ(NewParamAddr("q", 72), q)
-	VPBROADCASTQ(NewParamAddr("qf", 80), qf)
-	VPBROADCASTQ(NewParamAddr("qfInv", 88), qfInv)
-
-	N := Load(Param("vOut").Len(), GP64())
-	vOut := Load(Param("vOut").Base(), GP64())
-	v0 := Load(Param("v0").Base(), GP64())
-	v1 := Load(Param("v1").Base(), GP64())
-
-	M := GP64()
-	MOVQ(N, M)
-	SHRQ(Imm(3), M)
-	SHLQ(Imm(3), M)
-
-	i := GP64()
-	XORQ(i, i)
-	JMP(LabelRef("loop_end"))
-	Label("loop_body")
-
-	x0, x1 := ZMM(), ZMM()
-	VMOVDQU64(Mem{Base: v0, Index: i, Scale: 8}, x0)
-	VMOVDQU64(Mem{Base: v1, Index: i, Scale: 8}, x1)
-
-	xOut, xMul := ZMM(), ZMM()
-
-	VCVTUQQ2PD(x0, x0)
-	VCVTUQQ2PD(x1, x1)
-
-	VMULPD(x0, x1, xMul)
-
-	VFMSUB213PD(xMul, x1, x0)
-	lo := x0
-
-	quo := ZMM()
-	VMULPD(xMul, qfInv, quo)
-	VRNDSCALEPD(Imm(1), quo, quo)
-
-	VFNMADD231PD(quo, qf, xMul)
-	VADDPD(xMul, lo, xMul)
-	VADDPD(xMul, qf, xMul)
-
-	VCVTPD2UQQ(xMul, xMul)
-
-	xSubQ := ZMM()
-	VPSUBQ(q, xMul, xSubQ)
-	VPMINUQ(xSubQ, xMul, xMul)
-
-	switch opType {
-	case OpPure:
-		xOut = xMul
-	case OpAdd:
-		VMOVDQU64(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
-		VPADDQ(xMul, xOut, xOut)
-		xSubQ := ZMM()
-		VPSUBQ(q, xOut, xSubQ)
-		VPMINUQ(xSubQ, xOut, xOut)
-	case OpSub:
-		VMOVDQU64(Mem{Base: vOut, Index: i, Scale: 8}, xOut)
-		VPSUBQ(xMul, xOut, xOut)
-		xAddQ := ZMM()
-		VPADDQ(q, xOut, xAddQ)
-		VPMINUQ(xAddQ, xOut, xOut)
-	}
-
-	VMOVDQU64(xOut, Mem{Base: vOut, Index: i, Scale: 8})
-
-	ADDQ(Imm(8), i)
-
-	Label("loop_end")
-	CMPQ(i, M)
-	JL(LabelRef("loop_body"))
-
-	JMP(LabelRef("leftover_loop_end"))
-	Label("leftover_loop_body")
-
-	y0, y1 := GP64(), GP64()
-	MOVQ(Mem{Base: v0, Index: i, Scale: 8}, y0)
-	MOVQ(Mem{Base: v1, Index: i, Scale: 8}, y1)
-
-	yOut := GP64()
-
-	y0f, y1f := XMM(), XMM()
-	CVTSQ2SD(y0, y0f)
-	CVTSQ2SD(y1, y1f)
-
-	yMulf := XMM()
-	MOVSD(y0f, yMulf)
-	MULSD(y1f, yMulf)
-
-	VFMSUB213SD(yMulf, y1f, y0f)
-	lo64 := y0f
-
-	quo64 := XMM()
-	MOVSD(yMulf, quo64)
-	MULSD(qfInv64, quo64)
-	ROUNDSD(Imm(1), quo64, quo64)
-
-	VFNMADD231SD(quo64, qf64, yMulf)
-	ADDSD(lo64, yMulf)
-	ADDSD(qf64, yMulf)
-
-	CVTTSD2SQ(yMulf, y0)
-
-	subQ := GP64()
-	MOVQ(y0, subQ)
-	SUBQ(q64, subQ)
-	CMPQ(q64, y0)
-	CMOVQLS(subQ, y0)
-
-	switch opType {
-	case OpPure:
-		yOut = y0
-	case OpAdd:
-		MOVQ(Mem{Base: vOut, Index: i, Scale: 8}, yOut)
-		ADDQ(y0, yOut)
-
-		subQ := GP64()
-		MOVQ(yOut, subQ)
-		SUBQ(q64, subQ)
-		CMPQ(q64, yOut)
-		CMOVQLS(subQ, yOut)
-	case OpSub:
-		MOVQ(Mem{Base: vOut, Index: i, Scale: 8}, yOut)
-		SUBQ(y0, yOut)
-
-		subQ := GP64()
-		MOVQ(yOut, subQ)
-		ADDQ(q64, subQ)
-		CMPQ(q64, yOut)
-		CMOVQLS(subQ, yOut)
-	}
-
-	MOVQ(yOut, Mem{Base: vOut, Index: i, Scale: 8})
-
-	ADDQ(Imm(1), i)
-
-	Label("leftover_loop_end")
-	CMPQ(i, N)
-	JL(LabelRef("leftover_loop_body"))
-
-	RET()
-}
-
 func VecSMulToAVX(avxType AVXType, opType OpType) {
 	switch avxType {
 	case TypeAVX512:
@@ -1703,7 +1381,7 @@ func VecSMulToAVX(avxType AVXType, opType OpType) {
 }
 
 func VecReduceToAVX512() {
-	TEXT("reduceToAVX512", NOSPLIT, "func(vOut, v []uint64, q, divHi uint64)")
+	TEXT("reduceToAVX512", NOSPLIT, "func(vOut, v []uint64, q, div, logQ uint64)")
 	Pragma("noescape")
 
 	maskLo := ZMM()
@@ -1713,12 +1391,14 @@ func VecReduceToAVX512() {
 	q := ZMM()
 	VPBROADCASTQ(NewParamAddr("q", 48), q)
 
-	divHi64 := Load(Param("divHi"), GP64())
-	divHi := ZMM()
-	VPBROADCASTQ(NewParamAddr("divHi", 56), divHi)
+	div64 := Load(Param("div"), GP64())
+	logQ64 := Load(Param("logQ"), GP64())
+	div, logQ := ZMM(), ZMM()
+	VPBROADCASTQ(NewParamAddr("div", 56), div)
+	VPBROADCASTQ(NewParamAddr("logQ", 64), logQ)
 
-	divHiHi := ZMM()
-	VPSRLQ(Imm(32), divHi, divHiHi)
+	divHi := ZMM()
+	VPSRLQ(Imm(32), div, divHi)
 
 	N := Load(Param("vOut").Len(), GP64())
 	vOut := Load(Param("vOut").Base(), GP64())
@@ -1739,11 +1419,14 @@ func VecReduceToAVX512() {
 
 	xOut := ZMM()
 
-	xHi := ZMM()
-	VPSRLQ(Imm(32), x, xHi)
+	xShift := ZMM()
+	VPSRLVQ(logQ, x, xShift)
+
+	xShiftHi := ZMM()
+	VPSRLQ(Imm(32), xShift, xShiftHi)
 
 	quo := ZMM()
-	Mul64HiAVX512(x, xHi, divHi, divHiHi, maskLo, quo)
+	Mul64HiAVX512(xShift, xShiftHi, div, divHi, maskLo, quo)
 	VPMULLQ(quo, q, quo)
 	VPSUBQ(quo, x, xOut)
 
@@ -1767,9 +1450,12 @@ func VecReduceToAVX512() {
 
 	yOut := GP64()
 
+	yShift := GP64()
+	SHRXQ(logQ64, y, yShift)
+
 	quo64 := GP64()
-	MOVQ(divHi64, reg.RDX)
-	MULXQ(y, yOut, quo64)
+	MOVQ(div64, reg.RDX)
+	MULXQ(yShift, yOut, quo64)
 	IMULQ(q64, quo64)
 
 	SUBQ(quo64, y)

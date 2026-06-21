@@ -41,34 +41,9 @@ func Neg(x, q uint64) uint64 {
 	return q - x
 }
 
-// BMod128 returns x mod q using Barrett reduction.
-func BMod128(xHi, xLo, q, divHi, divLo uint64) uint64 {
-	quo := xHi * divHi
-
-	quoLo, _ := bits.Mul64(xLo, divLo)
-
-	quoMid0, quoMid0Lo := bits.Mul64(xLo, divHi)
-	quo += quoMid0
-
-	quoMid1, quoMid1Lo := bits.Mul64(xHi, divLo)
-	quo += quoMid1
-
-	quoMidSum, quoMidCarry := bits.Add64(quoMid0Lo, quoMid1Lo, 0)
-	quo, _ = bits.Add64(quo, 0, quoMidCarry)
-
-	_, quoMidCarry = bits.Add64(quoMidSum, quoLo, 0)
-	quo, _ = bits.Add64(quo, 0, quoMidCarry)
-
-	xOut := xLo - quo*q
-	if xOut >= q {
-		xOut -= q
-	}
-	return xOut
-}
-
 // BMod64 returns x mod q using Barrett reduction.
-func BMod64(x, q, divHi uint64) uint64 {
-	quo, _ := bits.Mul64(x, divHi)
+func BMod64(x, q, div, log uint64) uint64 {
+	quo, _ := bits.Mul64(x>>log, div)
 	xOut := x - quo*q
 	if xOut >= q {
 		xOut -= q
@@ -77,11 +52,11 @@ func BMod64(x, q, divHi uint64) uint64 {
 }
 
 // BMod returns x mod q using Barrett reduction.
-func BMod[T Integer](x T, q, divHi uint64) uint64 {
+func BMod[T Integer](x T, q, div, log uint64) uint64 {
 	if x < 0 {
-		return Neg(BMod64(uint64(-int64(x)), q, divHi), q)
+		return Neg(BMod64(uint64(-int64(x)), q, div, log), q)
 	}
-	return BMod64(uint64(x), q, divHi)
+	return BMod64(uint64(x), q, div, log)
 }
 
 // SForm transforms x into Shoup form.

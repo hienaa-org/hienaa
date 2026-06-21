@@ -461,11 +461,12 @@ func mulSubScalarWordTo(vOut, v []uint64, c uint64) {
 }
 
 // mulScalarTo computes vOut = v * c mod q using Barrett or Float reduction.
+// v and c must be in [0, q).
 func mulScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	checkLength(len(vOut), len(v))
 
 	qv := q.Value()
-	divHi, divLo := q.Div()
+	div, log := q.Div(), q.Log()
 	qf, qfInv := q.Float(), q.FloatInv()
 
 	M := (len(vOut) >> 3) << 3
@@ -478,28 +479,29 @@ func mulScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
 		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
 
-		wOut[0] = modops.Mul(w[0], c, qv, divHi, divLo, qf, qfInv)
-		wOut[1] = modops.Mul(w[1], c, qv, divHi, divLo, qf, qfInv)
-		wOut[2] = modops.Mul(w[2], c, qv, divHi, divLo, qf, qfInv)
-		wOut[3] = modops.Mul(w[3], c, qv, divHi, divLo, qf, qfInv)
+		wOut[0] = modops.Mul(w[0], c, qv, div, log, qf, qfInv)
+		wOut[1] = modops.Mul(w[1], c, qv, div, log, qf, qfInv)
+		wOut[2] = modops.Mul(w[2], c, qv, div, log, qf, qfInv)
+		wOut[3] = modops.Mul(w[3], c, qv, div, log, qf, qfInv)
 
-		wOut[4] = modops.Mul(w[4], c, qv, divHi, divLo, qf, qfInv)
-		wOut[5] = modops.Mul(w[5], c, qv, divHi, divLo, qf, qfInv)
-		wOut[6] = modops.Mul(w[6], c, qv, divHi, divLo, qf, qfInv)
-		wOut[7] = modops.Mul(w[7], c, qv, divHi, divLo, qf, qfInv)
+		wOut[4] = modops.Mul(w[4], c, qv, div, log, qf, qfInv)
+		wOut[5] = modops.Mul(w[5], c, qv, div, log, qf, qfInv)
+		wOut[6] = modops.Mul(w[6], c, qv, div, log, qf, qfInv)
+		wOut[7] = modops.Mul(w[7], c, qv, div, log, qf, qfInv)
 	}
 
 	for i := M; i < len(vOut); i++ {
-		vOut[i] = modops.Mul(v[i], c, qv, divHi, divLo, qf, qfInv)
+		vOut[i] = modops.Mul(v[i], c, qv, div, log, qf, qfInv)
 	}
 }
 
 // mulAddScalarTo computes vOut += v * c mod q using Barrett or Float reduction.
+// v and c must be in [0, q).
 func mulAddScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	checkLength(len(vOut), len(v))
 
 	qv := q.Value()
-	divHi, divLo := q.Div()
+	div, log := q.Div(), q.Log()
 	qf, qfInv := q.Float(), q.FloatInv()
 
 	M := (len(vOut) >> 3) << 3
@@ -512,28 +514,29 @@ func mulAddScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
 		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
 
-		wOut[0] = modops.Add(wOut[0], modops.Mul(w[0], c, qv, divHi, divLo, qf, qfInv), qv)
-		wOut[1] = modops.Add(wOut[1], modops.Mul(w[1], c, qv, divHi, divLo, qf, qfInv), qv)
-		wOut[2] = modops.Add(wOut[2], modops.Mul(w[2], c, qv, divHi, divLo, qf, qfInv), qv)
-		wOut[3] = modops.Add(wOut[3], modops.Mul(w[3], c, qv, divHi, divLo, qf, qfInv), qv)
+		wOut[0] = modops.Add(wOut[0], modops.Mul(w[0], c, qv, div, log, qf, qfInv), qv)
+		wOut[1] = modops.Add(wOut[1], modops.Mul(w[1], c, qv, div, log, qf, qfInv), qv)
+		wOut[2] = modops.Add(wOut[2], modops.Mul(w[2], c, qv, div, log, qf, qfInv), qv)
+		wOut[3] = modops.Add(wOut[3], modops.Mul(w[3], c, qv, div, log, qf, qfInv), qv)
 
-		wOut[4] = modops.Add(wOut[4], modops.Mul(w[4], c, qv, divHi, divLo, qf, qfInv), qv)
-		wOut[5] = modops.Add(wOut[5], modops.Mul(w[5], c, qv, divHi, divLo, qf, qfInv), qv)
-		wOut[6] = modops.Add(wOut[6], modops.Mul(w[6], c, qv, divHi, divLo, qf, qfInv), qv)
-		wOut[7] = modops.Add(wOut[7], modops.Mul(w[7], c, qv, divHi, divLo, qf, qfInv), qv)
+		wOut[4] = modops.Add(wOut[4], modops.Mul(w[4], c, qv, div, log, qf, qfInv), qv)
+		wOut[5] = modops.Add(wOut[5], modops.Mul(w[5], c, qv, div, log, qf, qfInv), qv)
+		wOut[6] = modops.Add(wOut[6], modops.Mul(w[6], c, qv, div, log, qf, qfInv), qv)
+		wOut[7] = modops.Add(wOut[7], modops.Mul(w[7], c, qv, div, log, qf, qfInv), qv)
 	}
 
 	for i := M; i < len(vOut); i++ {
-		vOut[i] = modops.Add(vOut[i], modops.Mul(v[i], c, qv, divHi, divLo, qf, qfInv), qv)
+		vOut[i] = modops.Add(vOut[i], modops.Mul(v[i], c, qv, div, log, qf, qfInv), qv)
 	}
 }
 
 // mulSubScalarTo computes vOut -= v * c mod q using Barrett or Float reduction.
+// v and c must be in [0, q).
 func mulSubScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	checkLength(len(vOut), len(v))
 
 	qv := q.Value()
-	divHi, divLo := q.Div()
+	div, log := q.Div(), q.Log()
 	qf, qfInv := q.Float(), q.FloatInv()
 
 	M := (len(vOut) >> 3) << 3
@@ -546,19 +549,19 @@ func mulSubScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
 		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
 
-		wOut[0] = modops.Sub(wOut[0], modops.Mul(w[0], c, qv, divHi, divLo, qf, qfInv), qv)
-		wOut[1] = modops.Sub(wOut[1], modops.Mul(w[1], c, qv, divHi, divLo, qf, qfInv), qv)
-		wOut[2] = modops.Sub(wOut[2], modops.Mul(w[2], c, qv, divHi, divLo, qf, qfInv), qv)
-		wOut[3] = modops.Sub(wOut[3], modops.Mul(w[3], c, qv, divHi, divLo, qf, qfInv), qv)
+		wOut[0] = modops.Sub(wOut[0], modops.Mul(w[0], c, qv, div, log, qf, qfInv), qv)
+		wOut[1] = modops.Sub(wOut[1], modops.Mul(w[1], c, qv, div, log, qf, qfInv), qv)
+		wOut[2] = modops.Sub(wOut[2], modops.Mul(w[2], c, qv, div, log, qf, qfInv), qv)
+		wOut[3] = modops.Sub(wOut[3], modops.Mul(w[3], c, qv, div, log, qf, qfInv), qv)
 
-		wOut[4] = modops.Sub(wOut[4], modops.Mul(w[4], c, qv, divHi, divLo, qf, qfInv), qv)
-		wOut[5] = modops.Sub(wOut[5], modops.Mul(w[5], c, qv, divHi, divLo, qf, qfInv), qv)
-		wOut[6] = modops.Sub(wOut[6], modops.Mul(w[6], c, qv, divHi, divLo, qf, qfInv), qv)
-		wOut[7] = modops.Sub(wOut[7], modops.Mul(w[7], c, qv, divHi, divLo, qf, qfInv), qv)
+		wOut[4] = modops.Sub(wOut[4], modops.Mul(w[4], c, qv, div, log, qf, qfInv), qv)
+		wOut[5] = modops.Sub(wOut[5], modops.Mul(w[5], c, qv, div, log, qf, qfInv), qv)
+		wOut[6] = modops.Sub(wOut[6], modops.Mul(w[6], c, qv, div, log, qf, qfInv), qv)
+		wOut[7] = modops.Sub(wOut[7], modops.Mul(w[7], c, qv, div, log, qf, qfInv), qv)
 	}
 
 	for i := M; i < len(vOut); i++ {
-		vOut[i] = modops.Sub(vOut[i], modops.Mul(v[i], c, qv, divHi, divLo, qf, qfInv), qv)
+		vOut[i] = modops.Sub(vOut[i], modops.Mul(v[i], c, qv, div, log, qf, qfInv), qv)
 	}
 }
 
@@ -755,11 +758,12 @@ func mulSubWordTo(vOut, v0, v1 []uint64) {
 }
 
 // mulTo computes vOut = v0 * v1 mod q using Barrett or Float reduction.
+// v0 and v1 must be in [0, q).
 func mulTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 	checkLength(len(vOut), len(v0), len(v1))
 
 	qv := q.Value()
-	divHi, divLo := q.Div()
+	div, log := q.Div(), q.Log()
 	qf, qfInv := q.Float(), q.FloatInv()
 
 	M := (len(vOut) >> 3) << 3
@@ -774,28 +778,29 @@ func mulTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
 		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
 
-		wOut[0] = modops.Mul(w0[0], w1[0], qv, divHi, divLo, qf, qfInv)
-		wOut[1] = modops.Mul(w0[1], w1[1], qv, divHi, divLo, qf, qfInv)
-		wOut[2] = modops.Mul(w0[2], w1[2], qv, divHi, divLo, qf, qfInv)
-		wOut[3] = modops.Mul(w0[3], w1[3], qv, divHi, divLo, qf, qfInv)
+		wOut[0] = modops.Mul(w0[0], w1[0], qv, div, log, qf, qfInv)
+		wOut[1] = modops.Mul(w0[1], w1[1], qv, div, log, qf, qfInv)
+		wOut[2] = modops.Mul(w0[2], w1[2], qv, div, log, qf, qfInv)
+		wOut[3] = modops.Mul(w0[3], w1[3], qv, div, log, qf, qfInv)
 
-		wOut[4] = modops.Mul(w0[4], w1[4], qv, divHi, divLo, qf, qfInv)
-		wOut[5] = modops.Mul(w0[5], w1[5], qv, divHi, divLo, qf, qfInv)
-		wOut[6] = modops.Mul(w0[6], w1[6], qv, divHi, divLo, qf, qfInv)
-		wOut[7] = modops.Mul(w0[7], w1[7], qv, divHi, divLo, qf, qfInv)
+		wOut[4] = modops.Mul(w0[4], w1[4], qv, div, log, qf, qfInv)
+		wOut[5] = modops.Mul(w0[5], w1[5], qv, div, log, qf, qfInv)
+		wOut[6] = modops.Mul(w0[6], w1[6], qv, div, log, qf, qfInv)
+		wOut[7] = modops.Mul(w0[7], w1[7], qv, div, log, qf, qfInv)
 	}
 
 	for i := M; i < len(vOut); i++ {
-		vOut[i] = modops.Mul(v0[i], v1[i], qv, divHi, divLo, qf, qfInv)
+		vOut[i] = modops.Mul(v0[i], v1[i], qv, div, log, qf, qfInv)
 	}
 }
 
 // mulAddTo computes vOut += v0 * v1 mod q using Barrett or Float reduction.
+// v0 and v1 must be in [0, q).
 func mulAddTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 	checkLength(len(vOut), len(v0), len(v1))
 
 	qv := q.Value()
-	divHi, divLo := q.Div()
+	div, log := q.Div(), q.Log()
 	qf, qfInv := q.Float(), q.FloatInv()
 
 	M := (len(vOut) >> 3) << 3
@@ -810,28 +815,29 @@ func mulAddTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
 		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
 
-		wOut[0] = modops.Add(wOut[0], modops.Mul(w0[0], w1[0], qv, divHi, divLo, qf, qfInv), qv)
-		wOut[1] = modops.Add(wOut[1], modops.Mul(w0[1], w1[1], qv, divHi, divLo, qf, qfInv), qv)
-		wOut[2] = modops.Add(wOut[2], modops.Mul(w0[2], w1[2], qv, divHi, divLo, qf, qfInv), qv)
-		wOut[3] = modops.Add(wOut[3], modops.Mul(w0[3], w1[3], qv, divHi, divLo, qf, qfInv), qv)
+		wOut[0] = modops.Add(wOut[0], modops.Mul(w0[0], w1[0], qv, div, log, qf, qfInv), qv)
+		wOut[1] = modops.Add(wOut[1], modops.Mul(w0[1], w1[1], qv, div, log, qf, qfInv), qv)
+		wOut[2] = modops.Add(wOut[2], modops.Mul(w0[2], w1[2], qv, div, log, qf, qfInv), qv)
+		wOut[3] = modops.Add(wOut[3], modops.Mul(w0[3], w1[3], qv, div, log, qf, qfInv), qv)
 
-		wOut[4] = modops.Add(wOut[4], modops.Mul(w0[4], w1[4], qv, divHi, divLo, qf, qfInv), qv)
-		wOut[5] = modops.Add(wOut[5], modops.Mul(w0[5], w1[5], qv, divHi, divLo, qf, qfInv), qv)
-		wOut[6] = modops.Add(wOut[6], modops.Mul(w0[6], w1[6], qv, divHi, divLo, qf, qfInv), qv)
-		wOut[7] = modops.Add(wOut[7], modops.Mul(w0[7], w1[7], qv, divHi, divLo, qf, qfInv), qv)
+		wOut[4] = modops.Add(wOut[4], modops.Mul(w0[4], w1[4], qv, div, log, qf, qfInv), qv)
+		wOut[5] = modops.Add(wOut[5], modops.Mul(w0[5], w1[5], qv, div, log, qf, qfInv), qv)
+		wOut[6] = modops.Add(wOut[6], modops.Mul(w0[6], w1[6], qv, div, log, qf, qfInv), qv)
+		wOut[7] = modops.Add(wOut[7], modops.Mul(w0[7], w1[7], qv, div, log, qf, qfInv), qv)
 	}
 
 	for i := M; i < len(vOut); i++ {
-		vOut[i] = modops.Add(vOut[i], modops.Mul(v0[i], v1[i], qv, divHi, divLo, qf, qfInv), qv)
+		vOut[i] = modops.Add(vOut[i], modops.Mul(v0[i], v1[i], qv, div, log, qf, qfInv), qv)
 	}
 }
 
 // mulSubTo computes vOut -= v0 * v1 mod q using Barrett or Float reduction.
+// v0 and v1 must be in [0, q).
 func mulSubTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 	checkLength(len(vOut), len(v0), len(v1))
 
 	qv := q.Value()
-	divHi, divLo := q.Div()
+	div, log := q.Div(), q.Log()
 	qf, qfInv := q.Float(), q.FloatInv()
 
 	M := (len(vOut) >> 3) << 3
@@ -846,19 +852,19 @@ func mulSubTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
 		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
 
-		wOut[0] = modops.Sub(wOut[0], modops.Mul(w0[0], w1[0], qv, divHi, divLo, qf, qfInv), qv)
-		wOut[1] = modops.Sub(wOut[1], modops.Mul(w0[1], w1[1], qv, divHi, divLo, qf, qfInv), qv)
-		wOut[2] = modops.Sub(wOut[2], modops.Mul(w0[2], w1[2], qv, divHi, divLo, qf, qfInv), qv)
-		wOut[3] = modops.Sub(wOut[3], modops.Mul(w0[3], w1[3], qv, divHi, divLo, qf, qfInv), qv)
+		wOut[0] = modops.Sub(wOut[0], modops.Mul(w0[0], w1[0], qv, div, log, qf, qfInv), qv)
+		wOut[1] = modops.Sub(wOut[1], modops.Mul(w0[1], w1[1], qv, div, log, qf, qfInv), qv)
+		wOut[2] = modops.Sub(wOut[2], modops.Mul(w0[2], w1[2], qv, div, log, qf, qfInv), qv)
+		wOut[3] = modops.Sub(wOut[3], modops.Mul(w0[3], w1[3], qv, div, log, qf, qfInv), qv)
 
-		wOut[4] = modops.Sub(wOut[4], modops.Mul(w0[4], w1[4], qv, divHi, divLo, qf, qfInv), qv)
-		wOut[5] = modops.Sub(wOut[5], modops.Mul(w0[5], w1[5], qv, divHi, divLo, qf, qfInv), qv)
-		wOut[6] = modops.Sub(wOut[6], modops.Mul(w0[6], w1[6], qv, divHi, divLo, qf, qfInv), qv)
-		wOut[7] = modops.Sub(wOut[7], modops.Mul(w0[7], w1[7], qv, divHi, divLo, qf, qfInv), qv)
+		wOut[4] = modops.Sub(wOut[4], modops.Mul(w0[4], w1[4], qv, div, log, qf, qfInv), qv)
+		wOut[5] = modops.Sub(wOut[5], modops.Mul(w0[5], w1[5], qv, div, log, qf, qfInv), qv)
+		wOut[6] = modops.Sub(wOut[6], modops.Mul(w0[6], w1[6], qv, div, log, qf, qfInv), qv)
+		wOut[7] = modops.Sub(wOut[7], modops.Mul(w0[7], w1[7], qv, div, log, qf, qfInv), qv)
 	}
 
 	for i := M; i < len(vOut); i++ {
-		vOut[i] = modops.Sub(vOut[i], modops.Mul(v0[i], v1[i], qv, divHi, divLo, qf, qfInv), qv)
+		vOut[i] = modops.Sub(vOut[i], modops.Mul(v0[i], v1[i], qv, div, log, qf, qfInv), qv)
 	}
 }
 
@@ -983,7 +989,7 @@ func ReduceTo[T num.Integer](vOut []uint64, v []T, q *num.Modulus) {
 	checkLength(len(vOut), len(v))
 
 	qv := q.Value()
-	divHi, _ := q.Div()
+	div, log := q.Div(), q.Log()
 
 	M := (len(vOut) >> 3) << 3
 	L := unsafe.Sizeof(uint64(0))
@@ -996,19 +1002,19 @@ func ReduceTo[T num.Integer](vOut []uint64, v []T, q *num.Modulus) {
 		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
 		w := (*[8]T)(unsafe.Add(r, uintptr(i)*LT))
 
-		wOut[0] = modops.BMod(w[0], qv, divHi)
-		wOut[1] = modops.BMod(w[1], qv, divHi)
-		wOut[2] = modops.BMod(w[2], qv, divHi)
-		wOut[3] = modops.BMod(w[3], qv, divHi)
+		wOut[0] = modops.BMod(w[0], qv, div, log)
+		wOut[1] = modops.BMod(w[1], qv, div, log)
+		wOut[2] = modops.BMod(w[2], qv, div, log)
+		wOut[3] = modops.BMod(w[3], qv, div, log)
 
-		wOut[4] = modops.BMod(w[4], qv, divHi)
-		wOut[5] = modops.BMod(w[5], qv, divHi)
-		wOut[6] = modops.BMod(w[6], qv, divHi)
-		wOut[7] = modops.BMod(w[7], qv, divHi)
+		wOut[4] = modops.BMod(w[4], qv, div, log)
+		wOut[5] = modops.BMod(w[5], qv, div, log)
+		wOut[6] = modops.BMod(w[6], qv, div, log)
+		wOut[7] = modops.BMod(w[7], qv, div, log)
 	}
 
 	for i := M; i < len(vOut); i++ {
-		vOut[i] = modops.BMod(v[i], qv, divHi)
+		vOut[i] = modops.BMod(v[i], qv, div, log)
 	}
 }
 

@@ -11,7 +11,7 @@ import (
 // See: https://github.com/golang/go/issues/36351
 
 // Mul returns x0 * x1 mod q using float64 reduction.
-func Mul(x0, x1, q, divHi, divLo uint64, qf, qfInv float64) uint64 {
+func Mul(x0, x1, q, div, log uint64, qf, qfInv float64) uint64 {
 	x0f := float64(x0)
 	x1f := float64(x1)
 
