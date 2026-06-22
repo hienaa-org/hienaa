@@ -178,7 +178,7 @@ func (emb *Embedder) embedNTTTo(eOutNTT, eNTT *Element) {
 	for i := 0; i < inLen; i++ {
 		for j := i + 1; j < inLen; j++ {
 			vec.SubTo(eInvNTTCoeffs[j], eInvNTTCoeffs[j], eInvNTTCoeffs[i], emb.vecEmb.modInSorted[j])
-			vec.SMulScalarTo(eInvNTTCoeffs[j], eInvNTTCoeffs[j], emb.vecEmb.modInv[i][j-i-1], emb.vecEmb.modInvS[i][j-i-1], emb.vecEmb.modInSorted[j])
+			vec.FMulScalarTo(eInvNTTCoeffs[j], eInvNTTCoeffs[j], emb.vecEmb.modInv[i][j-i-1], emb.vecEmb.modInvM[i][j-i-1], emb.vecEmb.modInSorted[j])
 		}
 	}
 
@@ -203,13 +203,13 @@ func (emb *Embedder) embedNTTTo(eOutNTT, eNTT *Element) {
 			continue
 		}
 
-		base, baseS := emb.vecEmb.base[i], emb.vecEmb.baseS[i]
+		base, baseS := emb.vecEmb.base[i], emb.vecEmb.baseM[i]
 		inModOut := emb.vecEmb.inModOut[i]
 		modOut := emb.vecEmb.modOut[i]
 
-		vec.SMulScalarTo(eOutNTT.Coeffs[i], eInvNTTCoeffs[0], base[0], baseS[0], modOut)
+		vec.FMulScalarTo(eOutNTT.Coeffs[i], eInvNTTCoeffs[0], base[0], baseS[0], modOut)
 		for j := 1; j < inLen; j++ {
-			vec.SMulAddScalarTo(eOutNTT.Coeffs[i], eInvNTTCoeffs[j], base[j], baseS[j], modOut)
+			vec.FMulAddScalarTo(eOutNTT.Coeffs[i], eInvNTTCoeffs[j], base[j], baseS[j], modOut)
 		}
 		vec.MulScalarTo(vCorr, vBool, inModOut, nil)
 		vec.SubTo(eOutNTT.Coeffs[i], eOutNTT.Coeffs[i], vCorr, modOut)
@@ -258,13 +258,13 @@ type VecEmbedder struct {
 
 	// modInv is the inverse of modInSorted.
 	modInv [][]uint64
-	// modInvS is the Shoup form of modInv.
-	modInvS [][]uint64
+	// modInvM is the MulForm of modInv.
+	modInvM [][]num.MulForm
 
 	// base is the mixed-radix basis of modInSorted.
 	base [][]uint64
-	// baseS is the Shoup form of base.
-	baseS [][]uint64
+	// baseM is the MulForm of base.
+	baseM [][]num.MulForm
 
 	// inModOut equals modInSorted modulo modOut.
 	inModOut []uint64
@@ -294,27 +294,27 @@ func NewVecEmbedder(modOut []*num.Modulus, modIn []*num.Modulus) *VecEmbedder {
 	modInHalf := halfProductMixedRadix(modInSorted)
 
 	modInv := make([][]uint64, len(modInSorted))
-	modInvS := make([][]uint64, len(modInSorted))
+	modInvM := make([][]num.MulForm, len(modInSorted))
 	for i := 0; i < len(modInSorted); i++ {
 		modInv[i] = make([]uint64, len(modInSorted)-i-1)
-		modInvS[i] = make([]uint64, len(modInSorted)-i-1)
+		modInvM[i] = make([]num.MulForm, len(modInSorted)-i-1)
 		for j := 0; j < len(modInSorted)-i-1; j++ {
 			modInv[i][j] = num.Inv(modInSorted[i].Value(), modInSorted[i+j+1])
-			modInvS[i][j] = num.SForm(modInv[i][j], modInSorted[i+j+1])
+			modInvM[i][j] = num.ToMulForm(modInv[i][j], modInSorted[i+j+1])
 		}
 	}
 
 	base := make([][]uint64, len(modOut))
-	baseS := make([][]uint64, len(modOut))
+	baseM := make([][]num.MulForm, len(modOut))
 	for i := 0; i < len(modOut); i++ {
 		base[i] = make([]uint64, len(modInSorted))
-		baseS[i] = make([]uint64, len(modInSorted))
+		baseM[i] = make([]num.MulForm, len(modInSorted))
 
 		base[i][0] = 1
-		baseS[i][0] = num.SForm(1, modOut[i])
+		baseM[i][0] = num.ToMulForm(1, modOut[i])
 		for j := 1; j < len(modInSorted); j++ {
 			base[i][j] = num.Mul(base[i][j-1], modInSorted[j-1].Value(), modOut[i])
-			baseS[i][j] = num.SForm(base[i][j], modOut[i])
+			baseM[i][j] = num.ToMulForm(base[i][j], modOut[i])
 		}
 	}
 
@@ -342,10 +342,10 @@ func NewVecEmbedder(modOut []*num.Modulus, modIn []*num.Modulus) *VecEmbedder {
 		modInHalf: modInHalf,
 
 		modInv:  modInv,
-		modInvS: modInvS,
+		modInvM: modInvM,
 
 		base:  base,
-		baseS: baseS,
+		baseM: baseM,
 
 		inModOut: inModOut,
 
@@ -457,7 +457,7 @@ func (emb *VecEmbedder) EmbedTo(vOut, v [][]uint64) {
 			wBuf := vBuf[i]
 			for j := i + 1; j < inLen; j++ {
 				vec.SubTo(vBuf[j][:], vBuf[j][:], wBuf[:], emb.modInSorted[j])
-				vec.SMulScalarTo(vBuf[j][:], vBuf[j][:], emb.modInv[i][j-i-1], emb.modInvS[i][j-i-1], emb.modInSorted[j])
+				vec.FMulScalarTo(vBuf[j][:], vBuf[j][:], emb.modInv[i][j-i-1], emb.modInvM[i][j-i-1], emb.modInSorted[j])
 			}
 		}
 
@@ -482,13 +482,13 @@ func (emb *VecEmbedder) EmbedTo(vOut, v [][]uint64) {
 			rOut := unsafe.Pointer(unsafe.SliceData(vOut[i]))
 			wOut := (*[embedBatch]uint64)(unsafe.Add(rOut, uintptr(k)*L))
 
-			base, baseS := emb.base[i], emb.baseS[i]
+			base, baseS := emb.base[i], emb.baseM[i]
 			inModOut := emb.inModOut[i]
 			modOut := emb.modOut[i]
 
-			vec.SMulScalarTo(wOut[:], vBuf[0][:], base[0], baseS[0], modOut)
+			vec.FMulScalarTo(wOut[:], vBuf[0][:], base[0], baseS[0], modOut)
 			for j := 1; j < inLen; j++ {
-				vec.SMulAddScalarTo(wOut[:], vBuf[j][:], base[j], baseS[j], modOut)
+				vec.FMulAddScalarTo(wOut[:], vBuf[j][:], base[j], baseS[j], modOut)
 			}
 			vec.MulScalarTo(vCorr[:], vBool[:], inModOut, nil)
 			vec.SubTo(wOut[:], wOut[:], vCorr[:], modOut)
@@ -509,7 +509,7 @@ func (emb *VecEmbedder) EmbedTo(vOut, v [][]uint64) {
 		wBuf := vBuf[i][:len(v[0])-M]
 		for j := i + 1; j < inLen; j++ {
 			vec.SubTo(vBuf[j][:len(v[0])-M], vBuf[j][:len(v[0])-M], wBuf[:], emb.modInSorted[j])
-			vec.SMulScalarTo(vBuf[j][:len(v[0])-M], vBuf[j][:len(v[0])-M], emb.modInv[i][j-i-1], emb.modInvS[i][j-i-1], emb.modInSorted[j])
+			vec.FMulScalarTo(vBuf[j][:len(v[0])-M], vBuf[j][:len(v[0])-M], emb.modInv[i][j-i-1], emb.modInvM[i][j-i-1], emb.modInSorted[j])
 		}
 	}
 
@@ -524,13 +524,13 @@ func (emb *VecEmbedder) EmbedTo(vOut, v [][]uint64) {
 		}
 
 		wOut := vOut[i][M:]
-		base, baseS := emb.base[i], emb.baseS[i]
+		base, baseS := emb.base[i], emb.baseM[i]
 		inModOut := emb.inModOut[i]
 		modOut := emb.modOut[i]
 
-		vec.SMulScalarTo(wOut[:], vBuf[0][:len(v[0])-M], base[0], baseS[0], modOut)
+		vec.FMulScalarTo(wOut[:], vBuf[0][:len(v[0])-M], base[0], baseS[0], modOut)
 		for j := 1; j < inLen; j++ {
-			vec.SMulAddScalarTo(wOut[:], vBuf[j][:len(v[0])-M], base[j], baseS[j], modOut)
+			vec.FMulAddScalarTo(wOut[:], vBuf[j][:len(v[0])-M], base[j], baseS[j], modOut)
 		}
 		vec.MulScalarTo(vCorr[:len(v[0])-M], vBool[:len(v[0])-M], inModOut, nil)
 		vec.SubTo(wOut[:], wOut[:], vCorr[:len(v[0])-M], modOut)
@@ -637,7 +637,7 @@ func (sc *Scaler) scaleNTTTo(eOutNTT, eNTT *Element) {
 
 		for i := 0; i < inLen; i++ {
 			ii := sc.vecSc.idxInToGCD[i]
-			vec.SMulScalarTo(eNTTCopy.Coeffs[ii], eNTT.Coeffs[sc.vecSc.modInMap[i]], sc.vecSc.outCompModIn[i], sc.vecSc.outCompModInS[i], sc.vecSc.modInSorted[i])
+			vec.FMulScalarTo(eNTTCopy.Coeffs[ii], eNTT.Coeffs[sc.vecSc.modInMap[i]], sc.vecSc.outCompModIn[i], sc.vecSc.outCompModInM[i], sc.vecSc.modInSorted[i])
 		}
 
 		for i := 0; i < outLen; i++ {
@@ -679,7 +679,7 @@ func (sc *Scaler) scaleNTTTo(eOutNTT, eNTT *Element) {
 		modIn := sc.vecSc.modInSorted[i]
 		ii := sc.vecSc.idxInToGCD[i]
 		if ii >= 0 {
-			vec.SMulScalarTo(vMul.Coeffs[ii][:], eNTT.Coeffs[sc.vecSc.modInMap[i]][:], sc.vecSc.outCompModIn[i], sc.vecSc.outCompModInS[i], modIn)
+			vec.FMulScalarTo(vMul.Coeffs[ii][:], eNTT.Coeffs[sc.vecSc.modInMap[i]][:], sc.vecSc.outCompModIn[i], sc.vecSc.outCompModInM[i], modIn)
 		}
 	}
 
@@ -688,7 +688,7 @@ func (sc *Scaler) scaleNTTTo(eOutNTT, eNTT *Element) {
 		ii := sc.vecSc.idxInToComp[i]
 		if ii >= 0 {
 			srcIdx := sc.vecSc.modInMap[i]
-			vec.SMulScalarTo(eNTTCopy.Coeffs[ii][:], eNTT.Coeffs[srcIdx][:], sc.vecSc.outCompModIn[i], sc.vecSc.outCompModInS[i], modIn)
+			vec.FMulScalarTo(eNTTCopy.Coeffs[ii][:], eNTT.Coeffs[srcIdx][:], sc.vecSc.outCompModIn[i], sc.vecSc.outCompModInM[i], modIn)
 			if sc.opIn.ntt[srcIdx] != nil {
 				sc.opIn.ntt[srcIdx].InverseTo(eNTTCopy.Coeffs[ii], eNTTCopy.Coeffs[ii])
 			}
@@ -720,7 +720,7 @@ func (sc *Scaler) scaleNTTTo(eOutNTT, eNTT *Element) {
 			for j := i + 1; j < inLen-gcdLen; j++ {
 				modInComp := sc.vecSc.modInComp[j]
 				vec.SubTo(eNTTCopy.Coeffs[j], eNTTCopy.Coeffs[j], eNTTCopy.Coeffs[i], modInComp)
-				vec.SMulScalarTo(eNTTCopy.Coeffs[j], eNTTCopy.Coeffs[j], sc.vecSc.modInCompInv[i][j-i-1], sc.vecSc.modInCompInvS[i][j-i-1], modInComp)
+				vec.FMulScalarTo(eNTTCopy.Coeffs[j], eNTTCopy.Coeffs[j], sc.vecSc.modInCompInv[i][j-i-1], sc.vecSc.modInCompInvM[i][j-i-1], modInComp)
 			}
 		}
 
@@ -741,13 +741,13 @@ func (sc *Scaler) scaleNTTTo(eOutNTT, eNTT *Element) {
 		}
 
 		for i := 0; i < outLen; i++ {
-			base, baseS := sc.vecSc.base[i], sc.vecSc.baseS[i]
+			base, baseS := sc.vecSc.base[i], sc.vecSc.baseM[i]
 			inCompModOut := sc.vecSc.inCompModOut[i]
 			modOut := sc.vecSc.modOut[i]
 
-			vec.SMulScalarTo(eOutNTT.Coeffs[i], eNTTCopy.Coeffs[0], base[0], baseS[0], modOut)
+			vec.FMulScalarTo(eOutNTT.Coeffs[i], eNTTCopy.Coeffs[0], base[0], baseS[0], modOut)
 			for j := 1; j < inLen-gcdLen; j++ {
-				vec.SMulAddScalarTo(eOutNTT.Coeffs[i], eNTTCopy.Coeffs[j], base[j], baseS[j], modOut)
+				vec.FMulAddScalarTo(eOutNTT.Coeffs[i], eNTTCopy.Coeffs[j], base[j], baseS[j], modOut)
 			}
 			vec.MulScalarTo(vCorr[:], vBool[:], inCompModOut, nil)
 			vec.SubTo(eOutNTT.Coeffs[i], eOutNTT.Coeffs[i], vCorr[:], modOut)
@@ -765,7 +765,7 @@ func (sc *Scaler) scaleNTTTo(eOutNTT, eNTT *Element) {
 		if ii >= 0 {
 			vec.SubTo(eOutNTT.Coeffs[i], eOutNTT.Coeffs[i], vMul.Coeffs[ii], modOut)
 		}
-		vec.SMulScalarTo(eOutNTT.Coeffs[i], eOutNTT.Coeffs[i], sc.vecSc.negInCompInvModOut[i], sc.vecSc.negInCompInvModOutS[i], modOut)
+		vec.FMulScalarTo(eOutNTT.Coeffs[i], eOutNTT.Coeffs[i], sc.vecSc.negInCompInvModOut[i], sc.vecSc.negInCompInvModOutM[i], modOut)
 	}
 
 	eOutNTT.IsNTT = true
@@ -820,25 +820,25 @@ type VecScaler struct {
 
 	// modInCompInv is the inverse of of modInComp.
 	modInCompInv [][]uint64
-	// modInCompInvS is the Shoup form of modInCompInv.
-	modInCompInvS [][]uint64
+	// modInCompInvM is the MulForm of modInCompInv.
+	modInCompInvM [][]num.MulForm
 
 	// base is the mixed-radix basis of modInComp.
 	base [][]uint64
-	// baseS is the Shoup form of base.
-	baseS [][]uint64
+	// baseM is the MulForm of base.
+	baseM [][]num.MulForm
 
 	// inCompModOut equals modInComp modulo modOut.
 	inCompModOut []uint64
 
 	// outCompModInComp equals modOut/modGCD modulo modInSorted.
 	outCompModIn []uint64
-	// outCompModInS is the Shoup form of outCompModInComp.
-	outCompModInS []uint64
+	// outCompModInM is the MulForm of outCompModInComp.
+	outCompModInM []num.MulForm
 	// negInCompInvModOut equals the inverse of modIn/modGCD modulo modOut.
 	negInCompInvModOut []uint64
-	// negInCompInvModOutS is the Shoup form of negInCompInvModOut.
-	negInCompInvModOutS []uint64
+	// negInCompInvModOutM is the MulForm of negInCompInvModOut.
+	negInCompInvModOutM []num.MulForm
 }
 
 func NewVecScaler(modOut, modIn []*num.Modulus) *VecScaler {
@@ -918,28 +918,28 @@ func NewVecScaler(modOut, modIn []*num.Modulus) *VecScaler {
 	modInCompHalf := halfProductMixedRadix(modInComp)
 
 	modCompInv := make([][]uint64, len(modInComp))
-	modCompInvS := make([][]uint64, len(modInComp))
+	modCompInvM := make([][]num.MulForm, len(modInComp))
 	for i := 0; i < len(modInComp); i++ {
 		modCompInv[i] = make([]uint64, len(modInComp)-i-1)
-		modCompInvS[i] = make([]uint64, len(modInComp)-i-1)
+		modCompInvM[i] = make([]num.MulForm, len(modInComp)-i-1)
 		for j := 0; j < len(modInComp)-i-1; j++ {
 			modCompInv[i][j] = num.Inv(modInComp[i].Value(), modInComp[i+j+1])
-			modCompInvS[i][j] = num.SForm(modCompInv[i][j], modInComp[i+j+1])
+			modCompInvM[i][j] = num.ToMulForm(modCompInv[i][j], modInComp[i+j+1])
 		}
 	}
 
 	base := make([][]uint64, len(modOut))
-	baseS := make([][]uint64, len(modOut))
+	baseM := make([][]num.MulForm, len(modOut))
 	for i := 0; i < len(modOut); i++ {
 		base[i] = make([]uint64, len(modInComp))
-		baseS[i] = make([]uint64, len(modInComp))
+		baseM[i] = make([]num.MulForm, len(modInComp))
 		for j := 0; j < len(modInComp); j++ {
 			if j == 0 {
 				base[i][j] = 1
 			} else {
 				base[i][j] = num.Mul(base[i][j-1], modInComp[j-1].Value(), modOut[i])
 			}
-			baseS[i][j] = num.SForm(base[i][j], modOut[i])
+			baseM[i][j] = num.ToMulForm(base[i][j], modOut[i])
 		}
 	}
 
@@ -952,7 +952,7 @@ func NewVecScaler(modOut, modIn []*num.Modulus) *VecScaler {
 	}
 
 	outCompModIn := make([]uint64, len(modInSorted))
-	outCompModInS := make([]uint64, len(modInSorted))
+	outCompModInM := make([]num.MulForm, len(modInSorted))
 	for i := 0; i < len(modInSorted); i++ {
 		outCompModIn[i] = 1
 		for j := 0; j < len(modOut); j++ {
@@ -960,11 +960,11 @@ func NewVecScaler(modOut, modIn []*num.Modulus) *VecScaler {
 				outCompModIn[i] = num.Mul(outCompModIn[i], modOut[j].Value(), modInSorted[i])
 			}
 		}
-		outCompModInS[i] = num.SForm(outCompModIn[i], modInSorted[i])
+		outCompModInM[i] = num.ToMulForm(outCompModIn[i], modInSorted[i])
 	}
 
 	negInCompInvModOut := make([]uint64, len(modOut))
-	negInCompInvModOutS := make([]uint64, len(modOut))
+	negInCompInvModOutM := make([]num.MulForm, len(modOut))
 	for i := 0; i < len(modOut); i++ {
 		negInCompInvModOut[i] = 1
 		for j := 0; j < len(modInSorted); j++ {
@@ -973,7 +973,7 @@ func NewVecScaler(modOut, modIn []*num.Modulus) *VecScaler {
 			}
 		}
 		negInCompInvModOut[i] = num.Neg(negInCompInvModOut[i], modOut[i])
-		negInCompInvModOutS[i] = num.SForm(negInCompInvModOut[i], modOut[i])
+		negInCompInvModOutM[i] = num.ToMulForm(negInCompInvModOut[i], modOut[i])
 	}
 
 	return &VecScaler{
@@ -994,17 +994,17 @@ func NewVecScaler(modOut, modIn []*num.Modulus) *VecScaler {
 		idxGCDToIn:  idxGCDToIn,
 
 		modInCompInv:  modCompInv,
-		modInCompInvS: modCompInvS,
+		modInCompInvM: modCompInvM,
 
 		base:  base,
-		baseS: baseS,
+		baseM: baseM,
 
 		inCompModOut: inCompModOut,
 
 		outCompModIn:        outCompModIn,
-		outCompModInS:       outCompModInS,
+		outCompModInM:       outCompModInM,
 		negInCompInvModOut:  negInCompInvModOut,
-		negInCompInvModOutS: negInCompInvModOutS,
+		negInCompInvModOutM: negInCompInvModOutM,
 	}
 }
 
@@ -1082,7 +1082,7 @@ func (sc *VecScaler) ScaleTo(vOut, v [][]uint64) {
 				w := (*[embedBatch]uint64)(unsafe.Add(r, uintptr(k)*L))
 
 				ii := sc.idxInToGCD[i]
-				vec.SMulScalarTo(vBuf[ii][:], w[:], sc.outCompModIn[i], sc.outCompModInS[i], sc.modInSorted[i])
+				vec.FMulScalarTo(vBuf[ii][:], w[:], sc.outCompModIn[i], sc.outCompModInM[i], sc.modInSorted[i])
 			}
 
 			for i := 0; i < outLen; i++ {
@@ -1102,7 +1102,7 @@ func (sc *VecScaler) ScaleTo(vOut, v [][]uint64) {
 			w := v[sc.modInMap[i]][M:]
 
 			ii := sc.idxInToGCD[i]
-			vec.SMulScalarTo(vBuf[ii][:len(v[0])-M], w[:], sc.outCompModIn[i], sc.outCompModInS[i], sc.modInSorted[i])
+			vec.FMulScalarTo(vBuf[ii][:len(v[0])-M], w[:], sc.outCompModIn[i], sc.outCompModInM[i], sc.modInSorted[i])
 		}
 
 		for i := 0; i < outLen; i++ {
@@ -1162,7 +1162,7 @@ func (sc *VecScaler) ScaleTo(vOut, v [][]uint64) {
 
 			ii := sc.idxInToGCD[i]
 			if ii >= 0 {
-				vec.SMulScalarTo(vMul[ii][:], w[:], sc.outCompModIn[i], sc.outCompModInS[i], modIn)
+				vec.FMulScalarTo(vMul[ii][:], w[:], sc.outCompModIn[i], sc.outCompModInM[i], modIn)
 			}
 		}
 
@@ -1174,7 +1174,7 @@ func (sc *VecScaler) ScaleTo(vOut, v [][]uint64) {
 
 			ii := sc.idxInToComp[i]
 			if ii >= 0 {
-				vec.SMulScalarTo(vBuf[ii][:], w[:], sc.outCompModIn[i], sc.outCompModInS[i], modIn)
+				vec.FMulScalarTo(vBuf[ii][:], w[:], sc.outCompModIn[i], sc.outCompModInM[i], modIn)
 			}
 		}
 
@@ -1204,7 +1204,7 @@ func (sc *VecScaler) ScaleTo(vOut, v [][]uint64) {
 				for j := i + 1; j < inLen-gcdLen; j++ {
 					modInComp := sc.modInComp[j]
 					vec.SubTo(vBuf[j][:], vBuf[j][:], wBuf[:], modInComp)
-					vec.SMulScalarTo(vBuf[j][:], vBuf[j][:], sc.modInCompInv[i][j-i-1], sc.modInCompInvS[i][j-i-1], modInComp)
+					vec.FMulScalarTo(vBuf[j][:], vBuf[j][:], sc.modInCompInv[i][j-i-1], sc.modInCompInvM[i][j-i-1], modInComp)
 				}
 			}
 
@@ -1225,13 +1225,13 @@ func (sc *VecScaler) ScaleTo(vOut, v [][]uint64) {
 				rOut := unsafe.Pointer(unsafe.SliceData(vOut[i]))
 				wOut := (*[embedBatch]uint64)(unsafe.Add(rOut, uintptr(k)*L))
 
-				base, baseS := sc.base[i], sc.baseS[i]
+				base, baseS := sc.base[i], sc.baseM[i]
 				inCompModOut := sc.inCompModOut[i]
 				modOut := sc.modOut[i]
 
-				vec.SMulScalarTo(wOut[:], vBuf[0][:], base[0], baseS[0], modOut)
+				vec.FMulScalarTo(wOut[:], vBuf[0][:], base[0], baseS[0], modOut)
 				for j := 1; j < inLen-gcdLen; j++ {
-					vec.SMulAddScalarTo(wOut[:], vBuf[j][:], base[j], baseS[j], modOut)
+					vec.FMulAddScalarTo(wOut[:], vBuf[j][:], base[j], baseS[j], modOut)
 				}
 				vec.MulScalarTo(vCorr[:], vBool[:], inCompModOut, nil)
 				vec.SubTo(wOut[:], wOut[:], vCorr[:], modOut)
@@ -1248,7 +1248,7 @@ func (sc *VecScaler) ScaleTo(vOut, v [][]uint64) {
 			if ii >= 0 {
 				vec.SubTo(wOut[:], wOut[:], vMul[ii][:], modOut)
 			}
-			vec.SMulScalarTo(wOut[:], wOut[:], sc.negInCompInvModOut[i], sc.negInCompInvModOutS[i], modOut)
+			vec.FMulScalarTo(wOut[:], wOut[:], sc.negInCompInvModOut[i], sc.negInCompInvModOutM[i], modOut)
 		}
 	}
 
@@ -1257,7 +1257,7 @@ func (sc *VecScaler) ScaleTo(vOut, v [][]uint64) {
 
 		ii := sc.idxInToGCD[i]
 		if ii >= 0 {
-			vec.SMulScalarTo(vMul[ii][:len(v[0])-M], w[:], sc.outCompModIn[i], sc.outCompModInS[i], sc.modInSorted[i])
+			vec.FMulScalarTo(vMul[ii][:len(v[0])-M], w[:], sc.outCompModIn[i], sc.outCompModInM[i], sc.modInSorted[i])
 		}
 	}
 
@@ -1266,7 +1266,7 @@ func (sc *VecScaler) ScaleTo(vOut, v [][]uint64) {
 
 		ii := sc.idxInToComp[i]
 		if ii >= 0 {
-			vec.SMulScalarTo(vBuf[ii][:len(v[0])-M], w[:], sc.outCompModIn[i], sc.outCompModInS[i], sc.modInSorted[i])
+			vec.FMulScalarTo(vBuf[ii][:len(v[0])-M], w[:], sc.outCompModIn[i], sc.outCompModInM[i], sc.modInSorted[i])
 		}
 	}
 
@@ -1281,7 +1281,7 @@ func (sc *VecScaler) ScaleTo(vOut, v [][]uint64) {
 			wBuf := vBuf[i][:len(v[0])-M]
 			for j := i + 1; j < inLen-gcdLen; j++ {
 				vec.SubTo(vBuf[j][:len(v[0])-M], vBuf[j][:len(v[0])-M], wBuf[:], sc.modInComp[j])
-				vec.SMulScalarTo(vBuf[j][:len(v[0])-M], vBuf[j][:len(v[0])-M], sc.modInCompInv[i][j-i-1], sc.modInCompInvS[i][j-i-1], sc.modInComp[j])
+				vec.FMulScalarTo(vBuf[j][:len(v[0])-M], vBuf[j][:len(v[0])-M], sc.modInCompInv[i][j-i-1], sc.modInCompInvM[i][j-i-1], sc.modInComp[j])
 			}
 		}
 
@@ -1293,13 +1293,13 @@ func (sc *VecScaler) ScaleTo(vOut, v [][]uint64) {
 		for i := 0; i < outLen; i++ {
 			wOut := vOut[i][M:]
 
-			base, baseS := sc.base[i], sc.baseS[i]
+			base, baseS := sc.base[i], sc.baseM[i]
 			inCompModOut := sc.inCompModOut[i]
 			modOut := sc.modOut[i]
 
-			vec.SMulScalarTo(wOut[:], vBuf[0][:len(v[0])-M], base[0], baseS[0], modOut)
+			vec.FMulScalarTo(wOut[:], vBuf[0][:len(v[0])-M], base[0], baseS[0], modOut)
 			for j := 1; j < inLen-gcdLen; j++ {
-				vec.SMulAddScalarTo(wOut[:], vBuf[j][:len(v[0])-M], base[j], baseS[j], modOut)
+				vec.FMulAddScalarTo(wOut[:], vBuf[j][:len(v[0])-M], base[j], baseS[j], modOut)
 			}
 			vec.MulScalarTo(vCorr[:len(v[0])-M], vBool[:len(v[0])-M], inCompModOut, nil)
 			vec.SubTo(wOut[:], wOut[:], vCorr[:len(v[0])-M], modOut)
@@ -1315,7 +1315,7 @@ func (sc *VecScaler) ScaleTo(vOut, v [][]uint64) {
 		if ii >= 0 {
 			vec.SubTo(wOut[:], wOut[:], vMul[ii][:len(v[0])-M], modOut)
 		}
-		vec.SMulScalarTo(wOut[:], wOut[:], sc.negInCompInvModOut[i], sc.negInCompInvModOutS[i], modOut)
+		vec.FMulScalarTo(wOut[:], wOut[:], sc.negInCompInvModOut[i], sc.negInCompInvModOutM[i], modOut)
 	}
 }
 

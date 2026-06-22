@@ -94,6 +94,14 @@ func (q *Modulus) String() string {
 	return fmt.Sprintf("%v", q.modulus)
 }
 
+// MulForm stores precomputed values for modular multiplication.
+type MulForm struct {
+	// Float is the float64 representation of the value.
+	Float float64
+	// SForm is the Shoup Form of the value.
+	SForm uint64
+}
+
 // Add returns x0 + x1 mod q.
 // x0 and x1 must be in [0, q).
 // If q is nil, then it returns x0 + x1.
@@ -129,7 +137,7 @@ func Neg(x uint64, q *Modulus) uint64 {
 // If q is nil, then it returns x0 * x1.
 func Mul(x0, x1 uint64, q *Modulus) uint64 {
 	if q != nil {
-		return modops.Mul(x0, x1, q.modulus, q.div, q.log, q.float, q.floatInv)
+		return modops.Mul(x0, x1, q.modulus, q.div, q.log)
 	}
 	return x0 * x1
 }
@@ -141,18 +149,21 @@ func Reduce[T Integer](x T, q *Modulus) uint64 {
 	return modops.BMod(x, q.modulus, q.div, q.log)
 }
 
-// SForm transforms x into Shoup form.
+// MForm transforms x into [MulForm].
 //
 // Panics if q is nil.
-func SForm(x uint64, q *Modulus) uint64 {
-	return modops.SForm(x, q.modulus)
+func ToMulForm(x uint64, q *Modulus) MulForm {
+	return MulForm{
+		Float: float64(x),
+		SForm: modops.SForm(x, q.modulus),
+	}
 }
 
-// SMul returns x0 * x1 mod q using Shoup multiplication.
+// FMul returns x0 * x1 mod q using [MulForm] of x1.
 //
 // Panics if q is nil.
-func SMul(x0, x1, x1S uint64, q *Modulus) uint64 {
-	return modops.SMul(x0, x1, x1S, q.modulus)
+func FMul(x0, x1 uint64, x1M MulForm, q *Modulus) uint64 {
+	return modops.SMul(x0, x1, x1M.SForm, q.modulus)
 }
 
 // Exp returns x^e mod q.

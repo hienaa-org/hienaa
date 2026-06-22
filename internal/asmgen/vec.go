@@ -502,25 +502,48 @@ func VecMulScalarWordToAVX(avxType AVXType, opType OpType) {
 	RET()
 }
 
-func VecMulScalarToAVX(avxType AVXType, opType OpType) {
-	switch avxType {
-	case TypeAVX2:
-		switch opType {
-		case OpPure:
-			TEXT("mulScalarToAVX2", NOSPLIT, "func(vOut, v []uint64, c, q uint64, qf, qfInv float64)")
-		case OpAdd:
-			TEXT("mulAddScalarToAVX2", NOSPLIT, "func(vOut, v []uint64, c, q uint64, qf, qfInv float64)")
-		case OpSub:
-			TEXT("mulSubScalarToAVX2", NOSPLIT, "func(vOut, v []uint64, c, q uint64, qf, qfInv float64)")
+func VecMulScalarToAVX(avxType AVXType, opType OpType, isFMul bool) {
+	if isFMul {
+		switch avxType {
+		case TypeAVX2:
+			switch opType {
+			case OpPure:
+				TEXT("floatMulScalarToAVX2", NOSPLIT, "func(vOut, v []uint64, c float64, q uint64, qf, qfInv float64)")
+			case OpAdd:
+				TEXT("floatMulAddScalarToAVX2", NOSPLIT, "func(vOut, v []uint64, c float64, q uint64, qf, qfInv float64)")
+			case OpSub:
+				TEXT("floatMulSubScalarToAVX2", NOSPLIT, "func(vOut, v []uint64, c float64, q uint64, qf, qfInv float64)")
+			}
+		case TypeAVX512:
+			switch opType {
+			case OpPure:
+				TEXT("floatMulScalarToAVX512", NOSPLIT, "func(vOut, v []uint64, c float64, q uint64, qf, qfInv float64)")
+			case OpAdd:
+				TEXT("floatMulAddScalarToAVX512", NOSPLIT, "func(vOut, v []uint64, c float64, q uint64, qf, qfInv float64)")
+			case OpSub:
+				TEXT("floatMulSubScalarToAVX512", NOSPLIT, "func(vOut, v []uint64, c float64, q uint64, qf, qfInv float64)")
+			}
 		}
-	case TypeAVX512:
-		switch opType {
-		case OpPure:
-			TEXT("mulScalarToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q uint64, qf, qfInv float64)")
-		case OpAdd:
-			TEXT("mulAddScalarToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q uint64, qf, qfInv float64)")
-		case OpSub:
-			TEXT("mulSubScalarToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q uint64, qf, qfInv float64)")
+	} else {
+		switch avxType {
+		case TypeAVX2:
+			switch opType {
+			case OpPure:
+				TEXT("mulScalarToAVX2", NOSPLIT, "func(vOut, v []uint64, c, q uint64, qf, qfInv float64)")
+			case OpAdd:
+				TEXT("mulAddScalarToAVX2", NOSPLIT, "func(vOut, v []uint64, c, q uint64, qf, qfInv float64)")
+			case OpSub:
+				TEXT("mulSubScalarToAVX2", NOSPLIT, "func(vOut, v []uint64, c, q uint64, qf, qfInv float64)")
+			}
+		case TypeAVX512:
+			switch opType {
+			case OpPure:
+				TEXT("mulScalarToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q uint64, qf, qfInv float64)")
+			case OpAdd:
+				TEXT("mulAddScalarToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q uint64, qf, qfInv float64)")
+			case OpSub:
+				TEXT("mulSubScalarToAVX512", NOSPLIT, "func(vOut, v []uint64, c, q uint64, qf, qfInv float64)")
+			}
 		}
 	}
 	Pragma("noescape")
@@ -538,18 +561,26 @@ func VecMulScalarToAVX(avxType AVXType, opType OpType) {
 	VPBROADCASTQ(NewParamAddr("qf", 64), qf)
 	VPBROADCASTQ(NewParamAddr("qfInv", 72), qfInv)
 
-	c64 := Load(Param("c"), GP64())
-	cf64 := XMM()
-	CVTSQ2SD(c64, cf64)
+	var c64 reg.Register
+	var cf64 reg.Register
+	if !isFMul {
+		c64 = Load(Param("c"), GP64())
+		cf64 = XMM()
+		CVTSQ2SD(c64, cf64)
+	} else {
+		cf64 = Load(Param("c"), XMM())
+	}
 
 	c := VMM(avxType)
 	VPBROADCASTQ(NewParamAddr("c", 48), c)
-	switch avxType {
-	case TypeAVX2:
-		VORPD(cvt52, c, c)
-		VSUBPD(cvt52, c, c)
-	case TypeAVX512:
-		VCVTUQQ2PD(c, c)
+	if !isFMul {
+		switch avxType {
+		case TypeAVX2:
+			VORPD(cvt52, c, c)
+			VSUBPD(cvt52, c, c)
+		case TypeAVX512:
+			VCVTUQQ2PD(c, c)
+		}
 	}
 
 	N := Load(Param("vOut").Len(), GP64())
@@ -1003,25 +1034,48 @@ func VecMulWordToAVX(avxType AVXType, opType OpType) {
 	RET()
 }
 
-func VecMulToAVX(avxType AVXType, opType OpType) {
-	switch avxType {
-	case TypeAVX2:
-		switch opType {
-		case OpPure:
-			TEXT("mulToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64, qf, qfInv float64)")
-		case OpAdd:
-			TEXT("mulAddToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64, qf, qfInv float64)")
-		case OpSub:
-			TEXT("mulSubToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64, qf, qfInv float64)")
+func VecMulToAVX(avxType AVXType, opType OpType, isFMul bool) {
+	if isFMul {
+		switch avxType {
+		case TypeAVX2:
+			switch opType {
+			case OpPure:
+				TEXT("floatMulToAVX2", NOSPLIT, "func(vOut, v0 []uint64, v1 []float64, q uint64, qf, qfInv float64)")
+			case OpAdd:
+				TEXT("floatMulAddToAVX2", NOSPLIT, "func(vOut, v0 []uint64, v1 []float64, q uint64, qf, qfInv float64)")
+			case OpSub:
+				TEXT("floatMulSubToAVX2", NOSPLIT, "func(vOut, v0 []uint64, v1 []float64, q uint64, qf, qfInv float64)")
+			}
+		case TypeAVX512:
+			switch opType {
+			case OpPure:
+				TEXT("floatMulToAVX512", NOSPLIT, "func(vOut, v0 []uint64, v1 []float64, q uint64, qf, qfInv float64)")
+			case OpAdd:
+				TEXT("floatMulAddToAVX512", NOSPLIT, "func(vOut, v0 []uint64, v1 []float64, q uint64, qf, qfInv float64)")
+			case OpSub:
+				TEXT("floatMulSubToAVX512", NOSPLIT, "func(vOut, v0 []uint64, v1 []float64, q uint64, qf, qfInv float64)")
+			}
 		}
-	case TypeAVX512:
-		switch opType {
-		case OpPure:
-			TEXT("mulToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64, qf, qfInv float64)")
-		case OpAdd:
-			TEXT("mulAddToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64, qf, qfInv float64)")
-		case OpSub:
-			TEXT("mulSubToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64, qf, qfInv float64)")
+	} else {
+		switch avxType {
+		case TypeAVX2:
+			switch opType {
+			case OpPure:
+				TEXT("mulToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64, qf, qfInv float64)")
+			case OpAdd:
+				TEXT("mulAddToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64, qf, qfInv float64)")
+			case OpSub:
+				TEXT("mulSubToAVX2", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64, qf, qfInv float64)")
+			}
+		case TypeAVX512:
+			switch opType {
+			case OpPure:
+				TEXT("mulToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64, qf, qfInv float64)")
+			case OpAdd:
+				TEXT("mulAddToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64, qf, qfInv float64)")
+			case OpSub:
+				TEXT("mulSubToAVX512", NOSPLIT, "func(vOut, v0, v1 []uint64, q uint64, qf, qfInv float64)")
+			}
 		}
 	}
 	Pragma("noescape")
@@ -1064,11 +1118,15 @@ func VecMulToAVX(avxType AVXType, opType OpType) {
 	case TypeAVX2:
 		VORPD(cvt52, x0, x0)
 		VSUBPD(cvt52, x0, x0)
-		VORPD(cvt52, x1, x1)
-		VSUBPD(cvt52, x1, x1)
+		if !isFMul {
+			VORPD(cvt52, x1, x1)
+			VSUBPD(cvt52, x1, x1)
+		}
 	case TypeAVX512:
 		VCVTUQQ2PD(x0, x0)
-		VCVTUQQ2PD(x1, x1)
+		if !isFMul {
+			VCVTUQQ2PD(x1, x1)
+		}
 	}
 
 	VMULPD(x0, x1, xMul)
@@ -1146,15 +1204,22 @@ func VecMulToAVX(avxType AVXType, opType OpType) {
 	JMP(LabelRef("leftover_loop_end"))
 	Label("leftover_loop_body")
 
-	y0, y1 := GP64(), GP64()
+	y0 := GP64()
 	MOVQ(Mem{Base: v0, Index: i, Scale: 8}, y0)
-	MOVQ(Mem{Base: v1, Index: i, Scale: 8}, y1)
+
+	y0f := XMM()
+	CVTSQ2SD(y0, y0f)
+
+	y1f := XMM()
+	if !isFMul {
+		y1 := GP64()
+		MOVQ(Mem{Base: v1, Index: i, Scale: 8}, y1)
+		CVTSQ2SD(y1, y1f)
+	} else {
+		MOVQ(Mem{Base: v1, Index: i, Scale: 8}, y1f)
+	}
 
 	yOut := GP64()
-
-	y0f, y1f := XMM(), XMM()
-	CVTSQ2SD(y0, y0f)
-	CVTSQ2SD(y1, y1f)
 
 	yMulf := XMM()
 	MOVSD(y0f, yMulf)

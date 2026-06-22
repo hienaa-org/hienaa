@@ -31,6 +31,8 @@ func testOps(t *testing.T, logQ int) {
 		vOutInit[i] = rSrc.SampleN(q.Value())
 	}
 
+	v1M := vec.ToMulForm(v1, q)
+
 	t.Run(fmt.Sprintf("LogQ=%v", logQ), func(t *testing.T) {
 		t.Run("Add", func(t *testing.T) {
 			vec.AddTo(vOut, v0, v1, q)
@@ -208,9 +210,9 @@ func testOps(t *testing.T, logQ int) {
 			assert.Equal(t, vOutCheck, vOut)
 		})
 
-		v1cS := num.SForm(v1[0], q)
-		t.Run("SMulScalar", func(t *testing.T) {
-			vec.SMulScalarTo(vOut, v0, v1[0], v1cS, q)
+		v1cM := num.MulForm{Float: v1M.Float[0], SForm: v1M.SForm[0]}
+		t.Run("FMulScalar", func(t *testing.T) {
+			vec.FMulScalarTo(vOut, v0, v1[0], v1cM, q)
 			for i := 0; i < N; i++ {
 				vOutCheck[i] = num.Mul(v0[i], v1[0], q)
 			}
@@ -219,11 +221,11 @@ func testOps(t *testing.T, logQ int) {
 			assert.Less(t, vec.Max(vOut), q.Value())
 		})
 
-		t.Run("SMulAddScalar", func(t *testing.T) {
+		t.Run("FMulAddScalar", func(t *testing.T) {
 			copy(vOut, vOutInit)
 			copy(vOutCheck, vOutInit)
 
-			vec.SMulAddScalarTo(vOut, v0, v1[0], v1cS, q)
+			vec.FMulAddScalarTo(vOut, v0, v1[0], v1cM, q)
 			for i := 0; i < N; i++ {
 				vOutCheck[i] = num.Add(vOutCheck[i], num.Mul(v0[i], v1[0], q), q)
 			}
@@ -232,11 +234,11 @@ func testOps(t *testing.T, logQ int) {
 			assert.Less(t, vec.Max(vOut), q.Value())
 		})
 
-		t.Run("SMulSubScalar", func(t *testing.T) {
+		t.Run("FMulSubScalar", func(t *testing.T) {
 			copy(vOut, vOutInit)
 			copy(vOutCheck, vOutInit)
 
-			vec.SMulSubScalarTo(vOut, v0, v1[0], v1cS, q)
+			vec.FMulSubScalarTo(vOut, v0, v1[0], v1cM, q)
 			for i := 0; i < N; i++ {
 				vOutCheck[i] = num.Sub(vOutCheck[i], num.Mul(v0[i], v1[0], q), q)
 			}
@@ -311,10 +313,8 @@ func testOps(t *testing.T, logQ int) {
 			assert.Equal(t, vOutCheck, vOut)
 		})
 
-		v1S := vec.SForm(v1, q)
-
-		t.Run("SMul", func(t *testing.T) {
-			vec.SMulTo(vOut, v0, v1, v1S, q)
+		t.Run("FMul", func(t *testing.T) {
+			vec.FMulTo(vOut, v0, v1, v1M, q)
 			for i := 0; i < N; i++ {
 				vOutCheck[i] = num.Mul(v0[i], v1[i], q)
 			}
@@ -323,26 +323,26 @@ func testOps(t *testing.T, logQ int) {
 			assert.Less(t, vec.Max(vOut), q.Value())
 		})
 
-		t.Run("SMulAdd", func(t *testing.T) {
+		t.Run("FMulAdd", func(t *testing.T) {
 			copy(vOut, vOutInit)
 			copy(vOutCheck, vOutInit)
 
-			vec.SMulAddTo(vOut, v0, v1, v1S, q)
+			vec.FMulAddTo(vOut, v0, v1, v1M, q)
 			for i := 0; i < N; i++ {
-				vOutCheck[i] = num.Add(vOutCheck[i], num.SMul(v0[i], v1[i], v1S[i], q), q)
+				vOutCheck[i] = num.Add(vOutCheck[i], num.Mul(v0[i], v1[i], q), q)
 			}
 			assert.Equal(t, vOutCheck, vOut)
 
 			assert.Less(t, vec.Max(vOut), q.Value())
 		})
 
-		t.Run("SMulSub", func(t *testing.T) {
+		t.Run("FMulSub", func(t *testing.T) {
 			copy(vOut, vOutInit)
 			copy(vOutCheck, vOutInit)
 
-			vec.SMulSubTo(vOut, v0, v1, v1S, q)
+			vec.FMulSubTo(vOut, v0, v1, v1M, q)
 			for i := 0; i < N; i++ {
-				vOutCheck[i] = num.Sub(vOutCheck[i], num.SMul(v0[i], v1[i], v1S[i], q), q)
+				vOutCheck[i] = num.Sub(vOutCheck[i], num.Mul(v0[i], v1[i], q), q)
 			}
 			assert.Equal(t, vOutCheck, vOut)
 
@@ -397,14 +397,14 @@ func benchmarkOps(b *testing.B, logN, logQ int) {
 	N := 1 << logN
 	v0 := make([]uint64, N)
 	v1 := make([]uint64, N)
-	v1S := make([]uint64, N)
 	vOut := make([]uint64, N)
 
 	for i := 0; i < N; i++ {
 		v0[i] = rSrc.SampleN(q.Value())
 		v1[i] = rSrc.SampleN(q.Value())
-		v1S[i] = rSrc.SampleN(q.Value())
 	}
+
+	v1M := vec.ToMulForm(v1, q)
 
 	b.Run(fmt.Sprintf("LogQ=%v", logQ), func(b *testing.B) {
 		b.Run("Add", func(b *testing.B) {
@@ -497,21 +497,22 @@ func benchmarkOps(b *testing.B, logN, logQ int) {
 			}
 		})
 
-		b.Run("SMulScalar", func(b *testing.B) {
+		v1cM := num.ToMulForm(v1[0], q)
+		b.Run("FMulScalar", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				vec.SMulScalarTo(vOut, v0, v1[0], v1S[0], q)
+				vec.FMulScalarTo(vOut, v0, v1[0], v1cM, q)
 			}
 		})
 
-		b.Run("SMulAddScalar", func(b *testing.B) {
+		b.Run("FMulAddScalar", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				vec.SMulAddScalarTo(vOut, v0, v1[0], v1S[0], q)
+				vec.FMulAddScalarTo(vOut, v0, v1[0], v1cM, q)
 			}
 		})
 
-		b.Run("SMulSubScalar", func(b *testing.B) {
+		b.Run("FMulSubScalar", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				vec.SMulSubScalarTo(vOut, v0, v1[0], v1S[0], q)
+				vec.FMulSubScalarTo(vOut, v0, v1[0], v1cM, q)
 			}
 		})
 
@@ -551,27 +552,21 @@ func benchmarkOps(b *testing.B, logN, logQ int) {
 			}
 		})
 
-		b.Run("SForm", func(b *testing.B) {
+		b.Run("FMul", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				vec.SFormTo(vOut, v0, q)
+				vec.FMulTo(vOut, v0, v1, v1M, q)
 			}
 		})
 
-		b.Run("SMul", func(b *testing.B) {
+		b.Run("FMulAdd", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				vec.SMulTo(vOut, v0, v1, v1S, q)
+				vec.FMulAddTo(vOut, v0, v1, v1M, q)
 			}
 		})
 
-		b.Run("SMulAdd", func(b *testing.B) {
+		b.Run("FMulSub", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				vec.SMulAddTo(vOut, v0, v1, v1S, q)
-			}
-		})
-
-		b.Run("SMulSub", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				vec.SMulSubTo(vOut, v0, v1, v1S, q)
+				vec.FMulSubTo(vOut, v0, v1, v1M, q)
 			}
 		})
 

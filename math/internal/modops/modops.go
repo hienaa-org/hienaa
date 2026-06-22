@@ -59,6 +59,19 @@ func BMod[T Integer](x T, q, div, log uint64) uint64 {
 	return BMod64(uint64(x), q, div, log)
 }
 
+// Mul returns x0 * x1 mod q using Barrett reduction.
+func Mul(x0, x1, q, div, log uint64) uint64 {
+	xOutHi, xOutLo := bits.Mul64(x0, x1)
+
+	quo, _ := bits.Mul64(xOutHi<<(64-log)+xOutLo>>log, div)
+
+	xOut := xOutLo - quo*q
+	if xOut >= q {
+		xOut -= q
+	}
+	return xOut
+}
+
 // SForm transforms x into Shoup form.
 func SForm(x, q uint64) uint64 {
 	xS, _ := bits.Div64(x, 0, q)

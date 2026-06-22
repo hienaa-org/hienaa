@@ -46,14 +46,14 @@ func TestOps(t *testing.T) {
 	xMulBig := new(big.Int).Mul(x0Big, x1Big)
 	xMulBig.Mod(xMulBig, qBig)
 
-	t.Run("Barrett", func(t *testing.T) {
+	t.Run("Mul", func(t *testing.T) {
 		xMul := num.Mul(x0, x1, q)
 		assert.Equal(t, xMulBig.Uint64(), xMul)
 	})
 
-	t.Run("Shoup", func(t *testing.T) {
-		x1S := num.SForm(x1, q)
-		xMul := num.SMul(x0, x1, x1S, q)
+	t.Run("FMul", func(t *testing.T) {
+		x1M := num.ToMulForm(x1, q)
+		xMul := num.FMul(x0, x1, x1M, q)
 		assert.Equal(t, xMulBig.Uint64(), xMul)
 	})
 

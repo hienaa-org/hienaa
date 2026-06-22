@@ -13,17 +13,17 @@ type pow2CyclotomicTransformer struct {
 
 	// tw is the twiddle factor for NTT.
 	tw []uint64
-	// twS is the Shoup form of tw.
-	twS []uint64
+	// twM is the MulForm of tw.
+	twM vec.MulForm
 	// twInv is the twiddle factor for InvNTT.
 	twInv []uint64
-	// twInvS is the Shoup form of twInv.
-	twInvS []uint64
+	// twInvM is the MulForm of twInv.
+	twInvM vec.MulForm
 
 	// rankInv is the modular inverse of the rank.
 	rankInv uint64
-	// rankInvS is the Shoup form of rankInv.
-	rankInvS uint64
+	// rankInvM is the MulForm of rankInv.
+	rankInvM num.MulForm
 }
 
 // newPow2CyclotomicTransformer creates a new [pow2CyclotomicTransformer].
@@ -51,12 +51,12 @@ func newPow2CyclotomicTransformer(params RingParameters, mod *num.Modulus) *pow2
 		mod:    mod,
 
 		tw:     tw,
-		twS:    vec.SForm(tw, mod),
+		twM:    vec.ToMulForm(tw, mod),
 		twInv:  twInv,
-		twInvS: vec.SForm(twInv, mod),
+		twInvM: vec.ToMulForm(twInv, mod),
 
 		rankInv:  rankInv,
-		rankInvS: num.SForm(rankInv, mod),
+		rankInvM: num.ToMulForm(rankInv, mod),
 	}
 }
 
@@ -65,7 +65,7 @@ func (ntt *pow2CyclotomicTransformer) ForwardTo(vNTT, v []uint64) {
 	checkLength(ntt.params.rank, len(vNTT), len(v))
 
 	copy(vNTT, v)
-	fwdNTTInPlacePow2(vNTT, ntt.tw, ntt.twS, ntt.mod.Value())
+	fwdNTTInPlacePow2(vNTT, ntt.tw, ntt.twM.SForm, ntt.mod.Value())
 }
 
 // InverseTo transforms the uint64 vector to Standard form.
@@ -73,8 +73,8 @@ func (ntt *pow2CyclotomicTransformer) InverseTo(v, vNTT []uint64) {
 	checkLength(ntt.params.rank, len(vNTT), len(v))
 
 	copy(v, vNTT)
-	invNTTInPlacePow2(v, ntt.twInv, ntt.twInvS, ntt.mod.Value())
-	vec.SMulScalarTo(v, v, ntt.rankInv, ntt.rankInvS, ntt.mod)
+	invNTTInPlacePow2(v, ntt.twInv, ntt.twInvM.SForm, ntt.mod.Value())
+	vec.FMulScalarTo(v, v, ntt.rankInv, ntt.rankInvM, ntt.mod)
 }
 
 // Params returns the ring parameters.

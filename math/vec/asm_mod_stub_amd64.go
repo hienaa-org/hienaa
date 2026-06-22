@@ -101,6 +101,24 @@ func mulAddScalarToAVX512(vOut []uint64, v []uint64, c uint64, q uint64, qf floa
 func mulSubScalarToAVX512(vOut []uint64, v []uint64, c uint64, q uint64, qf float64, qfInv float64)
 
 //go:noescape
+func floatMulScalarToAVX2(vOut []uint64, v []uint64, c float64, q uint64, qf float64, qfInv float64)
+
+//go:noescape
+func floatMulAddScalarToAVX2(vOut []uint64, v []uint64, c float64, q uint64, qf float64, qfInv float64)
+
+//go:noescape
+func floatMulSubScalarToAVX2(vOut []uint64, v []uint64, c float64, q uint64, qf float64, qfInv float64)
+
+//go:noescape
+func floatMulScalarToAVX512(vOut []uint64, v []uint64, c float64, q uint64, qf float64, qfInv float64)
+
+//go:noescape
+func floatMulAddScalarToAVX512(vOut []uint64, v []uint64, c float64, q uint64, qf float64, qfInv float64)
+
+//go:noescape
+func floatMulSubScalarToAVX512(vOut []uint64, v []uint64, c float64, q uint64, qf float64, qfInv float64)
+
+//go:noescape
 func sMulScalarToAVX512(vOut []uint64, v []uint64, c uint64, cS uint64, q uint64)
 
 //go:noescape
@@ -153,6 +171,24 @@ func mulAddToAVX512(vOut []uint64, v0 []uint64, v1 []uint64, q uint64, qf float6
 
 //go:noescape
 func mulSubToAVX512(vOut []uint64, v0 []uint64, v1 []uint64, q uint64, qf float64, qfInv float64)
+
+//go:noescape
+func floatMulToAVX2(vOut []uint64, v0 []uint64, v1 []float64, q uint64, qf float64, qfInv float64)
+
+//go:noescape
+func floatMulAddToAVX2(vOut []uint64, v0 []uint64, v1 []float64, q uint64, qf float64, qfInv float64)
+
+//go:noescape
+func floatMulSubToAVX2(vOut []uint64, v0 []uint64, v1 []float64, q uint64, qf float64, qfInv float64)
+
+//go:noescape
+func floatMulToAVX512(vOut []uint64, v0 []uint64, v1 []float64, q uint64, qf float64, qfInv float64)
+
+//go:noescape
+func floatMulAddToAVX512(vOut []uint64, v0 []uint64, v1 []float64, q uint64, qf float64, qfInv float64)
+
+//go:noescape
+func floatMulSubToAVX512(vOut []uint64, v0 []uint64, v1 []float64, q uint64, qf float64, qfInv float64)
 
 //go:noescape
 func sMulToAVX512(vOut []uint64, v0 []uint64, v1 []uint64, v1S []uint64, q uint64)

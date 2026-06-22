@@ -57,13 +57,21 @@ func main() {
 		VecMulScalarWordToAVX(TypeAVX512, OpAdd)
 		VecMulScalarWordToAVX(TypeAVX512, OpSub)
 
-		VecMulScalarToAVX(TypeAVX2, OpPure)
-		VecMulScalarToAVX(TypeAVX2, OpAdd)
-		VecMulScalarToAVX(TypeAVX2, OpSub)
+		VecMulScalarToAVX(TypeAVX2, OpPure, false)
+		VecMulScalarToAVX(TypeAVX2, OpAdd, false)
+		VecMulScalarToAVX(TypeAVX2, OpSub, false)
 
-		VecMulScalarToAVX(TypeAVX512, OpPure)
-		VecMulScalarToAVX(TypeAVX512, OpAdd)
-		VecMulScalarToAVX(TypeAVX512, OpSub)
+		VecMulScalarToAVX(TypeAVX512, OpPure, false)
+		VecMulScalarToAVX(TypeAVX512, OpAdd, false)
+		VecMulScalarToAVX(TypeAVX512, OpSub, false)
+
+		VecMulScalarToAVX(TypeAVX2, OpPure, true)
+		VecMulScalarToAVX(TypeAVX2, OpAdd, true)
+		VecMulScalarToAVX(TypeAVX2, OpSub, true)
+
+		VecMulScalarToAVX(TypeAVX512, OpPure, true)
+		VecMulScalarToAVX(TypeAVX512, OpAdd, true)
+		VecMulScalarToAVX(TypeAVX512, OpSub, true)
 
 		VecSMulScalarToAVX(TypeAVX512, OpPure)
 		VecSMulScalarToAVX(TypeAVX512, OpAdd)
@@ -81,13 +89,21 @@ func main() {
 		VecMulWordToAVX(TypeAVX512, OpAdd)
 		VecMulWordToAVX(TypeAVX512, OpSub)
 
-		VecMulToAVX(TypeAVX2, OpPure)
-		VecMulToAVX(TypeAVX2, OpAdd)
-		VecMulToAVX(TypeAVX2, OpSub)
+		VecMulToAVX(TypeAVX2, OpPure, false)
+		VecMulToAVX(TypeAVX2, OpAdd, false)
+		VecMulToAVX(TypeAVX2, OpSub, false)
 
-		VecMulToAVX(TypeAVX512, OpPure)
-		VecMulToAVX(TypeAVX512, OpAdd)
-		VecMulToAVX(TypeAVX512, OpSub)
+		VecMulToAVX(TypeAVX512, OpPure, false)
+		VecMulToAVX(TypeAVX512, OpAdd, false)
+		VecMulToAVX(TypeAVX512, OpSub, false)
+
+		VecMulToAVX(TypeAVX2, OpPure, true)
+		VecMulToAVX(TypeAVX2, OpAdd, true)
+		VecMulToAVX(TypeAVX2, OpSub, true)
+
+		VecMulToAVX(TypeAVX512, OpPure, true)
+		VecMulToAVX(TypeAVX512, OpAdd, true)
+		VecMulToAVX(TypeAVX512, OpSub, true)
 
 		VecSMulToAVX(TypeAVX512, OpPure)
 		VecSMulToAVX(TypeAVX512, OpAdd)

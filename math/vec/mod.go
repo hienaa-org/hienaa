@@ -7,6 +7,14 @@ import (
 	"github.com/hienaa-org/hienaa/math/num"
 )
 
+// MulForm stores precomputed values for modular multiplication.
+type MulForm struct {
+	// Float is the float64 representation of the value.
+	Float []float64
+	// SForm is the Shoup Form of the value.
+	SForm []uint64
+}
+
 // Add returns v0 + v1 mod q.
 // v0 and v1 must be in [0, q).
 // If q is nil, then it returns v0 + v1.
@@ -63,7 +71,7 @@ func NegTo(vOut, v []uint64, q *num.Modulus) {
 	negWordTo(vOut, v)
 }
 
-// MulScalar returns v * c mod q using Barrett or Float reduction.
+// MulScalar returns v * c mod q.
 // v and c must be in [0, q).
 // If q is nil, then it returns v * c.
 func MulScalar(v []uint64, c uint64, q *num.Modulus) []uint64 {
@@ -72,7 +80,7 @@ func MulScalar(v []uint64, c uint64, q *num.Modulus) []uint64 {
 	return vOut
 }
 
-// MulScalarTo computes vOut = v * c mod q using Barrett or Float reduction.
+// MulScalarTo computes vOut = v * c mod q.
 // v and c must be in [0, q).
 // If q is nil, then it returns v * c.
 func MulScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
@@ -83,7 +91,7 @@ func MulScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	mulScalarWordTo(vOut, v, c)
 }
 
-// MulAddScalarTo computes vOut += v * c mod q using Barrett or Float reduction.
+// MulAddScalarTo computes vOut += v * c mod q.
 // v and c must be in [0, q).
 // If q is nil, then it returns vOut += v * c.
 func MulAddScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
@@ -105,16 +113,16 @@ func MulSubScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
 	mulSubScalarWordTo(vOut, v, c)
 }
 
-// SMulScalar returns v * c mod q using Shoup multiplication.
+// FMulScalar returns v * c mod q using [num.MulForm] of c.
 //
 // Panics if q is nil.
-func SMulScalar(v []uint64, c, cS uint64, q *num.Modulus) []uint64 {
+func FMulScalar(v []uint64, c uint64, cM num.MulForm, q *num.Modulus) []uint64 {
 	vOut := make([]uint64, len(v))
-	SMulScalarTo(vOut, v, c, cS, q)
+	FMulScalarTo(vOut, v, c, cM, q)
 	return vOut
 }
 
-// Mul returns v0 * v1 mod q using Barrett or Float reduction.
+// Mul returns v0 * v1 mod q.
 // v0 and v1 must be in [0, q).
 func Mul(v0, v1 []uint64, q *num.Modulus) []uint64 {
 	vOut := make([]uint64, len(v0))
@@ -122,7 +130,7 @@ func Mul(v0, v1 []uint64, q *num.Modulus) []uint64 {
 	return vOut
 }
 
-// MulTo computes vOut = v0 * v1 mod q using Barrett or Float reduction.
+// MulTo computes vOut = v0 * v1 mod q.
 // v0 and v1 must be in [0, q).
 // If q is nil, then it returns v0 * v1.
 func MulTo(vOut, v0, v1 []uint64, q *num.Modulus) {
@@ -133,7 +141,7 @@ func MulTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 	mulWordTo(vOut, v0, v1)
 }
 
-// MulAddTo computes vOut += v0 * v1 mod q using Barrett or Float reduction.
+// MulAddTo computes vOut += v0 * v1 mod q.
 // v0 and v1 must be in [0, q).
 // If q is nil, then it returns vOut += v0 * v1.
 func MulAddTo(vOut, v0, v1 []uint64, q *num.Modulus) {
@@ -144,7 +152,7 @@ func MulAddTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 	mulAddWordTo(vOut, v0, v1)
 }
 
-// MulSubTo computes vOut -= v0 * v1 mod q using Barrett or Float reduction.
+// MulSubTo computes vOut -= v0 * v1 mod q.
 // v0 and v1 must be in [0, q).
 // If q is nil, then it returns vOut -= v0 * v1.
 func MulSubTo(vOut, v0, v1 []uint64, q *num.Modulus) {
@@ -155,55 +163,65 @@ func MulSubTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 	mulSubWordTo(vOut, v0, v1)
 }
 
-// SForm returns v in Shoup form.
+// ToMulForm transforms v into [MulForm].
 //
-// Panics if q is nil.
-func SForm(v []uint64, q *num.Modulus) []uint64 {
-	vOutS := make([]uint64, len(v))
-	SFormTo(vOutS, v, q)
-	return vOutS
-}
-
-// SFormTo transforms v to Shoup form to vOutS.
-//
-// Panics if q is nil.
-func SFormTo(vOutS, v []uint64, q *num.Modulus) {
-	checkLength(len(vOutS), len(v))
+// Panics if q is nil
+func ToMulForm(v []uint64, q *num.Modulus) MulForm {
+	vF := make([]float64, len(v))
+	vS := make([]uint64, len(v))
 
 	qv := q.Value()
 
-	M := (len(vOutS) >> 3) << 3
+	M := (len(v) >> 3) << 3
 	L := unsafe.Sizeof(uint64(0))
 
-	rOut := unsafe.Pointer(unsafe.SliceData(vOutS))
+	rF := unsafe.Pointer(unsafe.SliceData(vF))
+	rS := unsafe.Pointer(unsafe.SliceData(vS))
 	r := unsafe.Pointer(unsafe.SliceData(v))
 
 	for i := 0; i < M; i += 8 {
-		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		wF := (*[8]float64)(unsafe.Add(rF, uintptr(i)*L))
+		wS := (*[8]uint64)(unsafe.Add(rS, uintptr(i)*L))
 		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
 
-		wOut[0] = modops.SForm(w[0], qv)
-		wOut[1] = modops.SForm(w[1], qv)
-		wOut[2] = modops.SForm(w[2], qv)
-		wOut[3] = modops.SForm(w[3], qv)
+		wF[0] = float64(w[0])
+		wF[1] = float64(w[1])
+		wF[2] = float64(w[2])
+		wF[3] = float64(w[3])
 
-		wOut[4] = modops.SForm(w[4], qv)
-		wOut[5] = modops.SForm(w[5], qv)
-		wOut[6] = modops.SForm(w[6], qv)
-		wOut[7] = modops.SForm(w[7], qv)
+		wF[4] = float64(w[4])
+		wF[5] = float64(w[5])
+		wF[6] = float64(w[6])
+		wF[7] = float64(w[7])
+
+		wS[0] = modops.SForm(w[0], qv)
+		wS[1] = modops.SForm(w[1], qv)
+		wS[2] = modops.SForm(w[2], qv)
+		wS[3] = modops.SForm(w[3], qv)
+
+		wS[4] = modops.SForm(w[4], qv)
+		wS[5] = modops.SForm(w[5], qv)
+		wS[6] = modops.SForm(w[6], qv)
+		wS[7] = modops.SForm(w[7], qv)
 	}
 
-	for i := M; i < len(vOutS); i++ {
-		vOutS[i] = modops.SForm(v[i], qv)
+	for i := M; i < len(v); i++ {
+		vF[i] = float64(v[i])
+		vS[i] = modops.SForm(v[i], qv)
+	}
+
+	return MulForm{
+		Float: vF,
+		SForm: vS,
 	}
 }
 
-// SMul returns v0 * v1 mod q using Shoup multiplication.
+// FMul returns v0 * v1 mod q using [MulForm] of v1.
 //
 // Panics if q is nil.
-func SMul(v0, v1, v1S []uint64, q *num.Modulus) []uint64 {
+func FMul(v0, v1 []uint64, v1M MulForm, q *num.Modulus) []uint64 {
 	vOut := make([]uint64, len(v0))
-	SMulTo(vOut, v0, v1, v1S, q)
+	FMulTo(vOut, v0, v1, v1M, q)
 	return vOut
 }
 

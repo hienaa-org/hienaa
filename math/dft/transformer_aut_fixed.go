@@ -15,17 +15,17 @@ type pow2AutFixedTransformer struct {
 
 	// tw is the twiddle factor for NTT.
 	tw []uint64
+	// twM is the MulForm of tw.
+	twM vec.MulForm
 	// twInv is the twiddle factor for InvNTT.
 	twInv []uint64
-	// twS is the Shoup form of tw.
-	twS []uint64
-	// twInvS is the Shoup form of twInv.
-	twInvS []uint64
+	// twInvM is the MulForm of twInv.
+	twInvM vec.MulForm
 
 	// rankInv is the modular inverse of the rank.
 	rankInv uint64
-	// rankInvS is the Shoup Form of rankInv.
-	rankInvS uint64
+	// rankInvM is the MulForm of rankInv.
+	rankInvM num.MulForm
 
 	pool *pool.Pool[*[]uint64]
 }
@@ -55,13 +55,6 @@ func newPow2AutFixedTransformer(params RingParameters, mod *num.Modulus) *pow2Au
 		copy(twInv[m:2*m], twInvLarge[2*m:3*m])
 	}
 
-	twS := make([]uint64, params.rank)
-	twInvS := make([]uint64, params.rank)
-	for i := 0; i < params.rank; i++ {
-		twS[i] = num.SForm(tw[i], mod)
-		twInvS[i] = num.SForm(twInv[i], mod)
-	}
-
 	rankInv := num.Inv(uint64(2*params.rank), mod)
 
 	return &pow2AutFixedTransformer{
@@ -69,12 +62,12 @@ func newPow2AutFixedTransformer(params RingParameters, mod *num.Modulus) *pow2Au
 		mod:    mod,
 
 		tw:     tw,
-		twS:    twS,
+		twM:    vec.ToMulForm(tw, mod),
 		twInv:  twInv,
-		twInvS: twInvS,
+		twInvM: vec.ToMulForm(twInv, mod),
 
 		rankInv:  rankInv,
-		rankInvS: num.SForm(rankInv, mod),
+		rankInvM: num.ToMulForm(rankInv, mod),
 
 		pool: pool.NewPool(func() *[]uint64 {
 			v := make([]uint64, params.rank)
@@ -91,7 +84,11 @@ func (ntt *pow2AutFixedTransformer) ForwardTo(vNTT, v []uint64) {
 	vBuf := *vBufPtr
 	defer ntt.pool.Put(vBufPtr)
 
-	tw0Neg, tw0NegS := ntt.mod.Value()-ntt.tw[0], -ntt.twS[0]-1
+	tw0Neg := ntt.mod.Value() - ntt.tw[0]
+	tw0NegM := num.MulForm{
+		Float: float64(tw0Neg),
+		SForm: -ntt.twM.SForm[0] - 1,
+	}
 
 	M := ((ntt.params.rank - 1) >> 3) << 3
 	L := unsafe.Sizeof(uint64(0))
@@ -105,22 +102,22 @@ func (ntt *pow2AutFixedTransformer) ForwardTo(vNTT, v []uint64) {
 		w := (*[8]uint64)(unsafe.Add(r, uintptr(1+i)*L))
 		wRev := (*[8]uint64)(unsafe.Add(r, uintptr(ntt.params.rank-(i+8))*L))
 
-		wOut[0] = num.Add(w[0], num.SMul(wRev[7], tw0Neg, tw0NegS, ntt.mod), ntt.mod)
-		wOut[1] = num.Add(w[1], num.SMul(wRev[6], tw0Neg, tw0NegS, ntt.mod), ntt.mod)
-		wOut[2] = num.Add(w[2], num.SMul(wRev[5], tw0Neg, tw0NegS, ntt.mod), ntt.mod)
-		wOut[3] = num.Add(w[3], num.SMul(wRev[4], tw0Neg, tw0NegS, ntt.mod), ntt.mod)
+		wOut[0] = num.Add(w[0], num.FMul(wRev[7], tw0Neg, tw0NegM, ntt.mod), ntt.mod)
+		wOut[1] = num.Add(w[1], num.FMul(wRev[6], tw0Neg, tw0NegM, ntt.mod), ntt.mod)
+		wOut[2] = num.Add(w[2], num.FMul(wRev[5], tw0Neg, tw0NegM, ntt.mod), ntt.mod)
+		wOut[3] = num.Add(w[3], num.FMul(wRev[4], tw0Neg, tw0NegM, ntt.mod), ntt.mod)
 
-		wOut[4] = num.Add(w[4], num.SMul(wRev[3], tw0Neg, tw0NegS, ntt.mod), ntt.mod)
-		wOut[5] = num.Add(w[5], num.SMul(wRev[2], tw0Neg, tw0NegS, ntt.mod), ntt.mod)
-		wOut[6] = num.Add(w[6], num.SMul(wRev[1], tw0Neg, tw0NegS, ntt.mod), ntt.mod)
-		wOut[7] = num.Add(w[7], num.SMul(wRev[0], tw0Neg, tw0NegS, ntt.mod), ntt.mod)
+		wOut[4] = num.Add(w[4], num.FMul(wRev[3], tw0Neg, tw0NegM, ntt.mod), ntt.mod)
+		wOut[5] = num.Add(w[5], num.FMul(wRev[2], tw0Neg, tw0NegM, ntt.mod), ntt.mod)
+		wOut[6] = num.Add(w[6], num.FMul(wRev[1], tw0Neg, tw0NegM, ntt.mod), ntt.mod)
+		wOut[7] = num.Add(w[7], num.FMul(wRev[0], tw0Neg, tw0NegM, ntt.mod), ntt.mod)
 	}
 
 	for i := M + 1; i < ntt.params.rank; i++ {
-		vBuf[i] = num.Add(v[i], num.SMul(v[ntt.params.rank-i], tw0Neg, tw0NegS, ntt.mod), ntt.mod)
+		vBuf[i] = num.Add(v[i], num.FMul(v[ntt.params.rank-i], tw0Neg, tw0NegM, ntt.mod), ntt.mod)
 	}
 
-	fwdNTTInPlacePow2(vBuf, ntt.tw, ntt.twS, ntt.mod.Value())
+	fwdNTTInPlacePow2(vBuf, ntt.tw, ntt.twM.SForm, ntt.mod.Value())
 	copy(vNTT, vBuf)
 }
 
@@ -129,11 +126,16 @@ func (ntt *pow2AutFixedTransformer) InverseTo(v, vNTT []uint64) {
 	checkLength(ntt.params.rank, len(vNTT), len(v))
 
 	copy(v, vNTT)
-	invNTTInPlacePow2(v, ntt.twInv, ntt.twInvS, ntt.mod.Value())
+	invNTTInPlacePow2(v, ntt.twInv, ntt.twInvM.SForm, ntt.mod.Value())
 
 	vBufPtr := ntt.pool.Get()
 	vBuf := *vBufPtr
 	defer ntt.pool.Put(vBufPtr)
+
+	tw0M := num.MulForm{
+		Float: ntt.twM.Float[0],
+		SForm: ntt.twM.SForm[0],
+	}
 
 	M := ((ntt.params.rank - 1) >> 3) << 3
 	L := unsafe.Sizeof(uint64(0))
@@ -147,22 +149,22 @@ func (ntt *pow2AutFixedTransformer) InverseTo(v, vNTT []uint64) {
 		w := (*[8]uint64)(unsafe.Add(r, uintptr(1+i)*L))
 		wRev := (*[8]uint64)(unsafe.Add(r, uintptr(ntt.params.rank-(i+8))*L))
 
-		wOut[0] = num.Add(w[0], num.SMul(wRev[7], ntt.tw[0], ntt.twS[0], ntt.mod), ntt.mod)
-		wOut[1] = num.Add(w[1], num.SMul(wRev[6], ntt.tw[0], ntt.twS[0], ntt.mod), ntt.mod)
-		wOut[2] = num.Add(w[2], num.SMul(wRev[5], ntt.tw[0], ntt.twS[0], ntt.mod), ntt.mod)
-		wOut[3] = num.Add(w[3], num.SMul(wRev[4], ntt.tw[0], ntt.twS[0], ntt.mod), ntt.mod)
+		wOut[0] = num.Add(w[0], num.FMul(wRev[7], ntt.tw[0], tw0M, ntt.mod), ntt.mod)
+		wOut[1] = num.Add(w[1], num.FMul(wRev[6], ntt.tw[0], tw0M, ntt.mod), ntt.mod)
+		wOut[2] = num.Add(w[2], num.FMul(wRev[5], ntt.tw[0], tw0M, ntt.mod), ntt.mod)
+		wOut[3] = num.Add(w[3], num.FMul(wRev[4], ntt.tw[0], tw0M, ntt.mod), ntt.mod)
 
-		wOut[4] = num.Add(w[4], num.SMul(wRev[3], ntt.tw[0], ntt.twS[0], ntt.mod), ntt.mod)
-		wOut[5] = num.Add(w[5], num.SMul(wRev[2], ntt.tw[0], ntt.twS[0], ntt.mod), ntt.mod)
-		wOut[6] = num.Add(w[6], num.SMul(wRev[1], ntt.tw[0], ntt.twS[0], ntt.mod), ntt.mod)
-		wOut[7] = num.Add(w[7], num.SMul(wRev[0], ntt.tw[0], ntt.twS[0], ntt.mod), ntt.mod)
+		wOut[4] = num.Add(w[4], num.FMul(wRev[3], ntt.tw[0], tw0M, ntt.mod), ntt.mod)
+		wOut[5] = num.Add(w[5], num.FMul(wRev[2], ntt.tw[0], tw0M, ntt.mod), ntt.mod)
+		wOut[6] = num.Add(w[6], num.FMul(wRev[1], ntt.tw[0], tw0M, ntt.mod), ntt.mod)
+		wOut[7] = num.Add(w[7], num.FMul(wRev[0], ntt.tw[0], tw0M, ntt.mod), ntt.mod)
 	}
 
 	for i := M + 1; i < ntt.params.rank; i++ {
-		vBuf[i] = num.Add(v[i], num.SMul(v[ntt.params.rank-i], ntt.tw[0], ntt.twS[0], ntt.mod), ntt.mod)
+		vBuf[i] = num.Add(v[i], num.FMul(v[ntt.params.rank-i], ntt.tw[0], tw0M, ntt.mod), ntt.mod)
 	}
 
-	vec.SMulScalarTo(v, vBuf, ntt.rankInv, ntt.rankInvS, ntt.mod)
+	vec.FMulScalarTo(v, vBuf, ntt.rankInv, ntt.rankInvM, ntt.mod)
 }
 
 // Params returns the ring parameters.
@@ -188,20 +190,24 @@ type primeAutFixedTransformer struct {
 	// root is the sum of powers of primitive root.
 	// Pre-transformed for a fast convolution.
 	root []uint64
+	// rootM is the MulForm of root.
+	rootM vec.MulForm
 	// rootInv is the sum of powers of inverse primitive root.
 	// Pre-transformed for a fast convolution.
 	rootInv []uint64
+	// rootInvM is the MulForm of rootInv.
+	rootInvM vec.MulForm
 
 	// fold is cyclotomic index divided by rank.
 	fold uint64
 	// ambRankInv is the modular inverse of the rank of the ambient NTT in Montgomery form.
 	ambRankInv uint64
-	// ambRankInvS is the Shoup Form of ambRankInv.
-	ambRankInvS uint64
+	// ambRankInvM is the MulForm of ambRankInv.
+	ambRankInvM num.MulForm
 	// cycloIdxInv is the modular inverse of the cyclotomic index.
 	cycloIdxInv uint64
-	// cycloIdxInvS is the Shoup Form of cycloIdxInv.
-	cycloIdxInvS uint64
+	// cycloIdxInvM is the MulForm of cycloIdxInv.
+	cycloIdxInvM num.MulForm
 
 	pool *pool.Pool[*[]uint64]
 }
@@ -262,14 +268,16 @@ func newPrimeAutFixedTransformer(params RingParameters, mod *num.Modulus) *prime
 
 		isPow2: isPow2,
 
-		root:    modRootPowSum,
-		rootInv: modRootPowInvSum,
+		root:     modRootPowSum,
+		rootM:    vec.ToMulForm(modRootPowSum, mod),
+		rootInv:  modRootPowInvSum,
+		rootInvM: vec.ToMulForm(modRootPowInvSum, mod),
 
 		fold:         uint64(fold),
 		ambRankInv:   ambRankInv,
-		ambRankInvS:  num.SForm(ambRankInv, mod),
+		ambRankInvM:  num.ToMulForm(ambRankInv, mod),
 		cycloIdxInv:  cycloIdxInv,
-		cycloIdxInvS: num.SForm(cycloIdxInv, mod),
+		cycloIdxInvM: num.ToMulForm(cycloIdxInv, mod),
 
 		pool: pool.NewPool(func() *[]uint64 {
 			v := make([]uint64, ambRank)
@@ -314,12 +322,12 @@ func (ntt *primeAutFixedTransformer) ForwardTo(vNTT, v []uint64) {
 
 	clear(vBuf[ntt.params.rank:])
 
-	fwdNTTInPlacePow2(vBuf, ntt.ambNTT.tw[0], ntt.ambNTT.twS[0], ntt.mod.Value())
+	fwdNTTInPlacePow2(vBuf, ntt.ambNTT.tw[0], ntt.ambNTT.twM[0].SForm, ntt.mod.Value())
 
-	vec.MulTo(vBuf, vBuf, ntt.root, ntt.mod)
+	vec.FMulTo(vBuf, vBuf, ntt.root, ntt.rootM, ntt.mod)
 
-	invNTTInPlacePow2(vBuf, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvS[0], ntt.mod.Value())
-	vec.SMulScalarTo(vBuf, vBuf, ntt.ambRankInv, ntt.ambRankInvS, ntt.mod)
+	invNTTInPlacePow2(vBuf, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvM[0].SForm, ntt.mod.Value())
+	vec.FMulScalarTo(vBuf, vBuf, ntt.ambRankInv, ntt.ambRankInvM, ntt.mod)
 
 	if ntt.isPow2 {
 		copy(vNTT, vBuf)
@@ -376,13 +384,13 @@ func (ntt *primeAutFixedTransformer) InverseTo(v, vNTT []uint64) {
 
 	clear(vBuf[ntt.params.rank:])
 
-	fwdNTTInPlacePow2(vBuf, ntt.ambNTT.tw[0], ntt.ambNTT.twS[0], ntt.mod.Value())
+	fwdNTTInPlacePow2(vBuf, ntt.ambNTT.tw[0], ntt.ambNTT.twM[0].SForm, ntt.mod.Value())
 
-	vec.MulTo(vBuf, vBuf, ntt.rootInv, ntt.mod)
+	vec.FMulTo(vBuf, vBuf, ntt.rootInv, ntt.rootInvM, ntt.mod)
 
-	invNTTInPlacePow2(vBuf, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvS[0], ntt.mod.Value())
+	invNTTInPlacePow2(vBuf, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvM[0].SForm, ntt.mod.Value())
 
-	vec.MulScalarTo(vBuf, vBuf, ntt.ambNTT.rankInv, ntt.mod)
+	vec.FMulScalarTo(vBuf, vBuf, ntt.ambNTT.rankInv, ntt.ambNTT.rankInvM, ntt.mod)
 
 	if !ntt.isPow2 {
 		vec.AddTo(vBuf[:ntt.params.rank-1], vBuf[:ntt.params.rank-1], vBuf[ntt.params.rank:2*ntt.params.rank-1], ntt.mod)
@@ -390,7 +398,7 @@ func (ntt *primeAutFixedTransformer) InverseTo(v, vNTT []uint64) {
 
 	sumFold = num.Mul(sumFold, ntt.fold, ntt.mod)
 	vec.SubScalarTo(v, vBuf[:ntt.params.rank], sumFold, ntt.mod)
-	vec.SMulScalarTo(v, v, ntt.cycloIdxInv, ntt.cycloIdxInvS, ntt.mod)
+	vec.FMulScalarTo(v, v, ntt.cycloIdxInv, ntt.cycloIdxInvM, ntt.mod)
 }
 
 // Params returns the ring parameters.
