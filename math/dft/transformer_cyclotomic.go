@@ -65,16 +65,15 @@ func (ntt *pow2CyclotomicTransformer) ForwardTo(vNTT, v []uint64) {
 	checkLength(ntt.params.rank, len(vNTT), len(v))
 
 	copy(vNTT, v)
-	fwdNTTInPlacePow2(vNTT, ntt.tw, ntt.twM.SForm, ntt.mod.Value())
+	fwdNTTInPlacePow2(vNTT, ntt.tw, ntt.twM, ntt.mod)
 }
 
 // InverseTo transforms the uint64 vector to Standard form.
 func (ntt *pow2CyclotomicTransformer) InverseTo(v, vNTT []uint64) {
 	checkLength(ntt.params.rank, len(vNTT), len(v))
 
-	copy(v, vNTT)
-	invNTTInPlacePow2(v, ntt.twInv, ntt.twInvM.SForm, ntt.mod.Value())
-	vec.FMulScalarTo(v, v, ntt.rankInv, ntt.rankInvM, ntt.mod)
+	vec.FMulScalarTo(v, vNTT, ntt.rankInv, ntt.rankInvM, ntt.mod)
+	invNTTInPlacePow2(v, ntt.twInv, ntt.twInvM, ntt.mod)
 }
 
 // Params returns the ring parameters.

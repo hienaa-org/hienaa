@@ -4,15 +4,22 @@ import (
 	"math/bits"
 
 	"github.com/hienaa-org/hienaa/math/internal/modops"
+	"github.com/hienaa-org/hienaa/math/num"
+	"github.com/hienaa-org/hienaa/math/vec"
+)
+
+const (
+	nttUnrollBound  = 64
+	nttRecurseBound = 2048
 )
 
 // fwdNTTInPlacePow2 computes the NTT transform in-place for power-of-two length coefficients.
-func fwdNTTInPlacePow2(coeffs, tw, twS []uint64, q uint64) {
-	if len(coeffs) < 32 {
-		fwdNTTInPlacePow2Ref(coeffs, tw, twS, q)
+func fwdNTTInPlacePow2(coeffs, tw []uint64, twM vec.MulForm, q *num.Modulus) {
+	if len(coeffs) < nttUnrollBound {
+		fwdNTTInPlacePow2Ref(coeffs, tw, twM, q)
 		return
 	}
-	fwdNTTInPlacePow2Unroll(coeffs, tw, twS, q)
+	fwdNTTInPlacePow2Unroll(coeffs, tw, twM, q)
 }
 
 // fwdButterflyPow2 returns the Harvey butterfly.
@@ -26,9 +33,10 @@ func fwdButterflyPow2(u, v, w, wS, q, twoQ uint64) (uint64, uint64) {
 }
 
 // fwdNTTInPlacePow2Ref computes the NTT transform in-place for power-of-two length coefficients.
-func fwdNTTInPlacePow2Ref(coeffs, tw, twS []uint64, q uint64) {
+func fwdNTTInPlacePow2Ref(coeffs, tw []uint64, twM vec.MulForm, q *num.Modulus) {
 	N := len(coeffs)
-	twoQ := q << 1
+	qv := q.Value()
+	twoQv := qv << 1
 
 	t := N
 	for m := 1; m <= N/2; m <<= 1 {
@@ -36,25 +44,23 @@ func fwdNTTInPlacePow2Ref(coeffs, tw, twS []uint64, q uint64) {
 		for i := 0; i < m; i++ {
 			j1 := i * t << 1
 			j2 := j1 + t
-			w, wS := tw[m+i], twS[m+i]
+			w, wS := tw[m+i], twM.SForm[m+i]
 			for j := j1; j < j2; j++ {
-				coeffs[j], coeffs[j+t] = fwdButterflyPow2(coeffs[j], coeffs[j+t], w, wS, q, twoQ)
+				coeffs[j], coeffs[j+t] = fwdButterflyPow2(coeffs[j], coeffs[j+t], w, wS, qv, twoQv)
 			}
 		}
 	}
 
-	for i := 0; i < N; i++ {
-		coeffs[i] = modops.Reduce4Q(coeffs[i], q, twoQ)
-	}
+	vec.Reduce4QTo(coeffs, coeffs, q)
 }
 
 // invNTTInPlacePow2 computes the inverse NTT transform in-place for power-of-two length coefficients.
-func invNTTInPlacePow2(coeffs, twInv, twInvS []uint64, q uint64) {
-	if len(coeffs) < 32 {
-		invNTTInPlacePow2Ref(coeffs, twInv, twInvS, q)
+func invNTTInPlacePow2(coeffs, twInv []uint64, twInvM vec.MulForm, q *num.Modulus) {
+	if len(coeffs) < nttUnrollBound {
+		invNTTInPlacePow2Ref(coeffs, twInv, twInvM, q)
 		return
 	}
-	invNTTInPlacePow2Unroll(coeffs, twInv, twInvS, q)
+	invNTTInPlacePow2Unroll(coeffs, twInv, twInvM, q)
 }
 
 // invButterflyPow2 returns the inverse Harvey butterfly.
@@ -68,26 +74,25 @@ func invButterflyPow2(u, v, w, wS, q, twoQ uint64) (uint64, uint64) {
 }
 
 // invNTTInPlacePow2Ref computes the inverse NTT transform in-place for power-of-two length coefficients.
-func invNTTInPlacePow2Ref(coeffs, twInv, twInvS []uint64, q uint64) {
+func invNTTInPlacePow2Ref(coeffs, twInv []uint64, twInvM vec.MulForm, q *num.Modulus) {
 	N := len(coeffs)
-	twoQ := q << 1
+	qv := q.Value()
+	twoQv := qv << 1
 
 	t := 1
 	for m := N / 2; m >= 1; m >>= 1 {
 		for i := 0; i < m; i++ {
 			j1 := i * t << 1
 			j2 := j1 + t
-			w, wS := twInv[m+i], twInvS[m+i]
+			w, wS := twInv[m+i], twInvM.SForm[m+i]
 			for j := j1; j < j2; j++ {
-				coeffs[j], coeffs[j+t] = invButterflyPow2(coeffs[j], coeffs[j+t], w, wS, q, twoQ)
+				coeffs[j], coeffs[j+t] = invButterflyPow2(coeffs[j], coeffs[j+t], w, wS, qv, twoQv)
 			}
 		}
 		t <<= 1
 	}
 
-	for i := 0; i < N; i++ {
-		coeffs[i] = modops.Reduce4Q(coeffs[i], q, twoQ)
-	}
+	vec.Reduce4QTo(coeffs, coeffs, q)
 }
 
 // fwdNTTInPlacePow3 computes the NTT transform in-place for power-of-three length coefficients.

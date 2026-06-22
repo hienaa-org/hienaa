@@ -200,9 +200,22 @@ func benchmarkNTT(b *testing.B, params dft.RingParameters, logQ int) {
 				ntt.ForwardTo(pNTT, p)
 			}
 		})
+
+		b.Run("FwdNTTInPlace", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				ntt.ForwardTo(p, p)
+			}
+		})
+
 		b.Run("InvNTT", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				ntt.InverseTo(p, pNTT)
+			}
+		})
+
+		b.Run("InvNTTInPlace", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				ntt.InverseTo(pNTT, pNTT)
 			}
 		})
 	})

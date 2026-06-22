@@ -125,7 +125,12 @@ func main() {
 	if *ntt {
 		NTTConstants()
 
-		FwdNTTInPlacePow2UnrollAVX512()
+		FwdNTTInPlacePow2StrideUnrollAVX512IFMA()
+
+		FwdNTTInPlacePow2UnrollAVX(TypeAVX2)
+		FwdNTTInPlacePow2UnrollAVX(TypeAVX512)
+		FwdNTTInPlacePow2UnrollAVX(TypeAVX512IFMA)
+
 		InvNTTInPlacePow2UnrollAVX512()
 	}
 

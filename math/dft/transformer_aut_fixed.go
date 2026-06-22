@@ -117,7 +117,7 @@ func (ntt *pow2AutFixedTransformer) ForwardTo(vNTT, v []uint64) {
 		vBuf[i] = num.Add(v[i], num.FMul(v[ntt.params.rank-i], tw0Neg, tw0NegM, ntt.mod), ntt.mod)
 	}
 
-	fwdNTTInPlacePow2(vBuf, ntt.tw, ntt.twM.SForm, ntt.mod.Value())
+	fwdNTTInPlacePow2(vBuf, ntt.tw, ntt.twM, ntt.mod)
 	copy(vNTT, vBuf)
 }
 
@@ -126,7 +126,7 @@ func (ntt *pow2AutFixedTransformer) InverseTo(v, vNTT []uint64) {
 	checkLength(ntt.params.rank, len(vNTT), len(v))
 
 	copy(v, vNTT)
-	invNTTInPlacePow2(v, ntt.twInv, ntt.twInvM.SForm, ntt.mod.Value())
+	invNTTInPlacePow2(v, ntt.twInv, ntt.twInvM, ntt.mod)
 
 	vBufPtr := ntt.pool.Get()
 	vBuf := *vBufPtr
@@ -322,11 +322,11 @@ func (ntt *primeAutFixedTransformer) ForwardTo(vNTT, v []uint64) {
 
 	clear(vBuf[ntt.params.rank:])
 
-	fwdNTTInPlacePow2(vBuf, ntt.ambNTT.tw[0], ntt.ambNTT.twM[0].SForm, ntt.mod.Value())
+	fwdNTTInPlacePow2(vBuf, ntt.ambNTT.tw[0], ntt.ambNTT.twM[0], ntt.mod)
 
 	vec.FMulTo(vBuf, vBuf, ntt.root, ntt.rootM, ntt.mod)
 
-	invNTTInPlacePow2(vBuf, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvM[0].SForm, ntt.mod.Value())
+	invNTTInPlacePow2(vBuf, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvM[0], ntt.mod)
 	vec.FMulScalarTo(vBuf, vBuf, ntt.ambRankInv, ntt.ambRankInvM, ntt.mod)
 
 	if ntt.isPow2 {
@@ -384,11 +384,11 @@ func (ntt *primeAutFixedTransformer) InverseTo(v, vNTT []uint64) {
 
 	clear(vBuf[ntt.params.rank:])
 
-	fwdNTTInPlacePow2(vBuf, ntt.ambNTT.tw[0], ntt.ambNTT.twM[0].SForm, ntt.mod.Value())
+	fwdNTTInPlacePow2(vBuf, ntt.ambNTT.tw[0], ntt.ambNTT.twM[0], ntt.mod)
 
 	vec.FMulTo(vBuf, vBuf, ntt.rootInv, ntt.rootInvM, ntt.mod)
 
-	invNTTInPlacePow2(vBuf, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvM[0].SForm, ntt.mod.Value())
+	invNTTInPlacePow2(vBuf, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvM[0], ntt.mod)
 
 	vec.FMulScalarTo(vBuf, vBuf, ntt.ambNTT.rankInv, ntt.ambNTT.rankInvM, ntt.mod)
 

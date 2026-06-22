@@ -198,7 +198,7 @@ func (ntt *pow235CyclicTransformer) ForwardTo(vNTT, v []uint64) {
 
 	if ntt.rankFactors[0] > 1 {
 		for i := 0; i < ntt.params.rank; i += ntt.rankFactors[0] {
-			fwdNTTInPlacePow2(vNTT[i:i+ntt.rankFactors[0]], ntt.tw[0], ntt.twM[0].SForm, ntt.mod.Value())
+			fwdNTTInPlacePow2(vNTT[i:i+ntt.rankFactors[0]], ntt.tw[0], ntt.twM[0], ntt.mod)
 		}
 	}
 
@@ -219,7 +219,7 @@ func (ntt *pow235CyclicTransformer) InverseTo(v, vNTT []uint64) {
 
 	if ntt.rankFactors[0] > 1 {
 		for i := 0; i < ntt.params.rank; i += ntt.rankFactors[0] {
-			invNTTInPlacePow2(v[i:i+ntt.rankFactors[0]], ntt.twInv[0], ntt.twInvM[0].SForm, ntt.mod.Value())
+			invNTTInPlacePow2(v[i:i+ntt.rankFactors[0]], ntt.twInv[0], ntt.twInvM[0], ntt.mod)
 		}
 	}
 
@@ -310,7 +310,7 @@ func newAnyCyclicTransformer(params RingParameters, mod *num.Modulus) *anyCyclic
 	slices.Reverse(chirp[ambRank-params.rank+1:])
 
 	vec.MulScalarTo(chirp, chirp, num.Inv(uint64(ambRank), mod), mod)
-	fwdNTTInPlacePow2(chirp, ambNTT.tw[0], ambNTT.twM[0].SForm, mod.Value())
+	fwdNTTInPlacePow2(chirp, ambNTT.tw[0], ambNTT.twM[0], mod)
 	vec.ReduceTo(chirp, chirp, mod)
 
 	chirpInv := make([]uint64, ambRank)
@@ -319,7 +319,7 @@ func newAnyCyclicTransformer(params RingParameters, mod *num.Modulus) *anyCyclic
 	slices.Reverse(chirpInv[ambRank-params.rank+1:])
 
 	vec.MulScalarTo(chirpInv, chirpInv, num.Inv(uint64(ambRank*params.rank), mod), mod)
-	fwdNTTInPlacePow2(chirpInv, ambNTT.tw[0], ambNTT.twM[0].SForm, mod.Value())
+	fwdNTTInPlacePow2(chirpInv, ambNTT.tw[0], ambNTT.twM[0], mod)
 	vec.ReduceTo(chirpInv, chirpInv, mod)
 
 	return &anyCyclicTransformer{
@@ -354,11 +354,11 @@ func (ntt *anyCyclicTransformer) ForwardTo(vNTT, v []uint64) {
 	vec.FMulTo(vBuf[:ntt.params.rank], v, ntt.z, ntt.zM, ntt.mod)
 	clear(vBuf[ntt.params.rank:])
 
-	fwdNTTInPlacePow2(vBuf, ntt.ambNTT.tw[0], ntt.ambNTT.twM[0].SForm, ntt.mod.Value())
+	fwdNTTInPlacePow2(vBuf, ntt.ambNTT.tw[0], ntt.ambNTT.twM[0], ntt.mod)
 
 	vec.FMulTo(vBuf, vBuf, ntt.chirp, ntt.chirpM, ntt.mod)
 
-	invNTTInPlacePow2(vBuf, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvM[0].SForm, ntt.mod.Value())
+	invNTTInPlacePow2(vBuf, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvM[0], ntt.mod)
 
 	vec.FMulTo(vNTT, vBuf[:ntt.params.rank], ntt.z, ntt.zM, ntt.mod)
 }
@@ -372,11 +372,11 @@ func (ntt *anyCyclicTransformer) InverseTo(v, vNTT []uint64) {
 	vec.FMulTo(vBuf[:ntt.params.rank], vNTT, ntt.zInv, ntt.zInvM, ntt.mod)
 	clear(vBuf[ntt.params.rank:])
 
-	fwdNTTInPlacePow2(vBuf, ntt.ambNTT.tw[0], ntt.ambNTT.twM[0].SForm, ntt.mod.Value())
+	fwdNTTInPlacePow2(vBuf, ntt.ambNTT.tw[0], ntt.ambNTT.twM[0], ntt.mod)
 
 	vec.FMulTo(vBuf, vBuf, ntt.chirpInv, ntt.chirpInvM, ntt.mod)
 
-	invNTTInPlacePow2(vBuf, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvM[0].SForm, ntt.mod.Value())
+	invNTTInPlacePow2(vBuf, ntt.ambNTT.twInv[0], ntt.ambNTT.twInvM[0], ntt.mod)
 
 	vec.FMulTo(v, vBuf[:ntt.params.rank], ntt.zInv, ntt.zInvM, ntt.mod)
 }
