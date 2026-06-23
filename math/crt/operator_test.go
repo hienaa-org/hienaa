@@ -15,7 +15,7 @@ import (
 
 var (
 	rSrc      = csprng.NewUniformSamplerWithSeed(nil)
-	benchLogN = []int{12, 13, 14, 15, 16, 17}
+	benchLogN = []int{10, 11, 12, 13, 14, 15, 16}
 )
 
 func mulReduce(p0, p1, pMod [][]uint64, q []*num.Modulus) [][]uint64 {

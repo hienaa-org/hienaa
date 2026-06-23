@@ -16,7 +16,7 @@ import (
 
 var (
 	rSrc      = csprng.NewUniformSamplerWithSeed(nil)
-	benchLogN = []int{12, 13, 14}
+	benchLogN = []int{10, 11, 12, 13, 14, 15, 16}
 )
 
 func randMsg(packLen int, q *num.Modulus) []uint64 {

@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	reducerBenchLogN = []int{12, 13, 14}
+	reducerBenchLogN = []int{10, 11, 12, 13, 14}
 )
 
 func randTernaryPoly(rank int) []int64 {
