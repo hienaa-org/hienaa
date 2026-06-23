@@ -17,4 +17,13 @@ func fwdNTTInPlacePow2UnrollAVX512(coeffs []uint64, twF []float64, qf float64, q
 func fwdNTTInPlacePow2UnrollAVX512IFMA(coeffs []uint64, tw []uint64, twS []uint64, q uint64, idx uint64, N uint64, l uint64)
 
 //go:noescape
-func invNTTInPlacePow2UnrollAVX512(coeffs []uint64, twInv []uint64, twInvS []uint64, q uint64)
+func invNTTInPlacePow2StrideUnrollAVX512IFMA(coeffs []uint64, w uint64, wS uint64, q uint64, idx uint64, t uint64)
+
+//go:noescape
+func invNTTInPlacePow2UnrollAVX2(coeffs []uint64, twInvF []float64, qf float64, qfInv float64)
+
+//go:noescape
+func invNTTInPlacePow2UnrollAVX512(coeffs []uint64, twInvF []float64, qf float64, qfInv float64)
+
+//go:noescape
+func invNTTInPlacePow2UnrollAVX512IFMA(coeffs []uint64, twInv []uint64, twInvS []uint64, q uint64, idx uint64, N uint64, l uint64)

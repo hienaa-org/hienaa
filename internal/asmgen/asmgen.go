@@ -131,7 +131,11 @@ func main() {
 		FwdNTTInPlacePow2UnrollAVX(TypeAVX512)
 		FwdNTTInPlacePow2UnrollAVX(TypeAVX512IFMA)
 
-		InvNTTInPlacePow2UnrollAVX512()
+		InvNTTInPlacePow2StrideUnrollAVX512IFMA()
+
+		InvNTTInPlacePow2UnrollAVX(TypeAVX2)
+		InvNTTInPlacePow2UnrollAVX(TypeAVX512)
+		InvNTTInPlacePow2UnrollAVX(TypeAVX512IFMA)
 	}
 
 	Generate()

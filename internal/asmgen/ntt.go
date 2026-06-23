@@ -39,10 +39,10 @@ func FwdNTTInPlacePow2StrideUnrollAVX512IFMA() {
 
 	idx := Load(Param("idx"), GP64())
 
-	negQ, twoQ := ZMM(), ZMM()
-	VPBROADCASTQ(NewParamAddr("q", 40), negQ)
-	VPADDQ(negQ, negQ, twoQ)
-	VPSUBQ(negQ, zero, negQ)
+	q, negQ, twoQ := ZMM(), ZMM(), ZMM()
+	VPBROADCASTQ(NewParamAddr("q", 40), q)
+	VPADDQ(q, q, twoQ)
+	VPSUBQ(q, zero, negQ)
 
 	w, wS := ZMM(), ZMM()
 	VPBROADCASTQ(NewParamAddr("w", 24), w)
@@ -69,6 +69,17 @@ func FwdNTTInPlacePow2StrideUnrollAVX512IFMA() {
 	VMOVDQU64(Mem{Base: coeffs, Index: jt, Scale: 8}, v)
 
 	FwdButterflyAVX(TypeAVX512IFMA, u, v, w, wS, nil, negQ, twoQ, nil, nil, mask52, zero)
+
+	uQ, vQ := ZMM(), ZMM()
+	VPSUBQ(twoQ, u, uQ)
+	VPMINUQ(uQ, u, u)
+	VPSUBQ(q, u, uQ)
+	VPMINUQ(uQ, u, u)
+
+	VPSUBQ(twoQ, v, vQ)
+	VPMINUQ(vQ, v, v)
+	VPSUBQ(q, v, vQ)
+	VPMINUQ(vQ, v, v)
 
 	VMOVDQU64(u, Mem{Base: coeffs, Index: j, Scale: 8})
 	VMOVDQU64(v, Mem{Base: coeffs, Index: jt, Scale: 8})
@@ -245,7 +256,6 @@ func FwdNTTInPlacePow2UnrollAVX(avxType AVXType) {
 	JMP(LabelRef("j_loop_end"))
 	Label("j_loop_body")
 
-	u, v = VMM(avxType), VMM(avxType)
 	VMOV(avxType, Mem{Base: coeffs, Index: j, Scale: 8}, u)
 	VMOV(avxType, Mem{Base: coeffs, Index: jt, Scale: 8}, v)
 
@@ -527,108 +537,307 @@ func FwdNTTInPlacePow2UnrollAVX(avxType AVXType) {
 	RET()
 }
 
-func InvNTTInPlacePow2UnrollAVX512() {
-	TEXT("invNTTInPlacePow2UnrollAVX512", NOSPLIT, "func(coeffs, twInv, twInvS []uint64, q uint64)")
+func InvNTTInPlacePow2StrideUnrollAVX512IFMA() {
+	TEXT("invNTTInPlacePow2StrideUnrollAVX512IFMA", NOSPLIT, "func(coeffs []uint64, w, wS, q uint64, idx, t uint64)")
 	Pragma("noescape")
 
-	maskLo := ZMM()
-	VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_LO"), 0), maskLo)
+	mask52, zero := ZMM(), ZMM()
+	VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_52"), 0), mask52)
+	VPXORQ(zero, zero, zero)
 
 	coeffs := Load(Param("coeffs").Base(), GP64())
-	twInv := Load(Param("twInv").Base(), GP64())
-	twInvS := Load(Param("twInvS").Base(), GP64())
-	N := Load(Param("coeffs").Len(), GP64())
 
-	wIdx := GP64()
+	idx := Load(Param("idx"), GP64())
 
-	q, twoQ := ZMM(), ZMM()
-	VPBROADCASTQ(NewParamAddr("q", 72), q)
+	q, negQ, twoQ := ZMM(), ZMM(), ZMM()
+	VPBROADCASTQ(NewParamAddr("q", 40), q)
 	VPADDQ(q, q, twoQ)
+	VPSUBQ(q, zero, negQ)
 
-	MOVQ(N, wIdx)
-	SHRQ(Imm(1), wIdx)
+	w, wS := ZMM(), ZMM()
+	VPBROADCASTQ(NewParamAddr("w", 24), w)
+	VPBROADCASTQ(NewParamAddr("wS", 32), wS)
 
-	PERM_02461357, PERM_04152637 := ZMM(), ZMM()
-	VMOVDQU64(NewDataAddr(NewStaticSymbol("PERM_02461357"), 0), PERM_02461357)
-	VMOVDQU64(NewDataAddr(NewStaticSymbol("PERM_04152637"), 0), PERM_04152637)
+	VPSRLQ(Imm(12), wS, wS)
+
+	t := Load(Param("t"), GP64())
+
+	NN := GP64()
+	MOVQ(idx, NN)
+	ADDQ(t, NN)
+
+	j, jt := GP64(), GP64()
+	MOVQ(idx, j)
+	MOVQ(j, jt)
+	ADDQ(t, jt)
+
+	JMP(LabelRef("loop_end"))
+	Label("loop_body")
+
+	u, v := ZMM(), ZMM()
+	VMOVDQU64(Mem{Base: coeffs, Index: j, Scale: 8}, u)
+	VMOVDQU64(Mem{Base: coeffs, Index: jt, Scale: 8}, v)
+
+	InvButterflyAVX(TypeAVX512IFMA, u, v, w, wS, nil, negQ, twoQ, nil, nil, mask52, zero)
+
+	uQ, vQ := ZMM(), ZMM()
+	VPSUBQ(twoQ, u, uQ)
+	VPMINUQ(uQ, u, u)
+	VPSUBQ(q, u, uQ)
+	VPMINUQ(uQ, u, u)
+
+	VPSUBQ(twoQ, v, vQ)
+	VPMINUQ(vQ, v, v)
+	VPSUBQ(q, v, vQ)
+	VPMINUQ(vQ, v, v)
+
+	VMOVDQU64(u, Mem{Base: coeffs, Index: j, Scale: 8})
+	VMOVDQU64(v, Mem{Base: coeffs, Index: jt, Scale: 8})
+
+	ADDQ(Imm(8), j)
+	ADDQ(Imm(8), jt)
+
+	Label("loop_end")
+	CMPQ(j, NN)
+	JL(LabelRef("loop_body"))
+
+	RET()
+}
+
+func InvNTTInPlacePow2UnrollAVX(avxType AVXType) {
+	switch avxType {
+	case TypeAVX2:
+		TEXT("invNTTInPlacePow2UnrollAVX2", NOSPLIT, "func(coeffs []uint64, twInvF []float64, qf, qfInv float64)")
+	case TypeAVX512:
+		TEXT("invNTTInPlacePow2UnrollAVX512", NOSPLIT, "func(coeffs []uint64, twInvF []float64, qf, qfInv float64)")
+	case TypeAVX512IFMA:
+		TEXT("invNTTInPlacePow2UnrollAVX512IFMA", NOSPLIT, "func(coeffs, twInv, twInvS []uint64, q uint64, idx, N, l uint64)")
+	}
+	Pragma("noescape")
+
+	cvt52 := VMM(avxType)
+	if avxType == TypeAVX2 {
+		VPBROADCASTQ(NewDataAddr(NewStaticSymbol("CVT_52"), 0), cvt52)
+	}
+
+	zero := VMM(avxType)
+	if avxType == TypeAVX512 || avxType == TypeAVX512IFMA {
+		VPXORQ(zero, zero, zero)
+	}
+
+	mask52 := VMM(avxType)
+	if avxType == TypeAVX512IFMA {
+		VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_52"), 0), mask52)
+	}
+
+	coeffs := Load(Param("coeffs").Base(), GP64())
+	var N reg.Register
+	switch avxType {
+	case TypeAVX2, TypeAVX512:
+		N = Load(Param("coeffs").Len(), GP64())
+	case TypeAVX512IFMA:
+		N = Load(Param("N"), GP64())
+		idx := Load(Param("idx"), GP64())
+		SHLQ(Imm(3), idx)
+		ADDQ(idx, coeffs)
+	}
+
+	var twInv, twInvS, twInvF reg.Register
+	switch avxType {
+	case TypeAVX2, TypeAVX512:
+		twInvF = Load(Param("twInvF").Base(), GP64())
+	case TypeAVX512IFMA:
+		twInv = Load(Param("twInv").Base(), GP64())
+		twInvS = Load(Param("twInvS").Base(), GP64())
+	}
+
+	var l reg.Register
+	wIdx := GP64()
+	switch avxType {
+	case TypeAVX2, TypeAVX512:
+		MOVQ(N, wIdx)
+		SHRQ(Imm(1), wIdx)
+	case TypeAVX512IFMA:
+		l = Load(Param("l"), GP64())
+		MOVQ(N, wIdx)
+		SHRQ(Imm(1), wIdx)
+		IMULQ(l, wIdx)
+	}
+
+	q, negQ, twoQ, qf, qfInv := VMM(avxType), VMM(avxType), VMM(avxType), VMM(avxType), VMM(avxType)
+	switch avxType {
+	case TypeAVX2, TypeAVX512:
+		VPBROADCASTQ(NewParamAddr("qf", 48), qf)
+		VPBROADCASTQ(NewParamAddr("qfInv", 56), qfInv)
+	case TypeAVX512IFMA:
+		VPBROADCASTQ(NewParamAddr("q", 72), q)
+		VPADDQ(q, q, twoQ)
+		VPSUBQ(q, zero, negQ)
+	}
+
+	PERM_02461357, PERM_04152637 := VMM(avxType), VMM(avxType)
+	switch avxType {
+	case TypeAVX512, TypeAVX512IFMA:
+		VMOVDQU64(NewDataAddr(NewStaticSymbol("PERM_02461357"), 0), PERM_02461357)
+		VMOVDQU64(NewDataAddr(NewStaticSymbol("PERM_04152637"), 0), PERM_04152637)
+	}
 
 	i := GP64()
 	XORQ(i, i)
 	JMP(LabelRef("t_1_loop_end"))
 	Label("t_1_loop_body")
 
-	w, wS := ZMM(), ZMM()
-	VMOVDQU64(Mem{Base: twInv, Index: wIdx, Scale: 8}, w)
-	VMOVDQU64(Mem{Base: twInvS, Index: wIdx, Scale: 8}, wS)
-	ADDQ(Imm(8), wIdx)
+	u, v := VMM(avxType), VMM(avxType)
+	uu, vv := VMM(avxType), VMM(avxType)
+	w, wS, wF := VMM(avxType), VMM(avxType), VMM(avxType)
+	switch avxType {
+	case TypeAVX2:
+		VMOVDQU(Mem{Base: twInvF, Index: wIdx, Scale: 8}, wF)
+		ADDQ(Imm(4), wIdx)
 
-	wSHi := ZMM()
-	VPSRLQ(Imm(32), wS, wSHi)
+		VMOVDQU(Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8}, u)
+		VMOVDQU(Mem{Base: coeffs, Index: i, Disp: 4 * 8, Scale: 8}, v)
 
-	u, v := ZMM(), ZMM()
-	VMOVDQU64(Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8}, u)
-	VMOVDQU64(Mem{Base: coeffs, Index: i, Disp: 8 * 8, Scale: 8}, v)
+		VORPD(cvt52, u, u)
+		VSUBPD(cvt52, u, u)
+		VORPD(cvt52, v, v)
+		VSUBPD(cvt52, v, v)
 
-	VPERMQ(u, PERM_02461357, u)
-	VPERMQ(v, PERM_02461357, v)
+		VPERM2I128(Imm(0x20), v, u, uu)
+		VPERM2I128(Imm(0x31), v, u, vv)
 
-	uu, vv := ZMM(), ZMM()
-	VSHUFF64X2(Imm(0b01_00_01_00), v, u, uu)
-	VSHUFF64X2(Imm(0b11_10_11_10), v, u, vv)
+		VSHUFPD(Imm(0b0000), vv, uu, u)
+		VSHUFPD(Imm(0b1111), vv, uu, v)
 
-	InvButterflyAVX512(uu, vv, w, wS, wSHi, q, twoQ, maskLo)
+		InvButterflyAVX(avxType, u, v, w, wS, wF, negQ, twoQ, qf, qfInv, mask52, zero)
 
-	VSHUFF64X2(Imm(0b01_00_01_00), vv, uu, u)
-	VSHUFF64X2(Imm(0b11_10_11_10), vv, uu, v)
+		VSHUFPD(Imm(0b0000), v, u, uu)
+		VSHUFPD(Imm(0b1111), v, u, vv)
 
-	VPERMQ(u, PERM_04152637, u)
-	VPERMQ(v, PERM_04152637, v)
+		VPERM2I128(Imm(0x20), vv, uu, u)
+		VPERM2I128(Imm(0x31), vv, uu, v)
 
-	VMOVDQU64(u, Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8})
-	VMOVDQU64(v, Mem{Base: coeffs, Index: i, Disp: 8 * 8, Scale: 8})
+		VMOVDQU(u, Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8})
+		VMOVDQU(v, Mem{Base: coeffs, Index: i, Disp: 4 * 8, Scale: 8})
 
-	ADDQ(Imm(16), i)
+		ADDQ(Imm(8), i)
+
+	case TypeAVX512, TypeAVX512IFMA:
+		switch avxType {
+		case TypeAVX512:
+			VMOVDQU64(Mem{Base: twInvF, Index: wIdx, Scale: 8}, wF)
+		case TypeAVX512IFMA:
+			VMOVDQU64(Mem{Base: twInv, Index: wIdx, Scale: 8}, w)
+			VMOVDQU64(Mem{Base: twInvS, Index: wIdx, Scale: 8}, wS)
+			VPSRLQ(Imm(12), wS, wS)
+		}
+		ADDQ(Imm(8), wIdx)
+
+		VMOVDQU64(Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8}, u)
+		VMOVDQU64(Mem{Base: coeffs, Index: i, Disp: 8 * 8, Scale: 8}, v)
+
+		if avxType == TypeAVX512 {
+			VCVTUQQ2PD(u, u)
+			VCVTUQQ2PD(v, v)
+		}
+
+		VPERMQ(u, PERM_02461357, u)
+		VPERMQ(v, PERM_02461357, v)
+
+		VSHUFF64X2(Imm(0b01_00_01_00), v, u, uu)
+		VSHUFF64X2(Imm(0b11_10_11_10), v, u, vv)
+
+		InvButterflyAVX(avxType, uu, vv, w, wS, wF, negQ, twoQ, qf, qfInv, mask52, zero)
+
+		VSHUFF64X2(Imm(0b01_00_01_00), vv, uu, u)
+		VSHUFF64X2(Imm(0b11_10_11_10), vv, uu, v)
+
+		VPERMQ(u, PERM_04152637, u)
+		VPERMQ(v, PERM_04152637, v)
+
+		VMOVDQU64(u, Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8})
+		VMOVDQU64(v, Mem{Base: coeffs, Index: i, Disp: 8 * 8, Scale: 8})
+
+		ADDQ(Imm(16), i)
+	}
 
 	Label("t_1_loop_end")
 	CMPQ(i, N)
 	JL(LabelRef("t_1_loop_body"))
 
-	PERM_00112233 := ZMM()
-	VMOVDQU64(NewDataAddr(NewStaticSymbol("PERM_00112233"), 0), PERM_00112233)
+	PERM_00112233 := VMM(avxType)
+	switch avxType {
+	case TypeAVX512, TypeAVX512IFMA:
+		VMOVDQU64(NewDataAddr(NewStaticSymbol("PERM_00112233"), 0), PERM_00112233)
+	}
 
 	MOVQ(N, wIdx)
 	SHRQ(Imm(2), wIdx)
+	if avxType == TypeAVX512IFMA {
+		IMULQ(l, wIdx)
+	}
 
 	XORQ(i, i)
 	JMP(LabelRef("t_2_loop_end"))
 	Label("t_2_loop_body")
 
-	VMOVDQU64(Mem{Base: twInv, Index: wIdx, Scale: 8}, w.AsY())
-	VMOVDQU64(Mem{Base: twInvS, Index: wIdx, Scale: 8}, wS.AsY())
-	ADDQ(Imm(4), wIdx)
+	switch avxType {
+	case TypeAVX2:
+		VMOVDQU(Mem{Base: twInvF, Index: wIdx, Scale: 8}, wF.AsX())
+		ADDQ(Imm(2), wIdx)
 
-	VPERMQ(w, PERM_00112233, w)
-	VPERMQ(wS, PERM_00112233, wS)
+		VPERMQ(Imm(0b_01_01_00_00), wF, wF)
 
-	VPSRLQ(Imm(32), wS, wSHi)
+		VMOVDQU(Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8}, u)
+		VMOVDQU(Mem{Base: coeffs, Index: i, Disp: 4 * 8, Scale: 8}, v)
 
-	VMOVDQU64(Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8}, u)
-	VMOVDQU64(Mem{Base: coeffs, Index: i, Disp: 8 * 8, Scale: 8}, v)
+		VPERM2I128(Imm(0x20), v, u, uu)
+		VPERM2I128(Imm(0x31), v, u, vv)
 
-	VSHUFI64X2(Imm(0b10_00_10_00), v, u, uu)
-	VSHUFI64X2(Imm(0b11_01_11_01), v, u, vv)
+		InvButterflyAVX(avxType, uu, vv, w, wS, wF, negQ, twoQ, qf, qfInv, mask52, zero)
 
-	InvButterflyAVX512(uu, vv, w, wS, wSHi, q, twoQ, maskLo)
+		VPERM2I128(Imm(0x20), vv, uu, u)
+		VPERM2I128(Imm(0x31), vv, uu, v)
 
-	VSHUFI64X2(Imm(0b01_00_01_00), vv, uu, u)
-	VSHUFI64X2(Imm(0b11_10_11_10), vv, uu, v)
-	VSHUFI64X2(Imm(0b11_01_10_00), u, u, u)
-	VSHUFI64X2(Imm(0b11_01_10_00), v, v, v)
+		VMOVDQU(u, Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8})
+		VMOVDQU(v, Mem{Base: coeffs, Index: i, Disp: 4 * 8, Scale: 8})
 
-	VMOVDQU64(u, Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8})
-	VMOVDQU64(v, Mem{Base: coeffs, Index: i, Disp: 8 * 8, Scale: 8})
+		ADDQ(Imm(8), i)
 
-	ADDQ(Imm(16), i)
+	case TypeAVX512, TypeAVX512IFMA:
+		switch avxType {
+		case TypeAVX512:
+			VMOVDQU64(Mem{Base: twInvF, Index: wIdx, Scale: 8}, wF.AsY())
+
+			VPERMQ(wF, PERM_00112233, wF)
+		case TypeAVX512IFMA:
+			VMOVDQU64(Mem{Base: twInv, Index: wIdx, Scale: 8}, w.AsY())
+			VMOVDQU64(Mem{Base: twInvS, Index: wIdx, Scale: 8}, wS.AsY())
+
+			VPERMQ(w, PERM_00112233, w)
+			VPERMQ(wS, PERM_00112233, wS)
+			VPSRLQ(Imm(12), wS, wS)
+		}
+		ADDQ(Imm(4), wIdx)
+
+		VMOVDQU64(Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8}, u)
+		VMOVDQU64(Mem{Base: coeffs, Index: i, Disp: 8 * 8, Scale: 8}, v)
+
+		VSHUFI64X2(Imm(0b10_00_10_00), v, u, uu)
+		VSHUFI64X2(Imm(0b11_01_11_01), v, u, vv)
+
+		InvButterflyAVX(avxType, uu, vv, w, wS, wF, negQ, twoQ, qf, qfInv, mask52, zero)
+
+		VSHUFI64X2(Imm(0b01_00_01_00), vv, uu, u)
+		VSHUFI64X2(Imm(0b11_10_11_10), vv, uu, v)
+		VSHUFI64X2(Imm(0b11_01_10_00), u, u, u)
+		VSHUFI64X2(Imm(0b11_01_10_00), v, v, v)
+
+		VMOVDQU64(u, Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8})
+		VMOVDQU64(v, Mem{Base: coeffs, Index: i, Disp: 8 * 8, Scale: 8})
+
+		ADDQ(Imm(16), i)
+	}
 
 	Label("t_2_loop_end")
 	CMPQ(i, N)
@@ -636,41 +845,66 @@ func InvNTTInPlacePow2UnrollAVX512() {
 
 	MOVQ(N, wIdx)
 	SHRQ(Imm(3), wIdx)
+	if avxType == TypeAVX512IFMA {
+		IMULQ(l, wIdx)
+	}
 
 	XORQ(i, i)
 	JMP(LabelRef("t_4_loop_end"))
 	Label("t_4_loop_body")
 
-	w0, w0S := ZMM(), ZMM()
-	VPBROADCASTQ(Mem{Base: twInv, Index: wIdx, Scale: 8}, w0)
-	VPBROADCASTQ(Mem{Base: twInvS, Index: wIdx, Scale: 8}, w0S)
-	INCQ(wIdx)
+	switch avxType {
+	case TypeAVX2:
+		VPBROADCASTQ(Mem{Base: twInvF, Index: wIdx, Scale: 8}, wF)
+		INCQ(wIdx)
 
-	w1, w1S := ZMM(), ZMM()
-	VPBROADCASTQ(Mem{Base: twInv, Index: wIdx, Scale: 8}, w1)
-	VPBROADCASTQ(Mem{Base: twInvS, Index: wIdx, Scale: 8}, w1S)
-	INCQ(wIdx)
+		VMOVDQU(Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8}, u)
+		VMOVDQU(Mem{Base: coeffs, Index: i, Disp: 4 * 8, Scale: 8}, v)
 
-	VSHUFI64X2(Imm(0b10_10_00_00), w1, w0, w)
-	VSHUFI64X2(Imm(0b10_10_00_00), w1S, w0S, wS)
+		InvButterflyAVX(avxType, u, v, w, wS, wF, negQ, twoQ, qf, qfInv, mask52, zero)
 
-	VPSRLQ(Imm(32), wS, wSHi)
+		VMOVDQU(u, Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8})
+		VMOVDQU(v, Mem{Base: coeffs, Index: i, Disp: 4 * 8, Scale: 8})
 
-	VMOVDQU64(Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8}, u)
-	VMOVDQU64(Mem{Base: coeffs, Index: i, Disp: 8 * 8, Scale: 8}, v)
+		ADDQ(Imm(8), i)
 
-	VSHUFI64X2(Imm(0b01_00_01_00), v, u, uu)
-	VSHUFI64X2(Imm(0b11_10_11_10), v, u, vv)
+	case TypeAVX512, TypeAVX512IFMA:
+		w0, w1, w0S, w1S, w0F, w1F := ZMM(), ZMM(), ZMM(), ZMM(), ZMM(), ZMM()
+		switch avxType {
+		case TypeAVX512:
+			VPBROADCASTQ(Mem{Base: twInvF, Index: wIdx, Scale: 8}, w0F)
+			INCQ(wIdx)
+			VPBROADCASTQ(Mem{Base: twInvF, Index: wIdx, Scale: 8}, w1F)
+			INCQ(wIdx)
+			VSHUFI64X2(Imm(0b10_10_00_00), w1F, w0F, wF)
+		case TypeAVX512IFMA:
+			VPBROADCASTQ(Mem{Base: twInv, Index: wIdx, Scale: 8}, w0)
+			VPBROADCASTQ(Mem{Base: twInvS, Index: wIdx, Scale: 8}, w0S)
+			INCQ(wIdx)
+			VPBROADCASTQ(Mem{Base: twInv, Index: wIdx, Scale: 8}, w1)
+			VPBROADCASTQ(Mem{Base: twInvS, Index: wIdx, Scale: 8}, w1S)
+			INCQ(wIdx)
+			VSHUFI64X2(Imm(0b10_10_00_00), w1, w0, w)
+			VSHUFI64X2(Imm(0b10_10_00_00), w1S, w0S, wS)
+			VPSRLQ(Imm(12), wS, wS)
+		}
 
-	InvButterflyAVX512(uu, vv, w, wS, wSHi, q, twoQ, maskLo)
+		VMOVDQU64(Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8}, u)
+		VMOVDQU64(Mem{Base: coeffs, Index: i, Disp: 8 * 8, Scale: 8}, v)
 
-	VSHUFI64X2(Imm(0b01_00_01_00), vv, uu, u)
-	VSHUFI64X2(Imm(0b11_10_11_10), vv, uu, v)
+		VSHUFI64X2(Imm(0b01_00_01_00), v, u, uu)
+		VSHUFI64X2(Imm(0b11_10_11_10), v, u, vv)
 
-	VMOVDQU64(u, Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8})
-	VMOVDQU64(v, Mem{Base: coeffs, Index: i, Disp: 8 * 8, Scale: 8})
+		InvButterflyAVX(avxType, uu, vv, w, wS, wF, negQ, twoQ, qf, qfInv, mask52, zero)
 
-	ADDQ(Imm(16), i)
+		VSHUFI64X2(Imm(0b01_00_01_00), vv, uu, u)
+		VSHUFI64X2(Imm(0b11_10_11_10), vv, uu, v)
+
+		VMOVDQU64(u, Mem{Base: coeffs, Index: i, Disp: 0 * 8, Scale: 8})
+		VMOVDQU64(v, Mem{Base: coeffs, Index: i, Disp: 8 * 8, Scale: 8})
+
+		ADDQ(Imm(16), i)
+	}
 
 	Label("t_4_loop_end")
 	CMPQ(i, N)
@@ -684,6 +918,9 @@ func InvNTTInPlacePow2UnrollAVX512() {
 	Label("m_loop_body")
 
 	MOVQ(m, wIdx)
+	if avxType == TypeAVX512IFMA {
+		IMULQ(l, wIdx)
+	}
 
 	XORQ(i, i)
 	JMP(LabelRef("i_loop_end"))
@@ -696,11 +933,15 @@ func InvNTTInPlacePow2UnrollAVX512() {
 	MOVQ(j1, j2)
 	ADDQ(t, j2)
 
-	VPBROADCASTQ(Mem{Base: twInv, Index: wIdx, Scale: 8}, w)
-	VPBROADCASTQ(Mem{Base: twInvS, Index: wIdx, Scale: 8}, wS)
+	switch avxType {
+	case TypeAVX2, TypeAVX512:
+		VPBROADCASTQ(Mem{Base: twInvF, Index: wIdx, Scale: 8}, wF)
+	case TypeAVX512IFMA:
+		VPBROADCASTQ(Mem{Base: twInv, Index: wIdx, Scale: 8}, w)
+		VPBROADCASTQ(Mem{Base: twInvS, Index: wIdx, Scale: 8}, wS)
+		VPSRLQ(Imm(12), wS, wS)
+	}
 	INCQ(wIdx)
-
-	VPSRLQ(Imm(32), wS, wSHi)
 
 	j, jt := GP64(), GP64()
 	MOVQ(j1, j)
@@ -709,16 +950,16 @@ func InvNTTInPlacePow2UnrollAVX512() {
 	JMP(LabelRef("j_loop_end"))
 	Label("j_loop_body")
 
-	VMOVDQU64(Mem{Base: coeffs, Index: j, Scale: 8}, u)
-	VMOVDQU64(Mem{Base: coeffs, Index: jt, Scale: 8}, v)
+	VMOV(avxType, Mem{Base: coeffs, Index: j, Scale: 8}, u)
+	VMOV(avxType, Mem{Base: coeffs, Index: jt, Scale: 8}, v)
 
-	InvButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo)
+	InvButterflyAVX(avxType, u, v, w, wS, wF, negQ, twoQ, qf, qfInv, mask52, zero)
 
-	VMOVDQU64(u, Mem{Base: coeffs, Index: j, Scale: 8})
-	VMOVDQU64(v, Mem{Base: coeffs, Index: jt, Scale: 8})
+	VMOV(avxType, u, Mem{Base: coeffs, Index: j, Scale: 8})
+	VMOV(avxType, v, Mem{Base: coeffs, Index: jt, Scale: 8})
 
-	ADDQ(Imm(8), j)
-	ADDQ(Imm(8), jt)
+	ADDQ(Imm(1<<LogWidth(avxType)), j)
+	ADDQ(Imm(1<<LogWidth(avxType)), jt)
 
 	Label("j_loop_end")
 	CMPQ(j, j2)
@@ -741,10 +982,21 @@ func InvNTTInPlacePow2UnrollAVX512() {
 	MOVQ(N, NN)
 	SHRQ(Imm(1), NN)
 
-	VPBROADCASTQ(Mem{Base: twInv, Disp: 8, Scale: 8}, w)
-	VPBROADCASTQ(Mem{Base: twInvS, Disp: 8, Scale: 8}, wS)
+	switch avxType {
+	case TypeAVX2, TypeAVX512:
+		MOVQ(U64(1), wIdx)
+	case TypeAVX512IFMA:
+		MOVQ(l, wIdx)
+	}
 
-	VPSRLQ(Imm(32), wS, wSHi)
+	switch avxType {
+	case TypeAVX2, TypeAVX512:
+		VPBROADCASTQ(Mem{Base: twInvF, Index: wIdx, Scale: 8}, wF)
+	case TypeAVX512IFMA:
+		VPBROADCASTQ(Mem{Base: twInv, Index: wIdx, Scale: 8}, w)
+		VPBROADCASTQ(Mem{Base: twInvS, Index: wIdx, Scale: 8}, wS)
+		VPSRLQ(Imm(12), wS, wS)
+	}
 
 	XORQ(j, j)
 	MOVQ(j, jt)
@@ -753,27 +1005,39 @@ func InvNTTInPlacePow2UnrollAVX512() {
 	JMP(LabelRef("last_loop_end"))
 	Label("last_loop_body")
 
-	VMOVDQU64(Mem{Base: coeffs, Index: j, Scale: 8}, u)
-	VMOVDQU64(Mem{Base: coeffs, Index: jt, Scale: 8}, v)
+	VMOV(avxType, Mem{Base: coeffs, Index: j, Scale: 8}, u)
+	VMOV(avxType, Mem{Base: coeffs, Index: jt, Scale: 8}, v)
 
-	InvButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo)
+	InvButterflyAVX(avxType, u, v, w, wS, wF, negQ, twoQ, qf, qfInv, mask52, zero)
 
-	uQ, vQ := ZMM(), ZMM()
-	VPSUBQ(twoQ, u, uQ)
-	VPMINUQ(uQ, u, u)
-	VPSUBQ(q, u, uQ)
-	VPMINUQ(uQ, u, u)
+	switch avxType {
+	case TypeAVX2:
+		VADDPD(cvt52, u, u)
+		VXORPD(cvt52, u, u)
 
-	VPSUBQ(twoQ, v, vQ)
-	VPMINUQ(vQ, v, v)
-	VPSUBQ(q, v, vQ)
-	VPMINUQ(vQ, v, v)
+		VADDPD(cvt52, v, v)
+		VXORPD(cvt52, v, v)
+	case TypeAVX512:
+		VCVTPD2UQQ(u, u)
+		VCVTPD2UQQ(v, v)
+	case TypeAVX512IFMA:
+		uQ, vQ := ZMM(), ZMM()
+		VPSUBQ(twoQ, u, uQ)
+		VPMINUQ(uQ, u, u)
+		VPSUBQ(q, u, uQ)
+		VPMINUQ(uQ, u, u)
 
-	VMOVDQU64(u, Mem{Base: coeffs, Index: j, Scale: 8})
-	VMOVDQU64(v, Mem{Base: coeffs, Index: jt, Scale: 8})
+		VPSUBQ(twoQ, v, vQ)
+		VPMINUQ(vQ, v, v)
+		VPSUBQ(q, v, vQ)
+		VPMINUQ(vQ, v, v)
+	}
 
-	ADDQ(Imm(8), j)
-	ADDQ(Imm(8), jt)
+	VMOV(avxType, u, Mem{Base: coeffs, Index: j, Scale: 8})
+	VMOV(avxType, v, Mem{Base: coeffs, Index: jt, Scale: 8})
+
+	ADDQ(Imm(1<<LogWidth(avxType)), j)
+	ADDQ(Imm(1<<LogWidth(avxType)), jt)
 
 	Label("last_loop_end")
 	CMPQ(j, NN)

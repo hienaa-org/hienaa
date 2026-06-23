@@ -215,7 +215,7 @@ func (ntt *pow235CyclicTransformer) ForwardTo(vNTT, v []uint64) {
 
 // InverseTo transforms the uint64 vector to Standard form.
 func (ntt *pow235CyclicTransformer) InverseTo(v, vNTT []uint64) {
-	copy(v, vNTT)
+	vec.FMulScalarTo(v, vNTT, ntt.rankInv, ntt.rankInvM, ntt.mod)
 
 	if ntt.rankFactors[0] > 1 {
 		for i := 0; i < ntt.params.rank; i += ntt.rankFactors[0] {
@@ -243,8 +243,6 @@ func (ntt *pow235CyclicTransformer) InverseTo(v, vNTT []uint64) {
 		}
 		copy(v, vBuf)
 	}
-
-	vec.FMulScalarTo(v, v, ntt.rankInv, ntt.rankInvM, ntt.mod)
 }
 
 // Params returns the ring parameters.
