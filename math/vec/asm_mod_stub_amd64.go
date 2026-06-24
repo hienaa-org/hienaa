@@ -59,10 +59,10 @@ func negToAVX2(vOut []uint64, v []uint64, q uint64)
 func negWordToAVX2(vOut []uint64, v []uint64)
 
 //go:noescape
-func negToAVX512(vOut []uint64, v []uint64, q uint64)
+func negWordToAVX512(vOut []uint64, v []uint64)
 
 //go:noescape
-func negWordToAVX512(vOut []uint64, v []uint64)
+func negToAVX512(vOut []uint64, v []uint64, q uint64)
 
 //go:noescape
 func mFormToAVX512(vOut []uint64, v []uint64, q uint64, divHi uint64, divLo uint64)

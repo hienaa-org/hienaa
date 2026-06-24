@@ -27,8 +27,8 @@ func FindNTTPrimes(params dft.RingParameters, baseModBits, auxModBits float64) (
 		}
 
 		limbBit := math.Ceil(baseModBits / float64(modLen))
-		if limbBit >= 62 {
-			limbBit = 61
+		if limbBit >= num.MaxModulusBits {
+			limbBit = num.MaxModulusBits - 1
 		}
 
 		start := (uint64(math.Round(math.Exp2(limbBit)))/gap)*gap + 1
@@ -46,7 +46,7 @@ func FindNTTPrimes(params dft.RingParameters, baseModBits, auxModBits float64) (
 			}
 		}
 
-		if bitlen >= 62 {
+		if bitlen >= num.MaxModulusBits {
 			modLen++
 		} else {
 			slices.SortFunc(modulus[:modLen-1], func(a, b *num.Modulus) int {
@@ -117,7 +117,7 @@ func FindNTTPrimes(params dft.RingParameters, baseModBits, auxModBits float64) (
 				cnt++
 			}
 
-			if bitlen >= 62 {
+			if bitlen >= num.MaxModulusBits {
 				auxModLen++
 			} else {
 				slices.SortFunc(auxModulus[:auxModLen-1], func(a, b *num.Modulus) int {

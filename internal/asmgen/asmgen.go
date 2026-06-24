@@ -9,14 +9,6 @@ import (
 	"github.com/mmcloughlin/avo/buildtags"
 )
 
-type OpType int
-
-const (
-	OpPure OpType = iota
-	OpAdd
-	OpSub
-)
-
 var (
 	vec = flag.Bool("vec", false, "asm_mod_amd64.s")
 	ntt = flag.Bool("ntt", false, "asm_ntt_pow2.s")
@@ -31,42 +23,42 @@ func main() {
 	if *vec {
 		VecConstants()
 
-		VecAddSubToAVX2(OpAdd, false)
-		VecAddSubToAVX2(OpAdd, true)
-		VecAddSubToAVX2(OpSub, false)
-		VecAddSubToAVX2(OpSub, true)
+		VecAddSubToAVX(TypeAVX2, OpAdd, false)
+		VecAddSubToAVX(TypeAVX2, OpAdd, true)
+		VecAddSubToAVX(TypeAVX2, OpSub, false)
+		VecAddSubToAVX(TypeAVX2, OpSub, true)
 
-		VecAddSubToAVX512(OpAdd, false)
-		VecAddSubToAVX512(OpAdd, true)
-		VecAddSubToAVX512(OpSub, false)
-		VecAddSubToAVX512(OpSub, true)
+		VecAddSubToAVX(TypeAVX512, OpAdd, false)
+		VecAddSubToAVX(TypeAVX512, OpAdd, true)
+		VecAddSubToAVX(TypeAVX512, OpSub, false)
+		VecAddSubToAVX(TypeAVX512, OpSub, true)
 
-		VecAddSubScalarToAVX2(OpAdd, false)
-		VecAddSubScalarToAVX2(OpAdd, true)
-		VecAddSubScalarToAVX2(OpSub, false)
-		VecAddSubScalarToAVX2(OpSub, true)
+		VecAddSubScalarToAVX(TypeAVX2, OpAdd, false)
+		VecAddSubScalarToAVX(TypeAVX2, OpAdd, true)
+		VecAddSubScalarToAVX(TypeAVX2, OpSub, false)
+		VecAddSubScalarToAVX(TypeAVX2, OpSub, true)
 
-		VecAddSubScalarToAVX512(OpAdd, false)
-		VecAddSubScalarToAVX512(OpAdd, true)
-		VecAddSubScalarToAVX512(OpSub, false)
-		VecAddSubScalarToAVX512(OpSub, true)
+		VecAddSubScalarToAVX(TypeAVX512, OpAdd, false)
+		VecAddSubScalarToAVX(TypeAVX512, OpAdd, true)
+		VecAddSubScalarToAVX(TypeAVX512, OpSub, false)
+		VecAddSubScalarToAVX(TypeAVX512, OpSub, true)
 
-		VecNegToAVX2(false)
-		VecNegToAVX2(true)
+		VecNegToAVX(TypeAVX2, false)
+		VecNegToAVX(TypeAVX2, true)
 
-		VecNegToAVX512(false)
-		VecNegToAVX512(true)
+		VecNegToAVX(TypeAVX512, true)
+		VecNegToAVX(TypeAVX512, false)
 
 		VecMFormToAVX512()
 		VecInvMFormToAVX512()
 
-		VecMulScalarWordToAVX2(OpPure)
-		VecMulScalarWordToAVX2(OpAdd)
-		VecMulScalarWordToAVX2(OpSub)
+		VecMulScalarWordToAVX(TypeAVX2, OpPure)
+		VecMulScalarWordToAVX(TypeAVX2, OpAdd)
+		VecMulScalarWordToAVX(TypeAVX2, OpSub)
 
-		VecMulScalarWordToAVX512(OpPure)
-		VecMulScalarWordToAVX512(OpAdd)
-		VecMulScalarWordToAVX512(OpSub)
+		VecMulScalarWordToAVX(TypeAVX512, OpPure)
+		VecMulScalarWordToAVX(TypeAVX512, OpAdd)
+		VecMulScalarWordToAVX(TypeAVX512, OpSub)
 
 		VecMMulScalarToAVX512(OpPure, false)
 		VecMMulScalarToAVX512(OpAdd, false)
@@ -84,13 +76,13 @@ func main() {
 		VecSMulScalarToAVX512(OpAdd, true)
 		VecSMulScalarToAVX512(OpSub, true)
 
-		VecMulWordToAVX2(OpPure)
-		VecMulWordToAVX2(OpAdd)
-		VecMulWordToAVX2(OpSub)
+		VecMulWordToAVX(TypeAVX2, OpPure)
+		VecMulWordToAVX(TypeAVX2, OpAdd)
+		VecMulWordToAVX(TypeAVX2, OpSub)
 
-		VecMulWordToAVX512(OpPure)
-		VecMulWordToAVX512(OpAdd)
-		VecMulWordToAVX512(OpSub)
+		VecMulWordToAVX(TypeAVX512, OpPure)
+		VecMulWordToAVX(TypeAVX512, OpAdd)
+		VecMulWordToAVX(TypeAVX512, OpSub)
 
 		VecMMulToAVX512(OpPure, false)
 		VecMMulToAVX512(OpAdd, false)

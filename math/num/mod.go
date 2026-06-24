@@ -12,15 +12,9 @@ const (
 	// MaxModulusBits equals to log2(MaxModulus).
 	// See [MaxModulus] for details.
 	MaxModulusBits = 62
-	// MaxModulusIFMABits equals log2(MaxModulusIFMA).
-	// See [MaxModulusIFMA] for details.
-	MaxModulusIFMABits = 50
 	// MaxModulus is the maximum possible modulus value for the reduction.
 	// All numbers in HIENAA are assumed to be less than this value.
 	MaxModulus = 1 << MaxModulusBits
-	// MaxModulusIFMA is the maximum possible modulus value for using AVX512-IFMA instruction.
-	// While AVX512-IFMA is not currently used, we still test this bound just in case.
-	MaxModulusIFMA = 1 << MaxModulusIFMABits
 )
 
 // Modulus holds precomputed constants for efficient modulus reduction.

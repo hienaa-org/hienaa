@@ -13,10 +13,8 @@ GLOBL MASK_52<>(SB), RODATA|NOPTR, $8
 // func addToAVX2(vOut []uint64, v0 []uint64, v1 []uint64, q uint64)
 // Requires: AVX, AVX2, CMOV
 TEXT ·addToAVX2(SB), NOSPLIT, $0-80
-	VPCMPEQQ     Y0, Y0, Y0
-	VPSLLQ       $0x3f, Y0, Y0
 	MOVQ         q+72(FP), AX
-	VPBROADCASTQ q+72(FP), Y1
+	VPBROADCASTQ q+72(FP), Y0
 	MOVQ         vOut_len+8(FP), CX
 	MOVQ         vOut_base+0(FP), DX
 	MOVQ         v0_base+24(FP), BX
@@ -28,16 +26,13 @@ TEXT ·addToAVX2(SB), NOSPLIT, $0-80
 	JMP          loop_end
 
 loop_body:
-	VMOVDQU  (BX)(R8*8), Y2
-	VMOVDQU  (SI)(R8*8), Y3
-	VPADDQ   Y3, Y2, Y2
-	VPXOR    Y0, Y1, Y3
-	VPXOR    Y0, Y2, Y4
-	VPCMPGTQ Y3, Y4, Y3
-	VPAND    Y1, Y3, Y3
-	VPSUBQ   Y3, Y2, Y2
-	VMOVDQU  Y2, (DX)(R8*8)
-	ADDQ     $0x04, R8
+	VMOVDQU   (BX)(R8*8), Y1
+	VMOVDQU   (SI)(R8*8), Y2
+	VPADDQ    Y2, Y1, Y1
+	VPSUBQ    Y0, Y1, Y2
+	VBLENDVPD Y2, Y1, Y2, Y1
+	VMOVDQU   Y1, (DX)(R8*8)
+	ADDQ      $0x04, R8
 
 loop_end:
 	CMPQ R8, DI
@@ -100,10 +95,8 @@ leftover_loop_end:
 // func subToAVX2(vOut []uint64, v0 []uint64, v1 []uint64, q uint64)
 // Requires: AVX, AVX2, CMOV
 TEXT ·subToAVX2(SB), NOSPLIT, $0-80
-	VPCMPEQQ     Y0, Y0, Y0
-	VPSLLQ       $0x3f, Y0, Y0
 	MOVQ         q+72(FP), AX
-	VPBROADCASTQ q+72(FP), Y1
+	VPBROADCASTQ q+72(FP), Y0
 	MOVQ         vOut_len+8(FP), CX
 	MOVQ         vOut_base+0(FP), DX
 	MOVQ         v0_base+24(FP), BX
@@ -115,16 +108,13 @@ TEXT ·subToAVX2(SB), NOSPLIT, $0-80
 	JMP          loop_end
 
 loop_body:
-	VMOVDQU  (BX)(R8*8), Y2
-	VMOVDQU  (SI)(R8*8), Y3
-	VPSUBQ   Y3, Y2, Y2
-	VPXOR    Y0, Y1, Y3
-	VPXOR    Y0, Y2, Y4
-	VPCMPGTQ Y3, Y4, Y3
-	VPAND    Y1, Y3, Y3
-	VPADDQ   Y3, Y2, Y2
-	VMOVDQU  Y2, (DX)(R8*8)
-	ADDQ     $0x04, R8
+	VMOVDQU   (BX)(R8*8), Y1
+	VMOVDQU   (SI)(R8*8), Y2
+	VPSUBQ    Y2, Y1, Y1
+	VPADDQ    Y0, Y1, Y2
+	VBLENDVPD Y1, Y2, Y1, Y1
+	VMOVDQU   Y1, (DX)(R8*8)
+	ADDQ      $0x04, R8
 
 loop_end:
 	CMPQ R8, DI
@@ -351,15 +341,13 @@ leftover_loop_end:
 // func addScalarToAVX2(vOut []uint64, v []uint64, c uint64, q uint64)
 // Requires: AVX, AVX2, CMOV
 TEXT ·addScalarToAVX2(SB), NOSPLIT, $0-64
-	VPCMPEQQ     Y0, Y0, Y0
-	VPSLLQ       $0x3f, Y0, Y0
 	MOVQ         q+56(FP), AX
-	VPBROADCASTQ q+56(FP), Y1
+	VPBROADCASTQ q+56(FP), Y0
 	MOVQ         vOut_len+8(FP), CX
 	MOVQ         vOut_base+0(FP), DX
 	MOVQ         v_base+24(FP), BX
 	MOVQ         c+48(FP), SI
-	VPBROADCASTQ c+48(FP), Y2
+	VPBROADCASTQ c+48(FP), Y1
 	MOVQ         CX, DI
 	SHRQ         $0x02, DI
 	SHLQ         $0x02, DI
@@ -367,15 +355,12 @@ TEXT ·addScalarToAVX2(SB), NOSPLIT, $0-64
 	JMP          loop_end
 
 loop_body:
-	VMOVDQU  (BX)(R8*8), Y3
-	VPADDQ   Y2, Y3, Y3
-	VPXOR    Y0, Y1, Y4
-	VPXOR    Y0, Y3, Y5
-	VPCMPGTQ Y4, Y5, Y4
-	VPAND    Y1, Y4, Y4
-	VPSUBQ   Y4, Y3, Y3
-	VMOVDQU  Y3, (DX)(R8*8)
-	ADDQ     $0x04, R8
+	VMOVDQU   (BX)(R8*8), Y2
+	VPADDQ    Y1, Y2, Y2
+	VPSUBQ    Y0, Y2, Y3
+	VBLENDVPD Y3, Y2, Y3, Y2
+	VMOVDQU   Y2, (DX)(R8*8)
+	ADDQ      $0x04, R8
 
 loop_end:
 	CMPQ R8, DI
@@ -436,15 +421,13 @@ leftover_loop_end:
 // func subScalarToAVX2(vOut []uint64, v []uint64, c uint64, q uint64)
 // Requires: AVX, AVX2, CMOV
 TEXT ·subScalarToAVX2(SB), NOSPLIT, $0-64
-	VPCMPEQQ     Y0, Y0, Y0
-	VPSLLQ       $0x3f, Y0, Y0
 	MOVQ         q+56(FP), AX
-	VPBROADCASTQ q+56(FP), Y1
+	VPBROADCASTQ q+56(FP), Y0
 	MOVQ         vOut_len+8(FP), CX
 	MOVQ         vOut_base+0(FP), DX
 	MOVQ         v_base+24(FP), BX
 	MOVQ         c+48(FP), SI
-	VPBROADCASTQ c+48(FP), Y2
+	VPBROADCASTQ c+48(FP), Y1
 	MOVQ         CX, DI
 	SHRQ         $0x02, DI
 	SHLQ         $0x02, DI
@@ -452,15 +435,12 @@ TEXT ·subScalarToAVX2(SB), NOSPLIT, $0-64
 	JMP          loop_end
 
 loop_body:
-	VMOVDQU  (BX)(R8*8), Y3
-	VPSUBQ   Y2, Y3, Y3
-	VPXOR    Y0, Y1, Y4
-	VPXOR    Y0, Y3, Y5
-	VPCMPGTQ Y4, Y5, Y4
-	VPAND    Y1, Y4, Y4
-	VPADDQ   Y4, Y3, Y3
-	VMOVDQU  Y3, (DX)(R8*8)
-	ADDQ     $0x04, R8
+	VMOVDQU   (BX)(R8*8), Y2
+	VPSUBQ    Y1, Y2, Y2
+	VPADDQ    Y0, Y2, Y3
+	VBLENDVPD Y2, Y3, Y2, Y2
+	VMOVDQU   Y2, (DX)(R8*8)
+	ADDQ      $0x04, R8
 
 loop_end:
 	CMPQ R8, DI
@@ -756,6 +736,41 @@ leftover_loop_end:
 	JL   leftover_loop_body
 	RET
 
+// func negWordToAVX512(vOut []uint64, v []uint64)
+// Requires: AVX512F
+TEXT ·negWordToAVX512(SB), NOSPLIT, $0-48
+	VPXORQ Z0, Z0, Z0
+	MOVQ   vOut_len+8(FP), AX
+	MOVQ   vOut_base+0(FP), CX
+	MOVQ   v_base+24(FP), DX
+	MOVQ   AX, BX
+	SHRQ   $0x03, BX
+	SHLQ   $0x03, BX
+	XORQ   SI, SI
+	JMP    loop_end
+
+loop_body:
+	VMOVDQU64 (DX)(SI*8), Z1
+	VPSUBQ    Z1, Z0, Z1
+	VMOVDQU64 Z1, (CX)(SI*8)
+	ADDQ      $0x08, SI
+
+loop_end:
+	CMPQ SI, BX
+	JL   loop_body
+	JMP  leftover_loop_end
+
+leftover_loop_body:
+	MOVQ (DX)(SI*8), BX
+	NEGQ BX
+	MOVQ BX, (CX)(SI*8)
+	ADDQ $0x01, SI
+
+leftover_loop_end:
+	CMPQ SI, AX
+	JL   leftover_loop_body
+	RET
+
 // func negToAVX512(vOut []uint64, v []uint64, q uint64)
 // Requires: AVX512F, CMOV
 TEXT ·negToAVX512(SB), NOSPLIT, $0-56
@@ -794,41 +809,6 @@ leftover_loop_body:
 
 leftover_loop_end:
 	CMPQ DI, CX
-	JL   leftover_loop_body
-	RET
-
-// func negWordToAVX512(vOut []uint64, v []uint64)
-// Requires: AVX512F
-TEXT ·negWordToAVX512(SB), NOSPLIT, $0-48
-	VPXORQ Z0, Z0, Z0
-	MOVQ   vOut_len+8(FP), AX
-	MOVQ   vOut_base+0(FP), CX
-	MOVQ   v_base+24(FP), DX
-	MOVQ   AX, BX
-	SHRQ   $0x03, BX
-	SHLQ   $0x03, BX
-	XORQ   SI, SI
-	JMP    loop_end
-
-loop_body:
-	VMOVDQU64 (DX)(SI*8), Z1
-	VPSUBQ    Z1, Z0, Z1
-	VMOVDQU64 Z1, (CX)(SI*8)
-	ADDQ      $0x08, SI
-
-loop_end:
-	CMPQ SI, BX
-	JL   loop_body
-	JMP  leftover_loop_end
-
-leftover_loop_body:
-	MOVQ (DX)(SI*8), BX
-	NEGQ BX
-	MOVQ BX, (CX)(SI*8)
-	ADDQ $0x01, SI
-
-leftover_loop_end:
-	CMPQ SI, AX
 	JL   leftover_loop_body
 	RET
 
@@ -1123,7 +1103,7 @@ TEXT ·mulScalarWordToAVX512(SB), NOSPLIT, $0-56
 
 loop_body:
 	VMOVDQU64 (BX)(DI*8), Z1
-	VPMULLQ   Z1, Z0, Z1
+	VPMULLQ   Z0, Z1, Z1
 	VMOVDQU64 Z1, (DX)(DI*8)
 	ADDQ      $0x08, DI
 
@@ -1159,7 +1139,7 @@ TEXT ·mulAddScalarWordToAVX512(SB), NOSPLIT, $0-56
 
 loop_body:
 	VMOVDQU64 (BX)(DI*8), Z1
-	VPMULLQ   Z1, Z0, Z2
+	VPMULLQ   Z0, Z1, Z2
 	VMOVDQU64 (DX)(DI*8), Z1
 	VPADDQ    Z2, Z1, Z1
 	VMOVDQU64 Z1, (DX)(DI*8)
@@ -1199,7 +1179,7 @@ TEXT ·mulSubScalarWordToAVX512(SB), NOSPLIT, $0-56
 
 loop_body:
 	VMOVDQU64 (BX)(DI*8), Z1
-	VPMULLQ   Z1, Z0, Z2
+	VPMULLQ   Z0, Z1, Z2
 	VMOVDQU64 (DX)(DI*8), Z1
 	VPSUBQ    Z2, Z1, Z1
 	VMOVDQU64 Z1, (DX)(DI*8)
@@ -2302,7 +2282,7 @@ TEXT ·mulWordToAVX512(SB), NOSPLIT, $0-72
 loop_body:
 	VMOVDQU64 (DX)(DI*8), Z0
 	VMOVDQU64 (BX)(DI*8), Z1
-	VPMULLQ   Z0, Z1, Z0
+	VPMULLQ   Z1, Z0, Z0
 	VMOVDQU64 Z0, (CX)(DI*8)
 	ADDQ      $0x08, DI
 
@@ -2339,7 +2319,7 @@ TEXT ·mulAddWordToAVX512(SB), NOSPLIT, $0-72
 loop_body:
 	VMOVDQU64 (DX)(DI*8), Z0
 	VMOVDQU64 (BX)(DI*8), Z1
-	VPMULLQ   Z0, Z1, Z1
+	VPMULLQ   Z1, Z0, Z1
 	VMOVDQU64 (CX)(DI*8), Z0
 	VPADDQ    Z1, Z0, Z0
 	VMOVDQU64 Z0, (CX)(DI*8)
@@ -2380,7 +2360,7 @@ TEXT ·mulSubWordToAVX512(SB), NOSPLIT, $0-72
 loop_body:
 	VMOVDQU64 (DX)(DI*8), Z0
 	VMOVDQU64 (BX)(DI*8), Z1
-	VPMULLQ   Z0, Z1, Z1
+	VPMULLQ   Z1, Z0, Z1
 	VMOVDQU64 (CX)(DI*8), Z0
 	VPSUBQ    Z1, Z0, Z0
 	VMOVDQU64 Z0, (CX)(DI*8)

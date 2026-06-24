@@ -62,3 +62,15 @@ func Mul64HiAVX512(x0, x0Hi, x1, x1Hi, maskLo, xOut reg.VecVirtual) {
 	VPSRLQ(Imm(32), xMidHi, xMidHi)
 	VPADDQ(xOut, xMidHi, xOut)
 }
+
+func Mul64HiApproxAVX512(x0, x0Hi, x1, x1Hi, maskLo, xOut reg.VecVirtual) {
+	xLoHi, xHiLo := ZMM(), ZMM()
+	VPMULUDQ(x1Hi, x0, xLoHi)
+	VPMULUDQ(x1, x0Hi, xHiLo)
+	VPMULUDQ(x1Hi, x0Hi, xOut)
+
+	VPSRLQ(Imm(32), xLoHi, xLoHi)
+	VPSRLQ(Imm(32), xHiLo, xHiLo)
+	VPADDQ(xOut, xLoHi, xOut)
+	VPADDQ(xOut, xHiLo, xOut)
+}

@@ -265,7 +265,7 @@ func benchmarkOperator(b *testing.B, params dft.RingParameters) {
 				}
 			}
 		} else {
-			q = []*num.Modulus{num.NewModulus(1<<60 + 1)}
+			q = []*num.Modulus{num.NewModulus(1<<(num.MaxModulusBits-1) + 1)}
 		}
 
 		b.Run(fmt.Sprintf("Mod=%v", modType), func(b *testing.B) {
