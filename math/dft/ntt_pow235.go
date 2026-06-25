@@ -4,9 +4,14 @@ import (
 	"math/bits"
 )
 
+const (
+	nttUnrollBound  = 32
+	nttRecurseBound = 1024
+)
+
 // fwdNTTInPlacePow2 computes the NTT transform in-place for power-of-two length coefficients.
 func fwdNTTInPlacePow2(coeffs, tw, twS []uint64, q uint64) {
-	if len(coeffs) < 32 {
+	if len(coeffs) <= nttUnrollBound {
 		fwdNTTInPlacePow2Ref(coeffs, tw, twS, q)
 		return
 	}

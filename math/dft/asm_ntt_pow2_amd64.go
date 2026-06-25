@@ -9,11 +9,11 @@ import (
 )
 
 // fwdNTTInPlacePow2Unroll computes the NTT transform in-place for power-of-two length coefficients.
-// Assumes len(coeffs) >= 16.
+// Assumes len(coeffs) > [nttUnrollBound].
 func fwdNTTInPlacePow2Unroll(coeffs, tw, twS []uint64, q uint64) {
 	switch {
 	case cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasAVX512VL && cpu.X86.HasBMI2:
-		fwdNTTInPlacePow2UnrollAVX512(coeffs, tw, twS, q)
+		fwdNTTInPlacePow2UnrollRecurseAVX512(coeffs, tw, twS, q, 0, uint64(len(coeffs)), 1)
 		return
 	}
 
@@ -108,12 +108,34 @@ func fwdNTTInPlacePow2Unroll(coeffs, tw, twS []uint64, q uint64) {
 	}
 }
 
+func fwdNTTInPlacePow2UnrollRecurseAVX512(coeffs, tw, twS []uint64, q uint64, idx, N, l uint64) {
+	if N <= nttRecurseBound {
+		fwdNTTInPlacePow2UnrollAVX512(coeffs, tw, twS, q, idx, N, l)
+		return
+	}
+
+	L := unsafe.Sizeof(uint64(0))
+
+	r := unsafe.Pointer(unsafe.SliceData(tw))
+	rS := unsafe.Pointer(unsafe.SliceData(twS))
+
+	w := *(*uint64)(unsafe.Add(r, uintptr(l)*L))
+	wS := *(*uint64)(unsafe.Add(rS, uintptr(l)*L))
+
+	t := N >> 1
+
+	fwdNTTInPlacePow2StrideUnrollAVX512(coeffs, w, wS, q, idx, t)
+
+	fwdNTTInPlacePow2UnrollRecurseAVX512(coeffs, tw, twS, q, idx, t, l<<1)
+	fwdNTTInPlacePow2UnrollRecurseAVX512(coeffs, tw, twS, q, idx+t, t, (l<<1)|1)
+}
+
 // invNTTInPlacePow2Unroll computes the Inverse NTT transform in-place for power-of-two length coefficients.
-// Assumes len(coeffs) >= 32.
+// Assumes len(coeffs) > [nttRecurseBound].
 func invNTTInPlacePow2Unroll(coeffs, twInv, twInvS []uint64, q uint64) {
 	switch {
 	case cpu.X86.HasAVX2 && cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasAVX512VL && cpu.X86.HasBMI2:
-		invNTTInPlacePow2UnrollAVX512(coeffs, twInv, twInvS, q)
+		invNTTInPlacePow2UnrollRecurseAVX512(coeffs, twInv, twInvS, q, 0, uint64(len(coeffs)), 1)
 		return
 	}
 
@@ -206,4 +228,26 @@ func invNTTInPlacePow2Unroll(coeffs, twInv, twInvS []uint64, q uint64) {
 		c0[6], c1[6] = invButterflyPow2(c0[6], c1[6], w, wS, q, twoQ)
 		c0[7], c1[7] = invButterflyPow2(c0[7], c1[7], w, wS, q, twoQ)
 	}
+}
+
+func invNTTInPlacePow2UnrollRecurseAVX512(coeffs, twInv, twInvS []uint64, q uint64, idx, N, l uint64) {
+	if N <= nttRecurseBound {
+		invNTTInPlacePow2UnrollAVX512(coeffs, twInv, twInvS, q, idx, N, l)
+		return
+	}
+
+	L := unsafe.Sizeof(uint64(0))
+
+	r := unsafe.Pointer(unsafe.SliceData(twInv))
+	rS := unsafe.Pointer(unsafe.SliceData(twInvS))
+
+	w := *(*uint64)(unsafe.Add(r, uintptr(l)*L))
+	wS := *(*uint64)(unsafe.Add(rS, uintptr(l)*L))
+
+	t := N >> 1
+
+	invNTTInPlacePow2UnrollRecurseAVX512(coeffs, twInv, twInvS, q, idx, t, l<<1)
+	invNTTInPlacePow2UnrollRecurseAVX512(coeffs, twInv, twInvS, q, idx+t, t, (l<<1)|1)
+
+	invNTTInPlacePow2StrideUnrollAVX512(coeffs, w, wS, q, idx, t)
 }

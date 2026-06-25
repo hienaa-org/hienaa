@@ -7,7 +7,6 @@ import (
 
 func NTTConstants() {
 	ConstData("MASK_LO", U64(1<<32-1))
-	ConstData("MASK_52", U64(1<<52-1))
 
 	GLOBL("PERM_00112233", RODATA|NOPTR)
 	for i, idx := range []uint64{0, 0, 1, 1, 2, 2, 3, 3} {
@@ -25,8 +24,63 @@ func NTTConstants() {
 	}
 }
 
+func FwdNTTInPlacePow2StrideUnrollAVX512() {
+	TEXT("fwdNTTInPlacePow2StrideUnrollAVX512", NOSPLIT, "func(coeffs []uint64, w, wS, q uint64, idx, t uint64)")
+	Pragma("noescape")
+
+	maskLo := ZMM()
+	VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_LO"), 0), maskLo)
+
+	coeffs := Load(Param("coeffs").Base(), GP64())
+
+	idx := Load(Param("idx"), GP64())
+
+	q, twoQ := ZMM(), ZMM()
+	VPBROADCASTQ(NewParamAddr("q", 40), q)
+	VPADDQ(q, q, twoQ)
+
+	w, wS := ZMM(), ZMM()
+	VPBROADCASTQ(NewParamAddr("w", 24), w)
+	VPBROADCASTQ(NewParamAddr("wS", 32), wS)
+
+	wSHi := ZMM()
+	VPSRLQ(Imm(32), wS, wSHi)
+
+	t := Load(Param("t"), GP64())
+
+	NN := GP64()
+	MOVQ(idx, NN)
+	ADDQ(t, NN)
+
+	j, jt := GP64(), GP64()
+	MOVQ(idx, j)
+	MOVQ(j, jt)
+	ADDQ(t, jt)
+
+	JMP(LabelRef("loop_end"))
+	Label("loop_body")
+
+	u, v := ZMM(), ZMM()
+	VMOVDQU64(Mem{Base: coeffs, Index: j, Scale: 8}, u)
+	VMOVDQU64(Mem{Base: coeffs, Index: jt, Scale: 8}, v)
+
+	FwdButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo)
+
+	VMOVDQU64(u, Mem{Base: coeffs, Index: j, Scale: 8})
+	VMOVDQU64(v, Mem{Base: coeffs, Index: jt, Scale: 8})
+
+	ADDQ(Imm(8), j)
+	ADDQ(Imm(8), jt)
+
+	Label("loop_end")
+	CMPQ(j, NN)
+	JL(LabelRef("loop_body"))
+
+	RET()
+}
+
 func FwdNTTInPlacePow2UnrollAVX512() {
-	TEXT("fwdNTTInPlacePow2UnrollAVX512", NOSPLIT, "func(coeffs, tw, twS []uint64, q uint64)")
+	TEXT("fwdNTTInPlacePow2UnrollAVX512", NOSPLIT, "func(coeffs, tw, twS []uint64, q, idx, N, l uint64)")
 	Pragma("noescape")
 
 	maskLo := ZMM()
@@ -35,10 +89,14 @@ func FwdNTTInPlacePow2UnrollAVX512() {
 	coeffs := Load(Param("coeffs").Base(), GP64())
 	tw := Load(Param("tw").Base(), GP64())
 	twS := Load(Param("twS").Base(), GP64())
-	N := Load(Param("coeffs").Len(), GP64())
+	N := Load(Param("N"), GP64())
+	idx := Load(Param("idx"), GP64())
+	SHLQ(Imm(3), idx)
+	ADDQ(idx, coeffs)
 
 	wIdx := GP64()
-	MOVQ(U64(1), wIdx)
+	l := Load(Param("l"), GP64())
+	MOVQ(l, wIdx)
 
 	q, twoQ := ZMM(), ZMM()
 	VPBROADCASTQ(NewParamAddr("q", 72), q)
@@ -92,6 +150,9 @@ func FwdNTTInPlacePow2UnrollAVX512() {
 
 	SHRQ(Imm(1), t)
 
+	MOVQ(l, wIdx)
+	IMULQ(m, wIdx)
+
 	i := GP64()
 	XORQ(i, i)
 	JMP(LabelRef("i_loop_end"))
@@ -143,6 +204,10 @@ func FwdNTTInPlacePow2UnrollAVX512() {
 	CMPQ(m, NN)
 	JLE(LabelRef("m_loop_body"))
 
+	MOVQ(N, wIdx)
+	SHRQ(Imm(3), wIdx)
+	IMULQ(l, wIdx)
+
 	XORQ(i, i)
 	JMP(LabelRef("t_4_loop_end"))
 	Label("t_4_loop_body")
@@ -186,6 +251,10 @@ func FwdNTTInPlacePow2UnrollAVX512() {
 	PERM_00112233 := ZMM()
 	VMOVDQU64(NewDataAddr(NewStaticSymbol("PERM_00112233"), 0), PERM_00112233)
 
+	MOVQ(N, wIdx)
+	SHRQ(Imm(2), wIdx)
+	IMULQ(l, wIdx)
+
 	XORQ(i, i)
 	JMP(LabelRef("t_2_loop_end"))
 	Label("t_2_loop_body")
@@ -224,6 +293,10 @@ func FwdNTTInPlacePow2UnrollAVX512() {
 	PERM_02461357, PERM_04152637 := ZMM(), ZMM()
 	VMOVDQU64(NewDataAddr(NewStaticSymbol("PERM_02461357"), 0), PERM_02461357)
 	VMOVDQU64(NewDataAddr(NewStaticSymbol("PERM_04152637"), 0), PERM_04152637)
+
+	MOVQ(N, wIdx)
+	SHRQ(Imm(1), wIdx)
+	IMULQ(l, wIdx)
 
 	XORQ(i, i)
 	JMP(LabelRef("t_1_loop_end"))
@@ -264,9 +337,63 @@ func FwdNTTInPlacePow2UnrollAVX512() {
 	RET()
 }
 
-func InvNTTInPlacePow2UnrollAVX512() {
+func InvNTTInPlacePow2StrideUnrollAVX512() {
+	TEXT("invNTTInPlacePow2StrideUnrollAVX512", NOSPLIT, "func(coeffs []uint64, w, wS, q uint64, idx, t uint64)")
+	Pragma("noescape")
 
-	TEXT("invNTTInPlacePow2UnrollAVX512", NOSPLIT, "func(coeffs, twInv, twInvS []uint64, q uint64)")
+	maskLo := ZMM()
+	VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_LO"), 0), maskLo)
+
+	coeffs := Load(Param("coeffs").Base(), GP64())
+
+	idx := Load(Param("idx"), GP64())
+
+	q, twoQ := ZMM(), ZMM()
+	VPBROADCASTQ(NewParamAddr("q", 40), q)
+	VPADDQ(q, q, twoQ)
+
+	w, wS := ZMM(), ZMM()
+	VPBROADCASTQ(NewParamAddr("w", 24), w)
+	VPBROADCASTQ(NewParamAddr("wS", 32), wS)
+
+	wSHi := ZMM()
+	VPSRLQ(Imm(32), wS, wSHi)
+
+	t := Load(Param("t"), GP64())
+
+	NN := GP64()
+	MOVQ(idx, NN)
+	ADDQ(t, NN)
+
+	j, jt := GP64(), GP64()
+	MOVQ(idx, j)
+	MOVQ(j, jt)
+	ADDQ(t, jt)
+
+	JMP(LabelRef("loop_end"))
+	Label("loop_body")
+
+	u, v := ZMM(), ZMM()
+	VMOVDQU64(Mem{Base: coeffs, Index: j, Scale: 8}, u)
+	VMOVDQU64(Mem{Base: coeffs, Index: jt, Scale: 8}, v)
+
+	InvButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo)
+
+	VMOVDQU64(u, Mem{Base: coeffs, Index: j, Scale: 8})
+	VMOVDQU64(v, Mem{Base: coeffs, Index: jt, Scale: 8})
+
+	ADDQ(Imm(8), j)
+	ADDQ(Imm(8), jt)
+
+	Label("loop_end")
+	CMPQ(j, NN)
+	JL(LabelRef("loop_body"))
+
+	RET()
+}
+
+func InvNTTInPlacePow2UnrollAVX512() {
+	TEXT("invNTTInPlacePow2UnrollAVX512", NOSPLIT, "func(coeffs, twInv, twInvS []uint64, q, idx, N, l uint64)")
 	Pragma("noescape")
 
 	maskLo := ZMM()
@@ -275,7 +402,10 @@ func InvNTTInPlacePow2UnrollAVX512() {
 	coeffs := Load(Param("coeffs").Base(), GP64())
 	twInv := Load(Param("twInv").Base(), GP64())
 	twInvS := Load(Param("twInvS").Base(), GP64())
-	N := Load(Param("coeffs").Len(), GP64())
+	N := Load(Param("N"), GP64())
+	idx := Load(Param("idx"), GP64())
+	SHLQ(Imm(3), idx)
+	ADDQ(idx, coeffs)
 
 	wIdx := GP64()
 
@@ -283,8 +413,10 @@ func InvNTTInPlacePow2UnrollAVX512() {
 	VPBROADCASTQ(NewParamAddr("q", 72), q)
 	VPADDQ(q, q, twoQ)
 
+	l := Load(Param("l"), GP64())
 	MOVQ(N, wIdx)
 	SHRQ(Imm(1), wIdx)
+	IMULQ(l, wIdx)
 
 	PERM_02461357, PERM_04152637 := ZMM(), ZMM()
 	VMOVDQU64(NewDataAddr(NewStaticSymbol("PERM_02461357"), 0), PERM_02461357)
@@ -336,6 +468,7 @@ func InvNTTInPlacePow2UnrollAVX512() {
 
 	MOVQ(N, wIdx)
 	SHRQ(Imm(2), wIdx)
+	IMULQ(l, wIdx)
 
 	XORQ(i, i)
 	JMP(LabelRef("t_2_loop_end"))
@@ -374,6 +507,7 @@ func InvNTTInPlacePow2UnrollAVX512() {
 
 	MOVQ(N, wIdx)
 	SHRQ(Imm(3), wIdx)
+	IMULQ(l, wIdx)
 
 	XORQ(i, i)
 	JMP(LabelRef("t_4_loop_end"))
@@ -422,6 +556,7 @@ func InvNTTInPlacePow2UnrollAVX512() {
 	Label("m_loop_body")
 
 	MOVQ(m, wIdx)
+	IMULQ(l, wIdx)
 
 	XORQ(i, i)
 	JMP(LabelRef("i_loop_end"))
@@ -479,8 +614,10 @@ func InvNTTInPlacePow2UnrollAVX512() {
 	MOVQ(N, NN)
 	SHRQ(Imm(1), NN)
 
-	VPBROADCASTQ(Mem{Base: twInv, Disp: 8, Scale: 8}, w)
-	VPBROADCASTQ(Mem{Base: twInvS, Disp: 8, Scale: 8}, wS)
+	MOVQ(l, wIdx)
+
+	VPBROADCASTQ(Mem{Base: twInv, Index: wIdx, Scale: 8}, w)
+	VPBROADCASTQ(Mem{Base: twInvS, Index: wIdx, Scale: 8}, wS)
 
 	VPSRLQ(Imm(32), wS, wSHi)
 
