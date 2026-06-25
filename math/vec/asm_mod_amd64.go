@@ -1889,3 +1889,90 @@ func ReduceTo[T num.Integer](vOut []uint64, v []T, q *num.Modulus) {
 		vOut[i] = modops.BMod(v[i], qv, divHi)
 	}
 }
+
+// Reduce2QTo computes vOut = v mod q assuming v is in [0, 2q).
+//
+// Panics if q is nil.
+func Reduce2QTo(vOut []uint64, v []uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v))
+
+	switch {
+	case cpu.X86.HasAVX512F:
+		reduce2QToAVX512(vOut, v, q.Value())
+		return
+	case cpu.X86.HasAVX2 && cpu.X86.HasAVX:
+		reduce2QToAVX2(vOut, v, q.Value())
+		return
+	}
+
+	qv := q.Value()
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] = modops.Reduce2Q(w[0], qv)
+		wOut[1] = modops.Reduce2Q(w[1], qv)
+		wOut[2] = modops.Reduce2Q(w[2], qv)
+		wOut[3] = modops.Reduce2Q(w[3], qv)
+
+		wOut[4] = modops.Reduce2Q(w[4], qv)
+		wOut[5] = modops.Reduce2Q(w[5], qv)
+		wOut[6] = modops.Reduce2Q(w[6], qv)
+		wOut[7] = modops.Reduce2Q(w[7], qv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.Reduce2Q(v[i], qv)
+	}
+}
+
+// Reduce4QTo computes vOut = v mod q assuming v is in [0, 4q).
+//
+// Panics if q is nil.
+func Reduce4QTo(vOut []uint64, v []uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v))
+
+	switch {
+	case cpu.X86.HasAVX512F:
+		reduce4QToAVX512(vOut, v, q.Value())
+		return
+	case cpu.X86.HasAVX2 && cpu.X86.HasAVX:
+		reduce4QToAVX2(vOut, v, q.Value())
+		return
+	}
+
+	qv := q.Value()
+	twoQv := qv << 1
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] = modops.Reduce4Q(w[0], qv, twoQv)
+		wOut[1] = modops.Reduce4Q(w[1], qv, twoQv)
+		wOut[2] = modops.Reduce4Q(w[2], qv, twoQv)
+		wOut[3] = modops.Reduce4Q(w[3], qv, twoQv)
+
+		wOut[4] = modops.Reduce4Q(w[4], qv, twoQv)
+		wOut[5] = modops.Reduce4Q(w[5], qv, twoQv)
+		wOut[6] = modops.Reduce4Q(w[6], qv, twoQv)
+		wOut[7] = modops.Reduce4Q(w[7], qv, twoQv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.Reduce4Q(v[i], qv, twoQv)
+	}
+}

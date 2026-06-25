@@ -225,3 +225,22 @@ func SMulLazy(x0, x1, x1S, q uint64) uint64 {
 
 	return x0*x1 - quo*q
 }
+
+// Reduce2Q reduces x assuming it is in [0, 2q).
+func Reduce2Q(x, q uint64) uint64 {
+	if x >= q {
+		x -= q
+	}
+	return x
+}
+
+// Reduce4Q reduces x assuming it is in [0, 4q).
+func Reduce4Q(x, q, twoQ uint64) uint64 {
+	if x >= twoQ {
+		x -= twoQ
+	}
+	if x >= q {
+		x -= q
+	}
+	return x
+}

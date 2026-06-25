@@ -101,6 +101,12 @@ func main() {
 		VecSMulToAVX512(OpSub, true)
 
 		VecReduceToAVX512()
+
+		VecReduceFixedQToAVX(2, TypeAVX2)
+		VecReduceFixedQToAVX(2, TypeAVX512)
+
+		VecReduceFixedQToAVX(4, TypeAVX2)
+		VecReduceFixedQToAVX(4, TypeAVX512)
 	}
 
 	if *ntt {

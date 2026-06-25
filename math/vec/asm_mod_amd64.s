@@ -3385,3 +3385,181 @@ leftover_loop_end:
 	CMPQ R8, BX
 	JL   leftover_loop_body
 	RET
+
+// func reduce2QToAVX2(vOut []uint64, v []uint64, q uint64)
+// Requires: AVX, AVX2, CMOV
+TEXT ·reduce2QToAVX2(SB), NOSPLIT, $0-56
+	MOVQ         q+48(FP), AX
+	VPBROADCASTQ q+48(FP), Y0
+	MOVQ         vOut_len+8(FP), CX
+	MOVQ         vOut_base+0(FP), DX
+	MOVQ         v_base+24(FP), BX
+	MOVQ         CX, SI
+	SHRQ         $0x02, SI
+	SHLQ         $0x02, SI
+	XORQ         DI, DI
+	JMP          loop_end
+
+loop_body:
+	VMOVDQU   (BX)(DI*8), Y1
+	VPSUBQ    Y0, Y1, Y2
+	VBLENDVPD Y2, Y1, Y2, Y1
+	VMOVDQU   Y1, (DX)(DI*8)
+	ADDQ      $0x04, DI
+
+loop_end:
+	CMPQ DI, SI
+	JL   loop_body
+	JMP  leftover_loop_end
+
+leftover_loop_body:
+	MOVQ    (BX)(DI*8), SI
+	MOVQ    SI, R8
+	SUBQ    AX, R8
+	CMPQ    AX, SI
+	CMOVQLS R8, SI
+	MOVQ    SI, (DX)(DI*8)
+	ADDQ    $0x01, DI
+
+leftover_loop_end:
+	CMPQ DI, CX
+	JL   leftover_loop_body
+	RET
+
+// func reduce2QToAVX512(vOut []uint64, v []uint64, q uint64)
+// Requires: AVX512F, CMOV
+TEXT ·reduce2QToAVX512(SB), NOSPLIT, $0-56
+	MOVQ         q+48(FP), AX
+	VPBROADCASTQ q+48(FP), Z0
+	MOVQ         vOut_len+8(FP), CX
+	MOVQ         vOut_base+0(FP), DX
+	MOVQ         v_base+24(FP), BX
+	MOVQ         CX, SI
+	SHRQ         $0x03, SI
+	SHLQ         $0x03, SI
+	XORQ         DI, DI
+	JMP          loop_end
+
+loop_body:
+	VMOVDQU64 (BX)(DI*8), Z1
+	VPSUBQ    Z0, Z1, Z2
+	VPMINUQ   Z2, Z1, Z1
+	VMOVDQU64 Z1, (DX)(DI*8)
+	ADDQ      $0x08, DI
+
+loop_end:
+	CMPQ DI, SI
+	JL   loop_body
+	JMP  leftover_loop_end
+
+leftover_loop_body:
+	MOVQ    (BX)(DI*8), SI
+	MOVQ    SI, R8
+	SUBQ    AX, R8
+	CMPQ    AX, SI
+	CMOVQLS R8, SI
+	MOVQ    SI, (DX)(DI*8)
+	ADDQ    $0x01, DI
+
+leftover_loop_end:
+	CMPQ DI, CX
+	JL   leftover_loop_body
+	RET
+
+// func reduce4QToAVX2(vOut []uint64, v []uint64, q uint64)
+// Requires: AVX, AVX2, CMOV
+TEXT ·reduce4QToAVX2(SB), NOSPLIT, $0-56
+	MOVQ         q+48(FP), AX
+	VPBROADCASTQ q+48(FP), Y0
+	MOVQ         AX, CX
+	ADDQ         AX, CX
+	VPADDQ       Y0, Y0, Y1
+	MOVQ         vOut_len+8(FP), DX
+	MOVQ         vOut_base+0(FP), BX
+	MOVQ         v_base+24(FP), SI
+	MOVQ         DX, DI
+	SHRQ         $0x02, DI
+	SHLQ         $0x02, DI
+	XORQ         R8, R8
+	JMP          loop_end
+
+loop_body:
+	VMOVDQU   (SI)(R8*8), Y2
+	VPSUBQ    Y1, Y2, Y3
+	VBLENDVPD Y3, Y2, Y3, Y2
+	VPSUBQ    Y0, Y2, Y3
+	VBLENDVPD Y3, Y2, Y3, Y2
+	VMOVDQU   Y2, (BX)(R8*8)
+	ADDQ      $0x04, R8
+
+loop_end:
+	CMPQ R8, DI
+	JL   loop_body
+	JMP  leftover_loop_end
+
+leftover_loop_body:
+	MOVQ    (SI)(R8*8), DI
+	MOVQ    DI, R9
+	SUBQ    CX, R9
+	CMPQ    CX, DI
+	CMOVQLS R9, DI
+	MOVQ    DI, R9
+	SUBQ    AX, R9
+	CMPQ    AX, DI
+	CMOVQLS R9, DI
+	MOVQ    DI, (BX)(R8*8)
+	ADDQ    $0x01, R8
+
+leftover_loop_end:
+	CMPQ R8, DX
+	JL   leftover_loop_body
+	RET
+
+// func reduce4QToAVX512(vOut []uint64, v []uint64, q uint64)
+// Requires: AVX512F, CMOV
+TEXT ·reduce4QToAVX512(SB), NOSPLIT, $0-56
+	MOVQ         q+48(FP), AX
+	VPBROADCASTQ q+48(FP), Z0
+	MOVQ         AX, CX
+	ADDQ         AX, CX
+	VPADDQ       Z0, Z0, Z1
+	MOVQ         vOut_len+8(FP), DX
+	MOVQ         vOut_base+0(FP), BX
+	MOVQ         v_base+24(FP), SI
+	MOVQ         DX, DI
+	SHRQ         $0x03, DI
+	SHLQ         $0x03, DI
+	XORQ         R8, R8
+	JMP          loop_end
+
+loop_body:
+	VMOVDQU64 (SI)(R8*8), Z2
+	VPSUBQ    Z1, Z2, Z3
+	VPMINUQ   Z3, Z2, Z2
+	VPSUBQ    Z0, Z2, Z3
+	VPMINUQ   Z3, Z2, Z2
+	VMOVDQU64 Z2, (BX)(R8*8)
+	ADDQ      $0x08, R8
+
+loop_end:
+	CMPQ R8, DI
+	JL   loop_body
+	JMP  leftover_loop_end
+
+leftover_loop_body:
+	MOVQ    (SI)(R8*8), DI
+	MOVQ    DI, R9
+	SUBQ    CX, R9
+	CMPQ    CX, DI
+	CMOVQLS R9, DI
+	MOVQ    DI, R9
+	SUBQ    AX, R9
+	CMPQ    AX, DI
+	CMOVQLS R9, DI
+	MOVQ    DI, (BX)(R8*8)
+	ADDQ    $0x01, R8
+
+leftover_loop_end:
+	CMPQ R8, DX
+	JL   leftover_loop_body
+	RET

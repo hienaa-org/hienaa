@@ -1586,3 +1586,120 @@ func VecReduceToAVX512() {
 
 	RET()
 }
+
+func VecReduceFixedQToAVX(factor int, avxType AVXType) {
+	switch avxType {
+	case TypeAVX2:
+		switch factor {
+		case 2:
+			TEXT("reduce2QToAVX2", NOSPLIT, "func(vOut, v []uint64, q uint64)")
+		case 4:
+			TEXT("reduce4QToAVX2", NOSPLIT, "func(vOut, v []uint64, q uint64)")
+		default:
+			panic("factor should be 2 or 4")
+		}
+	case TypeAVX512:
+		switch factor {
+		case 2:
+			TEXT("reduce2QToAVX512", NOSPLIT, "func(vOut, v []uint64, q uint64)")
+		case 4:
+			TEXT("reduce4QToAVX512", NOSPLIT, "func(vOut, v []uint64, q uint64)")
+		default:
+			panic("factor should be 2 or 4")
+		}
+	}
+
+	Pragma("noescape")
+
+	q64 := Load(Param("q"), GP64())
+	q := VMM(avxType)
+	VPBROADCASTQ(NewParamAddr("q", 48), q)
+
+	twoQ64 := GP64()
+	twoQ := VMM(avxType)
+	if factor == 4 {
+		MOVQ(q64, twoQ64)
+		ADDQ(q64, twoQ64)
+		VPADDQ(q, q, twoQ)
+	}
+
+	N := Load(Param("vOut").Len(), GP64())
+	vOut := Load(Param("vOut").Base(), GP64())
+	v := Load(Param("v").Base(), GP64())
+
+	M := GP64()
+	MOVQ(N, M)
+	SHRQ(Imm(LogWidth(avxType)), M)
+	SHLQ(Imm(LogWidth(avxType)), M)
+
+	i := GP64()
+	XORQ(i, i)
+	JMP(LabelRef("loop_end"))
+	Label("loop_body")
+
+	x := VMM(avxType)
+	VMOV(avxType, Mem{Base: v, Index: i, Scale: 8}, x)
+
+	xOut, xOutQ := VMM(avxType), VMM(avxType)
+	switch avxType {
+	case TypeAVX2:
+		switch factor {
+		case 2:
+			VPSUBQ(q, x, xOutQ)
+			VBLENDVPD(xOutQ, x, xOutQ, xOut)
+		case 4:
+			VPSUBQ(twoQ, x, xOutQ)
+			VBLENDVPD(xOutQ, x, xOutQ, xOut)
+			VPSUBQ(q, xOut, xOutQ)
+			VBLENDVPD(xOutQ, xOut, xOutQ, xOut)
+		}
+
+	case TypeAVX512:
+		switch factor {
+		case 2:
+			VPSUBQ(q, x, xOutQ)
+			VPMINUQ(xOutQ, x, xOut)
+		case 4:
+			VPSUBQ(twoQ, x, xOutQ)
+			VPMINUQ(xOutQ, x, xOut)
+			VPSUBQ(q, xOut, xOutQ)
+			VPMINUQ(xOutQ, xOut, xOut)
+		}
+	}
+
+	VMOV(avxType, xOut, Mem{Base: vOut, Index: i, Scale: 8})
+
+	ADDQ(Imm(1<<LogWidth(avxType)), i)
+
+	Label("loop_end")
+	CMPQ(i, M)
+	JL(LabelRef("loop_body"))
+
+	JMP(LabelRef("leftover_loop_end"))
+	Label("leftover_loop_body")
+
+	y := GP64()
+	MOVQ(Mem{Base: v, Index: i, Scale: 8}, y)
+
+	yQ := GP64()
+	if factor == 4 {
+		MOVQ(y, yQ)
+		SUBQ(twoQ64, yQ)
+		CMPQ(twoQ64, y)
+		CMOVQLS(yQ, y)
+	}
+	MOVQ(y, yQ)
+	SUBQ(q64, yQ)
+	CMPQ(q64, y)
+	CMOVQLS(yQ, y)
+
+	MOVQ(y, Mem{Base: vOut, Index: i, Scale: 8})
+
+	ADDQ(Imm(1), i)
+
+	Label("leftover_loop_end")
+	CMPQ(i, N)
+	JL(LabelRef("leftover_loop_body"))
+
+	RET()
+}
