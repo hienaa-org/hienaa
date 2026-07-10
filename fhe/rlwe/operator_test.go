@@ -25,7 +25,7 @@ var (
 
 func testOperator(t *testing.T, rP dft.RingParameters) {
 	baseMod, auxMod := rlwe.FindNTTPrimes(rP, baseBits, auxBits)
-	p := rlwe.ParametersLiteral{
+	params := rlwe.ParametersLiteral{
 		RingParams:  rP,
 		BaseModulus: baseMod,
 		AuxModulus:  auxMod,
@@ -37,29 +37,29 @@ func testOperator(t *testing.T, rP dft.RingParameters) {
 		NoiseParams:     noiseParams,
 	}.Compile()
 
-	e := rlwe.NewEncryptor(p)
-	o := rlwe.NewOperator(p)
-	pOp := o.PlainOperator()
+	enc := rlwe.NewEncryptor(params)
+	op := rlwe.NewOperator(params)
+	pOp := op.PlainOperator()
 
 	t.Run("Add", func(t *testing.T) {
 		baseLen := int(rSrc.SampleN(uint64(len(baseMod)-1)) + 1)
 
+		pt0 := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
 		pt1 := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
-		pt2 := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
+		randomElementTo(pt0, baseMod[:baseLen])
 		randomElementTo(pt1, baseMod[:baseLen])
-		randomElementTo(pt2, baseMod[:baseLen])
 
-		pRef := pOp.Add(pt1, pt2)
+		ptRef := pOp.Add(pt0, pt1)
 
-		c1 := e.Encrypt(pt1, true)
-		c2 := e.Encrypt(pt2, true)
+		ct0 := enc.Encrypt(pt0, true)
+		ct1 := enc.Encrypt(pt1, true)
 
-		cOut := o.Add(c1, c2)
-		pOut := e.Phase(cOut)
+		ctOut := op.Add(ct0, ct1)
+		ptOut := enc.Phase(ctOut)
 
-		diff := pOp.Sub(pOut, pRef)
+		diff := pOp.Sub(ptOut, ptRef)
 
-		noiseBound := 2 * noiseParams.Bound()
+		noiseBound := 2 * params.NoiseParams().Bound()
 		assert.True(t, checkBound(pOp.AsBig(diff), noiseBound))
 	})
 
@@ -74,32 +74,32 @@ func testOperator(t *testing.T, rP dft.RingParameters) {
 
 			ptRef := pOp.Add(pt, s)
 
-			c := e.Encrypt(pt, true)
+			ct := enc.Encrypt(pt, true)
 
-			cOut := o.AddElement(c, s)
-			pOut := e.Phase(cOut)
-			diff := pOp.Sub(pOut, ptRef)
+			ctOut := op.AddElement(ct, s)
+			ptOut := enc.Phase(ctOut)
+			diff := pOp.Sub(ptOut, ptRef)
 
-			noiseBound := p.NoiseParams().Bound()
+			noiseBound := params.NoiseParams().Bound()
 			assert.True(t, checkBound(pOp.AsBig(diff), noiseBound))
 		})
 
 		t.Run("Poly", func(t *testing.T) {
 			baseLen := int(rSrc.SampleN(uint64(len(baseMod)-1)) + 1)
 
+			pt0 := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
 			pt1 := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
-			pt2 := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
+			randomElementTo(pt0, baseMod[:baseLen])
 			randomElementTo(pt1, baseMod[:baseLen])
-			randomElementTo(pt2, baseMod[:baseLen])
 
-			ptRef := pOp.Add(pt1, pt2)
+			ptRef := pOp.Add(pt0, pt1)
 
-			c := e.Encrypt(pt1, false)
-			cOut := o.AddElement(c, pt2)
-			pOut := e.Phase(cOut)
-			diff := pOp.Sub(pOut, ptRef)
+			ct := enc.Encrypt(pt0, false)
+			ctOut := op.AddElement(ct, pt1)
+			ptOut := enc.Phase(ctOut)
+			diff := pOp.Sub(ptOut, ptRef)
 
-			noiseBound := p.NoiseParams().Bound()
+			noiseBound := params.NoiseParams().Bound()
 			assert.True(t, checkBound(pOp.AsBig(diff), noiseBound))
 		})
 	})
@@ -115,32 +115,32 @@ func testOperator(t *testing.T, rP dft.RingParameters) {
 
 			ptRef := pOp.Sub(pt, s)
 
-			c := e.Encrypt(pt, true)
+			ct := enc.Encrypt(pt, true)
 
-			cOut := o.SubElement(c, s)
-			pOut := e.Phase(cOut)
-			diff := pOp.Sub(pOut, ptRef)
+			ctOut := op.SubElement(ct, s)
+			ptOut := enc.Phase(ctOut)
+			diff := pOp.Sub(ptOut, ptRef)
 
-			noiseBound := p.NoiseParams().Bound()
+			noiseBound := params.NoiseParams().Bound()
 			assert.True(t, checkBound(pOp.AsBig(diff), noiseBound))
 		})
 
 		t.Run("Poly", func(t *testing.T) {
 			baseLen := int(rSrc.SampleN(uint64(len(baseMod)-1)) + 1)
 
+			pt0 := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
 			pt1 := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
-			pt2 := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
+			randomElementTo(pt0, baseMod[:baseLen])
 			randomElementTo(pt1, baseMod[:baseLen])
-			randomElementTo(pt2, baseMod[:baseLen])
 
-			ptRef := pOp.Sub(pt1, pt2)
+			ptRef := pOp.Sub(pt0, pt1)
 
-			c := e.Encrypt(pt1, false)
-			cOut := o.SubElement(c, pt2)
-			pOut := e.Phase(cOut)
-			diff := pOp.Sub(pOut, ptRef)
+			ct := enc.Encrypt(pt0, false)
+			ctOut := op.SubElement(ct, pt1)
+			ptOut := enc.Phase(ctOut)
+			diff := pOp.Sub(ptOut, ptRef)
 
-			noiseBound := p.NoiseParams().Bound()
+			noiseBound := params.NoiseParams().Bound()
 			assert.True(t, checkBound(pOp.AsBig(diff), noiseBound))
 		})
 	})
@@ -152,13 +152,13 @@ func testOperator(t *testing.T, rP dft.RingParameters) {
 		randomElementTo(pt, baseMod[:baseLen])
 		ptRef := pOp.Neg(pt)
 
-		c := e.Encrypt(pt, true)
+		ct := enc.Encrypt(pt, true)
 
-		cOut := o.Neg(c)
-		pOut := e.Phase(cOut)
-		diff := pOp.Sub(pOut, ptRef)
+		ctOut := op.Neg(ct)
+		ptOut := enc.Phase(ctOut)
+		diff := pOp.Sub(ptOut, ptRef)
 
-		noiseBound := p.NoiseParams().Bound()
+		noiseBound := params.NoiseParams().Bound()
 		assert.True(t, checkBound(pOp.AsBig(diff), noiseBound))
 	})
 
@@ -170,44 +170,44 @@ func testOperator(t *testing.T, rP dft.RingParameters) {
 			randomElementTo(pt, baseMod[:baseLen])
 			s := rlwe.NewElementFrom(crt.NewScalarFrom(2, baseMod[:baseLen]), 0)
 
-			pRef := pOp.Mul(pt, s)
+			ptRef := pOp.Mul(pt, s)
 
-			c := e.Encrypt(pt, true)
+			ct := enc.Encrypt(pt, true)
 
-			cOut := o.MulElement(c, s)
-			pOut := e.Phase(cOut)
-			diff := pOp.Sub(pOut, pRef)
+			ctOut := op.MulElement(ct, s)
+			ptOut := enc.Phase(ctOut)
+			diff := pOp.Sub(ptOut, ptRef)
 
-			noiseBound := 2 * p.NoiseParams().Bound()
+			noiseBound := 2 * params.NoiseParams().Bound()
 			assert.True(t, checkBound(pOp.AsBig(diff), noiseBound))
 		})
 
 		t.Run("PolyMul", func(t *testing.T) {
 			baseLen := int(rSrc.SampleN(uint64(len(baseMod)-1)) + 1)
 
-			sP := crt.TernarySamplerParameters{
+			ts := crt.TernarySamplerParameters{
 				Positive:      float64(1) / float64(3),
 				Negative:      float64(1) / float64(3),
 				HammingWeight: 0,
 			}.Sampler()
 
-			pt1 := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
-			randomElementTo(pt1, baseMod[:baseLen])
+			pt0 := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
+			randomElementTo(pt0, baseMod[:baseLen])
+			pOp.FwdNTTTo(pt0, pt0)
+
+			pt1 := rlwe.NewElementFrom(ts.Sample(rP.Rank(), baseMod[:baseLen]), 0)
 			pOp.FwdNTTTo(pt1, pt1)
 
-			pt2 := rlwe.NewElementFrom(sP.Sample(rP.Rank(), baseMod[:baseLen]), 0)
-			pOp.FwdNTTTo(pt2, pt2)
+			ptRef := pOp.Mul(pt0, pt1)
+			pOp.InvNTTTo(ptRef, ptRef)
 
-			pRef := pOp.Mul(pt1, pt2)
-			pOp.InvNTTTo(pRef, pRef)
+			ct := enc.Encrypt(pt0, true)
 
-			c := e.Encrypt(pt1, true)
+			ctOut := op.MulElement(ct, pt1)
+			ptOut := enc.Phase(ctOut)
+			diff := pOp.Sub(ptOut, ptRef)
 
-			cOut := o.MulElement(c, pt2)
-			pOut := e.Phase(cOut)
-			diff := pOp.Sub(pOut, pRef)
-
-			noiseBound := p.NoiseParams().Bound() * float64(rP.ExpandFactor())
+			noiseBound := params.NoiseParams().Bound() * float64(rP.ExpandFactor())
 			assert.True(t, checkBound(pOp.AsBig(diff), noiseBound))
 		})
 	})
@@ -216,57 +216,58 @@ func testOperator(t *testing.T, rP dft.RingParameters) {
 		t.Run("ScalarMulAdd", func(t *testing.T) {
 			baseLen := int(rSrc.SampleN(uint64(len(baseMod)-1)) + 1)
 
+			pt0 := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
 			pt1 := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
-			pt2 := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
+			randomElementTo(pt0, baseMod[:baseLen])
 			randomElementTo(pt1, baseMod[:baseLen])
-			randomElementTo(pt2, baseMod[:baseLen])
 
 			s := rlwe.NewElementFrom(crt.NewScalarFrom(2, baseMod[:baseLen]), 0)
 
-			pRef := pt1.Copy()
-			pOp.MulAddTo(pRef, pt2, s)
+			ptRef := pt0.Copy()
+			pOp.MulAddTo(ptRef, pt1, s)
 
-			c1 := e.Encrypt(pt1, true)
-			c2 := e.Encrypt(pt2, true)
+			ct0 := enc.Encrypt(pt0, true)
+			ct1 := enc.Encrypt(pt1, true)
 
-			o.MulAddElementTo(c1, c2, s)
-			pOut := e.Phase(c1)
-			diff := pOp.Sub(pOut, pRef)
+			op.MulAddElementTo(ct0, ct1, s)
+			ptOut := enc.Phase(ct0)
+			diff := pOp.Sub(ptOut, ptRef)
 
-			noiseBound := 3 * p.NoiseParams().Bound()
+			noiseBound := 3 * params.NoiseParams().Bound()
 			assert.True(t, checkBound(pOp.AsBig(diff), noiseBound))
 		})
 
 		t.Run("PolyMulAdd", func(t *testing.T) {
 			baseLen := int(rSrc.SampleN(uint64(len(baseMod)-1)) + 1)
 
-			sP := crt.TernarySamplerParameters{
+			ts := crt.TernarySamplerParameters{
 				Positive:      float64(1) / float64(3),
 				Negative:      float64(1) / float64(3),
 				HammingWeight: 0,
 			}.Sampler()
+
+			pt0 := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
 			pt1 := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
-			pt2 := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
+			randomElementTo(pt0, baseMod[:baseLen])
 			randomElementTo(pt1, baseMod[:baseLen])
-			randomElementTo(pt2, baseMod[:baseLen])
+			pOp.FwdNTTTo(pt0, pt0)
 			pOp.FwdNTTTo(pt1, pt1)
+
+			pt2 := rlwe.NewElementFrom(ts.Sample(rP.Rank(), baseMod[:baseLen]), 0)
 			pOp.FwdNTTTo(pt2, pt2)
 
-			pt3 := rlwe.NewElementFrom(sP.Sample(rP.Rank(), baseMod[:baseLen]), 0)
-			pOp.FwdNTTTo(pt3, pt3)
+			ptRef := pt0.Copy()
+			pOp.MulAddTo(ptRef, pt2, pt1)
+			pOp.InvNTTTo(ptRef, ptRef)
 
-			pRef := pt1.Copy()
-			pOp.MulAddTo(pRef, pt3, pt2)
-			pOp.InvNTTTo(pRef, pRef)
+			ct0 := enc.Encrypt(pt0, true)
+			ct1 := enc.Encrypt(pt1, true)
 
-			c1 := e.Encrypt(pt1, true)
-			c2 := e.Encrypt(pt2, true)
+			op.MulAddElementTo(ct0, ct1, pt2)
+			ptOut := enc.Phase(ct0)
+			diff := pOp.Sub(ptOut, ptRef)
 
-			o.MulAddElementTo(c1, c2, pt3)
-			pOut := e.Phase(c1)
-			diff := pOp.Sub(pOut, pRef)
-
-			noiseBound := p.NoiseParams().Bound() * float64(rP.ExpandFactor()+1)
+			noiseBound := params.NoiseParams().Bound() * float64(rP.ExpandFactor()+1)
 			assert.True(t, checkBound(pOp.AsBig(diff), noiseBound))
 		})
 	})
@@ -276,16 +277,16 @@ func testOperator(t *testing.T, rP dft.RingParameters) {
 		auxLen := len(auxMod)
 
 		pt := rlwe.NewElement(rP.Rank(), baseLen, auxLen, false)
-		randomElementTo(pt, p.FullModulus()[:baseLen+auxLen])
+		randomElementTo(pt, params.FullModulus()[:baseLen+auxLen])
 
 		ptRef := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
-		sc := crt.NewVecScaler(baseMod[:baseLen], p.FullModulus()[:baseLen+auxLen])
+		sc := crt.NewVecScaler(baseMod[:baseLen], params.FullModulus()[:baseLen+auxLen])
 		sc.ScaleTo(ptRef.Value.Coeffs, pt.Value.Coeffs)
 
-		c := e.Encrypt(pt, true)
-		cOut := o.DivByAuxModulus(c, true)
-		pOut := e.Phase(cOut)
-		diff := pOp.Sub(pOut, ptRef)
+		ct := enc.Encrypt(pt, true)
+		ctOut := op.DivByAuxModulus(ct, true)
+		ptOut := enc.Phase(ctOut)
+		diff := pOp.Sub(ptOut, ptRef)
 
 		// Assume that the auxiliary modulus is large enough.
 		noiseBound := float64(rP.ExpandFactor()) + 1
@@ -304,11 +305,11 @@ func testOperator(t *testing.T, rP dft.RingParameters) {
 			sc := crt.NewVecScaler(baseMod[:newLen], baseMod[:oldLen])
 			sc.ScaleTo(ptRef.Value.Coeffs, pt.Value.Coeffs)
 
-			c := e.Encrypt(pt, true)
+			ct := enc.Encrypt(pt, true)
 
-			cOut := o.Scale(c, newLen, false)
-			pOut := e.Phase(cOut)
-			diff := pOp.Sub(pOut, ptRef)
+			ctOut := op.Scale(ct, newLen, false)
+			ptOut := enc.Phase(ctOut)
+			diff := pOp.Sub(ptOut, ptRef)
 
 			noiseBound := float64(rP.ExpandFactor()) + 1
 			assert.True(t, checkBound(pOp.AsBig(diff), noiseBound))
@@ -325,13 +326,13 @@ func testOperator(t *testing.T, rP dft.RingParameters) {
 			sc := crt.NewVecScaler(baseMod[:newLen], baseMod[:oldLen])
 			sc.ScaleTo(ptRef.Value.Coeffs, pt.Value.Coeffs)
 
-			c := e.Encrypt(pt, true)
+			ct := enc.Encrypt(pt, true)
 
-			cOut := o.Scale(c, newLen, false)
-			pOut := e.Phase(cOut)
-			diff := pOp.Sub(pOut, ptRef)
+			ctOut := op.Scale(ct, newLen, false)
+			ptOut := enc.Phase(ctOut)
+			diff := pOp.Sub(ptOut, ptRef)
 
-			noiseBound := p.NoiseParams().Bound()
+			noiseBound := params.NoiseParams().Bound()
 			for i := oldLen; i < newLen; i++ {
 				noiseBound *= float64(baseMod[i].Value())
 			}
@@ -349,13 +350,13 @@ func testOperator(t *testing.T, rP dft.RingParameters) {
 			sc := crt.NewVecScaler(baseMod[:newLen], baseMod[:oldLen])
 			sc.ScaleTo(ptRef.Value.Coeffs, pt.Value.Coeffs)
 
-			c := e.Encrypt(pt, true)
+			ct := enc.Encrypt(pt, true)
 
-			cOut := o.Scale(c, newLen, false)
-			pOut := e.Phase(cOut)
-			diff := pOp.Sub(pOut, ptRef)
+			ctOut := op.Scale(ct, newLen, false)
+			ptOut := enc.Phase(ctOut)
+			diff := pOp.Sub(ptOut, ptRef)
 
-			noiseBound := p.NoiseParams().Bound()
+			noiseBound := params.NoiseParams().Bound()
 			assert.True(t, checkBound(pOp.AsBig(diff), noiseBound))
 		})
 	})
@@ -364,28 +365,28 @@ func testOperator(t *testing.T, rP dft.RingParameters) {
 		baseLen := int(rSrc.SampleN(uint64(len(baseMod)-1)) + 1)
 		auxLen := len(auxMod)
 
-		s := crt.TernarySamplerParameters{
+		ts := crt.TernarySamplerParameters{
 			Positive:      float64(1) / float64(3),
 			Negative:      float64(1) / float64(3),
 			HammingWeight: 0,
 		}.Sampler()
 
-		pt1 := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
-		randomElementTo(pt1, baseMod[:baseLen])
+		pt0 := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
+		randomElementTo(pt0, baseMod[:baseLen])
+		pOp.FwdNTTTo(pt0, pt0)
+
+		pt1 := rlwe.NewElementFrom(ts.Sample(rP.Rank(), params.FullModulus()), auxLen)
 		pOp.FwdNTTTo(pt1, pt1)
 
-		pt2 := rlwe.NewElementFrom(s.Sample(rP.Rank(), p.FullModulus()), auxLen)
-		pOp.FwdNTTTo(pt2, pt2)
-
-		pt2Mod := pt2.WithModLen(baseLen, 0)
-		ptRef := pOp.Mul(pt1, pt2Mod)
+		pt1Mod := pt1.WithModLen(baseLen, 0)
+		ptRef := pOp.Mul(pt0, pt1Mod)
 		pOp.InvNTTTo(ptRef, ptRef)
 
-		c := e.GadgetEncrypt(pt2, true)
+		ctGad := enc.GadgetEncrypt(pt1, true)
 
-		cOut := o.GadgetProd(pt1, c, true)
-		pOut := e.Phase(cOut)
-		diff := pOp.Sub(pOut, ptRef)
+		ctOut := op.GadgetProd(pt0, ctGad, true)
+		ptOut := enc.Phase(ctOut)
+		diff := pOp.Sub(ptOut, ptRef)
 
 		noiseBound := float64(rP.ExpandFactor() + 1)
 		assert.True(t, checkBound(pOp.AsBig(diff), noiseBound))
@@ -395,38 +396,38 @@ func testOperator(t *testing.T, rP dft.RingParameters) {
 		baseLen := int(rSrc.SampleN(uint64(len(baseMod)-1)) + 1)
 
 		pt := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
-		c1 := e.Encrypt(pt, true)
-		c2 := e.Encrypt(pt, true)
-		rlk := e.NewRelinKey()
+		ct0 := enc.Encrypt(pt, true)
+		ct1 := enc.Encrypt(pt, true)
+		rlk := enc.NewRelinKey()
 
-		vec := rlwe.NewVectorCustom(rP.Rank(), baseLen, 0, 3, false)
+		ctVec := rlwe.NewVectorCustom(rP.Rank(), baseLen, 0, 3, false)
 
-		pOp.MulTo(vec.Value[0], c1.Body, c2.Body)
-		pOp.MulTo(vec.Value[1], c1.Mask, c2.Body)
-		pOp.MulAddTo(vec.Value[1], c1.Body, c2.Mask)
-		pOp.MulTo(vec.Value[2], c1.Mask, c2.Mask)
+		pOp.MulTo(ctVec.Value[0], ct0.Body, ct1.Body)
+		pOp.MulTo(ctVec.Value[1], ct0.Mask, ct1.Body)
+		pOp.MulAddTo(ctVec.Value[1], ct0.Body, ct1.Mask)
+		pOp.MulTo(ctVec.Value[2], ct0.Mask, ct1.Mask)
 
-		cOut := o.Relin(vec, rlk, false)
-		pOut := e.Phase(cOut)
+		ctOut := op.Relin(ctVec, rlk, false)
+		ptOut := enc.Phase(ctOut)
 
-		noiseBound := p.NoiseParams().Bound()*p.NoiseParams().Bound()*float64(rP.ExpandFactor()) + float64(rP.ExpandFactor()) + 1
-		assert.True(t, checkBound(pOp.AsBig(pOut), noiseBound))
+		noiseBound := params.NoiseParams().Bound()*params.NoiseParams().Bound()*float64(rP.ExpandFactor()) + float64(rP.ExpandFactor()) + 1
+		assert.True(t, checkBound(pOp.AsBig(ptOut), noiseBound))
 	})
 
 	t.Run("KeySwitch", func(t *testing.T) {
 		baseLen := int(rSrc.SampleN(uint64(len(baseMod)-1)) + 1)
 
-		eNew := rlwe.NewEncryptor(p)
-		ksk := e.NewKeySwitchKey(eNew.SecretKey())
+		encIn := rlwe.NewEncryptor(params)
+		ksk := enc.NewKeySwitchKey(encIn.SecretKey())
 
-		p := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
-		c := eNew.Encrypt(p, true)
+		pt := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
+		ct := encIn.Encrypt(pt, true)
 
-		cOut := o.KeySwitch(c, ksk, true)
-		pOut := e.Phase(cOut)
+		ctOut := op.KeySwitch(ct, ksk, true)
+		ptOut := enc.Phase(ctOut)
 
 		noiseBound := float64(rP.ExpandFactor() + 1)
-		assert.True(t, checkBound(pOp.AsBig(pOut), noiseBound))
+		assert.True(t, checkBound(pOp.AsBig(ptOut), noiseBound))
 	})
 
 	t.Run("Automorphism", func(t *testing.T) {
@@ -439,17 +440,17 @@ func testOperator(t *testing.T, rP dft.RingParameters) {
 				break
 			}
 		}
-		atk := e.NewAutomorphismKey(idx)
+		atk := enc.NewAutomorphismKey(idx)
 
-		p := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
-		randomElementTo(p, baseMod[:baseLen])
-		pRef := pOp.Aut(p, atk.Idx)
+		pt := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
+		randomElementTo(pt, baseMod[:baseLen])
+		ptRef := pOp.Aut(pt, atk.Idx)
 
-		c := e.Encrypt(p, true)
+		ct := enc.Encrypt(pt, true)
 
-		cOut := o.Aut(c, atk, true)
-		pOut := e.Phase(cOut)
-		diff := pOp.Sub(pOut, pRef)
+		ctOut := op.Aut(ct, atk, true)
+		ptOut := enc.Phase(ctOut)
+		diff := pOp.Sub(ptOut, ptRef)
 
 		noiseBound := float64(rP.ExpandFactor() + 1)
 		assert.True(t, checkBound(pOp.AsBig(diff), noiseBound))
@@ -459,31 +460,31 @@ func testOperator(t *testing.T, rP dft.RingParameters) {
 		baseLen := int(rSrc.SampleN(uint64(len(baseMod)-1)) + 1)
 		auxLen := len(auxMod)
 
-		s := crt.TernarySamplerParameters{
+		ts := crt.TernarySamplerParameters{
 			Positive:      float64(1) / float64(3),
 			Negative:      float64(1) / float64(3),
 			HammingWeight: 0,
 		}.Sampler()
 
-		p1 := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
-		randomElementTo(p1, baseMod[:baseLen])
-		pOp.FwdNTTTo(p1, p1)
+		pt0 := rlwe.NewElement(rP.Rank(), baseLen, 0, false)
+		randomElementTo(pt0, baseMod[:baseLen])
+		pOp.FwdNTTTo(pt0, pt0)
 
-		p2 := rlwe.NewElementFrom(s.Sample(rP.Rank(), p.FullModulus()), auxLen)
-		pOp.FwdNTTTo(p2, p2)
+		pt1 := rlwe.NewElementFrom(ts.Sample(rP.Rank(), params.FullModulus()), auxLen)
+		pOp.FwdNTTTo(pt1, pt1)
 
-		p2Mod := p2.WithModLen(baseLen, 0)
-		pRef := pOp.Mul(p1, p2Mod)
-		pOp.InvNTTTo(pRef, pRef)
+		pt1Mod := pt1.WithModLen(baseLen, 0)
+		ptRef := pOp.Mul(pt0, pt1Mod)
+		pOp.InvNTTTo(ptRef, ptRef)
 
-		c := e.Encrypt(p1, true)
-		r := e.RGSWEncrypt(p2, true)
+		ct := enc.Encrypt(pt0, true)
+		ctRGSW := enc.RGSWEncrypt(pt1, true)
 
-		cOut := o.ExtProd(c, r, true)
-		pOut := e.Phase(cOut)
-		diff := pOp.Sub(pOut, pRef)
+		ctOut := op.ExtProd(ct, ctRGSW, true)
+		ptOut := enc.Phase(ctOut)
+		diff := pOp.Sub(ptOut, ptRef)
 
-		noiseBound := p.NoiseParams().Bound() * float64(rP.ExpandFactor()+1)
+		noiseBound := params.NoiseParams().Bound() * float64(rP.ExpandFactor()+1)
 		assert.True(t, checkBound(pOp.AsBig(diff), noiseBound))
 	})
 }
