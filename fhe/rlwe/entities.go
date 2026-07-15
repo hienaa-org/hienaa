@@ -1,9 +1,6 @@
 package rlwe
 
-import (
-	"github.com/hienaa-org/hienaa/math/crt"
-	"github.com/hienaa-org/hienaa/math/vec"
-)
+import "github.com/hienaa-org/hienaa/math/crt"
 
 type Element struct {
 	Value  *crt.Element
@@ -88,13 +85,14 @@ func (e *Element) Clear() {
 func (e *Element) Resize(baseLen, auxLen int) {
 	switch {
 	case e.auxLen >= auxLen && e.BaseModLen() >= baseLen:
-		e.Value.Coeffs = e.Value.Coeffs[e.auxLen-auxLen : e.auxLen+baseLen]
+		e.Value.Coeffs = e.Value.Coeffs[e.auxLen-auxLen : e.auxLen+baseLen : e.auxLen+baseLen]
 
 	case e.auxLen >= auxLen && e.BaseModLen() < baseLen:
 		extraBase := make([][]uint64, baseLen-e.BaseModLen())
 		for i := range extraBase {
 			extraBase[i] = make([]uint64, e.Value.Rank())
 		}
+		e.Value.Coeffs = e.Value.Coeffs[e.auxLen-auxLen : len(e.Value.Coeffs) : len(e.Value.Coeffs)]
 		e.Value.Coeffs = append(e.Value.Coeffs, extraBase...)
 
 	case e.auxLen < auxLen && e.BaseModLen() >= baseLen:
@@ -102,7 +100,7 @@ func (e *Element) Resize(baseLen, auxLen int) {
 		for i := range extraAux {
 			extraAux[i] = make([]uint64, e.Value.Rank())
 		}
-		e.Value.Coeffs = append(extraAux, e.Value.Coeffs[e.auxLen-auxLen:e.auxLen+baseLen]...)
+		e.Value.Coeffs = append(extraAux, e.Value.Coeffs[:e.auxLen+baseLen]...)
 
 	case e.auxLen < auxLen && e.BaseModLen() < baseLen:
 		extraAux := make([][]uint64, auxLen-e.auxLen)
@@ -114,7 +112,7 @@ func (e *Element) Resize(baseLen, auxLen int) {
 			extraBase[i] = make([]uint64, e.Value.Rank())
 		}
 
-		e.Value.Coeffs = append(extraAux, extraBase...)
+		e.Value.Coeffs = append(extraAux, e.Value.Coeffs...)
 		e.Value.Coeffs = append(e.Value.Coeffs, extraBase...)
 	}
 	e.auxLen = auxLen
@@ -134,7 +132,7 @@ func (e *Element) WithModLen(baseLen, auxLen int) *Element {
 	}
 
 	return &Element{
-		Value:  e.Value.WithModIdx(vec.Range(e.auxLen-auxLen, e.auxLen+baseLen)...),
+		Value:  e.Value.Slice(e.auxLen-auxLen, e.auxLen+baseLen),
 		auxLen: auxLen,
 	}
 }

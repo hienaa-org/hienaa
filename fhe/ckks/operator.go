@@ -7,7 +7,6 @@ import (
 	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/num"
-	"github.com/hienaa-org/hienaa/math/vec"
 )
 
 // Operator evaluates operations over [*Ciphertext] and [*Plaintext].
@@ -549,13 +548,13 @@ func (op *Operator) scaleToMulModTo(ctOut *Ciphertext, ctIn *Ciphertext, auxMod 
 	outLen := ctOut.ModLen()
 
 	auxLen := len(op.rlweOp.PlainOperator().Params.AuxModulus())
-	opIn := op.rlweOp.PlainOperator().Params.Operator().WithModIdx(vec.Range(auxLen, auxLen+inLen)...)
+	opIn := op.rlweOp.PlainOperator().Params.Operator().Slice(auxLen, auxLen+inLen)
 
 	var opOut *crt.Operator
 	if auxMod == nil {
-		opOut = opIn.WithModIdx(vec.Range(0, outLen)...)
+		opOut = opIn.Slice(0, outLen)
 	} else {
-		opOut = opIn.WithModIdx(vec.Range(0, outLen-1)...).AppendTmpModulus(auxMod)
+		opOut = opIn.Slice(0, outLen-1).AppendTmpModulus(auxMod)
 	}
 
 	inMod := opIn.Modulus()
@@ -645,12 +644,12 @@ func (op *Operator) tensorTo(v *rlwe.Vector, ct0, ct1 *Ciphertext, tarLen int, a
 	auxLen := len(op.rlweOp.PlainOperator().Params.AuxModulus())
 	mulLen := c0.ModLen()
 
-	baseOp := op.rlweOp.PlainOperator().Params.Operator().WithModIdx(vec.Range(auxLen, auxLen+mulLen)...)
+	baseOp := op.rlweOp.PlainOperator().Params.Operator().Slice(auxLen, auxLen+mulLen)
 	var opAux *crt.Operator
 	if auxMod == nil {
 		opAux = baseOp
 	} else {
-		opAux = baseOp.WithModIdx(vec.Range(0, mulLen-1)...).AppendTmpModulus(auxMod)
+		opAux = baseOp.Slice(0, mulLen-1).AppendTmpModulus(auxMod)
 	}
 
 	opAux.MulTo(v.Value[0].Value, c0.Value.Body.Value, c1.Value.Body.Value)
@@ -681,7 +680,7 @@ func (op *Operator) scaleFromMulModTo(vOut *rlwe.Vector, vIn *rlwe.Vector, auxMo
 	inLen := vIn.BaseModLen()
 	outLen := vOut.BaseModLen()
 	auxLen := len(op.rlweOp.PlainOperator().Params.AuxModulus())
-	opOut := op.rlweOp.PlainOperator().Params.Operator().WithModIdx(vec.Range(auxLen, auxLen+outLen)...)
+	opOut := op.rlweOp.PlainOperator().Params.Operator().Slice(auxLen, auxLen+outLen)
 
 	if auxMod == nil {
 		vOut.Value[0].CopyFrom(vIn.Value[0])
@@ -696,7 +695,7 @@ func (op *Operator) scaleFromMulModTo(vOut *rlwe.Vector, vIn *rlwe.Vector, auxMo
 			}
 		}
 	} else {
-		opIn := opOut.WithModIdx(vec.Range(0, inLen-1)...).AppendTmpModulus(auxMod)
+		opIn := opOut.Slice(0, inLen-1).AppendTmpModulus(auxMod)
 
 		sc := crt.NewScaler(opOut, opIn).WithPool(op.embPool)
 		sc.ScaleTo(vOut.Value[0].Value, vOut.Value[0].Value, isNTT)

@@ -23,6 +23,7 @@ type mulOperator interface {
 	MulSubTo(eOut, e0, e1 *Element)
 
 	withModIdx(idx ...int) mulOperator
+	slice(lo, hi int) mulOperator
 	append(op0 mulOperator) mulOperator
 	appendTmpModulus(mod *num.Modulus) mulOperator
 }
@@ -269,6 +270,20 @@ func (op *baseMulOperator) withModIdx(idx ...int) mulOperator {
 		ambMod:    op.ambMod,
 		ambNTT:    op.ambNTT,
 		embedder:  vec.Gather(op.embedder, idx...),
+
+		pool: op.pool,
+	}
+}
+
+func (op *baseMulOperator) slice(lo, hi int) mulOperator {
+	return &baseMulOperator{
+		params: op.params,
+		mod:    op.mod[lo:hi:hi],
+
+		ambModLen: op.ambModLen[lo:hi:hi],
+		ambMod:    op.ambMod,
+		ambNTT:    op.ambNTT,
+		embedder:  op.embedder[lo:hi:hi],
 
 		pool: op.pool,
 	}
@@ -587,6 +602,22 @@ func (op *anyCyclotomicMulOperator) withModIdx(idx ...int) mulOperator {
 		embedder:  vec.Gather(op.embedder, idx...),
 
 		reducer: op.reducer.WithModIdx(idx...),
+
+		pool: op.pool,
+	}
+}
+
+func (op *anyCyclotomicMulOperator) slice(lo, hi int) mulOperator {
+	return &anyCyclotomicMulOperator{
+		params: op.params,
+		mod:    op.mod[lo:hi:hi],
+
+		ambModLen: op.ambModLen[lo:hi:hi],
+		ambMod:    op.ambMod,
+		ambNTT:    op.ambNTT,
+		embedder:  op.embedder[lo:hi:hi],
+
+		reducer: op.reducer.Slice(lo, hi),
 
 		pool: op.pool,
 	}
@@ -919,6 +950,25 @@ func (op *reduceMulOperator) withModIdx(idx ...int) mulOperator {
 		embedder:  vec.Gather(op.embedder, idx...),
 
 		reducer: op.reducer.WithModIdx(idx...),
+
+		pool: op.pool,
+	}
+}
+
+func (op *reduceMulOperator) slice(lo, hi int) mulOperator {
+	return &reduceMulOperator{
+		rank:      op.rank,
+		ambParams: op.ambParams,
+		mod:       op.mod[lo:hi:hi],
+
+		ntt: op.ntt[lo:hi:hi],
+
+		ambModLen: op.ambModLen[lo:hi:hi],
+		ambMod:    op.ambMod,
+		ambNTT:    op.ambNTT,
+		embedder:  op.embedder[lo:hi:hi],
+
+		reducer: op.reducer.Slice(lo, hi),
 
 		pool: op.pool,
 	}

@@ -8,7 +8,6 @@ import (
 	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/num"
-	"github.com/hienaa-org/hienaa/math/vec"
 )
 
 // Operator evaluates operations over [*Ciphertext] and [*Plaintext].
@@ -269,13 +268,13 @@ func (op *Operator) scaleToMulModTo(ctOut *Ciphertext, ctIn *Ciphertext, auxIdx 
 	outLen := ctOut.ModLen()
 
 	auxLen := len(op.rlweOp.PlainOperator().Params.AuxModulus())
-	opIn := op.rlweOp.PlainOperator().Params.Operator().WithModIdx(vec.Range(auxLen, auxLen+inLen)...)
+	opIn := op.rlweOp.PlainOperator().Params.Operator().Slice(auxLen, auxLen+inLen)
 
 	var opOut *crt.Operator
 	if auxMod == nil {
-		opOut = opIn.WithModIdx(vec.Range(0, outLen)...)
+		opOut = opIn.Slice(0, outLen)
 	} else {
-		opOut = opIn.WithModIdx(vec.Range(0, auxIdx)...).AppendTmpModulus(auxMod).Append(opIn.WithModIdx(vec.Range(auxIdx+1, outLen)...))
+		opOut = opIn.Slice(0, auxIdx).AppendTmpModulus(auxMod).Append(opIn.Slice(auxIdx+1, outLen))
 	}
 
 	sc := crt.NewScaler(opOut, opIn).WithPool(op.embPool)
@@ -310,12 +309,12 @@ func (op *Operator) tensorTo(v *rlwe.Vector, ct0, ct1 *Ciphertext, tarLen int, a
 
 	// Compute required constants.
 	auxLen := len(op.rlweOp.PlainOperator().Params.AuxModulus())
-	baseOp := op.rlweOp.PlainOperator().Params.Operator().WithModIdx(vec.Range(auxLen, auxLen+tarLen)...)
+	baseOp := op.rlweOp.PlainOperator().Params.Operator().Slice(auxLen, auxLen+tarLen)
 	var opAux *crt.Operator
 	if auxMod == nil {
 		opAux = baseOp
 	} else {
-		opAux = baseOp.WithModIdx(vec.Range(0, auxIdx)...).AppendTmpModulus(auxMod).Append(baseOp.WithModIdx(vec.Range(auxIdx+1, tarLen)...))
+		opAux = baseOp.Slice(0, auxIdx).AppendTmpModulus(auxMod).Append(baseOp.Slice(auxIdx+1, tarLen))
 	}
 
 	// Tensoring the ciphertexts.
@@ -366,13 +365,13 @@ func (op *Operator) scaleFromMulModTo(vOut *rlwe.Vector, vIn *rlwe.Vector, auxId
 	inLen := vIn.BaseModLen()
 	outLen := vOut.BaseModLen()
 	auxLen := len(op.rlweOp.PlainOperator().Params.AuxModulus())
-	opOut := op.rlweOp.PlainOperator().Params.Operator().WithModIdx(vec.Range(auxLen, auxLen+outLen)...)
+	opOut := op.rlweOp.PlainOperator().Params.Operator().Slice(auxLen, auxLen+outLen)
 
 	var opIn *crt.Operator
 	if auxMod == nil {
 		opIn = opOut
 	} else {
-		opIn = opOut.WithModIdx(vec.Range(0, auxIdx)...).AppendTmpModulus(auxMod).Append(opOut.WithModIdx(vec.Range(auxIdx+1, inLen)...))
+		opIn = opOut.Slice(0, auxIdx).AppendTmpModulus(auxMod).Append(opOut.Slice(auxIdx+1, inLen))
 	}
 
 	sc := crt.NewScaler(opOut, opIn).WithPool(op.embPool)

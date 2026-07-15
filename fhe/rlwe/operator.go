@@ -158,14 +158,8 @@ func (op *PlainOperator) AutTo(eOut, e *Element, idx int) {
 
 // withModIdxCRT returns a [crt.Operator] for modulus up to given modulus length.
 func (op *PlainOperator) withModIdxCRT(baseLen, auxLen int) *crt.Operator {
-	var idx []int
-
-	if auxLen > 0 {
-		idx = vec.Range(len(op.Params.auxMod)-auxLen, len(op.Params.auxMod)+baseLen)
-	} else {
-		idx = vec.Range(len(op.Params.auxMod), len(op.Params.auxMod)+baseLen)
-	}
-	return op.crtOp.WithModIdx(idx...)
+	paramAuxLen := len(op.Params.auxMod)
+	return op.crtOp.Slice(paramAuxLen-auxLen, paramAuxLen+baseLen)
 }
 
 // AsBig returns e as *[big.Int] vector.
@@ -178,7 +172,7 @@ func (op *PlainOperator) AsBig(e *Element) []*big.Int {
 	lo := paramAuxLen - auxLen
 	hi := paramAuxLen + baseLen
 
-	crtOp := op.crtOp.WithModIdx(vec.Range(lo, hi)...)
+	crtOp := op.crtOp.Slice(lo, hi)
 
 	return crtOp.AsBig(e.Value)
 }
@@ -202,8 +196,8 @@ func (op *PlainOperator) ModRaiseTo(eOut, e *Element, isNTT bool) {
 	outLen := eOut.BaseModLen()
 
 	auxLen := len(op.Params.auxMod)
-	inOp := op.crtOp.WithModIdx(vec.Range(auxLen, auxLen+inLen)...)
-	outOp := op.crtOp.WithModIdx(vec.Range(auxLen, auxLen+outLen)...)
+	inOp := op.crtOp.Slice(auxLen, auxLen+inLen)
+	outOp := op.crtOp.Slice(auxLen, auxLen+outLen)
 
 	emb := crt.NewEmbedder(outOp, inOp).WithPool(op.embPool)
 	emb.EmbedTo(eOut.Value, e.Value, isNTT)
@@ -229,8 +223,8 @@ func (op *PlainOperator) DivByAuxModulusTo(eOut, e *Element, isNTT bool) {
 	baseLen, auxLen := e.BaseModLen(), e.AuxModLen()
 	paramAuxLen := len(op.Params.auxMod)
 
-	opBase := op.crtOp.WithModIdx(vec.Range(paramAuxLen, paramAuxLen+baseLen)...)
-	opAux := op.crtOp.WithModIdx(vec.Range(paramAuxLen-auxLen, paramAuxLen)...)
+	opBase := op.crtOp.Slice(paramAuxLen, paramAuxLen+baseLen)
+	opAux := op.crtOp.Slice(paramAuxLen-auxLen, paramAuxLen)
 
 	baseMod := opBase.Modulus()
 	auxMod := opAux.Modulus()
@@ -247,9 +241,9 @@ func (op *PlainOperator) DivByAuxModulusTo(eOut, e *Element, isNTT bool) {
 
 	pDiv := op.pPool.Get()
 	defer op.pPool.Put(pDiv)
-	pDivBase := pDiv.WithModIdx(vec.Range(auxLen, auxLen+baseLen)...)
-	pDivAux := pDiv.WithModIdx(vec.Range(0, auxLen)...)
-	pDiv = pDiv.WithModIdx(vec.Range(0, baseLen+auxLen)...)
+	pDivBase := pDiv.Slice(auxLen, auxLen+baseLen)
+	pDivAux := pDiv.Slice(0, auxLen)
+	pDiv = pDiv.Slice(0, baseLen+auxLen)
 
 	pDiv.CopyFrom(e.Value)
 	pDivBase.IsNTT = pDiv.IsNTT

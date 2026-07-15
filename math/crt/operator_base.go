@@ -200,6 +200,16 @@ func (op *baseOperator) withModIdx(idx ...int) *baseOperator {
 	}
 }
 
+func (op *baseOperator) slice(lo, hi int) *baseOperator {
+	return &baseOperator{
+		params: op.params,
+		mod:    op.mod[lo:hi:hi],
+
+		isNTTFriendly: op.isNTTFriendly[lo:hi:hi],
+		ntt:           op.ntt[lo:hi:hi],
+	}
+}
+
 func (op *baseOperator) append(op0 *baseOperator) *baseOperator {
 	return &baseOperator{
 		params: op.params,

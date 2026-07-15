@@ -73,7 +73,7 @@ func newRNSDecomposer(params Parameters) Decomposer {
 		embedders[i] = make([]*crt.Embedder, end-start)
 		fullOp := params.Operator()
 		for j := range embedders[i] {
-			modOp := fullOp.WithModIdx(vec.Range(auxLen+start, auxLen+start+j+1)...)
+			modOp := fullOp.Slice(auxLen+start, auxLen+start+j+1)
 			embedders[i][j] = crt.NewEmbedder(fullOp, modOp).WithPool(embPool)
 		}
 
@@ -154,7 +154,7 @@ func (d *rnsDecomposer) DecomposeTo(pOut *Vector, p *Element, isNTT bool) {
 	for i := 0; i < pOut.Len(); i++ {
 		start := i * d.gadparams.chunkSize
 		end := min((i+1)*d.gadparams.chunkSize, p.BaseModLen())
-		d.embedders[i][end-start-1].EmbedTo(pOut.Value[i].Value, p.Value.WithModIdx(vec.Range(start, end)...), isNTT)
+		d.embedders[i][end-start-1].EmbedTo(pOut.Value[i].Value, p.Value.Slice(start, end), isNTT)
 	}
 }
 
@@ -200,7 +200,7 @@ func newDigitDecomposer(params Parameters) Decomposer {
 		return &v
 	})
 	for i := range params.baseMod {
-		modOp := params.Operator().WithModIdx(vec.Range(auxLen, auxLen+i+1)...)
+		modOp := params.Operator().Slice(auxLen, auxLen+i+1)
 		digitEmbedder[i] = crt.NewEmbedder(baseModOp, modOp).WithPool(embPool)
 	}
 	modEmbedder := crt.NewEmbedder(params.Operator(), baseModOp).WithPool(embPool)

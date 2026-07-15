@@ -8,7 +8,6 @@ import (
 	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/crt"
 	"github.com/hienaa-org/hienaa/math/num"
-	"github.com/hienaa-org/hienaa/math/vec"
 )
 
 // Operator evaluates operations over [*Ciphertext] and [Plaintext].
@@ -292,8 +291,8 @@ func (op *Operator) liftAndTensorTo(vAmb *rlwe.Vector, ct0, ct1 *Ciphertext, amb
 	cAux1 := cAmb1.WithModLen(ambLen)
 
 	// Modulus switch ct1.
-	ctOp := op.ambOp.Params.Operator().WithModIdx(vec.Range(0, ct1.ModLen())...)
-	auxOp := op.ambOp.Params.Operator().WithModIdx(vec.Range(tarLen, tarLen+ambLen)...)
+	ctOp := op.ambOp.Params.Operator().Slice(0, ct1.ModLen())
+	auxOp := op.ambOp.Params.Operator().Slice(tarLen, tarLen+ambLen)
 
 	sc := crt.NewScaler(auxOp, ctOp).WithPool(op.embPool)
 	sc.ScaleTo(cAux1.Value.Body.Value, ct1.Value.Body.Value, true)
@@ -302,7 +301,7 @@ func (op *Operator) liftAndTensorTo(vAmb *rlwe.Vector, ct0, ct1 *Ciphertext, amb
 	// Lift to the ambient modulus, in the NTT form.
 	op.ambOp.ModRaiseTo(cAmb0.Value, ct0.Value, true)
 
-	ambOp := op.ambOp.Params.Operator().WithModIdx(vec.Range(0, tarLen+ambLen)...)
+	ambOp := op.ambOp.Params.Operator().Slice(0, tarLen+ambLen)
 	emb := crt.NewEmbedder(ambOp, auxOp).WithPool(op.embPool)
 	emb.EmbedTo(cAmb1.Value.Body.Value, cAux1.Value.Body.Value, true)
 	emb.EmbedTo(cAmb1.Value.Mask.Value, cAux1.Value.Mask.Value, true)

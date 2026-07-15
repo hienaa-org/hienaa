@@ -179,6 +179,15 @@ func (p *Element) WithModIdx(idx ...int) *Element {
 	}
 }
 
+// Slice slices the modulus of [Element] and returns the new [Element].
+// Equal to p.WithModIdx(vec.Range(lo, hi)...).
+func (p *Element) Slice(lo, hi int) *Element {
+	return &Element{
+		Coeffs: p.Coeffs[lo:hi:hi],
+		IsNTT:  p.IsNTT,
+	}
+}
+
 // Copy returns a copy of p.
 func (p *Element) Copy() *Element {
 	pOut := NewPolyCustom(p.Rank(), p.ModLen(), p.IsNTT)

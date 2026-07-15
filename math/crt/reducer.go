@@ -641,6 +641,68 @@ func (r *CyclotomicReducer) WithModIdx(idx ...int) *CyclotomicReducer {
 	}
 }
 
+// Slice slices the modulus of [CyclotomicReducer] and returns the new [CyclotomicReducer].
+// Equal to r.WithModIdx(vec.Range(lo, hi)...).
+func (r *CyclotomicReducer) Slice(lo, hi int) *CyclotomicReducer {
+	if r.isTrivial {
+		return &CyclotomicReducer{
+			params: r.params,
+			mod:    r.mod[lo:hi:hi],
+
+			leastFac:  r.leastFac,
+			isTrivial: r.isTrivial,
+
+			redDeg:      r.redDeg,
+			diffDeg:     r.diffDeg,
+			diffDegNext: r.diffDegNext,
+			degNext:     r.degNext,
+
+			diffDegNextNTT: r.diffDegNextNTT,
+			degNextNTT:     r.degNextNTT,
+
+			ambModLen: r.ambModLen,
+			ambMod:    r.ambMod,
+			embedder:  r.embedder,
+
+			diffDegNextAmbNTT: r.diffDegNextAmbNTT,
+			degNextAmbNTT:     r.degNextAmbNTT,
+
+			cycloPoly: r.cycloPoly,
+			divPoly:   r.divPoly,
+
+			pool: r.pool,
+		}
+	}
+
+	return &CyclotomicReducer{
+		params: r.params,
+		mod:    r.mod[lo:hi:hi],
+
+		leastFac:  r.leastFac,
+		isTrivial: r.isTrivial,
+
+		redDeg:      r.redDeg,
+		diffDeg:     r.diffDeg,
+		diffDegNext: r.diffDegNext,
+		degNext:     r.degNext,
+
+		diffDegNextNTT: r.diffDegNextNTT[lo:hi:hi],
+		degNextNTT:     r.degNextNTT[lo:hi:hi],
+
+		ambModLen: r.ambModLen[lo:hi:hi],
+		ambMod:    r.ambMod,
+		embedder:  r.embedder[lo:hi:hi],
+
+		diffDegNextAmbNTT: r.diffDegNextAmbNTT,
+		degNextAmbNTT:     r.degNextAmbNTT,
+
+		cycloPoly: r.cycloPoly[lo:hi:hi],
+		divPoly:   r.divPoly[lo:hi:hi],
+
+		pool: r.pool,
+	}
+}
+
 // Append appends a new [CyclotomicReducer] and returns the new [CyclotomicReducer].
 func (r *CyclotomicReducer) Append(r0 *CyclotomicReducer) *CyclotomicReducer {
 	if !r.params.Equal(r0.params) {
@@ -1095,6 +1157,35 @@ func (r *Reducer) WithModIdx(idx ...int) *Reducer {
 
 		modPoly: vec.Gather(r.modPoly, idx...),
 		divPoly: vec.Gather(r.divPoly, idx...),
+
+		pool: r.pool,
+	}
+}
+
+// Slice slices the modulus of [Reducer] and returns the new [Reducer].
+// Equal to r.WithModIdx(vec.Range(lo, hi)...).
+func (r *Reducer) Slice(lo, hi int) *Reducer {
+	return &Reducer{
+		params: r.params,
+		mod:    r.mod[lo:hi:hi],
+
+		maxRank:     r.maxRank,
+		diffDeg:     r.diffDeg,
+		diffDegNext: r.diffDegNext,
+		degNext:     r.degNext,
+
+		diffDegNextNTT: r.diffDegNextNTT[lo:hi:hi],
+		degNextNTT:     r.degNextNTT[lo:hi:hi],
+
+		ambModLen: r.ambModLen[lo:hi:hi],
+		ambMod:    r.ambMod,
+		embedder:  r.embedder[lo:hi:hi],
+
+		diffDegNextAmbNTT: r.diffDegNextAmbNTT,
+		degNextAmbNTT:     r.degNextAmbNTT,
+
+		modPoly: r.modPoly[lo:hi:hi],
+		divPoly: r.divPoly[lo:hi:hi],
 
 		pool: r.pool,
 	}

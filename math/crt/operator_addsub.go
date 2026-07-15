@@ -19,6 +19,7 @@ type addSubOperator interface {
 	SubTo(eOut, e0, e1 *Element)
 
 	withModIdx(idx ...int) addSubOperator
+	slice(lo, hi int) addSubOperator
 	append(op0 addSubOperator) addSubOperator
 	appendTmpModulus(mod *num.Modulus) addSubOperator
 }
@@ -128,6 +129,14 @@ func (op *baseAddSubOperator) withModIdx(idx ...int) addSubOperator {
 		rank:          op.rank,
 		mod:           vec.Gather(op.mod, idx...),
 		isNTTFriendly: vec.Gather(op.isNTTFriendly, idx...),
+	}
+}
+
+func (op *baseAddSubOperator) slice(lo, hi int) addSubOperator {
+	return &baseAddSubOperator{
+		rank:          op.rank,
+		mod:           op.mod[lo:hi:hi],
+		isNTTFriendly: op.isNTTFriendly[lo:hi:hi],
 	}
 }
 
@@ -249,6 +258,14 @@ func (op *primeAutFixedAddSubOperator) withModIdx(idx ...int) addSubOperator {
 		rank:          op.rank,
 		mod:           vec.Gather(op.mod, idx...),
 		isNTTFriendly: vec.Gather(op.isNTTFriendly, idx...),
+	}
+}
+
+func (op *primeAutFixedAddSubOperator) slice(lo, hi int) addSubOperator {
+	return &primeAutFixedAddSubOperator{
+		rank:          op.rank,
+		mod:           op.mod[lo:hi:hi],
+		isNTTFriendly: op.isNTTFriendly[lo:hi:hi],
 	}
 }
 

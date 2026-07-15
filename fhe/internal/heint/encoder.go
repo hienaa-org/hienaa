@@ -35,20 +35,20 @@ func NewEncoder(rlweParams rlwe.Parameters, msgMod *num.Modulus) *Encoder {
 		return &v
 	})
 	for i := range embEncode {
-		modOp := rlweParams.Operator().WithModIdx(vec.Range(auxLen-i, auxLen+modLen)...)
+		modOp := rlweParams.Operator().Slice(auxLen-i, auxLen+modLen)
 		embEncode[i] = crt.NewEmbedder(modOp, msgOp).WithPool(embPool)
 	}
 
 	embDecode := make([]*crt.Embedder, len(rlweParams.BaseModulus()))
 	for i := range embDecode {
-		modOp := rlweParams.Operator().WithModIdx(vec.Range(auxLen, auxLen+i+1)...)
+		modOp := rlweParams.Operator().Slice(auxLen, auxLen+i+1)
 		embDecode[i] = crt.NewEmbedder(msgOp, modOp).WithPool(embPool)
 	}
 
 	scEncode := make([]*crt.Scaler, len(rlweParams.BaseModulus()))
 	scDecode := make([]*crt.Scaler, len(rlweParams.BaseModulus()))
 	for i := range scEncode {
-		modOp := rlweParams.Operator().WithModIdx(vec.Range(auxLen, auxLen+i+1)...)
+		modOp := rlweParams.Operator().Slice(auxLen, auxLen+i+1)
 		scEncode[i] = crt.NewScaler(modOp, msgOp).WithPool(embPool)
 		scDecode[i] = crt.NewScaler(msgOp, modOp).WithPool(embPool)
 	}

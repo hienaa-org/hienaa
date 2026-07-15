@@ -3,7 +3,6 @@ package crt
 import (
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
-	"github.com/hienaa-org/hienaa/math/vec"
 )
 
 // Operator evaluates ring operations over [Element].
@@ -85,7 +84,8 @@ func NewOperator(params dft.RingParameters, mod []*num.Modulus) *Operator {
 }
 
 // WithModIdx returns an [Operator] for modulus of given indices.
-// Useful for "levelled" operations, especially with [vec.Range].
+// Useful for "levelled" operations with arbitrary modulus indices.
+// Use [Operator.Slice] for contiguous ranges.
 func (op *Operator) WithModIdx(idx ...int) *Operator {
 	return &Operator{
 		baseOperator:   op.baseOperator.withModIdx(idx...),
@@ -96,9 +96,14 @@ func (op *Operator) WithModIdx(idx ...int) *Operator {
 }
 
 // Slice slices the modulus of [Operator] and returns the new [Operator].
-// Equal to op.WitModIdx(vec.Range(lo, hi)...).
+// Equal to op.WithModIdx(vec.Range(lo, hi)...).
 func (op *Operator) Slice(lo, hi int) *Operator {
-	return op.WithModIdx(vec.Range(lo, hi)...)
+	return &Operator{
+		baseOperator:   op.baseOperator.slice(lo, hi),
+		addSubOperator: op.addSubOperator.slice(lo, hi),
+		mulOperator:    op.mulOperator.slice(lo, hi),
+		autOperator:    op.autOperator.slice(lo, hi),
+	}
 }
 
 // Append appends a new [Operator] and returns the new [Operator].

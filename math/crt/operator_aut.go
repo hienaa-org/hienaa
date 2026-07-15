@@ -22,6 +22,7 @@ type autOperator interface {
 	AutTo(eOut, e *Element, idx int)
 
 	withModIdx(idx ...int) autOperator
+	slice(lo, hi int) autOperator
 	append(op0 autOperator) autOperator
 	appendTmpModulus(mod *num.Modulus) autOperator
 }
@@ -127,6 +128,16 @@ func (op *pow2CyclotomicAutOperator) withModIdx(idx ...int) autOperator {
 		params:        op.params,
 		mod:           vec.Gather(op.mod, idx...),
 		isNTTFriendly: vec.Gather(op.isNTTFriendly, idx...),
+
+		pool: op.pool,
+	}
+}
+
+func (op *pow2CyclotomicAutOperator) slice(lo, hi int) autOperator {
+	return &pow2CyclotomicAutOperator{
+		params:        op.params,
+		mod:           op.mod[lo:hi:hi],
+		isNTTFriendly: op.isNTTFriendly[lo:hi:hi],
 
 		pool: op.pool,
 	}
@@ -344,6 +355,23 @@ func (op *anyCyclotomicAutOperator) withModIdx(idx ...int) autOperator {
 	}
 }
 
+func (op *anyCyclotomicAutOperator) slice(lo, hi int) autOperator {
+	return &anyCyclotomicAutOperator{
+		params:        op.params,
+		cycloIdxMod:   op.cycloIdxMod,
+		mod:           op.mod[lo:hi:hi],
+		isNTTFriendly: op.isNTTFriendly[lo:hi:hi],
+
+		reducer: op.reducer.Slice(lo, hi),
+
+		primeExpMods: op.primeExpMods,
+		rootExps:     op.rootExps,
+		dims:         op.dims,
+
+		pool: op.pool,
+	}
+}
+
 func (op *anyCyclotomicAutOperator) append(op0 autOperator) autOperator {
 	opOther := op0.(*anyCyclotomicAutOperator)
 	return &anyCyclotomicAutOperator{
@@ -496,6 +524,16 @@ func (op *pow2AutFixedAutOperator) withModIdx(idx ...int) autOperator {
 	}
 }
 
+func (op *pow2AutFixedAutOperator) slice(lo, hi int) autOperator {
+	return &pow2AutFixedAutOperator{
+		params:        op.params,
+		mod:           op.mod[lo:hi:hi],
+		isNTTFriendly: op.isNTTFriendly[lo:hi:hi],
+
+		pool: op.pool,
+	}
+}
+
 func (op *pow2AutFixedAutOperator) append(op0 autOperator) autOperator {
 	opOther := op0.(*pow2AutFixedAutOperator)
 	return &pow2AutFixedAutOperator{
@@ -636,6 +674,19 @@ func (op *primeAutFixedAutOperator) withModIdx(idx ...int) autOperator {
 	}
 }
 
+func (op *primeAutFixedAutOperator) slice(lo, hi int) autOperator {
+	return &primeAutFixedAutOperator{
+		params:        op.params,
+		mod:           op.mod[lo:hi:hi],
+		isNTTFriendly: op.isNTTFriendly[lo:hi:hi],
+
+		rootPow:    op.rootPow,
+		rootPowInv: op.rootPowInv,
+
+		pool: op.pool,
+	}
+}
+
 func (op *primeAutFixedAutOperator) append(op0 autOperator) autOperator {
 	opOther := op0.(*primeAutFixedAutOperator)
 	return &primeAutFixedAutOperator{
@@ -684,6 +735,10 @@ func (op noAutOperator) AutTo(eOut, e *Element, idx int) {
 }
 
 func (op noAutOperator) withModIdx(idx ...int) autOperator {
+	return op
+}
+
+func (op noAutOperator) slice(lo, hi int) autOperator {
 	return op
 }
 
