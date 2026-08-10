@@ -371,10 +371,9 @@ TEXT ·invNTTInPlacePow2StrideUnrollAVX512(SB), NOSPLIT, $0-64
 loop_body:
 	VMOVDQU64 (AX)(CX*8), Z5
 	VMOVDQU64 (AX)(SI*8), Z6
+	VPSUBQ    Z6, Z5, Z7
 	VPADDQ    Z6, Z5, Z5
-	VPADDQ    Z6, Z6, Z6
-	VPSUBQ    Z6, Z5, Z6
-	VPADDQ    Z1, Z6, Z6
+	VPADDQ    Z1, Z7, Z6
 	VPSUBQ    Z1, Z5, Z7
 	VPMINUQ   Z7, Z5, Z5
 	VPSRLQ    $0x20, Z6, Z7
@@ -433,10 +432,9 @@ t_1_loop_body:
 	VPERMQ     Z8, Z4, Z8
 	VSHUFF64X2 $0x44, Z8, Z7, Z9
 	VSHUFF64X2 $0xee, Z8, Z7, Z8
+	VPSUBQ     Z8, Z9, Z7
 	VPADDQ     Z8, Z9, Z9
-	VPADDQ     Z8, Z8, Z8
-	VPSUBQ     Z8, Z9, Z8
-	VPADDQ     Z3, Z8, Z8
+	VPADDQ     Z3, Z7, Z8
 	VPSUBQ     Z3, Z9, Z7
 	VPMINUQ    Z7, Z9, Z9
 	VPSRLQ     $0x20, Z8, Z7
@@ -481,10 +479,9 @@ t_2_loop_body:
 	VMOVDQU64  64(AX)(R8*8), Z8
 	VSHUFI64X2 $0x88, Z8, Z7, Z9
 	VSHUFI64X2 $0xdd, Z8, Z7, Z8
+	VPSUBQ     Z8, Z9, Z5
 	VPADDQ     Z8, Z9, Z9
-	VPADDQ     Z8, Z8, Z8
-	VPSUBQ     Z8, Z9, Z8
-	VPADDQ     Z3, Z8, Z8
+	VPADDQ     Z3, Z5, Z8
 	VPSUBQ     Z3, Z9, Z5
 	VPMINUQ    Z5, Z9, Z9
 	VPSRLQ     $0x20, Z8, Z5
@@ -531,10 +528,9 @@ t_4_loop_body:
 	VMOVDQU64    64(AX)(R8*8), Z8
 	VSHUFI64X2   $0x44, Z8, Z7, Z9
 	VSHUFI64X2   $0xee, Z8, Z7, Z8
+	VPSUBQ       Z8, Z9, Z4
 	VPADDQ       Z8, Z9, Z9
-	VPADDQ       Z8, Z8, Z8
-	VPSUBQ       Z8, Z9, Z8
-	VPADDQ       Z3, Z8, Z8
+	VPADDQ       Z3, Z4, Z8
 	VPSUBQ       Z3, Z9, Z4
 	VPMINUQ      Z4, Z9, Z9
 	VPSRLQ       $0x20, Z8, Z4
@@ -587,10 +583,9 @@ i_loop_body:
 j_loop_body:
 	VMOVDQU64 (AX)(R11*8), Z7
 	VMOVDQU64 (AX)(R13*8), Z8
+	VPSUBQ    Z8, Z7, Z4
 	VPADDQ    Z8, Z7, Z7
-	VPADDQ    Z8, Z8, Z8
-	VPSUBQ    Z8, Z7, Z8
-	VPADDQ    Z3, Z8, Z8
+	VPADDQ    Z3, Z4, Z8
 	VPSUBQ    Z3, Z7, Z4
 	VPMINUQ   Z4, Z7, Z7
 	VPSRLQ    $0x20, Z8, Z4
@@ -638,10 +633,9 @@ m_loop_end:
 last_loop_body:
 	VMOVDQU64 (AX)(R11*8), Z7
 	VMOVDQU64 (AX)(R13*8), Z8
+	VPSUBQ    Z8, Z7, Z4
 	VPADDQ    Z8, Z7, Z7
-	VPADDQ    Z8, Z8, Z8
-	VPSUBQ    Z8, Z7, Z8
-	VPADDQ    Z3, Z8, Z8
+	VPADDQ    Z3, Z4, Z8
 	VPSUBQ    Z3, Z7, Z4
 	VPMINUQ   Z4, Z7, Z7
 	VPSRLQ    $0x20, Z8, Z4

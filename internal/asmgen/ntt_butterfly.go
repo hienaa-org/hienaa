@@ -30,10 +30,10 @@ func FwdButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo reg.VecVirtual) {
 }
 
 func InvButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo reg.VecVirtual) {
+	uSubv := ZMM()
+	VPSUBQ(v, u, uSubv)
 	VPADDQ(v, u, u)
-	VPADDQ(v, v, v)
-	VPSUBQ(v, u, v)
-	VPADDQ(twoQ, v, v)
+	VPADDQ(twoQ, uSubv, v)
 
 	uQ := ZMM()
 	VPSUBQ(twoQ, u, uQ)
