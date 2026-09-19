@@ -39,8 +39,8 @@ type Modulus struct {
 func NewModulus[T Integer](mod T) *Modulus {
 	if mod <= 1 {
 		panic("modulus must be greater than 1")
-	} else if uint64(mod) >= MaxModulus {
-		panic("modulus must be less than MaxModulus")
+	} else if uint64(mod) > MaxModulus {
+		panic("modulus must be less or equal than MaxModulus")
 	}
 
 	q := uint64(mod)
@@ -153,7 +153,7 @@ func Reduce128(xHi, xLo uint64, q *Modulus) uint64 {
 	return modops.BMod128(xHi, xLo, q.value, q.divHi, q.divLo)
 }
 
-// Reduce128Lazy returns x mod q using Barret reduction,
+// Reduce128Lazy returns x mod q using Barrett reduction,
 // but the result is in [0, 2q).
 //
 // Panics if q is nil.
@@ -260,7 +260,7 @@ func Exp(x, e uint64, q *Modulus) uint64 {
 
 // Inv returns the inverse of x modulo q.
 //
-// Panics if q is nil.
+// Panics if no inverse exists or q is nil.
 func Inv(x uint64, q *Modulus) uint64 {
 	rr, r := x, q.Value()
 
@@ -294,7 +294,7 @@ func Inv(x uint64, q *Modulus) uint64 {
 	return ss
 }
 
-// CmpModulus implements [cmp.Ordered]  for [Modulus].
+// CmpModulus implements [cmp.Ordered] functionality for [Modulus].
 func CmpModulus(a, b *Modulus) int {
 	return cmp.Compare(a.Value(), b.Value())
 }
