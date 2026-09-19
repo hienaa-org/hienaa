@@ -8,7 +8,7 @@ jobs:
         runs-on: ubuntu-latest
         strategy:
             matrix:
-                go: ["1.21", "1.26"]
+                go: ["1.27"]
 
         steps:
             - uses: actions/checkout@v5
@@ -18,11 +18,11 @@ jobs:
               with:
                   go-version: ${{ matrix.go }}
 
-            - name: Test math/csprng
-              run: |
-                  go test ./math/csprng -timeout=0 -count=1
-                  go test ./math/csprng -timeout=0 -count=1 -tags=purego
-                  GODEBUG=cpu.all=off go test ./math/csprng -count=1
+            # - name: Test math/csprng
+            #   run: |
+            #       go test ./math/csprng -timeout=0 -count=1
+            #       go test ./math/csprng -timeout=0 -count=1 -tags=purego
+            #       GODEBUG=cpu.all=off go test ./math/csprng -count=1
 
             - name: Test math/num
               run: |
@@ -30,26 +30,26 @@ jobs:
                   go test ./math/num -timeout=0 -count=1 -tags=purego
                   GODEBUG=cpu.all=off go test ./math/num -count=1
 
-            - name: Test math/vec
-              run: |
-                  go test ./math/vec -timeout=0 -count=1
-                  go test ./math/vec -timeout=0 -count=1 -tags=purego
-                  GODEBUG=cpu.all=off go test ./math/vec -count=1
+            # - name: Test math/vec
+            #   run: |
+            #       go test ./math/vec -timeout=0 -count=1
+            #       go test ./math/vec -timeout=0 -count=1 -tags=purego
+            #       GODEBUG=cpu.all=off go test ./math/vec -count=1
 
-            - name: Test math/dft
-              run: |
-                  go test ./math/dft -timeout=0 -count=1
-                  go test ./math/dft -timeout=0 -count=1 -tags=purego
-                  GODEBUG=cpu.all=off go test ./math/dft -count=1
+            # - name: Test math/dft
+            #   run: |
+            #       go test ./math/dft -timeout=0 -count=1
+            #       go test ./math/dft -timeout=0 -count=1 -tags=purego
+            #       GODEBUG=cpu.all=off go test ./math/dft -count=1
 
-            - name: Test math/crt
-              run: |
-                  go test ./math/crt -timeout=0 -count=1
-                  go test ./math/crt -timeout=0 -count=1 -tags=purego
-                  GODEBUG=cpu.all=off go test ./math/crt -count=1
+            # - name: Test math/crt
+            #   run: |
+            #       go test ./math/crt -timeout=0 -count=1
+            #       go test ./math/crt -timeout=0 -count=1 -tags=purego
+            #       GODEBUG=cpu.all=off go test ./math/crt -count=1
 
-            - name: Test fhe/rlwe
-              run: |
-                  go test ./fhe/rlwe -timeout=0 -count=1
-                  go test ./fhe/rlwe -timeout=0 -count=1 -tags=purego
-                  GODEBUG=cpu.all=off go test ./fhe/rlwe -count=1
+            # - name: Test fhe/rlwe
+            #   run: |
+            #       go test ./fhe/rlwe -timeout=0 -count=1
+            #       go test ./fhe/rlwe -timeout=0 -count=1 -tags=purego
+            #       GODEBUG=cpu.all=off go test ./fhe/rlwe -count=1

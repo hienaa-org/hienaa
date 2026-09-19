@@ -1,20 +1,25 @@
 package num_test
 
 import (
-	"crypto/rand"
+	crand "crypto/rand"
 	"math/big"
+	"math/rand/v2"
 	"testing"
 
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestReduce(t *testing.T) {
-	q := num.NewModulus(rSrc.SampleN(num.MaxModulus) | 1)
+var (
+	rSrc = rand.New(rand.NewChaCha8([32]byte{}))
+)
 
-	x64 := rSrc.Sample()
-	x128Hi := rSrc.Sample()
-	x128Lo := rSrc.Sample()
+func TestReduce(t *testing.T) {
+	q := num.NewModulus(rSrc.Uint64N(num.MaxModulus) | 1)
+
+	x64 := rSrc.Uint64()
+	x128Hi := rSrc.Uint64()
+	x128Lo := rSrc.Uint64()
 	x128 := new(big.Int).Lsh(new(big.Int).SetUint64(x128Hi), 64)
 	x128.Add(x128, new(big.Int).SetUint64(x128Lo))
 
@@ -29,12 +34,12 @@ func TestReduce(t *testing.T) {
 }
 
 func TestOps(t *testing.T) {
-	qBig, err := rand.Prime(rSrc, num.MaxModulusBits)
+	qBig, err := crand.Prime(nil, num.MaxModulusBits)
 	assert.NoError(t, err)
 
 	q := num.NewModulus(qBig.Uint64())
-	x0 := rSrc.SampleN(q.Value())
-	x1 := rSrc.SampleN(q.Value())
+	x0 := rSrc.Uint64N(q.Value())
+	x1 := rSrc.Uint64N(q.Value())
 
 	x0Big := new(big.Int).SetUint64(x0)
 	x1Big := new(big.Int).SetUint64(x1)

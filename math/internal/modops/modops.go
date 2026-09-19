@@ -10,12 +10,18 @@ type Unsigned interface {
 	~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64
 }
 
+// Signed represents the signed Integer type.
+type Signed interface {
+	~int | ~int8 | ~int16 | ~int32 | ~int64
+}
+
 // Integer represents the Integer type.
 type Integer interface {
-	Unsigned | ~int | ~int8 | ~int16 | ~int32 | ~int64
+	Unsigned | Signed
 }
 
 // Add returns x0 + x1 mod q.
+// x0 and x1 must be in [0, q).
 func Add(x0, x1, q uint64) uint64 {
 	xOut := x0 + x1
 	if xOut >= q {
@@ -25,6 +31,7 @@ func Add(x0, x1, q uint64) uint64 {
 }
 
 // Sub returns x0 - x1 mod q.
+// x0 and x1 must be in [0, q).
 func Sub(x0, x1, q uint64) uint64 {
 	xOut := x0 - x1
 	if xOut >= q {
@@ -34,6 +41,7 @@ func Sub(x0, x1, q uint64) uint64 {
 }
 
 // Neg returns -x mod q.
+// x must be in [0, q).
 func Neg(x, q uint64) uint64 {
 	if x == 0 {
 		return 0
@@ -181,6 +189,7 @@ func InvMForm(xM, q, inv uint64) uint64 {
 }
 
 // MMul returns x0 * x1 mod q in Montgomery form.
+// x0M and x1M must be a valid Montgomery form.
 func MMul(x0M, x1M, q, inv uint64) uint64 {
 	xOutMHi, xOutMLo := bits.Mul64(x0M, x1M)
 	wHi, _ := bits.Mul64(xOutMLo*inv, q)
@@ -194,6 +203,7 @@ func MMul(x0M, x1M, q, inv uint64) uint64 {
 
 // MMulLazy returns x0 * x1 mod q in Montgomery form,
 // but the result is in [0, 2q).
+// x0M and x1M must be a valid Montgomery form.
 func MMulLazy(x0M, x1M, q, inv uint64) uint64 {
 	xOutMHi, xOutMLo := bits.Mul64(x0M, x1M)
 	wHi, _ := bits.Mul64(xOutMLo*inv, q)
@@ -202,12 +212,14 @@ func MMulLazy(x0M, x1M, q, inv uint64) uint64 {
 }
 
 // SForm transforms x into Shoup form.
+// x must be in [0, q).
 func SForm(x, q uint64) uint64 {
 	xS, _ := bits.Div64(x, 0, q)
 	return xS
 }
 
 // SMul returns x0 * x1 mod q using Shoup multiplication.
+// x1S must be a valid Shoup form.
 func SMul(x0, x1, x1S, q uint64) uint64 {
 	quo, _ := bits.Mul64(x0, x1S)
 
@@ -220,6 +232,7 @@ func SMul(x0, x1, x1S, q uint64) uint64 {
 
 // SMulLazy returns x0 * x1 mod q using Shoup multiplication,
 // but the result is in [0, 2q).
+// x1S must be a valid Shoup form.
 func SMulLazy(x0, x1, x1S, q uint64) uint64 {
 	quo, _ := bits.Mul64(x0, x1S)
 
