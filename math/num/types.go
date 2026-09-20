@@ -17,10 +17,10 @@ type Integer interface {
 
 // Real represents the Integer and Float type.
 type Real interface {
-	Integer | float32 | float64
+	Integer | ~float32 | ~float64
 }
 
 // Number represents Integer, Float, and Complex type.
 type Number interface {
-	Real | complex64 | complex128
+	Real | ~complex64 | ~complex128
 }

@@ -257,3 +257,26 @@ func Reduce4Q(x, q, twoQ uint64) uint64 {
 	}
 	return x
 }
+
+// AnyAdd returns x0 + x1 mod q for arbitrary uint64 inputs.
+func AnyAdd(x0, x1, q uint64) uint64 {
+	xOut, carry := bits.Add64(x0, x1, 0)
+	return bits.Rem64(carry, xOut, q)
+}
+
+// AnySub returns x0 - x1 mod q for arbitrary uint64 inputs.
+func AnySub(x0, x1, q uint64) uint64 {
+	xOut, borrow := bits.Sub64(x0, x1, 0)
+	return bits.Rem64(borrow*(q-1), xOut, q)
+}
+
+// AnyNeg returns -x mod q for arbitrary uint64 inputs.
+func AnyNeg(x, q uint64) uint64 {
+	return Neg(x%q, q)
+}
+
+// AnyMul returns x0 * x1 mod q for arbitrary uint64 inputs.
+func AnyMul(x0, x1, q uint64) uint64 {
+	xOutHi, xOutLo := bits.Mul64(x0, x1)
+	return bits.Rem64(xOutHi, xOutLo, q)
+}

@@ -93,42 +93,67 @@ func (q *Modulus) String() string {
 }
 
 // Add returns x0 + x1 mod q.
-// x0 and x1 must be in [0, q).
+// If q is [*Modulus], x0 and x1 must be in [0, q).
 // If q is nil, then it returns x0 + x1.
-func Add(x0, x1 uint64, q *Modulus) uint64 {
-	if q != nil {
+func Add[Q uint64 | *Modulus](x0, x1 uint64, q Q) uint64 {
+	switch q := any(q).(type) {
+	case uint64:
+		return modops.AnyAdd(x0, x1, q)
+	case *Modulus:
+		if q == nil {
+			return x0 + x1
+		}
 		return modops.Add(x0, x1, q.value)
 	}
-	return x0 + x1
+	return 0
 }
 
 // Sub returns x0 - x1 mod q.
-// x0 and x1 must be in [0, q).
+// If q is [*Modulus], x0 and x1 must be in [0, q).
 // If q is nil, then it returns x0 - x1.
-func Sub(x0, x1 uint64, q *Modulus) uint64 {
-	if q != nil {
+func Sub[Q uint64 | *Modulus](x0, x1 uint64, q Q) uint64 {
+	switch q := any(q).(type) {
+	case uint64:
+		return modops.AnySub(x0, x1, q)
+	case *Modulus:
+		if q == nil {
+			return x0 - x1
+		}
 		return modops.Sub(x0, x1, q.value)
 	}
-	return x0 - x1
+	return 0
 }
 
 // Neg returns -x mod q.
-// x must be in [0, q).
+// If q is [*Modulus], x0 and x1 must be in [0, q).
 // If q is nil, then it returns -x.
-func Neg(x uint64, q *Modulus) uint64 {
-	if q != nil {
+func Neg[Q uint64 | *Modulus](x uint64, q Q) uint64 {
+	switch q := any(q).(type) {
+	case uint64:
+		return modops.AnyNeg(x, q)
+	case *Modulus:
+		if q == nil {
+			return -x
+		}
 		return modops.Neg(x, q.value)
 	}
-	return -x
+	return 0
 }
 
-// Mul returns x0 * x1 mod q using Barrett reduction.
+// Mul returns x0 * x1 mod q.
+// If q is [*Modulus], it uses Barrett reduction.
 // If q is nil, then it returns x0 * x1.
-func Mul(x0, x1 uint64, q *Modulus) uint64 {
-	if q != nil {
+func Mul[Q uint64 | *Modulus](x0, x1 uint64, q Q) uint64 {
+	switch q := any(q).(type) {
+	case uint64:
+		return modops.AnyMul(x0, x1, q)
+	case *Modulus:
+		if q == nil {
+			return x0 * x1
+		}
 		return modops.BMul(x0, x1, q.value, q.divHi, q.divLo)
 	}
-	return x0 * x1
+	return 0
 }
 
 // MulLazy returns x0 * x1 mod q using Barrett reduction,
@@ -140,17 +165,34 @@ func MulLazy(x0, x1 uint64, q *Modulus) uint64 {
 }
 
 // Reduce returns x mod q using Barrett reduction.
+// If q is [*Modulus], it uses Barrett reduction.
 //
 // Panics if q is nil.
-func Reduce[T Integer](x T, q *Modulus) uint64 {
-	return modops.BMod(x, q.value, q.divHi)
+func Reduce[T Integer, Q uint64 | *Modulus](x T, q Q) uint64 {
+	switch q := any(q).(type) {
+	case uint64:
+		if x < 0 {
+			return modops.AnyNeg(Abs(x)%q, q)
+		}
+		return uint64(x) % q
+	case *Modulus:
+		return modops.BMod(x, q.value, q.divHi)
+	}
+	return 0
 }
 
-// Reduce128 returns x mod q using Barrett reduction.
+// Reduce128 returns x mod q.
+// If q is [*Modulus], it uses Barrett reduction.
 //
 // Panics if q is nil.
-func Reduce128(xHi, xLo uint64, q *Modulus) uint64 {
-	return modops.BMod128(xHi, xLo, q.value, q.divHi, q.divLo)
+func Reduce128[Q uint64 | *Modulus](xHi, xLo uint64, q Q) uint64 {
+	switch q := any(q).(type) {
+	case uint64:
+		return bits.Rem64(xHi, xLo, q)
+	case *Modulus:
+		return modops.BMod128(xHi, xLo, q.value, q.divHi, q.divLo)
+	}
+	return 0
 }
 
 // Reduce128Lazy returns x mod q using Barrett reduction,
@@ -235,24 +277,21 @@ func SMulLazy(x0, x1, x1S uint64, q *Modulus) uint64 {
 
 // Exp returns x^e mod q.
 // If q is nil, then it returns x^e.
-func Exp(x, e uint64, q *Modulus) uint64 {
+func Exp[Q uint64 | *Modulus](x, e uint64, q Q) uint64 {
+	switch q := any(q).(type) {
+	case uint64:
+		if q == 1 {
+			return 0
+		}
+	}
+
 	r := uint64(1)
-	if q == nil {
-		for e > 0 {
-			if e%2 == 1 {
-				r = r * x
-			}
-			e >>= 1
-			x = x * x
+	for e > 0 {
+		if e%2 == 1 {
+			r = Mul(r, x, q)
 		}
-	} else {
-		for e > 0 {
-			if e%2 == 1 {
-				r = Mul(r, x, q)
-			}
-			e >>= 1
-			x = Mul(x, x, q)
-		}
+		e >>= 1
+		x = Mul(x, x, q)
 	}
 
 	return r
@@ -261,8 +300,15 @@ func Exp(x, e uint64, q *Modulus) uint64 {
 // Inv returns the inverse of x modulo q.
 //
 // Panics if no inverse exists or q is nil.
-func Inv(x uint64, q *Modulus) uint64 {
-	rr, r := x, q.Value()
+func Inv[Q uint64 | *Modulus](x uint64, q Q) uint64 {
+	rr := x
+	var r uint64
+	switch q := any(q).(type) {
+	case uint64:
+		r = q
+	case *Modulus:
+		r = q.value
+	}
 
 	ssSign, sSign := true, true
 	ss, s := uint64(1), uint64(0)
@@ -289,7 +335,7 @@ func Inv(x uint64, q *Modulus) uint64 {
 	}
 
 	if !ssSign {
-		return q.Value() - ss
+		return Neg(ss, q)
 	}
 	return ss
 }
