@@ -7,12 +7,12 @@ import (
 
 // Unsigned represents the unsigned Integer type.
 type Unsigned interface {
-	~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64
+	uint | uint8 | uint16 | uint32 | uint64
 }
 
 // Signed represents the signed Integer type.
 type Signed interface {
-	~int | ~int8 | ~int16 | ~int32 | ~int64
+	int | int8 | int16 | int32 | int64
 }
 
 // Integer represents the Integer type.
