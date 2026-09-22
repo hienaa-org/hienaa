@@ -21,7 +21,6 @@ type Integer interface {
 }
 
 // Add returns x0 + x1 mod q.
-// x0 and x1 must be in [0, q).
 func Add(x0, x1, q uint64) uint64 {
 	xOut := x0 + x1
 	if xOut >= q {
@@ -31,7 +30,6 @@ func Add(x0, x1, q uint64) uint64 {
 }
 
 // Sub returns x0 - x1 mod q.
-// x0 and x1 must be in [0, q).
 func Sub(x0, x1, q uint64) uint64 {
 	xOut := x0 - x1
 	if xOut >= q {
@@ -41,7 +39,6 @@ func Sub(x0, x1, q uint64) uint64 {
 }
 
 // Neg returns -x mod q.
-// x must be in [0, q).
 func Neg(x, q uint64) uint64 {
 	if x == 0 {
 		return 0
@@ -212,7 +209,6 @@ func MMulLazy(x0M, x1M, q, inv uint64) uint64 {
 }
 
 // SForm transforms x into Shoup form.
-// x must be in [0, q).
 func SForm(x, q uint64) uint64 {
 	xS, _ := bits.Div64(x, 0, q)
 	return xS

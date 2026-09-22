@@ -1,0 +1,1703 @@
+//go:build !(amd64 && !purego)
+
+package vec
+
+import (
+	"unsafe"
+
+	"github.com/hienaa-org/hienaa/math/internal/modops"
+	"github.com/hienaa-org/hienaa/math/num"
+)
+
+// AddTo computes vOut = v0 + v1 mod q.
+// If q is nil, then it computes vOut = v0 + v1.
+//
+// Panics when v0, v1 are scalars or have different lengths.
+func AddTo[T0, T1 uint64 | []uint64](vOut []uint64, v0 T0, v1 T1, q *num.Modulus) {
+	switch v0 := any(v0).(type) {
+	case uint64:
+		switch v1 := any(v1).(type) {
+		case uint64:
+			panic("inconsistent input(s)")
+
+		case []uint64:
+			if q == nil {
+				addScalarWordTo(vOut, v1, v0)
+				return
+			}
+			addScalarTo(vOut, v1, v0, q)
+		}
+
+	case []uint64:
+		switch v1 := any(v1).(type) {
+		case uint64:
+			if q == nil {
+				addScalarWordTo(vOut, v0, v1)
+				return
+			}
+			addScalarTo(vOut, v0, v1, q)
+
+		case []uint64:
+			if q == nil {
+				addWordTo(vOut, v0, v1)
+				return
+			}
+			addTo(vOut, v0, v1, q)
+		}
+	}
+}
+
+// addTo computes vOut = v0 + v1 mod q.
+func addTo(vOut, v0, v1 []uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v0), len(v1))
+
+	qv := q.Value()
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r0 := unsafe.Pointer(unsafe.SliceData(v0))
+	r1 := unsafe.Pointer(unsafe.SliceData(v1))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
+		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
+
+		wOut[0] = modops.Add(w0[0], w1[0], qv)
+		wOut[1] = modops.Add(w0[1], w1[1], qv)
+		wOut[2] = modops.Add(w0[2], w1[2], qv)
+		wOut[3] = modops.Add(w0[3], w1[3], qv)
+
+		wOut[4] = modops.Add(w0[4], w1[4], qv)
+		wOut[5] = modops.Add(w0[5], w1[5], qv)
+		wOut[6] = modops.Add(w0[6], w1[6], qv)
+		wOut[7] = modops.Add(w0[7], w1[7], qv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.Add(v0[i], v1[i], qv)
+	}
+}
+
+// addWordTo computes vOut = v0 + v1.
+func addWordTo(vOut, v0, v1 []uint64) {
+	checkLength(len(vOut), len(v0), len(v1))
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r0 := unsafe.Pointer(unsafe.SliceData(v0))
+	r1 := unsafe.Pointer(unsafe.SliceData(v1))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
+		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
+
+		wOut[0] = w0[0] + w1[0]
+		wOut[1] = w0[1] + w1[1]
+		wOut[2] = w0[2] + w1[2]
+		wOut[3] = w0[3] + w1[3]
+
+		wOut[4] = w0[4] + w1[4]
+		wOut[5] = w0[5] + w1[5]
+		wOut[6] = w0[6] + w1[6]
+		wOut[7] = w0[7] + w1[7]
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = v0[i] + v1[i]
+	}
+}
+
+// addScalarTo computes vOut = v + c mod q.
+func addScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v))
+
+	qv := q.Value()
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] = modops.Add(w[0], c, qv)
+		wOut[1] = modops.Add(w[1], c, qv)
+		wOut[2] = modops.Add(w[2], c, qv)
+		wOut[3] = modops.Add(w[3], c, qv)
+
+		wOut[4] = modops.Add(w[4], c, qv)
+		wOut[5] = modops.Add(w[5], c, qv)
+		wOut[6] = modops.Add(w[6], c, qv)
+		wOut[7] = modops.Add(w[7], c, qv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.Add(v[i], c, qv)
+	}
+}
+
+// addScalarWordTo computes vOut = v + c.
+func addScalarWordTo(vOut []uint64, v []uint64, c uint64) {
+	checkLength(len(vOut), len(v))
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] = w[0] + c
+		wOut[1] = w[1] + c
+		wOut[2] = w[2] + c
+		wOut[3] = w[3] + c
+
+		wOut[4] = w[4] + c
+		wOut[5] = w[5] + c
+		wOut[6] = w[6] + c
+		wOut[7] = w[7] + c
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = v[i] + c
+	}
+}
+
+// SubTo computes vOut = v0 - v1 mod q.
+// If q is nil, then it computes vOut = v0 - v1.
+//
+// Panics when v0, v1 are scalars or have different lengths.
+func SubTo[T0, T1 uint64 | []uint64](vOut []uint64, v0 T0, v1 T1, q *num.Modulus) {
+	switch v0 := any(v0).(type) {
+	case uint64:
+		switch v1 := any(v1).(type) {
+		case uint64:
+			panic("inconsistent input(s)")
+
+		case []uint64:
+			if q == nil {
+				subScalarVecWordTo(vOut, v0, v1)
+				return
+			}
+			subScalarVecTo(vOut, v0, v1, q)
+		}
+
+	case []uint64:
+		switch v1 := any(v1).(type) {
+		case uint64:
+			if q == nil {
+				subVecScalarWordTo(vOut, v0, v1)
+				return
+			}
+			subVecScalarTo(vOut, v0, v1, q)
+
+		case []uint64:
+			if q == nil {
+				subWordTo(vOut, v0, v1)
+				return
+			}
+			subTo(vOut, v0, v1, q)
+		}
+	}
+}
+
+// subTo computes vOut = v0 - v1 mod q.
+func subTo(vOut, v0, v1 []uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v0), len(v1))
+
+	qv := q.Value()
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r0 := unsafe.Pointer(unsafe.SliceData(v0))
+	r1 := unsafe.Pointer(unsafe.SliceData(v1))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
+		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
+
+		wOut[0] = modops.Sub(w0[0], w1[0], qv)
+		wOut[1] = modops.Sub(w0[1], w1[1], qv)
+		wOut[2] = modops.Sub(w0[2], w1[2], qv)
+		wOut[3] = modops.Sub(w0[3], w1[3], qv)
+
+		wOut[4] = modops.Sub(w0[4], w1[4], qv)
+		wOut[5] = modops.Sub(w0[5], w1[5], qv)
+		wOut[6] = modops.Sub(w0[6], w1[6], qv)
+		wOut[7] = modops.Sub(w0[7], w1[7], qv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.Sub(v0[i], v1[i], qv)
+	}
+}
+
+// subWordTo computes vOut = v0 - v1.
+func subWordTo(vOut, v0, v1 []uint64) {
+	checkLength(len(vOut), len(v0), len(v1))
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r0 := unsafe.Pointer(unsafe.SliceData(v0))
+	r1 := unsafe.Pointer(unsafe.SliceData(v1))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
+		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
+
+		wOut[0] = w0[0] - w1[0]
+		wOut[1] = w0[1] - w1[1]
+		wOut[2] = w0[2] - w1[2]
+		wOut[3] = w0[3] - w1[3]
+
+		wOut[4] = w0[4] - w1[4]
+		wOut[5] = w0[5] - w1[5]
+		wOut[6] = w0[6] - w1[6]
+		wOut[7] = w0[7] - w1[7]
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = v0[i] - v1[i]
+	}
+}
+
+// subVecScalarTo computes vOut = v - c mod q.
+func subVecScalarTo(vOut, v []uint64, c uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v))
+
+	qv := q.Value()
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] = modops.Sub(w[0], c, qv)
+		wOut[1] = modops.Sub(w[1], c, qv)
+		wOut[2] = modops.Sub(w[2], c, qv)
+		wOut[3] = modops.Sub(w[3], c, qv)
+
+		wOut[4] = modops.Sub(w[4], c, qv)
+		wOut[5] = modops.Sub(w[5], c, qv)
+		wOut[6] = modops.Sub(w[6], c, qv)
+		wOut[7] = modops.Sub(w[7], c, qv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.Sub(v[i], c, qv)
+	}
+}
+
+// subScalarVecTo computes vOut = c - v mod q.
+func subScalarVecTo(vOut []uint64, c uint64, v []uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v))
+
+	qv := q.Value()
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] = modops.Sub(c, w[0], qv)
+		wOut[1] = modops.Sub(c, w[1], qv)
+		wOut[2] = modops.Sub(c, w[2], qv)
+		wOut[3] = modops.Sub(c, w[3], qv)
+
+		wOut[4] = modops.Sub(c, w[4], qv)
+		wOut[5] = modops.Sub(c, w[5], qv)
+		wOut[6] = modops.Sub(c, w[6], qv)
+		wOut[7] = modops.Sub(c, w[7], qv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.Sub(c, v[i], qv)
+	}
+}
+
+// subVecScalarWordTo computes vOut = v - c.
+func subVecScalarWordTo(vOut, v []uint64, c uint64) {
+	checkLength(len(vOut), len(v))
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] = w[0] - c
+		wOut[1] = w[1] - c
+		wOut[2] = w[2] - c
+		wOut[3] = w[3] - c
+
+		wOut[4] = w[4] - c
+		wOut[5] = w[5] - c
+		wOut[6] = w[6] - c
+		wOut[7] = w[7] - c
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = v[i] - c
+	}
+}
+
+// subScalarVecWordTo computes vOut = c - v.
+func subScalarVecWordTo(vOut []uint64, c uint64, v []uint64) {
+	checkLength(len(vOut), len(v))
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] = c - w[0]
+		wOut[1] = c - w[1]
+		wOut[2] = c - w[2]
+		wOut[3] = c - w[3]
+
+		wOut[4] = c - w[4]
+		wOut[5] = c - w[5]
+		wOut[6] = c - w[6]
+		wOut[7] = c - w[7]
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = c - v[i]
+	}
+}
+
+// negTo computes vOut = -v mod q.
+func negTo(vOut, v []uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v))
+
+	qv := q.Value()
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] = modops.Neg(w[0], qv)
+		wOut[1] = modops.Neg(w[1], qv)
+		wOut[2] = modops.Neg(w[2], qv)
+		wOut[3] = modops.Neg(w[3], qv)
+
+		wOut[4] = modops.Neg(w[4], qv)
+		wOut[5] = modops.Neg(w[5], qv)
+		wOut[6] = modops.Neg(w[6], qv)
+		wOut[7] = modops.Neg(w[7], qv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.Neg(v[i], qv)
+	}
+}
+
+// negWordTo computes vOut = -v.
+func negWordTo(vOut, v []uint64) {
+	checkLength(len(vOut), len(v))
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] = -w[0]
+		wOut[1] = -w[1]
+		wOut[2] = -w[2]
+		wOut[3] = -w[3]
+
+		wOut[4] = -w[4]
+		wOut[5] = -w[5]
+		wOut[6] = -w[6]
+		wOut[7] = -w[7]
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = -v[i]
+	}
+}
+
+// mulWordTo computes vOut = v0 * v1.
+func mulWordTo(vOut, v0, v1 []uint64) {
+	checkLength(len(vOut), len(v0), len(v1))
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r0 := unsafe.Pointer(unsafe.SliceData(v0))
+	r1 := unsafe.Pointer(unsafe.SliceData(v1))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
+		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
+
+		wOut[0] = w0[0] * w1[0]
+		wOut[1] = w0[1] * w1[1]
+		wOut[2] = w0[2] * w1[2]
+		wOut[3] = w0[3] * w1[3]
+
+		wOut[4] = w0[4] * w1[4]
+		wOut[5] = w0[5] * w1[5]
+		wOut[6] = w0[6] * w1[6]
+		wOut[7] = w0[7] * w1[7]
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = v0[i] * v1[i]
+	}
+}
+
+// mulScalarWordTo computes vOut = v * c.
+func mulScalarWordTo(vOut, v []uint64, c uint64) {
+	checkLength(len(vOut), len(v))
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] = w[0] * c
+		wOut[1] = w[1] * c
+		wOut[2] = w[2] * c
+		wOut[3] = w[3] * c
+
+		wOut[4] = w[4] * c
+		wOut[5] = w[5] * c
+		wOut[6] = w[6] * c
+		wOut[7] = w[7] * c
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = v[i] * c
+	}
+}
+
+// mulAddWordTo computes vOut += v0 * v1.
+func mulAddWordTo(vOut, v0, v1 []uint64) {
+	checkLength(len(vOut), len(v0), len(v1))
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r0 := unsafe.Pointer(unsafe.SliceData(v0))
+	r1 := unsafe.Pointer(unsafe.SliceData(v1))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
+		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
+
+		wOut[0] += w0[0] * w1[0]
+		wOut[1] += w0[1] * w1[1]
+		wOut[2] += w0[2] * w1[2]
+		wOut[3] += w0[3] * w1[3]
+
+		wOut[4] += w0[4] * w1[4]
+		wOut[5] += w0[5] * w1[5]
+		wOut[6] += w0[6] * w1[6]
+		wOut[7] += w0[7] * w1[7]
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] += v0[i] * v1[i]
+	}
+}
+
+// mulSubWordTo computes vOut -= v0 * v1.
+func mulSubWordTo(vOut, v0, v1 []uint64) {
+	checkLength(len(vOut), len(v0), len(v1))
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r0 := unsafe.Pointer(unsafe.SliceData(v0))
+	r1 := unsafe.Pointer(unsafe.SliceData(v1))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
+		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
+
+		wOut[0] -= w0[0] * w1[0]
+		wOut[1] -= w0[1] * w1[1]
+		wOut[2] -= w0[2] * w1[2]
+		wOut[3] -= w0[3] * w1[3]
+
+		wOut[4] -= w0[4] * w1[4]
+		wOut[5] -= w0[5] * w1[5]
+		wOut[6] -= w0[6] * w1[6]
+		wOut[7] -= w0[7] * w1[7]
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] -= v0[i] * v1[i]
+	}
+}
+
+// mulAddScalarWordTo computes vOut += v * c.
+func mulAddScalarWordTo(vOut, v []uint64, c uint64) {
+	checkLength(len(vOut), len(v))
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+		wOut[0] += w[0] * c
+		wOut[1] += w[1] * c
+		wOut[2] += w[2] * c
+		wOut[3] += w[3] * c
+
+		wOut[4] += w[4] * c
+		wOut[5] += w[5] * c
+		wOut[6] += w[6] * c
+		wOut[7] += w[7] * c
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] += v[i] * c
+	}
+}
+
+// mulSubScalarWordTo computes vOut -= v * c.
+func mulSubScalarWordTo(vOut, v []uint64, c uint64) {
+	checkLength(len(vOut), len(v))
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] -= w[0] * c
+		wOut[1] -= w[1] * c
+		wOut[2] -= w[2] * c
+		wOut[3] -= w[3] * c
+
+		wOut[4] -= w[4] * c
+		wOut[5] -= w[5] * c
+		wOut[6] -= w[6] * c
+		wOut[7] -= w[7] * c
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] -= v[i] * c
+	}
+}
+
+// MFormTo transforms v to Montgomery form to vOutM.
+//
+// Panics if q is even or nil.
+func MFormTo(vOutM, v []uint64, q *num.Modulus) {
+	checkLength(len(vOutM), len(v))
+
+	if q.Inv() == 0 {
+		panic("modulus must be odd")
+	}
+
+	qv := q.Value()
+	divHi, divLo := q.Div()
+
+	M := (len(vOutM) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOutM))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] = modops.MForm(w[0], qv, divHi, divLo)
+		wOut[1] = modops.MForm(w[1], qv, divHi, divLo)
+		wOut[2] = modops.MForm(w[2], qv, divHi, divLo)
+		wOut[3] = modops.MForm(w[3], qv, divHi, divLo)
+
+		wOut[4] = modops.MForm(w[4], qv, divHi, divLo)
+		wOut[5] = modops.MForm(w[5], qv, divHi, divLo)
+		wOut[6] = modops.MForm(w[6], qv, divHi, divLo)
+		wOut[7] = modops.MForm(w[7], qv, divHi, divLo)
+	}
+
+	for i := M; i < len(vOutM); i++ {
+		vOutM[i] = modops.MForm(v[i], qv, divHi, divLo)
+	}
+}
+
+// InvMFormTo computes vOut as vM in Normal form.
+//
+// Panics if q is even or nil.
+func InvMFormTo(vOut, vM []uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(vM))
+
+	if q.Inv() == 0 {
+		panic("modulus must be odd")
+	}
+
+	qv := q.Value()
+	inv := q.Inv()
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r := unsafe.Pointer(unsafe.SliceData(vM))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] = modops.InvMForm(w[0], qv, inv)
+		wOut[1] = modops.InvMForm(w[1], qv, inv)
+		wOut[2] = modops.InvMForm(w[2], qv, inv)
+		wOut[3] = modops.InvMForm(w[3], qv, inv)
+
+		wOut[4] = modops.InvMForm(w[4], qv, inv)
+		wOut[5] = modops.InvMForm(w[5], qv, inv)
+		wOut[6] = modops.InvMForm(w[6], qv, inv)
+		wOut[7] = modops.InvMForm(w[7], qv, inv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.InvMForm(vM[i], qv, inv)
+	}
+}
+
+// mMulTo computes vOut = v0 * v1 mod q using Montgomery multiplication.
+func mMulTo(vOutM, v0M, v1M []uint64, q *num.Modulus) {
+	checkLength(len(vOutM), len(v0M), len(v1M))
+
+	qv := q.Value()
+	inv := q.Inv()
+
+	M := (len(vOutM) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOutM))
+	r0 := unsafe.Pointer(unsafe.SliceData(v0M))
+	r1 := unsafe.Pointer(unsafe.SliceData(v1M))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
+		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
+
+		wOut[0] = modops.MMul(w0[0], w1[0], qv, inv)
+		wOut[1] = modops.MMul(w0[1], w1[1], qv, inv)
+		wOut[2] = modops.MMul(w0[2], w1[2], qv, inv)
+		wOut[3] = modops.MMul(w0[3], w1[3], qv, inv)
+
+		wOut[4] = modops.MMul(w0[4], w1[4], qv, inv)
+		wOut[5] = modops.MMul(w0[5], w1[5], qv, inv)
+		wOut[6] = modops.MMul(w0[6], w1[6], qv, inv)
+		wOut[7] = modops.MMul(w0[7], w1[7], qv, inv)
+	}
+
+	for i := M; i < len(vOutM); i++ {
+		vOutM[i] = modops.MMul(v0M[i], v1M[i], qv, inv)
+	}
+}
+
+// mMulAddTo computes vOut += v0 * v1 mod q using Montgomery multiplication.
+func mMulAddTo(vOutM, v0M, v1M []uint64, q *num.Modulus) {
+	checkLength(len(vOutM), len(v0M), len(v1M))
+
+	qv := q.Value()
+	inv := q.Inv()
+
+	M := (len(vOutM) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOutM))
+	r0 := unsafe.Pointer(unsafe.SliceData(v0M))
+	r1 := unsafe.Pointer(unsafe.SliceData(v1M))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
+		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
+
+		wOut[0] = modops.Add(wOut[0], modops.MMul(w0[0], w1[0], qv, inv), qv)
+		wOut[1] = modops.Add(wOut[1], modops.MMul(w0[1], w1[1], qv, inv), qv)
+		wOut[2] = modops.Add(wOut[2], modops.MMul(w0[2], w1[2], qv, inv), qv)
+		wOut[3] = modops.Add(wOut[3], modops.MMul(w0[3], w1[3], qv, inv), qv)
+
+		wOut[4] = modops.Add(wOut[4], modops.MMul(w0[4], w1[4], qv, inv), qv)
+		wOut[5] = modops.Add(wOut[5], modops.MMul(w0[5], w1[5], qv, inv), qv)
+		wOut[6] = modops.Add(wOut[6], modops.MMul(w0[6], w1[6], qv, inv), qv)
+		wOut[7] = modops.Add(wOut[7], modops.MMul(w0[7], w1[7], qv, inv), qv)
+	}
+
+	for i := M; i < len(vOutM); i++ {
+		vOutM[i] = modops.Add(vOutM[i], modops.MMul(v0M[i], v1M[i], qv, inv), qv)
+	}
+}
+
+// mMulSubTo computes vOut -= v0 * v1 mod q using Montgomery multiplication.
+func mMulSubTo(vOutM, v0M, v1M []uint64, q *num.Modulus) {
+	checkLength(len(vOutM), len(v0M), len(v1M))
+
+	qv := q.Value()
+	inv := q.Inv()
+
+	M := (len(vOutM) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOutM))
+	r0 := unsafe.Pointer(unsafe.SliceData(v0M))
+	r1 := unsafe.Pointer(unsafe.SliceData(v1M))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
+		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
+
+		wOut[0] = modops.Sub(wOut[0], modops.MMul(w0[0], w1[0], qv, inv), qv)
+		wOut[1] = modops.Sub(wOut[1], modops.MMul(w0[1], w1[1], qv, inv), qv)
+		wOut[2] = modops.Sub(wOut[2], modops.MMul(w0[2], w1[2], qv, inv), qv)
+		wOut[3] = modops.Sub(wOut[3], modops.MMul(w0[3], w1[3], qv, inv), qv)
+
+		wOut[4] = modops.Sub(wOut[4], modops.MMul(w0[4], w1[4], qv, inv), qv)
+		wOut[5] = modops.Sub(wOut[5], modops.MMul(w0[5], w1[5], qv, inv), qv)
+		wOut[6] = modops.Sub(wOut[6], modops.MMul(w0[6], w1[6], qv, inv), qv)
+		wOut[7] = modops.Sub(wOut[7], modops.MMul(w0[7], w1[7], qv, inv), qv)
+	}
+
+	for i := M; i < len(vOutM); i++ {
+		vOutM[i] = modops.Sub(vOutM[i], modops.MMul(v0M[i], v1M[i], qv, inv), qv)
+	}
+}
+
+// mMulLazyTo computes vOut = v0 * v1 mod q using Montgomery multiplication,
+// but the result is in [0, 2q).
+func mMulLazyTo(vOutM, v0M, v1M []uint64, q *num.Modulus) {
+	checkLength(len(vOutM), len(v0M), len(v1M))
+
+	qv := q.Value()
+	inv := q.Inv()
+
+	M := (len(vOutM) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOutM))
+	r0 := unsafe.Pointer(unsafe.SliceData(v0M))
+	r1 := unsafe.Pointer(unsafe.SliceData(v1M))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
+		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
+
+		wOut[0] = modops.MMulLazy(w0[0], w1[0], qv, inv)
+		wOut[1] = modops.MMulLazy(w0[1], w1[1], qv, inv)
+		wOut[2] = modops.MMulLazy(w0[2], w1[2], qv, inv)
+		wOut[3] = modops.MMulLazy(w0[3], w1[3], qv, inv)
+
+		wOut[4] = modops.MMulLazy(w0[4], w1[4], qv, inv)
+		wOut[5] = modops.MMulLazy(w0[5], w1[5], qv, inv)
+		wOut[6] = modops.MMulLazy(w0[6], w1[6], qv, inv)
+		wOut[7] = modops.MMulLazy(w0[7], w1[7], qv, inv)
+	}
+
+	for i := M; i < len(vOutM); i++ {
+		vOutM[i] = modops.MMulLazy(v0M[i], v1M[i], qv, inv)
+	}
+}
+
+// mMulAddLazyTo computes vOut += v0 * v1 mod q using Montgomery multiplication,
+// but the result is in [0, 3q).
+func mMulAddLazyTo(vOutM, v0M, v1M []uint64, q *num.Modulus) {
+	checkLength(len(vOutM), len(v0M), len(v1M))
+
+	qv := q.Value()
+	inv := q.Inv()
+
+	M := (len(vOutM) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOutM))
+	r0 := unsafe.Pointer(unsafe.SliceData(v0M))
+	r1 := unsafe.Pointer(unsafe.SliceData(v1M))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
+		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
+
+		wOut[0] += modops.MMulLazy(w0[0], w1[0], qv, inv)
+		wOut[1] += modops.MMulLazy(w0[1], w1[1], qv, inv)
+		wOut[2] += modops.MMulLazy(w0[2], w1[2], qv, inv)
+		wOut[3] += modops.MMulLazy(w0[3], w1[3], qv, inv)
+
+		wOut[4] += modops.MMulLazy(w0[4], w1[4], qv, inv)
+		wOut[5] += modops.MMulLazy(w0[5], w1[5], qv, inv)
+		wOut[6] += modops.MMulLazy(w0[6], w1[6], qv, inv)
+		wOut[7] += modops.MMulLazy(w0[7], w1[7], qv, inv)
+	}
+
+	for i := M; i < len(vOutM); i++ {
+		vOutM[i] += modops.MMulLazy(v0M[i], v1M[i], qv, inv)
+	}
+}
+
+// mMulSubLazyTo computes vOut -= v0 * v1 mod q using Montgomery multiplication,
+// but the result is in [0, 3q).
+func mMulSubLazyTo(vOutM, v0M, v1M []uint64, q *num.Modulus) {
+	checkLength(len(vOutM), len(v0M), len(v1M))
+
+	qv := q.Value()
+	inv := q.Inv()
+
+	M := (len(vOutM) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOutM))
+	r0 := unsafe.Pointer(unsafe.SliceData(v0M))
+	r1 := unsafe.Pointer(unsafe.SliceData(v1M))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
+		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
+
+		wOut[0] += modops.MMulLazy(qv-w0[0], w1[0], qv, inv)
+		wOut[1] += modops.MMulLazy(qv-w0[1], w1[1], qv, inv)
+		wOut[2] += modops.MMulLazy(qv-w0[2], w1[2], qv, inv)
+		wOut[3] += modops.MMulLazy(qv-w0[3], w1[3], qv, inv)
+
+		wOut[4] += modops.MMulLazy(qv-w0[4], w1[4], qv, inv)
+		wOut[5] += modops.MMulLazy(qv-w0[5], w1[5], qv, inv)
+		wOut[6] += modops.MMulLazy(qv-w0[6], w1[6], qv, inv)
+		wOut[7] += modops.MMulLazy(qv-w0[7], w1[7], qv, inv)
+	}
+
+	for i := M; i < len(vOutM); i++ {
+		vOutM[i] += modops.MMulLazy(qv-v0M[i], v1M[i], qv, inv)
+	}
+}
+
+// mMulScalarTo computes vOut = v * c mod q using Montgomery multiplication.
+func mMulScalarTo(vOutM, vM []uint64, cM uint64, q *num.Modulus) {
+	checkLength(len(vOutM), len(vM))
+
+	qv := q.Value()
+	inv := q.Inv()
+
+	M := (len(vOutM) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOutM))
+	r := unsafe.Pointer(unsafe.SliceData(vM))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] = modops.MMul(w[0], cM, qv, inv)
+		wOut[1] = modops.MMul(w[1], cM, qv, inv)
+		wOut[2] = modops.MMul(w[2], cM, qv, inv)
+		wOut[3] = modops.MMul(w[3], cM, qv, inv)
+
+		wOut[4] = modops.MMul(w[4], cM, qv, inv)
+		wOut[5] = modops.MMul(w[5], cM, qv, inv)
+		wOut[6] = modops.MMul(w[6], cM, qv, inv)
+		wOut[7] = modops.MMul(w[7], cM, qv, inv)
+	}
+
+	for i := M; i < len(vOutM); i++ {
+		vOutM[i] = modops.MMul(vM[i], cM, qv, inv)
+	}
+}
+
+// mMulAddScalarTo computes vOut += v * c mod q using Montgomery multiplication.
+func mMulAddScalarTo(vOutM, vM []uint64, cM uint64, q *num.Modulus) {
+	checkLength(len(vOutM), len(vM))
+
+	qv := q.Value()
+	inv := q.Inv()
+
+	M := (len(vOutM) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOutM))
+	r := unsafe.Pointer(unsafe.SliceData(vM))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] = modops.Add(wOut[0], modops.MMul(w[0], cM, qv, inv), qv)
+		wOut[1] = modops.Add(wOut[1], modops.MMul(w[1], cM, qv, inv), qv)
+		wOut[2] = modops.Add(wOut[2], modops.MMul(w[2], cM, qv, inv), qv)
+		wOut[3] = modops.Add(wOut[3], modops.MMul(w[3], cM, qv, inv), qv)
+
+		wOut[4] = modops.Add(wOut[4], modops.MMul(w[4], cM, qv, inv), qv)
+		wOut[5] = modops.Add(wOut[5], modops.MMul(w[5], cM, qv, inv), qv)
+		wOut[6] = modops.Add(wOut[6], modops.MMul(w[6], cM, qv, inv), qv)
+		wOut[7] = modops.Add(wOut[7], modops.MMul(w[7], cM, qv, inv), qv)
+	}
+
+	for i := M; i < len(vOutM); i++ {
+		vOutM[i] = modops.Add(vOutM[i], modops.MMul(vM[i], cM, qv, inv), qv)
+	}
+}
+
+// mMulSubScalarTo computes vOut -= v * c mod q using Montgomery multiplication.
+func mMulSubScalarTo(vOutM, vM []uint64, cM uint64, q *num.Modulus) {
+	checkLength(len(vOutM), len(vM))
+
+	qv := q.Value()
+	inv := q.Inv()
+
+	M := (len(vOutM) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOutM))
+	r := unsafe.Pointer(unsafe.SliceData(vM))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] = modops.Sub(wOut[0], modops.MMul(w[0], cM, qv, inv), qv)
+		wOut[1] = modops.Sub(wOut[1], modops.MMul(w[1], cM, qv, inv), qv)
+		wOut[2] = modops.Sub(wOut[2], modops.MMul(w[2], cM, qv, inv), qv)
+		wOut[3] = modops.Sub(wOut[3], modops.MMul(w[3], cM, qv, inv), qv)
+
+		wOut[4] = modops.Sub(wOut[4], modops.MMul(w[4], cM, qv, inv), qv)
+		wOut[5] = modops.Sub(wOut[5], modops.MMul(w[5], cM, qv, inv), qv)
+		wOut[6] = modops.Sub(wOut[6], modops.MMul(w[6], cM, qv, inv), qv)
+		wOut[7] = modops.Sub(wOut[7], modops.MMul(w[7], cM, qv, inv), qv)
+	}
+
+	for i := M; i < len(vOutM); i++ {
+		vOutM[i] = modops.Sub(vOutM[i], modops.MMul(vM[i], cM, qv, inv), qv)
+	}
+}
+
+// mMulScalarLazyTo computes vOut = v * c mod q using Montgomery multiplication,
+// but the result is in [0, 2q).
+func mMulScalarLazyTo(vOutM, vM []uint64, cM uint64, q *num.Modulus) {
+	checkLength(len(vOutM), len(vM))
+
+	qv := q.Value()
+	inv := q.Inv()
+
+	M := (len(vOutM) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOutM))
+	r := unsafe.Pointer(unsafe.SliceData(vM))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] = modops.MMulLazy(w[0], cM, qv, inv)
+		wOut[1] = modops.MMulLazy(w[1], cM, qv, inv)
+		wOut[2] = modops.MMulLazy(w[2], cM, qv, inv)
+		wOut[3] = modops.MMulLazy(w[3], cM, qv, inv)
+
+		wOut[4] = modops.MMulLazy(w[4], cM, qv, inv)
+		wOut[5] = modops.MMulLazy(w[5], cM, qv, inv)
+		wOut[6] = modops.MMulLazy(w[6], cM, qv, inv)
+		wOut[7] = modops.MMulLazy(w[7], cM, qv, inv)
+	}
+
+	for i := M; i < len(vOutM); i++ {
+		vOutM[i] = modops.MMulLazy(vM[i], cM, qv, inv)
+	}
+}
+
+// mMulAddScalarLazyTo computes vOut += v * c mod q using Montgomery multiplication,
+// but the result is in [0, 3q).
+func mMulAddScalarLazyTo(vOutM, vM []uint64, cM uint64, q *num.Modulus) {
+	checkLength(len(vOutM), len(vM))
+
+	qv := q.Value()
+	inv := q.Inv()
+
+	M := (len(vOutM) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOutM))
+	r := unsafe.Pointer(unsafe.SliceData(vM))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] += modops.MMulLazy(w[0], cM, qv, inv)
+		wOut[1] += modops.MMulLazy(w[1], cM, qv, inv)
+		wOut[2] += modops.MMulLazy(w[2], cM, qv, inv)
+		wOut[3] += modops.MMulLazy(w[3], cM, qv, inv)
+
+		wOut[4] += modops.MMulLazy(w[4], cM, qv, inv)
+		wOut[5] += modops.MMulLazy(w[5], cM, qv, inv)
+		wOut[6] += modops.MMulLazy(w[6], cM, qv, inv)
+		wOut[7] += modops.MMulLazy(w[7], cM, qv, inv)
+	}
+
+	for i := M; i < len(vOutM); i++ {
+		vOutM[i] += modops.MMulLazy(vM[i], cM, qv, inv)
+	}
+}
+
+// mMulSubScalarLazyTo computes vOut -= v * c mod q using Montgomery multiplication,
+// but the result is in [0, 3q).
+func mMulSubScalarLazyTo(vOutM, vM []uint64, cM uint64, q *num.Modulus) {
+	checkLength(len(vOutM), len(vM))
+
+	qv := q.Value()
+	inv := q.Inv()
+
+	cMNeg := modops.Sub(0, cM, qv)
+
+	M := (len(vOutM) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOutM))
+	r := unsafe.Pointer(unsafe.SliceData(vM))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] += modops.MMulLazy(w[0], cMNeg, qv, inv)
+		wOut[1] += modops.MMulLazy(w[1], cMNeg, qv, inv)
+		wOut[2] += modops.MMulLazy(w[2], cMNeg, qv, inv)
+		wOut[3] += modops.MMulLazy(w[3], cMNeg, qv, inv)
+
+		wOut[4] += modops.MMulLazy(w[4], cMNeg, qv, inv)
+		wOut[5] += modops.MMulLazy(w[5], cMNeg, qv, inv)
+		wOut[6] += modops.MMulLazy(w[6], cMNeg, qv, inv)
+		wOut[7] += modops.MMulLazy(w[7], cMNeg, qv, inv)
+	}
+
+	for i := M; i < len(vOutM); i++ {
+		vOutM[i] += modops.MMulLazy(vM[i], cMNeg, qv, inv)
+	}
+}
+
+// sMulTo computes vOut = v0 * v1 mod q using Shoup multiplication.
+func sMulTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v0), len(v1), len(v1S))
+
+	qv := q.Value()
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r0 := unsafe.Pointer(unsafe.SliceData(v0))
+	r1 := unsafe.Pointer(unsafe.SliceData(v1))
+	r1S := unsafe.Pointer(unsafe.SliceData(v1S))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
+		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
+		w1S := (*[8]uint64)(unsafe.Add(r1S, uintptr(i)*L))
+
+		wOut[0] = modops.SMul(w0[0], w1[0], w1S[0], qv)
+		wOut[1] = modops.SMul(w0[1], w1[1], w1S[1], qv)
+		wOut[2] = modops.SMul(w0[2], w1[2], w1S[2], qv)
+		wOut[3] = modops.SMul(w0[3], w1[3], w1S[3], qv)
+
+		wOut[4] = modops.SMul(w0[4], w1[4], w1S[4], qv)
+		wOut[5] = modops.SMul(w0[5], w1[5], w1S[5], qv)
+		wOut[6] = modops.SMul(w0[6], w1[6], w1S[6], qv)
+		wOut[7] = modops.SMul(w0[7], w1[7], w1S[7], qv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.SMul(v0[i], v1[i], v1S[i], qv)
+	}
+}
+
+// sMulAddTo computes vOut += v0 * v1 mod q using Shoup multiplication.
+func sMulAddTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v0), len(v1), len(v1S))
+
+	qv := q.Value()
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r0 := unsafe.Pointer(unsafe.SliceData(v0))
+	r1 := unsafe.Pointer(unsafe.SliceData(v1))
+	r1S := unsafe.Pointer(unsafe.SliceData(v1S))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
+		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
+		w1S := (*[8]uint64)(unsafe.Add(r1S, uintptr(i)*L))
+
+		wOut[0] = modops.Add(wOut[0], modops.SMul(w0[0], w1[0], w1S[0], qv), qv)
+		wOut[1] = modops.Add(wOut[1], modops.SMul(w0[1], w1[1], w1S[1], qv), qv)
+		wOut[2] = modops.Add(wOut[2], modops.SMul(w0[2], w1[2], w1S[2], qv), qv)
+		wOut[3] = modops.Add(wOut[3], modops.SMul(w0[3], w1[3], w1S[3], qv), qv)
+
+		wOut[4] = modops.Add(wOut[4], modops.SMul(w0[4], w1[4], w1S[4], qv), qv)
+		wOut[5] = modops.Add(wOut[5], modops.SMul(w0[5], w1[5], w1S[5], qv), qv)
+		wOut[6] = modops.Add(wOut[6], modops.SMul(w0[6], w1[6], w1S[6], qv), qv)
+		wOut[7] = modops.Add(wOut[7], modops.SMul(w0[7], w1[7], w1S[7], qv), qv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.Add(vOut[i], modops.SMul(v0[i], v1[i], v1S[i], qv), qv)
+	}
+}
+
+// sMulSubTo computes vOut -= v0 * v1 mod q using Shoup multiplication.
+func sMulSubTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v0), len(v1), len(v1S))
+
+	qv := q.Value()
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r0 := unsafe.Pointer(unsafe.SliceData(v0))
+	r1 := unsafe.Pointer(unsafe.SliceData(v1))
+	r1S := unsafe.Pointer(unsafe.SliceData(v1S))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
+		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
+		w1S := (*[8]uint64)(unsafe.Add(r1S, uintptr(i)*L))
+
+		wOut[0] = modops.Sub(wOut[0], modops.SMul(w0[0], w1[0], w1S[0], qv), qv)
+		wOut[1] = modops.Sub(wOut[1], modops.SMul(w0[1], w1[1], w1S[1], qv), qv)
+		wOut[2] = modops.Sub(wOut[2], modops.SMul(w0[2], w1[2], w1S[2], qv), qv)
+		wOut[3] = modops.Sub(wOut[3], modops.SMul(w0[3], w1[3], w1S[3], qv), qv)
+
+		wOut[4] = modops.Sub(wOut[4], modops.SMul(w0[4], w1[4], w1S[4], qv), qv)
+		wOut[5] = modops.Sub(wOut[5], modops.SMul(w0[5], w1[5], w1S[5], qv), qv)
+		wOut[6] = modops.Sub(wOut[6], modops.SMul(w0[6], w1[6], w1S[6], qv), qv)
+		wOut[7] = modops.Sub(wOut[7], modops.SMul(w0[7], w1[7], w1S[7], qv), qv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.Sub(vOut[i], modops.SMul(v0[i], v1[i], v1S[i], qv), qv)
+	}
+}
+
+// sMulLazyTo computes vOut = v0 * v1 mod q using Shoup multiplication,
+// but the result is in [0, 2q).
+//
+// Panics if q is nil.
+func sMulLazyTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v0), len(v1), len(v1S))
+
+	qv := q.Value()
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r0 := unsafe.Pointer(unsafe.SliceData(v0))
+	r1 := unsafe.Pointer(unsafe.SliceData(v1))
+	r1S := unsafe.Pointer(unsafe.SliceData(v1S))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
+		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
+		w1S := (*[8]uint64)(unsafe.Add(r1S, uintptr(i)*L))
+
+		wOut[0] = modops.SMulLazy(w0[0], w1[0], w1S[0], qv)
+		wOut[1] = modops.SMulLazy(w0[1], w1[1], w1S[1], qv)
+		wOut[2] = modops.SMulLazy(w0[2], w1[2], w1S[2], qv)
+		wOut[3] = modops.SMulLazy(w0[3], w1[3], w1S[3], qv)
+
+		wOut[4] = modops.SMulLazy(w0[4], w1[4], w1S[4], qv)
+		wOut[5] = modops.SMulLazy(w0[5], w1[5], w1S[5], qv)
+		wOut[6] = modops.SMulLazy(w0[6], w1[6], w1S[6], qv)
+		wOut[7] = modops.SMulLazy(w0[7], w1[7], w1S[7], qv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.SMulLazy(v0[i], v1[i], v1S[i], qv)
+	}
+}
+
+// sMulAddLazyTo computes vOut += v0 * v1 mod q using Shoup multiplication,
+// but the result is in [0, 3q).
+//
+// Panics if q is nil.
+func sMulAddLazyTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v0), len(v1), len(v1S))
+
+	qv := q.Value()
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r0 := unsafe.Pointer(unsafe.SliceData(v0))
+	r1 := unsafe.Pointer(unsafe.SliceData(v1))
+	r1S := unsafe.Pointer(unsafe.SliceData(v1S))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
+		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
+		w1S := (*[8]uint64)(unsafe.Add(r1S, uintptr(i)*L))
+
+		wOut[0] += modops.SMulLazy(w0[0], w1[0], w1S[0], qv)
+		wOut[1] += modops.SMulLazy(w0[1], w1[1], w1S[1], qv)
+		wOut[2] += modops.SMulLazy(w0[2], w1[2], w1S[2], qv)
+		wOut[3] += modops.SMulLazy(w0[3], w1[3], w1S[3], qv)
+
+		wOut[4] += modops.SMulLazy(w0[4], w1[4], w1S[4], qv)
+		wOut[5] += modops.SMulLazy(w0[5], w1[5], w1S[5], qv)
+		wOut[6] += modops.SMulLazy(w0[6], w1[6], w1S[6], qv)
+		wOut[7] += modops.SMulLazy(w0[7], w1[7], w1S[7], qv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] += modops.SMulLazy(v0[i], v1[i], v1S[i], qv)
+	}
+}
+
+// sMulSubLazyTo computes vOut -= v0 * v1 mod q using Shoup multiplication,
+// but the result is in [0, 3q).
+//
+// Panics if q is nil.
+func sMulSubLazyTo(vOut, v0, v1, v1S []uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v0), len(v1), len(v1S))
+
+	qv := q.Value()
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r0 := unsafe.Pointer(unsafe.SliceData(v0))
+	r1 := unsafe.Pointer(unsafe.SliceData(v1))
+	r1S := unsafe.Pointer(unsafe.SliceData(v1S))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w0 := (*[8]uint64)(unsafe.Add(r0, uintptr(i)*L))
+		w1 := (*[8]uint64)(unsafe.Add(r1, uintptr(i)*L))
+		w1S := (*[8]uint64)(unsafe.Add(r1S, uintptr(i)*L))
+
+		wOut[0] += modops.SMulLazy(qv-w0[0], w1[0], w1S[0], qv)
+		wOut[1] += modops.SMulLazy(qv-w0[1], w1[1], w1S[1], qv)
+		wOut[2] += modops.SMulLazy(qv-w0[2], w1[2], w1S[2], qv)
+		wOut[3] += modops.SMulLazy(qv-w0[3], w1[3], w1S[3], qv)
+
+		wOut[4] += modops.SMulLazy(qv-w0[4], w1[4], w1S[4], qv)
+		wOut[5] += modops.SMulLazy(qv-w0[5], w1[5], w1S[5], qv)
+		wOut[6] += modops.SMulLazy(qv-w0[6], w1[6], w1S[6], qv)
+		wOut[7] += modops.SMulLazy(qv-w0[7], w1[7], w1S[7], qv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] += modops.SMulLazy(qv-v0[i], v1[i], v1S[i], qv)
+	}
+}
+
+// sMulScalarTo computes vOut = v * c mod q using Shoup multiplication.
+func sMulScalarTo(vOut, v []uint64, c, cS uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v))
+
+	qv := q.Value()
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] = modops.SMul(w[0], c, cS, qv)
+		wOut[1] = modops.SMul(w[1], c, cS, qv)
+		wOut[2] = modops.SMul(w[2], c, cS, qv)
+		wOut[3] = modops.SMul(w[3], c, cS, qv)
+
+		wOut[4] = modops.SMul(w[4], c, cS, qv)
+		wOut[5] = modops.SMul(w[5], c, cS, qv)
+		wOut[6] = modops.SMul(w[6], c, cS, qv)
+		wOut[7] = modops.SMul(w[7], c, cS, qv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.SMul(v[i], c, cS, qv)
+	}
+}
+
+// sMulAddScalarTo computes vOut += v * c mod q using Shoup multiplication.
+func sMulAddScalarTo(vOut, v []uint64, c, cS uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v))
+
+	qv := q.Value()
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] = modops.Add(wOut[0], modops.SMul(w[0], c, cS, qv), qv)
+		wOut[1] = modops.Add(wOut[1], modops.SMul(w[1], c, cS, qv), qv)
+		wOut[2] = modops.Add(wOut[2], modops.SMul(w[2], c, cS, qv), qv)
+		wOut[3] = modops.Add(wOut[3], modops.SMul(w[3], c, cS, qv), qv)
+
+		wOut[4] = modops.Add(wOut[4], modops.SMul(w[4], c, cS, qv), qv)
+		wOut[5] = modops.Add(wOut[5], modops.SMul(w[5], c, cS, qv), qv)
+		wOut[6] = modops.Add(wOut[6], modops.SMul(w[6], c, cS, qv), qv)
+		wOut[7] = modops.Add(wOut[7], modops.SMul(w[7], c, cS, qv), qv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.Add(vOut[i], modops.SMul(v[i], c, cS, qv), qv)
+	}
+}
+
+// sMulSubScalarTo computes vOut -= v * c mod q using Shoup multiplication.
+func sMulSubScalarTo(vOut, v []uint64, c, cS uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v))
+
+	qv := q.Value()
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] = modops.Sub(wOut[0], modops.SMul(w[0], c, cS, qv), qv)
+		wOut[1] = modops.Sub(wOut[1], modops.SMul(w[1], c, cS, qv), qv)
+		wOut[2] = modops.Sub(wOut[2], modops.SMul(w[2], c, cS, qv), qv)
+		wOut[3] = modops.Sub(wOut[3], modops.SMul(w[3], c, cS, qv), qv)
+
+		wOut[4] = modops.Sub(wOut[4], modops.SMul(w[4], c, cS, qv), qv)
+		wOut[5] = modops.Sub(wOut[5], modops.SMul(w[5], c, cS, qv), qv)
+		wOut[6] = modops.Sub(wOut[6], modops.SMul(w[6], c, cS, qv), qv)
+		wOut[7] = modops.Sub(wOut[7], modops.SMul(w[7], c, cS, qv), qv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.Sub(vOut[i], modops.SMul(v[i], c, cS, qv), qv)
+	}
+}
+
+// sMulScalarLazyTo computes vOut = v * c mod q using Shoup multiplication,
+// but the result is in [0, 2q).
+func sMulScalarLazyTo(vOut, v []uint64, c, cS uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v))
+
+	qv := q.Value()
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] = modops.SMulLazy(w[0], c, cS, qv)
+		wOut[1] = modops.SMulLazy(w[1], c, cS, qv)
+		wOut[2] = modops.SMulLazy(w[2], c, cS, qv)
+		wOut[3] = modops.SMulLazy(w[3], c, cS, qv)
+
+		wOut[4] = modops.SMulLazy(w[4], c, cS, qv)
+		wOut[5] = modops.SMulLazy(w[5], c, cS, qv)
+		wOut[6] = modops.SMulLazy(w[6], c, cS, qv)
+		wOut[7] = modops.SMulLazy(w[7], c, cS, qv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.SMulLazy(v[i], c, cS, qv)
+	}
+}
+
+// sMulAddScalarLazyTo computes vOut += v * c mod q using Shoup multiplication,
+// but the result is in [0, 3q).
+func sMulAddScalarLazyTo(vOut, v []uint64, c, cS uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v))
+
+	qv := q.Value()
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] += modops.SMulLazy(w[0], c, cS, qv)
+		wOut[1] += modops.SMulLazy(w[1], c, cS, qv)
+		wOut[2] += modops.SMulLazy(w[2], c, cS, qv)
+		wOut[3] += modops.SMulLazy(w[3], c, cS, qv)
+
+		wOut[4] += modops.SMulLazy(w[4], c, cS, qv)
+		wOut[5] += modops.SMulLazy(w[5], c, cS, qv)
+		wOut[6] += modops.SMulLazy(w[6], c, cS, qv)
+		wOut[7] += modops.SMulLazy(w[7], c, cS, qv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] += modops.SMulLazy(v[i], c, cS, qv)
+	}
+}
+
+// sMulSubScalarLazyTo computes vOut -= v * c mod q using Shoup multiplication,
+// but the result is in [0, 3q).
+func sMulSubScalarLazyTo(vOut, v []uint64, c, cS uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v))
+
+	qv := q.Value()
+
+	cNeg := modops.Sub(0, c, qv)
+	var cNegS uint64
+	if qv&1 == 1 && c != 0 {
+		cNegS = -cS - 1
+	} else {
+		cNegS = modops.SForm(cNeg, qv)
+	}
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] += modops.SMulLazy(w[0], cNeg, cNegS, qv)
+		wOut[1] += modops.SMulLazy(w[1], cNeg, cNegS, qv)
+		wOut[2] += modops.SMulLazy(w[2], cNeg, cNegS, qv)
+		wOut[3] += modops.SMulLazy(w[3], cNeg, cNegS, qv)
+
+		wOut[4] += modops.SMulLazy(w[4], cNeg, cNegS, qv)
+		wOut[5] += modops.SMulLazy(w[5], cNeg, cNegS, qv)
+		wOut[6] += modops.SMulLazy(w[6], cNeg, cNegS, qv)
+		wOut[7] += modops.SMulLazy(w[7], cNeg, cNegS, qv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] += modops.SMulLazy(v[i], cNeg, cNegS, qv)
+	}
+}
+
+// ReduceTo computes vOut = v mod q.
+//
+// Panics if q is nil.
+func ReduceTo[T num.Integer](vOut []uint64, v []T, q *num.Modulus) {
+	checkLength(len(vOut), len(v))
+
+	qv := q.Value()
+	divHi, _ := q.Div()
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+	LT := unsafe.Sizeof(T(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	var z T
+	switch any(z).(type) {
+	case uint64:
+		for i := 0; i < M; i += 8 {
+			wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+			w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*LT))
+
+			wOut[0] = modops.BMod64(w[0], qv, divHi)
+			wOut[1] = modops.BMod64(w[1], qv, divHi)
+			wOut[2] = modops.BMod64(w[2], qv, divHi)
+			wOut[3] = modops.BMod64(w[3], qv, divHi)
+
+			wOut[4] = modops.BMod64(w[4], qv, divHi)
+			wOut[5] = modops.BMod64(w[5], qv, divHi)
+			wOut[6] = modops.BMod64(w[6], qv, divHi)
+			wOut[7] = modops.BMod64(w[7], qv, divHi)
+		}
+
+		for i := M; i < len(vOut); i++ {
+			vOut[i] = modops.BMod64(uint64(v[i]), qv, divHi)
+		}
+
+		return
+	}
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]T)(unsafe.Add(r, uintptr(i)*LT))
+
+		wOut[0] = modops.BMod(w[0], qv, divHi)
+		wOut[1] = modops.BMod(w[1], qv, divHi)
+		wOut[2] = modops.BMod(w[2], qv, divHi)
+		wOut[3] = modops.BMod(w[3], qv, divHi)
+
+		wOut[4] = modops.BMod(w[4], qv, divHi)
+		wOut[5] = modops.BMod(w[5], qv, divHi)
+		wOut[6] = modops.BMod(w[6], qv, divHi)
+		wOut[7] = modops.BMod(w[7], qv, divHi)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.BMod(v[i], qv, divHi)
+	}
+}
+
+// Reduce2QTo computes vOut = v mod q assuming v is in [0, 2q).
+//
+// Panics if q is nil.
+func Reduce2QTo(vOut []uint64, v []uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v))
+
+	qv := q.Value()
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] = modops.Reduce2Q(w[0], qv)
+		wOut[1] = modops.Reduce2Q(w[1], qv)
+		wOut[2] = modops.Reduce2Q(w[2], qv)
+		wOut[3] = modops.Reduce2Q(w[3], qv)
+
+		wOut[4] = modops.Reduce2Q(w[4], qv)
+		wOut[5] = modops.Reduce2Q(w[5], qv)
+		wOut[6] = modops.Reduce2Q(w[6], qv)
+		wOut[7] = modops.Reduce2Q(w[7], qv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.Reduce2Q(v[i], qv)
+	}
+}
+
+// Reduce4QTo computes vOut = v mod q assuming v is in [0, 4q).
+//
+// Panics if q is nil.
+func Reduce4QTo(vOut []uint64, v []uint64, q *num.Modulus) {
+	checkLength(len(vOut), len(v))
+
+	qv := q.Value()
+	twoQv := qv << 1
+
+	M := (len(vOut) >> 3) << 3
+	L := unsafe.Sizeof(uint64(0))
+
+	rOut := unsafe.Pointer(unsafe.SliceData(vOut))
+	r := unsafe.Pointer(unsafe.SliceData(v))
+
+	for i := 0; i < M; i += 8 {
+		wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
+		w := (*[8]uint64)(unsafe.Add(r, uintptr(i)*L))
+
+		wOut[0] = modops.Reduce4Q(w[0], qv, twoQv)
+		wOut[1] = modops.Reduce4Q(w[1], qv, twoQv)
+		wOut[2] = modops.Reduce4Q(w[2], qv, twoQv)
+		wOut[3] = modops.Reduce4Q(w[3], qv, twoQv)
+
+		wOut[4] = modops.Reduce4Q(w[4], qv, twoQv)
+		wOut[5] = modops.Reduce4Q(w[5], qv, twoQv)
+		wOut[6] = modops.Reduce4Q(w[6], qv, twoQv)
+		wOut[7] = modops.Reduce4Q(w[7], qv, twoQv)
+	}
+
+	for i := M; i < len(vOut); i++ {
+		vOut[i] = modops.Reduce4Q(v[i], qv, twoQv)
+	}
+}

@@ -153,7 +153,7 @@ func (s *RoundedGaussianSampler) Sample(stdDev float64) int64 {
 	return hi<<logBound + lo
 }
 
-// SampleBig returns a [big.Int] value sampled from an approximate rounded gaussian distribution
+// SampleBig returns a [*big.Int] value sampled from an approximate rounded gaussian distribution
 // with given standard deviation.
 // For large standard deviation, it heuristically samples the lower bits as uniform.
 //

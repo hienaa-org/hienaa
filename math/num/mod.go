@@ -93,86 +93,109 @@ func (q *Modulus) String() string {
 }
 
 // Add returns x0 + x1 mod q.
-// If q is [*Modulus], x0 and x1 must be in [0, q).
-// If q is nil, then it returns x0 + x1.
 func Add[Q uint64 | *Modulus](x0, x1 uint64, q Q) uint64 {
 	switch q := any(q).(type) {
 	case uint64:
 		return modops.AnyAdd(x0, x1, q)
 	case *Modulus:
-		if q == nil {
-			return x0 + x1
-		}
 		return modops.Add(x0, x1, q.value)
 	}
 	return 0
 }
 
 // Sub returns x0 - x1 mod q.
-// If q is [*Modulus], x0 and x1 must be in [0, q).
-// If q is nil, then it returns x0 - x1.
 func Sub[Q uint64 | *Modulus](x0, x1 uint64, q Q) uint64 {
 	switch q := any(q).(type) {
 	case uint64:
 		return modops.AnySub(x0, x1, q)
 	case *Modulus:
-		if q == nil {
-			return x0 - x1
-		}
 		return modops.Sub(x0, x1, q.value)
 	}
 	return 0
 }
 
 // Neg returns -x mod q.
-// If q is [*Modulus], x0 and x1 must be in [0, q).
-// If q is nil, then it returns -x.
 func Neg[Q uint64 | *Modulus](x uint64, q Q) uint64 {
 	switch q := any(q).(type) {
 	case uint64:
 		return modops.AnyNeg(x, q)
 	case *Modulus:
-		if q == nil {
-			return -x
-		}
 		return modops.Neg(x, q.value)
 	}
 	return 0
 }
 
 // Mul returns x0 * x1 mod q.
-// If q is [*Modulus], it uses Barrett reduction.
-// If q is nil, then it returns x0 * x1.
 func Mul[Q uint64 | *Modulus](x0, x1 uint64, q Q) uint64 {
 	switch q := any(q).(type) {
 	case uint64:
 		return modops.AnyMul(x0, x1, q)
 	case *Modulus:
-		if q == nil {
-			return x0 * x1
-		}
 		return modops.BMul(x0, x1, q.value, q.divHi, q.divLo)
 	}
 	return 0
 }
 
-// MulLazy returns x0 * x1 mod q using Barrett reduction,
+// MulLazy returns x0 * x1 mod q,
 // but the result is in [0, 2q).
-//
-// Panics if q is nil.
 func MulLazy(x0, x1 uint64, q *Modulus) uint64 {
 	return modops.BMulLazy(x0, x1, q.value, q.divHi, q.divLo)
 }
 
+// MForm transforms x into Montgomery form.
+func MForm(x uint64, q *Modulus) uint64 {
+	if q.inv == 0 {
+		panic("modulus must be odd")
+	}
+	return modops.MForm(x, q.value, q.divHi, q.divLo)
+}
+
+// InvMForm transforms xM to Normal form.
+func InvMForm(xM uint64, q *Modulus) uint64 {
+	if q.inv == 0 {
+		panic("modulus must be odd")
+	}
+	return modops.InvMForm(xM, q.value, q.inv)
+}
+
+// MMul returns x0 * x1 mod q in Montgomery form.
+// x0M and x1M must be a valid Montgomery form.
+func MMul(x0M, x1M uint64, q *Modulus) uint64 {
+	return modops.MMul(x0M, x1M, q.value, q.inv)
+}
+
+// MMulLazy returns x0 * x1 mod q in Montgomery form,
+// but the result is in [0, 2q).
+// x0M and x1M must be a valid Montgomery form.
+func MMulLazy(x0M, y0M uint64, q *Modulus) uint64 {
+	return modops.MMulLazy(x0M, y0M, q.value, q.inv)
+}
+
+// SForm transforms x into Shoup form.
+func SForm(x uint64, q *Modulus) uint64 {
+	return modops.SForm(x, q.value)
+}
+
+// SMul returns x0 * x1 mod q using Shoup multiplication.
+// x1S must be a valid Shoup form.
+func SMul(x0, x1, x1S uint64, q *Modulus) uint64 {
+	return modops.SMul(x0, x1, x1S, q.value)
+}
+
+// SMulLazy returns x0 * x1 mod q using Shoup multiplication,
+// but the result is in [0, 2q).
+// x1S must be a valid Shoup form.
+func SMulLazy(x0, x1, x1S uint64, q *Modulus) uint64 {
+	return modops.SMulLazy(x0, x1, x1S, q.value)
+}
+
 // Reduce returns x mod q using Barrett reduction.
 // If q is [*Modulus], it uses Barrett reduction.
-//
-// Panics if q is nil.
 func Reduce[T Integer, Q uint64 | *Modulus](x T, q Q) uint64 {
 	switch q := any(q).(type) {
 	case uint64:
 		if x < 0 {
-			return modops.AnyNeg(Abs(x)%q, q)
+			return modops.Neg(Abs(x)%q, q)
 		}
 		return uint64(x) % q
 	case *Modulus:
@@ -183,8 +206,6 @@ func Reduce[T Integer, Q uint64 | *Modulus](x T, q Q) uint64 {
 
 // Reduce128 returns x mod q.
 // If q is [*Modulus], it uses Barrett reduction.
-//
-// Panics if q is nil.
 func Reduce128[Q uint64 | *Modulus](xHi, xLo uint64, q Q) uint64 {
 	switch q := any(q).(type) {
 	case uint64:
@@ -197,8 +218,6 @@ func Reduce128[Q uint64 | *Modulus](xHi, xLo uint64, q Q) uint64 {
 
 // Reduce128Lazy returns x mod q using Barrett reduction,
 // but the result is in [0, 2q).
-//
-// Panics if q is nil.
 func Reduce128Lazy(xHi, xLo uint64, q *Modulus) uint64 {
 	return modops.BMod128Lazy(xHi, xLo, q.value, q.divHi, q.divLo)
 }
@@ -213,85 +232,44 @@ func Reduce4Q(x uint64, q *Modulus) uint64 {
 	return modops.Reduce4Q(x, q.value, q.value<<1)
 }
 
-// MForm transforms x into Montgomery form.
-//
-// Panics if q is even or nil.
-func MForm(x uint64, q *Modulus) uint64 {
-	if q.inv == 0 {
-		panic("modulus must be odd")
-	}
-	return modops.MForm(x, q.value, q.divHi, q.divLo)
-}
-
-// InvMForm transforms xM to Normal form.
-//
-// Panics if q is even or nil.
-func InvMForm(xM uint64, q *Modulus) uint64 {
-	if q.inv == 0 {
-		panic("modulus must be odd")
-	}
-	return modops.InvMForm(xM, q.value, q.inv)
-}
-
-// MMul returns x0 * x1 mod q in Montgomery form.
-// x0M and x1M must be a valid Montgomery form.
-//
-// Panics if q is nil.
-func MMul(x0M, x1M uint64, q *Modulus) uint64 {
-	return modops.MMul(x0M, x1M, q.value, q.inv)
-}
-
-// MMulLazy returns x0 * x1 mod q in Montgomery form,
-// but the result is in [0, 2q).
-// x0M and x1M must be a valid Montgomery form.
-//
-// Panics if q is nil.
-func MMulLazy(x0M, y0M uint64, q *Modulus) uint64 {
-	return modops.MMulLazy(x0M, y0M, q.value, q.inv)
-}
-
-// SForm transforms x into Shoup form.
-// x must be in [0, q).
-//
-// Panics if q is nil.
-func SForm(x uint64, q *Modulus) uint64 {
-	return modops.SForm(x, q.value)
-}
-
-// SMul returns x0 * x1 mod q using Shoup multiplication.
-// x1S must be a valid Shoup form.
-//
-// Panics if q is nil.
-func SMul(x0, x1, x1S uint64, q *Modulus) uint64 {
-	return modops.SMul(x0, x1, x1S, q.value)
-}
-
-// SMulLazy returns x0 * x1 mod q using Shoup multiplication,
-// but the result is in [0, 2q).
-// x1S must be a valid Shoup form.
-//
-// Panics if q is nil.
-func SMulLazy(x0, x1, x1S uint64, q *Modulus) uint64 {
-	return modops.SMulLazy(x0, x1, x1S, q.value)
-}
-
 // Exp returns x^e mod q.
-// If q is nil, then it returns x^e.
+//
+// If q is nil, it returns x^e mod q.
 func Exp[Q uint64 | *Modulus](x, e uint64, q Q) uint64 {
+	r := uint64(1)
+
 	switch q := any(q).(type) {
 	case uint64:
 		if q == 1 {
 			return 0
 		}
-	}
 
-	r := uint64(1)
-	for e > 0 {
-		if e%2 == 1 {
-			r = Mul(r, x, q)
+		for e > 0 {
+			if e%2 == 1 {
+				r = Mul(r, x, q)
+			}
+			e >>= 1
+			x = Mul(x, x, q)
 		}
-		e >>= 1
-		x = Mul(x, x, q)
+
+	case *Modulus:
+		if q == nil {
+			for e > 0 {
+				if e%2 == 1 {
+					r = r * x
+				}
+				e >>= 1
+				x = x * x
+			}
+		} else {
+			for e > 0 {
+				if e%2 == 1 {
+					r = Mul(r, x, q)
+				}
+				e >>= 1
+				x = Mul(x, x, q)
+			}
+		}
 	}
 
 	return r
@@ -299,7 +277,7 @@ func Exp[Q uint64 | *Modulus](x, e uint64, q Q) uint64 {
 
 // Inv returns the inverse of x modulo q.
 //
-// Panics if no inverse exists or q is nil.
+// Panics if no inverse exists.
 func Inv[Q uint64 | *Modulus](x uint64, q Q) uint64 {
 	rr := x
 	var r uint64
