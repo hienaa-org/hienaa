@@ -82,7 +82,7 @@ func RadixReverseInPlace[T any](v []T, r int) {
 	logN := int(math.Round(num.Log2(len(v)) / num.Log2(r)))
 	for i := range v {
 		idx, j := i, 0
-		for range logN {
+		for k := 0; k < logN; k++ {
 			j = j*r + (idx % r)
 			idx /= r
 		}

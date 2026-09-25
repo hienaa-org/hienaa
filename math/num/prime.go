@@ -36,7 +36,7 @@ func isPrimeUint64(x uint64) bool {
 	for _, a := range tests {
 		n := Exp(a, d, x)
 		var y uint64
-		for range s {
+		for i := 0; i < s; i++ {
 			y = Mul(n, n, x)
 			if y == 1 && n != 1 && n != x-1 {
 				return false

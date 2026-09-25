@@ -53,7 +53,7 @@ func NewModulus[T Integer](mod T) *Modulus {
 	if q%2 == 1 {
 		inv = 1
 		acc := q
-		for range 63 {
+		for i := 0; i < 63; i++ {
 			inv *= acc
 			acc *= acc
 		}

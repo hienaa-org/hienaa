@@ -30,11 +30,11 @@ jobs:
                   go test ./math/vec -timeout=0 -count=1 -tags=purego
                   GODEBUG=cpu.all=off go test ./math/vec -count=1
 
-            # - name: Test math/dft
-            #   run: |
-            #       go test ./math/dft -timeout=0 -count=1
-            #       go test ./math/dft -timeout=0 -count=1 -tags=purego
-            #       GODEBUG=cpu.all=off go test ./math/dft -count=1
+            - name: Test math/dft
+              run: |
+                  go test ./math/dft -timeout=0 -count=1
+                  go test ./math/dft -timeout=0 -count=1 -tags=purego
+                  GODEBUG=cpu.all=off go test ./math/dft -count=1
 
             # - name: Test math/crt
             #   run: |

@@ -1,7 +1,6 @@
 //go:generate go run . -vec -out ../../math/vec/asm_mod_amd64.s -stubs ../../math/vec/asm_mod_stub_amd64.go -pkg=vec
+//go:generate go run . -ntt -out ../../math/dft/asm_ntt_pow2.s -stubs ../../math/dft/asm_ntt_pow2_stub_amd64.go -pkg=dft
 package main
-
-// go:generate go run . -ntt -out ../../math/dft/asm_ntt_pow2.s -stubs ../../math/dft/asm_ntt_pow2_stub_amd64.go -pkg=dft
 
 import (
 	"flag"
@@ -115,13 +114,13 @@ func main() {
 	}
 
 	if *ntt {
-		// NTTConstants()
+		NTTConstants()
 
-		// FwdNTTInPlacePow2StrideUnrollAVX512()
-		// FwdNTTInPlacePow2UnrollAVX512()
+		FwdNTTInPlacePow2StrideUnrollAVX512()
+		FwdNTTInPlacePow2UnrollAVX512()
 
-		// InvNTTInPlacePow2StrideUnrollAVX512()
-		// InvNTTInPlacePow2UnrollAVX512()
+		InvNTTInPlacePow2StrideUnrollAVX512()
+		InvNTTInPlacePow2UnrollAVX512()
 	}
 
 	Generate()
