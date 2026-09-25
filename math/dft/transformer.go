@@ -134,3 +134,13 @@ func (ntt *Transformer) InverseTo(v, vNTT []uint64) {
 		ntt.primeAutFixedTransformer.inverseTo(v, vNTT)
 	}
 }
+
+// Params returns the [RingParameters] of transformer.
+func (ntt *Transformer) Params() RingParameters {
+	return ntt.params
+}
+
+// Modulus returns the [*num.Modulus] of transformer.
+func (ntt *Transformer) Modulus() *num.Modulus {
+	return ntt.mod
+}
