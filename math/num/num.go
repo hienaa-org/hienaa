@@ -20,12 +20,20 @@ func IsPowerOfTwo[T Integer](x T) bool {
 }
 
 // Log2 returns Log2(x). Panics if x <= 0.
-func Log2[T Real](x T) float64 {
+func Log2[T Integer](x T) float64 {
 	if x <= 0 {
 		panic("x must be positive")
 	}
 
-	return math.Log2(float64(x))
+	n := bits.Len64(uint64(x))
+	if n < 53 {
+		return math.Log2(float64(x))
+	}
+
+	k := n - 53
+	xHi, xLo := uint64(x)>>k, uint64(x)&((1<<k)-1)
+	r := math.Ldexp(float64(xLo)/float64(xHi), -k)
+	return math.Log2(float64(xHi)) + float64(k) + math.Log1p(r)/math.Ln2
 }
 
 // GCD returns the greatest common divisor of x0 and x1.

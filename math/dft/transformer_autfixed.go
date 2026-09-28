@@ -163,7 +163,7 @@ type primeAutFixedTransformer struct {
 	// Pre-transformed for a fast convolution.
 	rootInv []uint64
 
-	// fold is cyclotomic index divided by rank.
+	// fold is cyclotomic index - 1 divided by rank.
 	fold uint64
 	// ambRankInvM is the modular inverse of the rank of the ambient NTT in Montgomery form.
 	ambRankInvM uint64

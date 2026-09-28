@@ -18,7 +18,7 @@ func IsPrime[T Integer](x T) bool {
 	return (x > 1) && isPrimeUint64(uint64(Abs((x))))
 }
 
-// isPrime checks of x is prime.
+// isPrimeUint64 checks of x is prime.
 // 0 and 1 are not considered prime.
 func isPrimeUint64(x uint64) bool {
 	for _, p := range smallPrimes {
@@ -324,17 +324,16 @@ func Generators(q uint64) []uint64 {
 	}
 
 	primes, exps := Factor(q)
-
-	primePows := make([]uint64, len(primes))
-	for i := range primePows {
-		primePows[i] = Exp[*Modulus](primes[i], exps[i], nil)
+	pExp := make([]uint64, len(primes))
+	for i := range pExp {
+		pExp[i] = Exp[*Modulus](primes[i], exps[i], nil)
 	}
 
 	subGens := make([]uint64, len(primes))
 	crt := make([]uint64, len(primes))
 	for i := range subGens {
-		subGens[i] = primitiveRoot(primes[i], primePows[i])
-		crt[i] = Mul(q/primePows[i], Inv(q/primePows[i], primePows[i]), q)
+		subGens[i] = primitiveRoot(primes[i], pExp[i])
+		crt[i] = Mul(q/pExp[i], Inv(q/pExp[i], pExp[i]), q)
 	}
 
 	gens := make([]uint64, len(subGens))
@@ -348,7 +347,7 @@ func Generators(q uint64) []uint64 {
 		}
 	}
 
-	if primePows[0]%8 == 0 {
+	if pExp[0]%8 == 0 {
 		gens = append([]uint64{0}, gens...)
 		gens[0] = Mul(5, crt[0], q)
 		for i := 1; i < len(crt); i++ {

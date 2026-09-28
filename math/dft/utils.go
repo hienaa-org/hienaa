@@ -112,7 +112,7 @@ func CyclotomicPolynomial(cycloIdx int) []int64 {
 // quotient computes the quotient of two polynomials modulo a modulus.
 func quotient(p0, p1 []uint64, mod *num.Modulus) []uint64 {
 	if len(p0) < len(p1) {
-		panic("dividend must be longer than divisor")
+		panic("length dividend must be longer than or equal to divisor")
 	} else if num.GCD(mod.Value(), p1[len(p1)-1]) != 1 {
 		panic("divisor must be coprime with modulus")
 	}

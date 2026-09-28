@@ -6,8 +6,6 @@ import (
 )
 
 func NTTConstants() {
-	ConstData("MASK_LO", U64(1<<32-1))
-
 	GLOBL("PERM_00112233", RODATA|NOPTR)
 	for i, idx := range []uint64{0, 0, 1, 1, 2, 2, 3, 3} {
 		DATA(i*8, U64(idx))
@@ -27,9 +25,6 @@ func NTTConstants() {
 func FwdNTTInPlacePow2StrideUnrollAVX512() {
 	TEXT("fwdNTTInPlacePow2StrideUnrollAVX512", NOSPLIT, "func(coeffs []uint64, w, wS, q uint64, idx, t uint64)")
 	Pragma("noescape")
-
-	maskLo := ZMM()
-	VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_LO"), 0), maskLo)
 
 	coeffs := Load(Param("coeffs").Base(), GP64())
 
@@ -64,7 +59,7 @@ func FwdNTTInPlacePow2StrideUnrollAVX512() {
 	VMOVDQU64(Mem{Base: coeffs, Index: j, Scale: 8}, u)
 	VMOVDQU64(Mem{Base: coeffs, Index: jt, Scale: 8}, v)
 
-	FwdButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo)
+	FwdButterflyAVX512(u, v, w, wS, wSHi, q, twoQ)
 
 	VMOVDQU64(u, Mem{Base: coeffs, Index: j, Scale: 8})
 	VMOVDQU64(v, Mem{Base: coeffs, Index: jt, Scale: 8})
@@ -82,9 +77,6 @@ func FwdNTTInPlacePow2StrideUnrollAVX512() {
 func FwdNTTInPlacePow2UnrollAVX512() {
 	TEXT("fwdNTTInPlacePow2UnrollAVX512", NOSPLIT, "func(coeffs, tw, twS []uint64, q, idx, N, l uint64)")
 	Pragma("noescape")
-
-	maskLo := ZMM()
-	VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_LO"), 0), maskLo)
 
 	coeffs := Load(Param("coeffs").Base(), GP64())
 	tw := Load(Param("tw").Base(), GP64())
@@ -129,7 +121,7 @@ func FwdNTTInPlacePow2UnrollAVX512() {
 	VMOVDQU64(Mem{Base: coeffs, Index: j, Scale: 8}, u)
 	VMOVDQU64(Mem{Base: coeffs, Index: jt, Scale: 8}, v)
 
-	FwdButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo)
+	FwdButterflyAVX512(u, v, w, wS, wSHi, q, twoQ)
 
 	VMOVDQU64(u, Mem{Base: coeffs, Index: j, Scale: 8})
 	VMOVDQU64(v, Mem{Base: coeffs, Index: jt, Scale: 8})
@@ -180,7 +172,7 @@ func FwdNTTInPlacePow2UnrollAVX512() {
 	VMOVDQU64(Mem{Base: coeffs, Index: j, Scale: 8}, u)
 	VMOVDQU64(Mem{Base: coeffs, Index: jt, Scale: 8}, v)
 
-	FwdButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo)
+	FwdButterflyAVX512(u, v, w, wS, wSHi, q, twoQ)
 
 	VMOVDQU64(u, Mem{Base: coeffs, Index: j, Scale: 8})
 	VMOVDQU64(v, Mem{Base: coeffs, Index: jt, Scale: 8})
@@ -234,7 +226,7 @@ func FwdNTTInPlacePow2UnrollAVX512() {
 	VSHUFI64X2(Imm(0b01_00_01_00), v, u, uu)
 	VSHUFI64X2(Imm(0b11_10_11_10), v, u, vv)
 
-	FwdButterflyAVX512(uu, vv, w, wS, wSHi, q, twoQ, maskLo)
+	FwdButterflyAVX512(uu, vv, w, wS, wSHi, q, twoQ)
 
 	VSHUFI64X2(Imm(0b01_00_01_00), vv, uu, u)
 	VSHUFI64X2(Imm(0b11_10_11_10), vv, uu, v)
@@ -274,7 +266,7 @@ func FwdNTTInPlacePow2UnrollAVX512() {
 	VSHUFI64X2(Imm(0b10_00_10_00), v, u, uu)
 	VSHUFI64X2(Imm(0b11_01_11_01), v, u, vv)
 
-	FwdButterflyAVX512(uu, vv, w, wS, wSHi, q, twoQ, maskLo)
+	FwdButterflyAVX512(uu, vv, w, wS, wSHi, q, twoQ)
 
 	VSHUFI64X2(Imm(0b01_00_01_00), vv, uu, u)
 	VSHUFI64X2(Imm(0b11_10_11_10), vv, uu, v)
@@ -317,7 +309,7 @@ func FwdNTTInPlacePow2UnrollAVX512() {
 	VSHUFF64X2(Imm(0b01_00_01_00), v, u, uu)
 	VSHUFF64X2(Imm(0b11_10_11_10), v, u, vv)
 
-	FwdButterflyAVX512(uu, vv, w, wS, wSHi, q, twoQ, maskLo)
+	FwdButterflyAVX512(uu, vv, w, wS, wSHi, q, twoQ)
 
 	VSHUFF64X2(Imm(0b01_00_01_00), vv, uu, u)
 	VSHUFF64X2(Imm(0b11_10_11_10), vv, uu, v)
@@ -340,9 +332,6 @@ func FwdNTTInPlacePow2UnrollAVX512() {
 func InvNTTInPlacePow2StrideUnrollAVX512() {
 	TEXT("invNTTInPlacePow2StrideUnrollAVX512", NOSPLIT, "func(coeffs []uint64, w, wS, q uint64, idx, t uint64)")
 	Pragma("noescape")
-
-	maskLo := ZMM()
-	VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_LO"), 0), maskLo)
 
 	coeffs := Load(Param("coeffs").Base(), GP64())
 
@@ -377,7 +366,7 @@ func InvNTTInPlacePow2StrideUnrollAVX512() {
 	VMOVDQU64(Mem{Base: coeffs, Index: j, Scale: 8}, u)
 	VMOVDQU64(Mem{Base: coeffs, Index: jt, Scale: 8}, v)
 
-	InvButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo)
+	InvButterflyAVX512(u, v, w, wS, wSHi, q, twoQ)
 
 	VMOVDQU64(u, Mem{Base: coeffs, Index: j, Scale: 8})
 	VMOVDQU64(v, Mem{Base: coeffs, Index: jt, Scale: 8})
@@ -395,9 +384,6 @@ func InvNTTInPlacePow2StrideUnrollAVX512() {
 func InvNTTInPlacePow2UnrollAVX512() {
 	TEXT("invNTTInPlacePow2UnrollAVX512", NOSPLIT, "func(coeffs, twInv, twInvS []uint64, q, idx, N, l uint64)")
 	Pragma("noescape")
-
-	maskLo := ZMM()
-	VPBROADCASTQ(NewDataAddr(NewStaticSymbol("MASK_LO"), 0), maskLo)
 
 	coeffs := Load(Param("coeffs").Base(), GP64())
 	twInv := Load(Param("twInv").Base(), GP64())
@@ -446,7 +432,7 @@ func InvNTTInPlacePow2UnrollAVX512() {
 	VSHUFF64X2(Imm(0b01_00_01_00), v, u, uu)
 	VSHUFF64X2(Imm(0b11_10_11_10), v, u, vv)
 
-	InvButterflyAVX512(uu, vv, w, wS, wSHi, q, twoQ, maskLo)
+	InvButterflyAVX512(uu, vv, w, wS, wSHi, q, twoQ)
 
 	VSHUFF64X2(Imm(0b01_00_01_00), vv, uu, u)
 	VSHUFF64X2(Imm(0b11_10_11_10), vv, uu, v)
@@ -489,7 +475,7 @@ func InvNTTInPlacePow2UnrollAVX512() {
 	VSHUFI64X2(Imm(0b10_00_10_00), v, u, uu)
 	VSHUFI64X2(Imm(0b11_01_11_01), v, u, vv)
 
-	InvButterflyAVX512(uu, vv, w, wS, wSHi, q, twoQ, maskLo)
+	InvButterflyAVX512(uu, vv, w, wS, wSHi, q, twoQ)
 
 	VSHUFI64X2(Imm(0b01_00_01_00), vv, uu, u)
 	VSHUFI64X2(Imm(0b11_10_11_10), vv, uu, v)
@@ -534,7 +520,7 @@ func InvNTTInPlacePow2UnrollAVX512() {
 	VSHUFI64X2(Imm(0b01_00_01_00), v, u, uu)
 	VSHUFI64X2(Imm(0b11_10_11_10), v, u, vv)
 
-	InvButterflyAVX512(uu, vv, w, wS, wSHi, q, twoQ, maskLo)
+	InvButterflyAVX512(uu, vv, w, wS, wSHi, q, twoQ)
 
 	VSHUFI64X2(Imm(0b01_00_01_00), vv, uu, u)
 	VSHUFI64X2(Imm(0b11_10_11_10), vv, uu, v)
@@ -585,7 +571,7 @@ func InvNTTInPlacePow2UnrollAVX512() {
 	VMOVDQU64(Mem{Base: coeffs, Index: j, Scale: 8}, u)
 	VMOVDQU64(Mem{Base: coeffs, Index: jt, Scale: 8}, v)
 
-	InvButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo)
+	InvButterflyAVX512(u, v, w, wS, wSHi, q, twoQ)
 
 	VMOVDQU64(u, Mem{Base: coeffs, Index: j, Scale: 8})
 	VMOVDQU64(v, Mem{Base: coeffs, Index: jt, Scale: 8})
@@ -631,7 +617,7 @@ func InvNTTInPlacePow2UnrollAVX512() {
 	VMOVDQU64(Mem{Base: coeffs, Index: j, Scale: 8}, u)
 	VMOVDQU64(Mem{Base: coeffs, Index: jt, Scale: 8}, v)
 
-	InvButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo)
+	InvButterflyAVX512(u, v, w, wS, wSHi, q, twoQ)
 
 	VMOVDQU64(u, Mem{Base: coeffs, Index: j, Scale: 8})
 	VMOVDQU64(v, Mem{Base: coeffs, Index: jt, Scale: 8})

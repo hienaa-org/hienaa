@@ -131,7 +131,7 @@ func fwdNTTInPlacePow2UnrollRecurseAVX512(coeffs, tw, twS []uint64, q uint64, id
 }
 
 // invNTTInPlacePow2Unroll computes the Inverse NTT transform in-place for power-of-two length coefficients.
-// Assumes len(coeffs) > [nttRecurseBound].
+// Assumes len(coeffs) > [nttUnrollBound].
 func invNTTInPlacePow2Unroll(coeffs, twInv, twInvS []uint64, q uint64) {
 	switch {
 	case cpu.X86.HasAVX2 && cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512F && cpu.X86.HasAVX512VL && cpu.X86.HasBMI2:

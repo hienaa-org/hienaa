@@ -506,7 +506,7 @@ func MForm(v []uint64, q *num.Modulus) []uint64 {
 	return vOut
 }
 
-// InvMForm transforms vM to Normal form.
+// InvMForm transforms vM to Standard form.
 //
 // Panics if q is even or nil.
 func InvMForm(vM []uint64, q *num.Modulus) []uint64 {

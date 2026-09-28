@@ -126,7 +126,7 @@ func (s *RoundedGaussianSampler) normFloat() float64 {
 // For large standard deviation, it heuristically samples the lower bits as uniform.
 // If the output is not representable in int64, it overflows.
 //
-// Panics when stdDev is negative.
+// Panics when stdDev is negative or too large.
 func (s *RoundedGaussianSampler) Sample(stdDev float64) int64 {
 	if stdDev < 0 {
 		panic("stdDev must be nonnegative")

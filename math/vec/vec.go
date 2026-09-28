@@ -45,9 +45,9 @@ func Cast[TOut, T num.Real](v []T) []TOut {
 }
 
 // CastTo casts v of type []T to vOut of type []TOut.
-func CastTo[TIn, TOut num.Real](vOut []TOut, vIn []TIn) {
-	for i := range vIn {
-		vOut[i] = TOut(vIn[i])
+func CastTo[TOut, T num.Real](vOut []TOut, v []T) {
+	for i := range v {
+		vOut[i] = TOut(v[i])
 	}
 }
 

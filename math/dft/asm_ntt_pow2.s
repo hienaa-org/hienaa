@@ -4,9 +4,6 @@
 
 #include "textflag.h"
 
-DATA MASK_LO<>+0(SB)/8, $0x00000000ffffffff
-GLOBL MASK_LO<>(SB), RODATA|NOPTR, $8
-
 DATA PERM_00112233<>+0(SB)/8, $0x0000000000000000
 DATA PERM_00112233<>+8(SB)/8, $0x0000000000000000
 DATA PERM_00112233<>+16(SB)/8, $0x0000000000000001
@@ -40,7 +37,6 @@ GLOBL PERM_04152637<>(SB), RODATA|NOPTR, $64
 // func fwdNTTInPlacePow2StrideUnrollAVX512(coeffs []uint64, w uint64, wS uint64, q uint64, idx uint64, t uint64)
 // Requires: AVX512DQ, AVX512F
 TEXT ·fwdNTTInPlacePow2StrideUnrollAVX512(SB), NOSPLIT, $0-64
-	VPBROADCASTQ MASK_LO<>+0(SB), Z0
 	MOVQ         coeffs_base+0(FP), AX
 	MOVQ         idx+48(FP), CX
 	VPBROADCASTQ q+40(FP), Z0
@@ -89,7 +85,6 @@ loop_end:
 // func fwdNTTInPlacePow2UnrollAVX512(coeffs []uint64, tw []uint64, twS []uint64, q uint64, idx uint64, N uint64, l uint64)
 // Requires: AVX512DQ, AVX512F, AVX512VL
 TEXT ·fwdNTTInPlacePow2UnrollAVX512(SB), NOSPLIT, $0-104
-	VPBROADCASTQ MASK_LO<>+0(SB), Z0
 	MOVQ         coeffs_base+0(FP), AX
 	MOVQ         tw_base+24(FP), CX
 	MOVQ         twS_base+48(FP), DX
@@ -353,7 +348,6 @@ t_1_loop_end:
 // func invNTTInPlacePow2StrideUnrollAVX512(coeffs []uint64, w uint64, wS uint64, q uint64, idx uint64, t uint64)
 // Requires: AVX512DQ, AVX512F
 TEXT ·invNTTInPlacePow2StrideUnrollAVX512(SB), NOSPLIT, $0-64
-	VPBROADCASTQ MASK_LO<>+0(SB), Z0
 	MOVQ         coeffs_base+0(FP), AX
 	MOVQ         idx+48(FP), CX
 	VPBROADCASTQ q+40(FP), Z0
@@ -402,7 +396,6 @@ loop_end:
 // func invNTTInPlacePow2UnrollAVX512(coeffs []uint64, twInv []uint64, twInvS []uint64, q uint64, idx uint64, N uint64, l uint64)
 // Requires: AVX512DQ, AVX512F, AVX512VL
 TEXT ·invNTTInPlacePow2UnrollAVX512(SB), NOSPLIT, $0-104
-	VPBROADCASTQ MASK_LO<>+0(SB), Z0
 	MOVQ         coeffs_base+0(FP), AX
 	MOVQ         twInv_base+24(FP), CX
 	MOVQ         twInvS_base+48(FP), DX
@@ -411,49 +404,49 @@ TEXT ·invNTTInPlacePow2UnrollAVX512(SB), NOSPLIT, $0-104
 	SHLQ         $0x03, SI
 	ADDQ         SI, AX
 	VPBROADCASTQ q+72(FP), Z0
-	VPADDQ       Z0, Z0, Z3
+	VPADDQ       Z0, Z0, Z1
 	MOVQ         l+96(FP), DI
 	MOVQ         BX, SI
 	SHRQ         $0x01, SI
 	IMULQ        DI, SI
-	VMOVDQU64    PERM_02461357<>+0(SB), Z4
-	VMOVDQU64    PERM_04152637<>+0(SB), Z5
+	VMOVDQU64    PERM_02461357<>+0(SB), Z2
+	VMOVDQU64    PERM_04152637<>+0(SB), Z3
 	XORQ         R8, R8
 	JMP          t_1_loop_end
 
 t_1_loop_body:
-	VMOVDQU64  (CX)(SI*8), Z1
-	VMOVDQU64  (DX)(SI*8), Z2
+	VMOVDQU64  (CX)(SI*8), Z4
+	VMOVDQU64  (DX)(SI*8), Z5
 	ADDQ       $0x08, SI
-	VPSRLQ     $0x20, Z2, Z6
+	VPSRLQ     $0x20, Z5, Z6
 	VMOVDQU64  (AX)(R8*8), Z7
 	VMOVDQU64  64(AX)(R8*8), Z8
-	VPERMQ     Z7, Z4, Z7
-	VPERMQ     Z8, Z4, Z8
+	VPERMQ     Z7, Z2, Z7
+	VPERMQ     Z8, Z2, Z8
 	VSHUFF64X2 $0x44, Z8, Z7, Z9
 	VSHUFF64X2 $0xee, Z8, Z7, Z8
 	VPSUBQ     Z8, Z9, Z7
 	VPADDQ     Z8, Z9, Z9
-	VPADDQ     Z3, Z7, Z8
-	VPSUBQ     Z3, Z9, Z7
+	VPADDQ     Z1, Z7, Z8
+	VPSUBQ     Z1, Z9, Z7
 	VPMINUQ    Z7, Z9, Z9
 	VPSRLQ     $0x20, Z8, Z7
 	VPMULUDQ   Z6, Z8, Z10
-	VPMULUDQ   Z2, Z7, Z11
+	VPMULUDQ   Z5, Z7, Z11
 	VPMULUDQ   Z6, Z7, Z6
 	VPSRLQ     $0x20, Z10, Z10
 	VPSRLQ     $0x20, Z11, Z11
 	VPADDQ     Z6, Z10, Z6
 	VPADDQ     Z6, Z11, Z6
-	VPMULLQ    Z8, Z1, Z8
+	VPMULLQ    Z8, Z4, Z8
 	VPMULLQ    Z6, Z0, Z6
 	VPSUBQ     Z6, Z8, Z8
-	VPSUBQ     Z3, Z8, Z6
+	VPSUBQ     Z1, Z8, Z6
 	VPMINUQ    Z6, Z8, Z8
 	VSHUFF64X2 $0x44, Z8, Z9, Z7
 	VSHUFF64X2 $0xee, Z8, Z9, Z8
-	VPERMQ     Z7, Z5, Z7
-	VPERMQ     Z8, Z5, Z8
+	VPERMQ     Z7, Z3, Z7
+	VPERMQ     Z8, Z3, Z8
 	VMOVDQU64  Z7, (AX)(R8*8)
 	VMOVDQU64  Z8, 64(AX)(R8*8)
 	ADDQ       $0x10, R8
@@ -461,7 +454,7 @@ t_1_loop_body:
 t_1_loop_end:
 	CMPQ      R8, BX
 	JL        t_1_loop_body
-	VMOVDQU64 PERM_00112233<>+0(SB), Z4
+	VMOVDQU64 PERM_00112233<>+0(SB), Z2
 	MOVQ      BX, SI
 	SHRQ      $0x02, SI
 	IMULQ     DI, SI
@@ -469,34 +462,34 @@ t_1_loop_end:
 	JMP       t_2_loop_end
 
 t_2_loop_body:
-	VMOVDQU64  (CX)(SI*8), Y1
-	VMOVDQU64  (DX)(SI*8), Y2
+	VMOVDQU64  (CX)(SI*8), Y4
+	VMOVDQU64  (DX)(SI*8), Y5
 	ADDQ       $0x04, SI
-	VPERMQ     Z1, Z4, Z1
-	VPERMQ     Z2, Z4, Z2
-	VPSRLQ     $0x20, Z2, Z6
+	VPERMQ     Z4, Z2, Z4
+	VPERMQ     Z5, Z2, Z5
+	VPSRLQ     $0x20, Z5, Z6
 	VMOVDQU64  (AX)(R8*8), Z7
 	VMOVDQU64  64(AX)(R8*8), Z8
 	VSHUFI64X2 $0x88, Z8, Z7, Z9
 	VSHUFI64X2 $0xdd, Z8, Z7, Z8
-	VPSUBQ     Z8, Z9, Z5
+	VPSUBQ     Z8, Z9, Z3
 	VPADDQ     Z8, Z9, Z9
-	VPADDQ     Z3, Z5, Z8
-	VPSUBQ     Z3, Z9, Z5
-	VPMINUQ    Z5, Z9, Z9
-	VPSRLQ     $0x20, Z8, Z5
+	VPADDQ     Z1, Z3, Z8
+	VPSUBQ     Z1, Z9, Z3
+	VPMINUQ    Z3, Z9, Z9
+	VPSRLQ     $0x20, Z8, Z3
 	VPMULUDQ   Z6, Z8, Z7
-	VPMULUDQ   Z2, Z5, Z10
-	VPMULUDQ   Z6, Z5, Z5
+	VPMULUDQ   Z5, Z3, Z10
+	VPMULUDQ   Z6, Z3, Z3
 	VPSRLQ     $0x20, Z7, Z7
 	VPSRLQ     $0x20, Z10, Z10
-	VPADDQ     Z5, Z7, Z5
-	VPADDQ     Z5, Z10, Z5
-	VPMULLQ    Z8, Z1, Z8
-	VPMULLQ    Z5, Z0, Z5
-	VPSUBQ     Z5, Z8, Z8
-	VPSUBQ     Z3, Z8, Z5
-	VPMINUQ    Z5, Z8, Z8
+	VPADDQ     Z3, Z7, Z3
+	VPADDQ     Z3, Z10, Z3
+	VPMULLQ    Z8, Z4, Z8
+	VPMULLQ    Z3, Z0, Z3
+	VPSUBQ     Z3, Z8, Z8
+	VPSUBQ     Z1, Z8, Z3
+	VPMINUQ    Z3, Z8, Z8
 	VSHUFI64X2 $0x44, Z8, Z9, Z7
 	VSHUFI64X2 $0xee, Z8, Z9, Z8
 	VSHUFI64X2 $0xd8, Z7, Z7, Z7
@@ -515,37 +508,37 @@ t_2_loop_end:
 	JMP   t_4_loop_end
 
 t_4_loop_body:
-	VPBROADCASTQ (CX)(SI*8), Z1
+	VPBROADCASTQ (CX)(SI*8), Z4
 	VPBROADCASTQ (DX)(SI*8), Z2
 	INCQ         SI
 	VPBROADCASTQ (CX)(SI*8), Z5
-	VPBROADCASTQ (DX)(SI*8), Z4
+	VPBROADCASTQ (DX)(SI*8), Z3
 	INCQ         SI
-	VSHUFI64X2   $0xa0, Z5, Z1, Z1
-	VSHUFI64X2   $0xa0, Z4, Z2, Z2
-	VPSRLQ       $0x20, Z2, Z6
+	VSHUFI64X2   $0xa0, Z5, Z4, Z4
+	VSHUFI64X2   $0xa0, Z3, Z2, Z5
+	VPSRLQ       $0x20, Z5, Z6
 	VMOVDQU64    (AX)(R8*8), Z7
 	VMOVDQU64    64(AX)(R8*8), Z8
 	VSHUFI64X2   $0x44, Z8, Z7, Z9
 	VSHUFI64X2   $0xee, Z8, Z7, Z8
-	VPSUBQ       Z8, Z9, Z4
+	VPSUBQ       Z8, Z9, Z2
 	VPADDQ       Z8, Z9, Z9
-	VPADDQ       Z3, Z4, Z8
-	VPSUBQ       Z3, Z9, Z4
-	VPMINUQ      Z4, Z9, Z9
-	VPSRLQ       $0x20, Z8, Z4
-	VPMULUDQ     Z6, Z8, Z5
-	VPMULUDQ     Z2, Z4, Z2
-	VPMULUDQ     Z6, Z4, Z4
+	VPADDQ       Z1, Z2, Z8
+	VPSUBQ       Z1, Z9, Z2
+	VPMINUQ      Z2, Z9, Z9
+	VPSRLQ       $0x20, Z8, Z2
+	VPMULUDQ     Z6, Z8, Z3
+	VPMULUDQ     Z5, Z2, Z5
+	VPMULUDQ     Z6, Z2, Z2
+	VPSRLQ       $0x20, Z3, Z3
 	VPSRLQ       $0x20, Z5, Z5
-	VPSRLQ       $0x20, Z2, Z2
-	VPADDQ       Z4, Z5, Z4
-	VPADDQ       Z4, Z2, Z4
-	VPMULLQ      Z8, Z1, Z8
-	VPMULLQ      Z4, Z0, Z4
-	VPSUBQ       Z4, Z8, Z8
-	VPSUBQ       Z3, Z8, Z1
-	VPMINUQ      Z1, Z8, Z8
+	VPADDQ       Z2, Z3, Z2
+	VPADDQ       Z2, Z5, Z2
+	VPMULLQ      Z8, Z4, Z8
+	VPMULLQ      Z2, Z0, Z2
+	VPSUBQ       Z2, Z8, Z8
+	VPSUBQ       Z1, Z8, Z2
+	VPMINUQ      Z2, Z8, Z8
 	VSHUFI64X2   $0x44, Z8, Z9, Z7
 	VSHUFI64X2   $0xee, Z8, Z9, Z8
 	VMOVDQU64    Z7, (AX)(R8*8)
@@ -572,10 +565,10 @@ i_loop_body:
 	SHLQ         $0x01, R11
 	MOVQ         R11, R12
 	ADDQ         R9, R12
-	VPBROADCASTQ (CX)(SI*8), Z1
-	VPBROADCASTQ (DX)(SI*8), Z2
+	VPBROADCASTQ (CX)(SI*8), Z4
+	VPBROADCASTQ (DX)(SI*8), Z5
 	INCQ         SI
-	VPSRLQ       $0x20, Z2, Z6
+	VPSRLQ       $0x20, Z5, Z6
 	MOVQ         R11, R13
 	ADDQ         R9, R13
 	JMP          j_loop_end
@@ -583,24 +576,24 @@ i_loop_body:
 j_loop_body:
 	VMOVDQU64 (AX)(R11*8), Z7
 	VMOVDQU64 (AX)(R13*8), Z8
-	VPSUBQ    Z8, Z7, Z4
+	VPSUBQ    Z8, Z7, Z2
 	VPADDQ    Z8, Z7, Z7
-	VPADDQ    Z3, Z4, Z8
-	VPSUBQ    Z3, Z7, Z4
-	VPMINUQ   Z4, Z7, Z7
-	VPSRLQ    $0x20, Z8, Z4
-	VPMULUDQ  Z6, Z8, Z5
-	VPMULUDQ  Z2, Z4, Z9
-	VPMULUDQ  Z6, Z4, Z4
-	VPSRLQ    $0x20, Z5, Z5
+	VPADDQ    Z1, Z2, Z8
+	VPSUBQ    Z1, Z7, Z2
+	VPMINUQ   Z2, Z7, Z7
+	VPSRLQ    $0x20, Z8, Z2
+	VPMULUDQ  Z6, Z8, Z3
+	VPMULUDQ  Z5, Z2, Z9
+	VPMULUDQ  Z6, Z2, Z2
+	VPSRLQ    $0x20, Z3, Z3
 	VPSRLQ    $0x20, Z9, Z9
-	VPADDQ    Z4, Z5, Z4
-	VPADDQ    Z4, Z9, Z4
-	VPMULLQ   Z8, Z1, Z8
-	VPMULLQ   Z4, Z0, Z4
-	VPSUBQ    Z4, Z8, Z8
-	VPSUBQ    Z3, Z8, Z4
-	VPMINUQ   Z4, Z8, Z8
+	VPADDQ    Z2, Z3, Z2
+	VPADDQ    Z2, Z9, Z2
+	VPMULLQ   Z8, Z4, Z8
+	VPMULLQ   Z2, Z0, Z2
+	VPSUBQ    Z2, Z8, Z8
+	VPSUBQ    Z1, Z8, Z2
+	VPMINUQ   Z2, Z8, Z8
 	VMOVDQU64 Z7, (AX)(R11*8)
 	VMOVDQU64 Z8, (AX)(R13*8)
 	ADDQ      $0x08, R11
@@ -622,9 +615,9 @@ m_loop_end:
 	JGE          m_loop_body
 	SHRQ         $0x01, BX
 	MOVQ         DI, SI
-	VPBROADCASTQ (CX)(SI*8), Z1
-	VPBROADCASTQ (DX)(SI*8), Z2
-	VPSRLQ       $0x20, Z2, Z6
+	VPBROADCASTQ (CX)(SI*8), Z4
+	VPBROADCASTQ (DX)(SI*8), Z5
+	VPSRLQ       $0x20, Z5, Z6
 	XORQ         R11, R11
 	MOVQ         R11, R13
 	ADDQ         R9, R13
@@ -633,24 +626,24 @@ m_loop_end:
 last_loop_body:
 	VMOVDQU64 (AX)(R11*8), Z7
 	VMOVDQU64 (AX)(R13*8), Z8
-	VPSUBQ    Z8, Z7, Z4
+	VPSUBQ    Z8, Z7, Z2
 	VPADDQ    Z8, Z7, Z7
-	VPADDQ    Z3, Z4, Z8
-	VPSUBQ    Z3, Z7, Z4
-	VPMINUQ   Z4, Z7, Z7
-	VPSRLQ    $0x20, Z8, Z4
-	VPMULUDQ  Z6, Z8, Z5
-	VPMULUDQ  Z2, Z4, Z9
-	VPMULUDQ  Z6, Z4, Z4
-	VPSRLQ    $0x20, Z5, Z5
+	VPADDQ    Z1, Z2, Z8
+	VPSUBQ    Z1, Z7, Z2
+	VPMINUQ   Z2, Z7, Z7
+	VPSRLQ    $0x20, Z8, Z2
+	VPMULUDQ  Z6, Z8, Z3
+	VPMULUDQ  Z5, Z2, Z9
+	VPMULUDQ  Z6, Z2, Z2
+	VPSRLQ    $0x20, Z3, Z3
 	VPSRLQ    $0x20, Z9, Z9
-	VPADDQ    Z4, Z5, Z4
-	VPADDQ    Z4, Z9, Z4
-	VPMULLQ   Z8, Z1, Z8
-	VPMULLQ   Z4, Z0, Z4
-	VPSUBQ    Z4, Z8, Z8
-	VPSUBQ    Z3, Z8, Z4
-	VPMINUQ   Z4, Z8, Z8
+	VPADDQ    Z2, Z3, Z2
+	VPADDQ    Z2, Z9, Z2
+	VPMULLQ   Z8, Z4, Z8
+	VPMULLQ   Z2, Z0, Z2
+	VPSUBQ    Z2, Z8, Z8
+	VPSUBQ    Z1, Z8, Z2
+	VPMINUQ   Z2, Z8, Z8
 	VMOVDQU64 Z7, (AX)(R11*8)
 	VMOVDQU64 Z8, (AX)(R13*8)
 	ADDQ      $0x08, R11

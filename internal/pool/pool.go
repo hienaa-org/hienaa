@@ -1,6 +1,8 @@
 package pool
 
-import "sync"
+import (
+	"sync"
+)
 
 // Pool is a thin wrapper around [sync.Pool] using Generics.
 type Pool[T any] struct {
@@ -8,11 +10,11 @@ type Pool[T any] struct {
 }
 
 // NewPool creates a new [Pool].
-func NewPool[T any](New func() T) *Pool[T] {
+func NewPool[T any](newFn func() T) *Pool[T] {
 	return &Pool[T]{
 		sync.Pool{
 			New: func() any {
-				return any(New())
+				return any(newFn())
 			},
 		},
 	}

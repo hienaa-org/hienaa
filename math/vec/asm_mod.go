@@ -689,7 +689,7 @@ func MFormTo(vOutM, v []uint64, q *num.Modulus) {
 	}
 }
 
-// InvMFormTo computes vOut as vM in Normal form.
+// InvMFormTo computes vOut as vM in Standard form.
 //
 // Panics if q is even or nil.
 func InvMFormTo(vOut, vM []uint64, q *num.Modulus) {

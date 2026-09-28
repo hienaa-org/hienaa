@@ -46,13 +46,13 @@ type cyclotomicReducer struct {
 func newCyclotomicReducer(params RingParameters, mod *num.Modulus) *cyclotomicReducer {
 	primes, _ := num.Factor(params.cycloIdx)
 
-	var redDeg, leastFactor int
+	var redDeg, leastFac int
 	if params.cycloIdx%2 == 1 {
-		leastFactor = primes[0]
-		redDeg = params.cycloIdx - params.cycloIdx/leastFactor
+		leastFac = primes[0]
+		redDeg = params.cycloIdx - params.cycloIdx/leastFac
 	} else {
-		leastFactor = primes[1]
-		redDeg = params.cycloIdx/2 - (params.cycloIdx/2)/leastFactor
+		leastFac = primes[1]
+		redDeg = params.cycloIdx/2 - (params.cycloIdx/2)/leastFac
 	}
 
 	isTrivial := redDeg == params.rank
@@ -86,7 +86,7 @@ func newCyclotomicReducer(params RingParameters, mod *num.Modulus) *cyclotomicRe
 		params: params,
 		mod:    mod,
 
-		leastFac:  leastFactor,
+		leastFac:  leastFac,
 		isTrivial: isTrivial,
 
 		redDeg:      redDeg,
@@ -118,30 +118,24 @@ func (r *cyclotomicReducer) reduceTo(pOut, p []uint64) {
 	if cycloIdx%2 == 1 {
 		skip := cycloIdx / r.leastFac
 
-		for j := 0; j < skip; j++ {
-			for i := 0; i < r.leastFac-1; i++ {
-				pIn[i*skip+j] = num.Sub(pIn[i*skip+j], pIn[cycloIdx-skip+j], r.mod)
-			}
-			pIn[cycloIdx-skip+j] = 0
+		for i := 0; i < r.leastFac-1; i++ {
+			vec.SubTo(pIn[i*skip:(i+1)*skip], pIn[i*skip:(i+1)*skip], pIn[cycloIdx-skip:], r.mod)
 		}
+		clear(pIn[cycloIdx-skip:])
 	} else {
 		skip := (cycloIdx / 2) / r.leastFac
 
-		for i := 0; i < cycloIdx/2; i++ {
-			pIn[i] = num.Sub(pIn[i], pIn[cycloIdx/2+i], r.mod)
-			pIn[cycloIdx/2+i] = 0
-		}
+		vec.SubTo(pIn[:cycloIdx/2], pIn[:cycloIdx/2], pIn[cycloIdx/2:], r.mod)
+		clear(pIn[cycloIdx/2:])
 
-		for j := 0; j < skip; j++ {
-			for i := 0; i < r.leastFac-1; i++ {
-				if i%2 == 0 {
-					pIn[i*skip+j] = num.Sub(pIn[i*skip+j], pIn[cycloIdx/2-skip+j], r.mod)
-				} else {
-					pIn[i*skip+j] = num.Add(pIn[i*skip+j], pIn[cycloIdx/2-skip+j], r.mod)
-				}
+		for i := 0; i < r.leastFac-1; i++ {
+			if i%2 == 0 {
+				vec.SubTo(pIn[i*skip:(i+1)*skip], pIn[i*skip:(i+1)*skip], pIn[cycloIdx/2-skip:cycloIdx/2], r.mod)
+			} else {
+				vec.AddTo(pIn[i*skip:(i+1)*skip], pIn[i*skip:(i+1)*skip], pIn[cycloIdx/2-skip:cycloIdx/2], r.mod)
 			}
-			pIn[cycloIdx/2-skip+j] = 0
 		}
+		clear(pIn[cycloIdx/2-skip : cycloIdx/2])
 	}
 
 	if !r.isTrivial {
@@ -151,9 +145,7 @@ func (r *cyclotomicReducer) reduceTo(pOut, p []uint64) {
 
 		// pQuo = floor(pIn / X^deg)
 		clear(pQuo)
-		for j := 0; j < r.diffDeg; j++ {
-			pQuo[j] = pIn[rank+j]
-		}
+		copy(pQuo, pIn[rank:r.redDeg])
 
 		// pQuo = pQuo * floor(X^(deg+diffDeg)/\Phi_m(X))
 		r.diffDegNextNTT.forwardTo(pQuo, pQuo)
@@ -165,20 +157,14 @@ func (r *cyclotomicReducer) reduceTo(pOut, p []uint64) {
 		defer r.pool.Put(pRemPtr)
 
 		// pRem = floor(pQuo / X^diffDeg) % (X^degNext - 1)
-		for i := 1; i <= num.DivCeil(r.diffDeg, r.degNext); i++ {
-			for j := 0; j < r.degNext; j++ {
-				if i*r.degNext+j > r.diffDeg {
-					break
-				}
-				pQuo[r.diffDeg+j] = num.Add(pQuo[r.diffDeg+j], pQuo[r.diffDeg+i*r.degNext+j], r.mod)
-				pQuo[r.diffDeg+i*r.degNext+j] = 0
-			}
+		for i := r.degNext; i <= r.diffDeg; i += r.degNext {
+			d := min(r.degNext, r.diffDeg-i+1)
+			vec.AddTo(pQuo[r.diffDeg:r.diffDeg+d], pQuo[r.diffDeg:r.diffDeg+d], pQuo[r.diffDeg+i:r.diffDeg+i+d], r.mod)
+			clear(pQuo[r.diffDeg+i : r.diffDeg+i+d])
 		}
 
 		clear(pRem)
-		for j := 0; j < min(r.diffDeg, r.degNext); j++ {
-			pRem[j] = pQuo[r.diffDeg+j]
-		}
+		copy(pRem, pQuo[r.diffDeg:2*r.diffDeg])
 
 		// pRem = pRem * cycloPoly % (X^degNext - 1)
 		r.degNextNTT.forwardTo(pRem, pRem)
@@ -186,20 +172,14 @@ func (r *cyclotomicReducer) reduceTo(pOut, p []uint64) {
 		r.degNextNTT.inverseTo(pRem, pRem)
 
 		// pIn = pIn % X^degNext - 1
-		for i := 1; i <= num.DivCeil(r.redDeg, r.degNext); i++ {
-			for j := 0; j < r.degNext; j++ {
-				if i*r.degNext+j > r.redDeg {
-					break
-				}
-				pIn[j] = num.Add(pIn[j], pIn[i*r.degNext+j], r.mod)
-				pIn[i*r.degNext+j] = 0
-			}
+		for i := r.degNext; i <= r.redDeg; i += r.degNext {
+			d := min(r.degNext, r.redDeg-i+1)
+			vec.AddTo(pIn[:d], pIn[:d], pIn[i:i+d], r.mod)
+			clear(pIn[i : i+d])
 		}
 
 		// pOut = pIn - pRem
-		for i := 0; i < rank; i++ {
-			pOut[i] = num.Sub(pIn[i], pRem[i], r.mod)
-		}
+		vec.SubTo(pOut, pIn[:rank], pRem[:rank], r.mod)
 	} else {
 		copy(pOut, pIn[:rank])
 	}

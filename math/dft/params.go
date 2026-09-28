@@ -6,7 +6,6 @@ import (
 	"slices"
 
 	"github.com/hienaa-org/hienaa/math/num"
-	"github.com/hienaa-org/hienaa/math/vec"
 )
 
 // RingType is a type of the polynomial ring.
@@ -31,9 +30,6 @@ type RingParameters struct {
 	cycloIdx int
 	// rank is the number of coefficients of the polynomial in the ring.
 	rank int
-	// expFac is the expansion factor of the ring.
-	// If the expansion factor is too large, it is set to 0.
-	expFac uint64
 	// ringType is the type of the ring.
 	ringType RingType
 	// modPoly is the modulus polynomial of the ring.
@@ -55,7 +51,6 @@ func NewCyclotomicParameters(cycloIdx int) RingParameters {
 	return RingParameters{
 		cycloIdx: cycloIdx,
 		rank:     len(cycloPoly) - 1,
-		expFac:   cyclotomicExpFac(cycloIdx, cycloPoly),
 		ringType: TypeCyclotomic,
 		modPoly:  cycloPoly,
 	}
@@ -74,7 +69,6 @@ func NewCyclicParameters(rank int) RingParameters {
 	return RingParameters{
 		cycloIdx: 0,
 		rank:     rank,
-		expFac:   cyclicExpFac(rank),
 		ringType: TypeCyclic,
 		modPoly:  modPoly,
 	}
@@ -102,7 +96,6 @@ func NewAutFixedParameters(cycloIdx, rank int) RingParameters {
 	return RingParameters{
 		cycloIdx: cycloIdx,
 		rank:     rank,
-		expFac:   autFixedExpFac(cycloIdx),
 		ringType: TypeAutFixed,
 		modPoly:  CyclotomicPolynomial(cycloIdx),
 	}
@@ -119,7 +112,6 @@ func NewOtherParameters(modPoly []int64) RingParameters {
 	return RingParameters{
 		cycloIdx: 0,
 		rank:     len(modPoly) - 1,
-		expFac:   otherExpFac(modPoly),
 		ringType: TypeOther,
 		modPoly:  modPoly,
 	}
@@ -136,12 +128,6 @@ func (p RingParameters) Rank() int {
 	return p.rank
 }
 
-// ExpandFactor is the expansion factor of the ring.
-// If the expansion factor is too large, it is set to 0.
-func (p RingParameters) ExpandFactor() uint64 {
-	return p.expFac
-}
-
 // ModulusPoly returns the modulus polynomial of the ring.
 func (p RingParameters) ModulusPoly() []int64 {
 	return p.modPoly
@@ -152,88 +138,14 @@ func (p RingParameters) RingType() RingType {
 	return p.ringType
 }
 
-// Equal checks if two parameters are equal.
-func (p RingParameters) Equal(p0 RingParameters) bool {
+// IsEqual checks if two parameters are equal.
+func (p RingParameters) IsEqual(p0 RingParameters) bool {
 	eq := p.cycloIdx == p0.cycloIdx && p.rank == p0.rank && p.ringType == p0.ringType
 
 	if p.ringType == TypeOther {
 		return eq && slices.Equal(p.modPoly, p0.modPoly)
 	}
 	return eq
-}
-
-// cyclotomicExpFac computes the expansion factor for cyclotomic ring.
-func cyclotomicExpFac(cycloIdx int, cycloPoly []int64) uint64 {
-	if num.IsPowerOfTwo(cycloIdx) {
-		return uint64(cycloIdx >> 1)
-	}
-
-	rank := len(cycloPoly) - 1
-	primes, _ := num.Factor(cycloIdx)
-	if len(primes) == 1 {
-		return uint64(2*rank - cycloIdx/primes[0])
-	}
-
-	return otherExpFac(cycloPoly)
-}
-
-// cyclicExpFac computes the expansion factor of the cyclic ring.
-func cyclicExpFac(rank int) uint64 {
-	return uint64(rank)
-}
-
-// autFixedExpFac computes the expansion factor of the autfixed ring.
-func autFixedExpFac(cycloIdx int) uint64 {
-	if num.IsPowerOfTwo(cycloIdx) {
-		return uint64(cycloIdx >> 1)
-	}
-
-	return uint64(2*cycloIdx - 2)
-}
-
-// otherExpFac computes the expansion factor of arbitrary quotient ring.
-func otherExpFac(modPoly []int64) uint64 {
-	deg := len(modPoly) - 1
-	modPolyFloat := vec.Cast[float64](modPoly)
-
-	bounds := make([]float64, deg)
-	r := make([]float64, deg)
-	r[0] = 1
-
-	for m := 0; m < 2*deg-1; m++ {
-		w := float64(min(m+1, 2*deg-1-m))
-		for k := 0; k < deg; k++ {
-			if r[k] == 0 {
-				continue
-			}
-			bounds[k] += w * math.Abs(r[k])
-		}
-
-		if m == 2*deg-2 {
-			break
-		}
-
-		lc := r[len(r)-1]
-		copy(r[1:], r[:len(r)-1])
-		r[0] = 0
-		if lc == 0 {
-			continue
-		}
-		for i := 0; i < deg; i++ {
-			if modPolyFloat[i] == 0 {
-				continue
-			}
-			r[i] -= lc * modPolyFloat[i]
-		}
-	}
-
-	for i := range bounds {
-		if math.IsNaN(bounds[i]) || bounds[i] >= math.Ldexp(1, 52) {
-			return 0
-		}
-	}
-
-	return uint64(math.Ceil(vec.Max(bounds)))
 }
 
 // cyclotomicGap finds the "gap" of the NTT-friendly modulus for cyclotomic rings.
@@ -348,7 +260,7 @@ func NextNTTPrimes(params RingParameters, bits float64, cnt int) []*num.Modulus 
 	return primes
 }
 
-// PrevNTTPrimes finds a list of prime moduli that are NTT-friendly and greater than or equal to 2^bits.
+// PrevNTTPrimes finds a list of prime moduli that are NTT-friendly and less than or equal to 2^bits.
 //
 // Panics if no such primes exist.
 func PrevNTTPrimes(params RingParameters, bits float64, cnt int) []*num.Modulus {

@@ -6,7 +6,7 @@ import (
 	"github.com/mmcloughlin/avo/reg"
 )
 
-func FwdButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo reg.VecVirtual) {
+func FwdButterflyAVX512(u, v, w, wS, wSHi, q, twoQ reg.VecVirtual) {
 	vHi := ZMM()
 	VPSRLQ(Imm(32), v, vHi)
 
@@ -15,7 +15,7 @@ func FwdButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo reg.VecVirtual) {
 	VPMINUQ(uQ, u, u)
 
 	quo, t0, t1 := ZMM(), ZMM(), ZMM()
-	Mul64HiApproxAVX512(v, vHi, wS, wSHi, maskLo, quo)
+	Mul64HiApproxAVX512(v, vHi, wS, wSHi, quo)
 	VPMULLQ(v, w, t0)
 	VPMULLQ(quo, q, t1)
 	VPSUBQ(t1, t0, t0)
@@ -29,7 +29,7 @@ func FwdButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo reg.VecVirtual) {
 	VPADDQ(t0, u, u)
 }
 
-func InvButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo reg.VecVirtual) {
+func InvButterflyAVX512(u, v, w, wS, wSHi, q, twoQ reg.VecVirtual) {
 	uSubv := ZMM()
 	VPSUBQ(v, u, uSubv)
 	VPADDQ(v, u, u)
@@ -43,7 +43,7 @@ func InvButterflyAVX512(u, v, w, wS, wSHi, q, twoQ, maskLo reg.VecVirtual) {
 	VPSRLQ(Imm(32), v, vHi)
 
 	quo := ZMM()
-	Mul64HiApproxAVX512(v, vHi, wS, wSHi, maskLo, quo)
+	Mul64HiApproxAVX512(v, vHi, wS, wSHi, quo)
 	VPMULLQ(v, w, v)
 	VPMULLQ(quo, q, quo)
 	VPSUBQ(quo, v, v)

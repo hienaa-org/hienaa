@@ -19,7 +19,7 @@ const (
 
 // Modulus holds precomputed constants for efficient modulus reduction.
 type Modulus struct {
-	// value is the raw value value.
+	// value is the raw value.
 	value uint64
 
 	// inv is a constant used for Montgomery multiplication.
@@ -150,7 +150,7 @@ func MForm(x uint64, q *Modulus) uint64 {
 	return modops.MForm(x, q.value, q.divHi, q.divLo)
 }
 
-// InvMForm transforms xM to Normal form.
+// InvMForm transforms xM to Standard form.
 func InvMForm(xM uint64, q *Modulus) uint64 {
 	if q.inv == 0 {
 		panic("modulus must be odd")
@@ -167,8 +167,8 @@ func MMul(x0M, x1M uint64, q *Modulus) uint64 {
 // MMulLazy returns x0 * x1 mod q in Montgomery form,
 // but the result is in [0, 2q).
 // x0M and x1M must be a valid Montgomery form.
-func MMulLazy(x0M, y0M uint64, q *Modulus) uint64 {
-	return modops.MMulLazy(x0M, y0M, q.value, q.inv)
+func MMulLazy(x0M, x1M uint64, q *Modulus) uint64 {
+	return modops.MMulLazy(x0M, x1M, q.value, q.inv)
 }
 
 // SForm transforms x into Shoup form.
@@ -234,7 +234,7 @@ func Reduce4Q(x uint64, q *Modulus) uint64 {
 
 // Exp returns x^e mod q.
 //
-// If q is nil, it returns x^e mod q.
+// If q is nil, it returns x^e.
 func Exp[Q uint64 | *Modulus](x, e uint64, q Q) uint64 {
 	r := uint64(1)
 

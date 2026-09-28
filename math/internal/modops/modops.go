@@ -174,7 +174,7 @@ func MForm(x, q, divHi, divLo uint64) uint64 {
 	return xOutM
 }
 
-// InvMForm transforms xM to Normal form.
+// InvMForm transforms xM to Standard form.
 func InvMForm(xM, q, inv uint64) uint64 {
 	x, _ := bits.Mul64(xM*inv, q)
 
