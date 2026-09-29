@@ -231,7 +231,7 @@ func BenchmarkCyclotomicNTT(b *testing.B) {
 		for _, logN := range benchLogN {
 			sqrtN := int(math.Sqrt(math.Exp2(float64(logN))))
 			m0 := num.NextPrime(sqrtN, 1)
-			m1 := num.NextPrime(m0, 2)
+			m1 := num.NextPrime(m0+2, 2)
 			M := m0 * m1
 
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {

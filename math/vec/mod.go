@@ -7,8 +7,8 @@ import (
 	"github.com/hienaa-org/hienaa/math/num"
 )
 
-// vecScalarOpOut outputs vOut for vec-scalar operations.
-func vecScalarOpOut[T0, T1 uint64 | []uint64](v0 T0, v1 T1) []uint64 {
+// newVecScalarOpOut outputs vOut for vec-scalar operations.
+func newVecScalarOpOut[T0, T1 uint64 | []uint64](v0 T0, v1 T1) []uint64 {
 	v0Vec, v0IsVec := any(v0).([]uint64)
 	v1Vec, v1IsVec := any(v1).([]uint64)
 
@@ -22,12 +22,21 @@ func vecScalarOpOut[T0, T1 uint64 | []uint64](v0 T0, v1 T1) []uint64 {
 	return make([]uint64, len(v1Vec))
 }
 
+// orderByType returns v0, v1 as (uint64, []uint64).
+// Assumes one of v0, v1 is uint64 and the other is []uint64.
+func orderByType(v0IsScalar bool, v0Scalar uint64, v0Vec []uint64, v1Scalar uint64, v1Vec []uint64) (uint64, []uint64) {
+	if v0IsScalar {
+		return v0Scalar, v1Vec
+	}
+	return v1Scalar, v0Vec
+}
+
 // Add returns vOut = v0 + v1 mod q.
 // If q is nil, then it returns vOut = v0 + v1.
 //
 // Panics when v0, v1 are scalars or have different lengths.
 func Add[T0, T1 uint64 | []uint64](v0 T0, v1 T1, q *num.Modulus) []uint64 {
-	vOut := vecScalarOpOut(v0, v1)
+	vOut := newVecScalarOpOut(v0, v1)
 	AddTo(vOut, v0, v1, q)
 	return vOut
 }
@@ -37,7 +46,7 @@ func Add[T0, T1 uint64 | []uint64](v0 T0, v1 T1, q *num.Modulus) []uint64 {
 //
 // Panics when v0, v1 are scalars or have different lengths.
 func Sub[T0, T1 uint64 | []uint64](v0 T0, v1 T1, q *num.Modulus) []uint64 {
-	vOut := vecScalarOpOut(v0, v1)
+	vOut := newVecScalarOpOut(v0, v1)
 	SubTo(vOut, v0, v1, q)
 	return vOut
 }
@@ -65,7 +74,7 @@ func NegTo(vOut, v []uint64, q *num.Modulus) {
 //
 // Panics when v0, v1 are scalars or have different lengths.
 func Mul[T0, T1 uint64 | []uint64](v0 T0, v1 T1, q *num.Modulus) []uint64 {
-	vOut := vecScalarOpOut(v0, v1)
+	vOut := newVecScalarOpOut(v0, v1)
 	MulTo(vOut, v0, v1, q)
 	return vOut
 }
@@ -75,38 +84,30 @@ func Mul[T0, T1 uint64 | []uint64](v0 T0, v1 T1, q *num.Modulus) []uint64 {
 //
 // Panics when v0, v1 are scalars or have different lengths.
 func MulTo[T0, T1 uint64 | []uint64](vOut []uint64, v0 T0, v1 T1, q *num.Modulus) {
-	switch v0 := any(v0).(type) {
-	case uint64:
-		switch v1 := any(v1).(type) {
-		case uint64:
-			panic("inconsistent input(s)")
+	v0Scalar, v0IsScalar := any(v0).(uint64)
+	v0Vec, _ := any(v0).([]uint64)
 
-		case []uint64:
-			if q == nil {
-				mulScalarWordTo(vOut, v1, v0)
-				return
-			}
-			v0 = num.Reduce(v0, q)
-			sMulScalarTo(vOut, v1, v0, num.SForm(v0, q), q)
+	v1Scalar, v1IsScalar := any(v1).(uint64)
+	v1Vec, _ := any(v1).([]uint64)
+
+	switch {
+	case v0IsScalar && v1IsScalar:
+		panic("inconsistent input(s)")
+
+	case !v0IsScalar && !v1IsScalar:
+		if q == nil {
+			mulWordTo(vOut, v0Vec, v1Vec)
+			return
 		}
+		mulTo(vOut, v0Vec, v1Vec, q)
 
-	case []uint64:
-		switch v1 := any(v1).(type) {
-		case uint64:
-			if q == nil {
-				mulScalarWordTo(vOut, v0, v1)
-				return
-			}
-			v1 = num.Reduce(v1, q)
-			sMulScalarTo(vOut, v0, v1, num.SForm(v1, q), q)
-
-		case []uint64:
-			if q == nil {
-				mulWordTo(vOut, v0, v1)
-				return
-			}
-			mulTo(vOut, v0, v1, q)
+	default:
+		c, v := orderByType(v0IsScalar, v0Scalar, v0Vec, v1Scalar, v1Vec)
+		if q == nil {
+			mulScalarWordTo(vOut, v, c)
+			return
 		}
+		sMulScalarTo(vOut, v, c, num.SForm(c, q), q)
 	}
 }
 
@@ -150,38 +151,30 @@ func mulTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 //
 // Panics when v0, v1 are scalars or have different lengths.
 func MulAddTo[T0, T1 uint64 | []uint64](vOut []uint64, v0 T0, v1 T1, q *num.Modulus) {
-	switch v0 := any(v0).(type) {
-	case uint64:
-		switch v1 := any(v1).(type) {
-		case uint64:
-			panic("inconsistent input(s)")
+	v0Scalar, v0IsScalar := any(v0).(uint64)
+	v0Vec, _ := any(v0).([]uint64)
 
-		case []uint64:
-			if q == nil {
-				mulAddScalarWordTo(vOut, v1, v0)
-				return
-			}
-			v0 = num.Reduce(v0, q)
-			sMulAddScalarTo(vOut, v1, v0, num.SForm(v0, q), q)
+	v1Scalar, v1IsScalar := any(v1).(uint64)
+	v1Vec, _ := any(v1).([]uint64)
+
+	switch {
+	case v0IsScalar && v1IsScalar:
+		panic("inconsistent input(s)")
+
+	case !v0IsScalar && !v1IsScalar:
+		if q == nil {
+			mulAddWordTo(vOut, v0Vec, v1Vec)
+			return
 		}
+		mulAddTo(vOut, v0Vec, v1Vec, q)
 
-	case []uint64:
-		switch v1 := any(v1).(type) {
-		case uint64:
-			if q == nil {
-				mulAddScalarWordTo(vOut, v0, v1)
-				return
-			}
-			v1 = num.Reduce(v1, q)
-			sMulAddScalarTo(vOut, v0, v1, num.SForm(v1, q), q)
-
-		case []uint64:
-			if q == nil {
-				mulAddWordTo(vOut, v0, v1)
-				return
-			}
-			mulAddTo(vOut, v0, v1, q)
+	default:
+		c, v := orderByType(v0IsScalar, v0Scalar, v0Vec, v1Scalar, v1Vec)
+		if q == nil {
+			mulAddScalarWordTo(vOut, v, c)
+			return
 		}
+		sMulAddScalarTo(vOut, v, c, num.SForm(c, q), q)
 	}
 }
 
@@ -225,38 +218,30 @@ func mulAddTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 //
 // Panics when v0, v1 are scalars or have different lengths.
 func MulSubTo[T0, T1 uint64 | []uint64](vOut []uint64, v0 T0, v1 T1, q *num.Modulus) {
-	switch v0 := any(v0).(type) {
-	case uint64:
-		switch v1 := any(v1).(type) {
-		case uint64:
-			panic("inconsistent input(s)")
+	v0Scalar, v0IsScalar := any(v0).(uint64)
+	v0Vec, _ := any(v0).([]uint64)
 
-		case []uint64:
-			if q == nil {
-				mulSubScalarWordTo(vOut, v1, v0)
-				return
-			}
-			v0 = num.Reduce(v0, q)
-			sMulSubScalarTo(vOut, v1, v0, num.SForm(v0, q), q)
+	v1Scalar, v1IsScalar := any(v1).(uint64)
+	v1Vec, _ := any(v1).([]uint64)
+
+	switch {
+	case v0IsScalar && v1IsScalar:
+		panic("inconsistent input(s)")
+
+	case !v0IsScalar && !v1IsScalar:
+		if q == nil {
+			mulSubWordTo(vOut, v0Vec, v1Vec)
+			return
 		}
+		mulSubTo(vOut, v0Vec, v1Vec, q)
 
-	case []uint64:
-		switch v1 := any(v1).(type) {
-		case uint64:
-			if q == nil {
-				mulSubScalarWordTo(vOut, v0, v1)
-				return
-			}
-			v1 = num.Reduce(v1, q)
-			sMulSubScalarTo(vOut, v0, v1, num.SForm(v1, q), q)
-
-		case []uint64:
-			if q == nil {
-				mulSubWordTo(vOut, v0, v1)
-				return
-			}
-			mulSubTo(vOut, v0, v1, q)
+	default:
+		c, v := orderByType(v0IsScalar, v0Scalar, v0Vec, v1Scalar, v1Vec)
+		if q == nil {
+			mulSubScalarWordTo(vOut, v, c)
+			return
 		}
+		sMulSubScalarTo(vOut, v, c, num.SForm(c, q), q)
 	}
 }
 
@@ -300,7 +285,7 @@ func mulSubTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 //
 // Panics when v0, v1 are scalars or have different lengths, or q is nil.
 func MulLazy[T0, T1 uint64 | []uint64](v0 T0, v1 T1, q *num.Modulus) []uint64 {
-	vOut := vecScalarOpOut(v0, v1)
+	vOut := newVecScalarOpOut(v0, v1)
 	MulLazyTo(vOut, v0, v1, q)
 	return vOut
 }
@@ -310,26 +295,22 @@ func MulLazy[T0, T1 uint64 | []uint64](v0 T0, v1 T1, q *num.Modulus) []uint64 {
 //
 // Panics when v0, v1 are scalars or have different lengths, or q is nil.
 func MulLazyTo[T0, T1 uint64 | []uint64](vOut []uint64, v0 T0, v1 T1, q *num.Modulus) {
-	switch v0 := any(v0).(type) {
-	case uint64:
-		switch v1 := any(v1).(type) {
-		case uint64:
-			panic("inconsistent input(s)")
+	v0Scalar, v0IsScalar := any(v0).(uint64)
+	v0Vec, _ := any(v0).([]uint64)
 
-		case []uint64:
-			v0 = num.Reduce(v0, q)
-			sMulScalarLazyTo(vOut, v1, v0, num.SForm(v0, q), q)
-		}
+	v1Scalar, v1IsScalar := any(v1).(uint64)
+	v1Vec, _ := any(v1).([]uint64)
 
-	case []uint64:
-		switch v1 := any(v1).(type) {
-		case uint64:
-			v1 = num.Reduce(v1, q)
-			sMulScalarLazyTo(vOut, v0, v1, num.SForm(v1, q), q)
+	switch {
+	case v0IsScalar && v1IsScalar:
+		panic("inconsistent input(s)")
 
-		case []uint64:
-			mulLazyTo(vOut, v0, v1, q)
-		}
+	case !v0IsScalar && !v1IsScalar:
+		mulLazyTo(vOut, v0Vec, v1Vec, q)
+
+	default:
+		c, v := orderByType(v0IsScalar, v0Scalar, v0Vec, v1Scalar, v1Vec)
+		sMulScalarLazyTo(vOut, v, c, num.SForm(c, q), q)
 	}
 }
 
@@ -374,26 +355,22 @@ func mulLazyTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 //
 // Panics when v0, v1 are scalars or have different lengths, or q is nil.
 func MulAddLazyTo[T0, T1 uint64 | []uint64](vOut []uint64, v0 T0, v1 T1, q *num.Modulus) {
-	switch v0 := any(v0).(type) {
-	case uint64:
-		switch v1 := any(v1).(type) {
-		case uint64:
-			panic("inconsistent input(s)")
+	v0Scalar, v0IsScalar := any(v0).(uint64)
+	v0Vec, _ := any(v0).([]uint64)
 
-		case []uint64:
-			v0 = num.Reduce(v0, q)
-			sMulAddScalarLazyTo(vOut, v1, v0, num.SForm(v0, q), q)
-		}
+	v1Scalar, v1IsScalar := any(v1).(uint64)
+	v1Vec, _ := any(v1).([]uint64)
 
-	case []uint64:
-		switch v1 := any(v1).(type) {
-		case uint64:
-			v1 = num.Reduce(v1, q)
-			sMulAddScalarLazyTo(vOut, v0, v1, num.SForm(v1, q), q)
+	switch {
+	case v0IsScalar && v1IsScalar:
+		panic("inconsistent input(s)")
 
-		case []uint64:
-			mulAddLazyTo(vOut, v0, v1, q)
-		}
+	case !v0IsScalar && !v1IsScalar:
+		mulAddLazyTo(vOut, v0Vec, v1Vec, q)
+
+	default:
+		c, v := orderByType(v0IsScalar, v0Scalar, v0Vec, v1Scalar, v1Vec)
+		sMulAddScalarLazyTo(vOut, v, c, num.SForm(c, q), q)
 	}
 }
 
@@ -438,26 +415,22 @@ func mulAddLazyTo(vOut, v0, v1 []uint64, q *num.Modulus) {
 //
 // Panics when v0, v1 are scalars or have different lengths, or q is nil.
 func MulSubLazyTo[T0, T1 uint64 | []uint64](vOut []uint64, v0 T0, v1 T1, q *num.Modulus) {
-	switch v0 := any(v0).(type) {
-	case uint64:
-		switch v1 := any(v1).(type) {
-		case uint64:
-			panic("inconsistent input(s)")
+	v0Scalar, v0IsScalar := any(v0).(uint64)
+	v0Vec, _ := any(v0).([]uint64)
 
-		case []uint64:
-			v0 = num.Reduce(v0, q)
-			sMulSubScalarLazyTo(vOut, v1, v0, num.SForm(v0, q), q)
-		}
+	v1Scalar, v1IsScalar := any(v1).(uint64)
+	v1Vec, _ := any(v1).([]uint64)
 
-	case []uint64:
-		switch v1 := any(v1).(type) {
-		case uint64:
-			v1 = num.Reduce(v1, q)
-			sMulSubScalarLazyTo(vOut, v0, v1, num.SForm(v1, q), q)
+	switch {
+	case v0IsScalar && v1IsScalar:
+		panic("inconsistent input(s)")
 
-		case []uint64:
-			mulSubLazyTo(vOut, v0, v1, q)
-		}
+	case !v0IsScalar && !v1IsScalar:
+		mulSubLazyTo(vOut, v0Vec, v1Vec, q)
+
+	default:
+		c, v := orderByType(v0IsScalar, v0Scalar, v0Vec, v1Scalar, v1Vec)
+		sMulSubScalarLazyTo(vOut, v, c, num.SForm(c, q), q)
 	}
 }
 
@@ -519,7 +492,7 @@ func InvMForm(vM []uint64, q *num.Modulus) []uint64 {
 //
 // Panics when v0, v1 are scalars or have different lengths, or q is nil.
 func MMul[T0, T1 uint64 | []uint64](v0M T0, v1M T1, q *num.Modulus) []uint64 {
-	vOutM := vecScalarOpOut(v0M, v1M)
+	vOutM := newVecScalarOpOut(v0M, v1M)
 	MMulTo(vOutM, v0M, v1M, q)
 	return vOutM
 }
@@ -528,24 +501,22 @@ func MMul[T0, T1 uint64 | []uint64](v0M T0, v1M T1, q *num.Modulus) []uint64 {
 //
 // Panics when v0, v1 are scalars or have different lengths, or q is nil.
 func MMulTo[T0, T1 uint64 | []uint64](vOutM []uint64, v0M T0, v1M T1, q *num.Modulus) {
-	switch v0 := any(v0M).(type) {
-	case uint64:
-		switch v1 := any(v1M).(type) {
-		case uint64:
-			panic("inconsistent input(s)")
+	v0Scalar, v0IsScalar := any(v0M).(uint64)
+	v0Vec, _ := any(v0M).([]uint64)
 
-		case []uint64:
-			mMulScalarTo(vOutM, v1, v0, q)
-		}
+	v1Scalar, v1IsScalar := any(v1M).(uint64)
+	v1Vec, _ := any(v1M).([]uint64)
 
-	case []uint64:
-		switch v1 := any(v1M).(type) {
-		case uint64:
-			mMulScalarTo(vOutM, v0, v1, q)
+	switch {
+	case v0IsScalar && v1IsScalar:
+		panic("inconsistent input(s)")
 
-		case []uint64:
-			mMulTo(vOutM, v0, v1, q)
-		}
+	case !v0IsScalar && !v1IsScalar:
+		mMulTo(vOutM, v0Vec, v1Vec, q)
+
+	default:
+		c, v := orderByType(v0IsScalar, v0Scalar, v0Vec, v1Scalar, v1Vec)
+		mMulScalarTo(vOutM, v, c, q)
 	}
 }
 
@@ -553,24 +524,22 @@ func MMulTo[T0, T1 uint64 | []uint64](vOutM []uint64, v0M T0, v1M T1, q *num.Mod
 //
 // Panics when v0, v1 are scalars or have different lengths, or q is nil.
 func MMulAddTo[T0, T1 uint64 | []uint64](vOutM []uint64, v0M T0, v1M T1, q *num.Modulus) {
-	switch v0 := any(v0M).(type) {
-	case uint64:
-		switch v1 := any(v1M).(type) {
-		case uint64:
-			panic("inconsistent input(s)")
+	v0Scalar, v0IsScalar := any(v0M).(uint64)
+	v0Vec, _ := any(v0M).([]uint64)
 
-		case []uint64:
-			mMulAddScalarTo(vOutM, v1, v0, q)
-		}
+	v1Scalar, v1IsScalar := any(v1M).(uint64)
+	v1Vec, _ := any(v1M).([]uint64)
 
-	case []uint64:
-		switch v1 := any(v1M).(type) {
-		case uint64:
-			mMulAddScalarTo(vOutM, v0, v1, q)
+	switch {
+	case v0IsScalar && v1IsScalar:
+		panic("inconsistent input(s)")
 
-		case []uint64:
-			mMulAddTo(vOutM, v0, v1, q)
-		}
+	case !v0IsScalar && !v1IsScalar:
+		mMulAddTo(vOutM, v0Vec, v1Vec, q)
+
+	default:
+		c, v := orderByType(v0IsScalar, v0Scalar, v0Vec, v1Scalar, v1Vec)
+		mMulAddScalarTo(vOutM, v, c, q)
 	}
 }
 
@@ -578,24 +547,22 @@ func MMulAddTo[T0, T1 uint64 | []uint64](vOutM []uint64, v0M T0, v1M T1, q *num.
 //
 // Panics when v0, v1 are scalars or have different lengths, or q is nil.
 func MMulSubTo[T0, T1 uint64 | []uint64](vOutM []uint64, v0M T0, v1M T1, q *num.Modulus) {
-	switch v0 := any(v0M).(type) {
-	case uint64:
-		switch v1 := any(v1M).(type) {
-		case uint64:
-			panic("inconsistent input(s)")
+	v0Scalar, v0IsScalar := any(v0M).(uint64)
+	v0Vec, _ := any(v0M).([]uint64)
 
-		case []uint64:
-			mMulSubScalarTo(vOutM, v1, v0, q)
-		}
+	v1Scalar, v1IsScalar := any(v1M).(uint64)
+	v1Vec, _ := any(v1M).([]uint64)
 
-	case []uint64:
-		switch v1 := any(v1M).(type) {
-		case uint64:
-			mMulSubScalarTo(vOutM, v0, v1, q)
+	switch {
+	case v0IsScalar && v1IsScalar:
+		panic("inconsistent input(s)")
 
-		case []uint64:
-			mMulSubTo(vOutM, v0, v1, q)
-		}
+	case !v0IsScalar && !v1IsScalar:
+		mMulSubTo(vOutM, v0Vec, v1Vec, q)
+
+	default:
+		c, v := orderByType(v0IsScalar, v0Scalar, v0Vec, v1Scalar, v1Vec)
+		mMulSubScalarTo(vOutM, v, c, q)
 	}
 }
 
@@ -604,7 +571,7 @@ func MMulSubTo[T0, T1 uint64 | []uint64](vOutM []uint64, v0M T0, v1M T1, q *num.
 //
 // Panics when v0, v1 are scalars or have different lengths, or q is nil.
 func MMulLazy[T0, T1 uint64 | []uint64](v0M T0, v1M T1, q *num.Modulus) []uint64 {
-	vOutM := vecScalarOpOut(v0M, v1M)
+	vOutM := newVecScalarOpOut(v0M, v1M)
 	MMulLazyTo(vOutM, v0M, v1M, q)
 	return vOutM
 }
@@ -614,24 +581,22 @@ func MMulLazy[T0, T1 uint64 | []uint64](v0M T0, v1M T1, q *num.Modulus) []uint64
 //
 // Panics when v0, v1 are scalars or have different lengths, or q is nil.
 func MMulLazyTo[T0, T1 uint64 | []uint64](vOutM []uint64, v0M T0, v1M T1, q *num.Modulus) {
-	switch v0 := any(v0M).(type) {
-	case uint64:
-		switch v1 := any(v1M).(type) {
-		case uint64:
-			panic("inconsistent input(s)")
+	v0Scalar, v0IsScalar := any(v0M).(uint64)
+	v0Vec, _ := any(v0M).([]uint64)
 
-		case []uint64:
-			mMulScalarLazyTo(vOutM, v1, v0, q)
-		}
+	v1Scalar, v1IsScalar := any(v1M).(uint64)
+	v1Vec, _ := any(v1M).([]uint64)
 
-	case []uint64:
-		switch v1 := any(v1M).(type) {
-		case uint64:
-			mMulScalarLazyTo(vOutM, v0, v1, q)
+	switch {
+	case v0IsScalar && v1IsScalar:
+		panic("inconsistent input(s)")
 
-		case []uint64:
-			mMulLazyTo(vOutM, v0, v1, q)
-		}
+	case !v0IsScalar && !v1IsScalar:
+		mMulLazyTo(vOutM, v0Vec, v1Vec, q)
+
+	default:
+		c, v := orderByType(v0IsScalar, v0Scalar, v0Vec, v1Scalar, v1Vec)
+		mMulScalarLazyTo(vOutM, v, c, q)
 	}
 }
 
@@ -640,24 +605,22 @@ func MMulLazyTo[T0, T1 uint64 | []uint64](vOutM []uint64, v0M T0, v1M T1, q *num
 //
 // Panics when v0, v1 are scalars or have different lengths, or q is nil.
 func MMulAddLazyTo[T0, T1 uint64 | []uint64](vOutM []uint64, v0M T0, v1M T1, q *num.Modulus) {
-	switch v0 := any(v0M).(type) {
-	case uint64:
-		switch v1 := any(v1M).(type) {
-		case uint64:
-			panic("inconsistent input(s)")
+	v0Scalar, v0IsScalar := any(v0M).(uint64)
+	v0Vec, _ := any(v0M).([]uint64)
 
-		case []uint64:
-			mMulAddScalarLazyTo(vOutM, v1, v0, q)
-		}
+	v1Scalar, v1IsScalar := any(v1M).(uint64)
+	v1Vec, _ := any(v1M).([]uint64)
 
-	case []uint64:
-		switch v1 := any(v1M).(type) {
-		case uint64:
-			mMulAddScalarLazyTo(vOutM, v0, v1, q)
+	switch {
+	case v0IsScalar && v1IsScalar:
+		panic("inconsistent input(s)")
 
-		case []uint64:
-			mMulAddLazyTo(vOutM, v0, v1, q)
-		}
+	case !v0IsScalar && !v1IsScalar:
+		mMulAddLazyTo(vOutM, v0Vec, v1Vec, q)
+
+	default:
+		c, v := orderByType(v0IsScalar, v0Scalar, v0Vec, v1Scalar, v1Vec)
+		mMulAddScalarLazyTo(vOutM, v, c, q)
 	}
 }
 
@@ -666,24 +629,22 @@ func MMulAddLazyTo[T0, T1 uint64 | []uint64](vOutM []uint64, v0M T0, v1M T1, q *
 //
 // Panics when v0, v1 are scalars or have different lengths, or q is nil.
 func MMulSubLazyTo[T0, T1 uint64 | []uint64](vOutM []uint64, v0M T0, v1M T1, q *num.Modulus) {
-	switch v0 := any(v0M).(type) {
-	case uint64:
-		switch v1 := any(v1M).(type) {
-		case uint64:
-			panic("inconsistent input(s)")
+	v0Scalar, v0IsScalar := any(v0M).(uint64)
+	v0Vec, _ := any(v0M).([]uint64)
 
-		case []uint64:
-			mMulSubScalarLazyTo(vOutM, v1, v0, q)
-		}
+	v1Scalar, v1IsScalar := any(v1M).(uint64)
+	v1Vec, _ := any(v1M).([]uint64)
 
-	case []uint64:
-		switch v1 := any(v1M).(type) {
-		case uint64:
-			mMulSubScalarLazyTo(vOutM, v0, v1, q)
+	switch {
+	case v0IsScalar && v1IsScalar:
+		panic("inconsistent input(s)")
 
-		case []uint64:
-			mMulSubLazyTo(vOutM, v0, v1, q)
-		}
+	case !v0IsScalar && !v1IsScalar:
+		mMulSubLazyTo(vOutM, v0Vec, v1Vec, q)
+
+	default:
+		c, v := orderByType(v0IsScalar, v0Scalar, v0Vec, v1Scalar, v1Vec)
+		mMulSubScalarLazyTo(vOutM, v, c, q)
 	}
 }
 
@@ -734,7 +695,7 @@ func SFormTo(vOutS, v []uint64, q *num.Modulus) {
 //
 // Panics when v0, v1 have different lengths, or q is nil.
 func SMul[T1 uint64 | []uint64](v0 []uint64, v1, v1S T1, q *num.Modulus) []uint64 {
-	vOut := vecScalarOpOut(v0, v1)
+	vOut := newVecScalarOpOut(v0, v1)
 	SMulTo(vOut, v0, v1, v1S, q)
 	return vOut
 }
@@ -743,18 +704,18 @@ func SMul[T1 uint64 | []uint64](v0 []uint64, v1, v1S T1, q *num.Modulus) []uint6
 //
 // Panics when v0, v1 have different lengths, or q is nil.
 func SMulTo[T1 uint64 | []uint64](vOut, v0 []uint64, v1, v1S T1, q *num.Modulus) {
-	switch v1 := any(v1).(type) {
-	case uint64:
-		switch v1S := any(v1S).(type) {
-		case uint64:
-			sMulScalarTo(vOut, v0, v1, v1S, q)
-		}
+	v1Scalar, v1IsScalar := any(v1).(uint64)
+	v1Vec, _ := any(v1).([]uint64)
 
-	case []uint64:
-		switch v1S := any(v1S).(type) {
-		case []uint64:
-			sMulTo(vOut, v0, v1, v1S, q)
-		}
+	v1SScalar, _ := any(v1S).(uint64)
+	v1SVec, _ := any(v1S).([]uint64)
+
+	switch {
+	case v1IsScalar:
+		sMulScalarTo(vOut, v0, v1Scalar, v1SScalar, q)
+
+	case !v1IsScalar:
+		sMulTo(vOut, v0, v1Vec, v1SVec, q)
 	}
 }
 
@@ -762,18 +723,18 @@ func SMulTo[T1 uint64 | []uint64](vOut, v0 []uint64, v1, v1S T1, q *num.Modulus)
 //
 // Panics when v0, v1 have different lengths, or q is nil.
 func SMulAddTo[T1 uint64 | []uint64](vOut, v0 []uint64, v1, v1S T1, q *num.Modulus) {
-	switch v1 := any(v1).(type) {
-	case uint64:
-		switch v1S := any(v1S).(type) {
-		case uint64:
-			sMulAddScalarTo(vOut, v0, v1, v1S, q)
-		}
+	v1Scalar, v1IsScalar := any(v1).(uint64)
+	v1Vec, _ := any(v1).([]uint64)
 
-	case []uint64:
-		switch v1S := any(v1S).(type) {
-		case []uint64:
-			sMulAddTo(vOut, v0, v1, v1S, q)
-		}
+	v1SScalar, _ := any(v1S).(uint64)
+	v1SVec, _ := any(v1S).([]uint64)
+
+	switch {
+	case v1IsScalar:
+		sMulAddScalarTo(vOut, v0, v1Scalar, v1SScalar, q)
+
+	case !v1IsScalar:
+		sMulAddTo(vOut, v0, v1Vec, v1SVec, q)
 	}
 }
 
@@ -781,18 +742,18 @@ func SMulAddTo[T1 uint64 | []uint64](vOut, v0 []uint64, v1, v1S T1, q *num.Modul
 //
 // Panics when v0, v1 have different lengths, or q is nil.
 func SMulSubTo[T1 uint64 | []uint64](vOut, v0 []uint64, v1, v1S T1, q *num.Modulus) {
-	switch v1 := any(v1).(type) {
-	case uint64:
-		switch v1S := any(v1S).(type) {
-		case uint64:
-			sMulSubScalarTo(vOut, v0, v1, v1S, q)
-		}
+	v1Scalar, v1IsScalar := any(v1).(uint64)
+	v1Vec, _ := any(v1).([]uint64)
 
-	case []uint64:
-		switch v1S := any(v1S).(type) {
-		case []uint64:
-			sMulSubTo(vOut, v0, v1, v1S, q)
-		}
+	v1SScalar, _ := any(v1S).(uint64)
+	v1SVec, _ := any(v1S).([]uint64)
+
+	switch {
+	case v1IsScalar:
+		sMulSubScalarTo(vOut, v0, v1Scalar, v1SScalar, q)
+
+	case !v1IsScalar:
+		sMulSubTo(vOut, v0, v1Vec, v1SVec, q)
 	}
 }
 
@@ -801,7 +762,7 @@ func SMulSubTo[T1 uint64 | []uint64](vOut, v0 []uint64, v1, v1S T1, q *num.Modul
 //
 // Panics when v0, v1 have different lengths, or q is nil.
 func SMulLazy[T1 uint64 | []uint64](v0 []uint64, v1, v1S T1, q *num.Modulus) []uint64 {
-	vOut := vecScalarOpOut(v0, v1)
+	vOut := newVecScalarOpOut(v0, v1)
 	SMulLazyTo(vOut, v0, v1, v1S, q)
 	return vOut
 }
@@ -811,18 +772,18 @@ func SMulLazy[T1 uint64 | []uint64](v0 []uint64, v1, v1S T1, q *num.Modulus) []u
 //
 // Panics when v0, v1 have different lengths, or q is nil.
 func SMulLazyTo[T1 uint64 | []uint64](vOut, v0 []uint64, v1, v1S T1, q *num.Modulus) {
-	switch v1 := any(v1).(type) {
-	case uint64:
-		switch v1S := any(v1S).(type) {
-		case uint64:
-			sMulScalarLazyTo(vOut, v0, v1, v1S, q)
-		}
+	v1Scalar, v1IsScalar := any(v1).(uint64)
+	v1Vec, _ := any(v1).([]uint64)
 
-	case []uint64:
-		switch v1S := any(v1S).(type) {
-		case []uint64:
-			sMulLazyTo(vOut, v0, v1, v1S, q)
-		}
+	v1SScalar, _ := any(v1S).(uint64)
+	v1SVec, _ := any(v1S).([]uint64)
+
+	switch {
+	case v1IsScalar:
+		sMulScalarLazyTo(vOut, v0, v1Scalar, v1SScalar, q)
+
+	case !v1IsScalar:
+		sMulLazyTo(vOut, v0, v1Vec, v1SVec, q)
 	}
 }
 
@@ -831,18 +792,18 @@ func SMulLazyTo[T1 uint64 | []uint64](vOut, v0 []uint64, v1, v1S T1, q *num.Modu
 //
 // Panics when v0, v1 have different lengths, or q is nil.
 func SMulAddLazyTo[T1 uint64 | []uint64](vOut, v0 []uint64, v1, v1S T1, q *num.Modulus) {
-	switch v1 := any(v1).(type) {
-	case uint64:
-		switch v1S := any(v1S).(type) {
-		case uint64:
-			sMulAddScalarLazyTo(vOut, v0, v1, v1S, q)
-		}
+	v1Scalar, v1IsScalar := any(v1).(uint64)
+	v1Vec, _ := any(v1).([]uint64)
 
-	case []uint64:
-		switch v1S := any(v1S).(type) {
-		case []uint64:
-			sMulAddLazyTo(vOut, v0, v1, v1S, q)
-		}
+	v1SScalar, _ := any(v1S).(uint64)
+	v1SVec, _ := any(v1S).([]uint64)
+
+	switch {
+	case v1IsScalar:
+		sMulAddScalarLazyTo(vOut, v0, v1Scalar, v1SScalar, q)
+
+	case !v1IsScalar:
+		sMulAddLazyTo(vOut, v0, v1Vec, v1SVec, q)
 	}
 }
 
@@ -851,18 +812,18 @@ func SMulAddLazyTo[T1 uint64 | []uint64](vOut, v0 []uint64, v1, v1S T1, q *num.M
 //
 // Panics when v0, v1 have different lengths, or q is nil.
 func SMulSubLazyTo[T1 uint64 | []uint64](vOut, v0 []uint64, v1, v1S T1, q *num.Modulus) {
-	switch v1 := any(v1).(type) {
-	case uint64:
-		switch v1S := any(v1S).(type) {
-		case uint64:
-			sMulSubScalarLazyTo(vOut, v0, v1, v1S, q)
-		}
+	v1Scalar, v1IsScalar := any(v1).(uint64)
+	v1Vec, _ := any(v1).([]uint64)
 
-	case []uint64:
-		switch v1S := any(v1S).(type) {
-		case []uint64:
-			sMulSubLazyTo(vOut, v0, v1, v1S, q)
-		}
+	v1SScalar, _ := any(v1S).(uint64)
+	v1SVec, _ := any(v1S).([]uint64)
+
+	switch {
+	case v1IsScalar:
+		sMulSubScalarLazyTo(vOut, v0, v1Scalar, v1SScalar, q)
+
+	case !v1IsScalar:
+		sMulSubLazyTo(vOut, v0, v1Vec, v1SVec, q)
 	}
 }
 

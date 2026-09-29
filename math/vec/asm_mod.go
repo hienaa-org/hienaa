@@ -14,36 +14,30 @@ import (
 //
 // Panics when v0, v1 are scalars or have different lengths.
 func AddTo[T0, T1 uint64 | []uint64](vOut []uint64, v0 T0, v1 T1, q *num.Modulus) {
-	switch v0 := any(v0).(type) {
-	case uint64:
-		switch v1 := any(v1).(type) {
-		case uint64:
-			panic("inconsistent input(s)")
+	v0Scalar, v0IsScalar := any(v0).(uint64)
+	v0Vec, _ := any(v0).([]uint64)
 
-		case []uint64:
-			if q == nil {
-				addScalarWordTo(vOut, v1, v0)
-				return
-			}
-			addScalarTo(vOut, v1, v0, q)
+	v1Scalar, v1IsScalar := any(v1).(uint64)
+	v1Vec, _ := any(v1).([]uint64)
+
+	switch {
+	case v0IsScalar && v1IsScalar:
+		panic("inconsistent input(s)")
+
+	case !v0IsScalar && !v1IsScalar:
+		if q == nil {
+			addWordTo(vOut, v0Vec, v1Vec)
+			return
 		}
+		addTo(vOut, v0Vec, v1Vec, q)
 
-	case []uint64:
-		switch v1 := any(v1).(type) {
-		case uint64:
-			if q == nil {
-				addScalarWordTo(vOut, v0, v1)
-				return
-			}
-			addScalarTo(vOut, v0, v1, q)
-
-		case []uint64:
-			if q == nil {
-				addWordTo(vOut, v0, v1)
-				return
-			}
-			addTo(vOut, v0, v1, q)
+	default:
+		c, v := orderByType(v0IsScalar, v0Scalar, v0Vec, v1Scalar, v1Vec)
+		if q == nil {
+			addScalarWordTo(vOut, v, c)
+			return
 		}
+		addScalarTo(vOut, v, c, q)
 	}
 }
 
@@ -180,36 +174,36 @@ func addScalarWordTo(vOut []uint64, v []uint64, c uint64) {
 //
 // Panics when v0, v1 are scalars or have different lengths.
 func SubTo[T0, T1 uint64 | []uint64](vOut []uint64, v0 T0, v1 T1, q *num.Modulus) {
-	switch v0 := any(v0).(type) {
-	case uint64:
-		switch v1 := any(v1).(type) {
-		case uint64:
-			panic("inconsistent input(s)")
+	v0Scalar, v0IsScalar := any(v0).(uint64)
+	v0Vec, _ := any(v0).([]uint64)
 
-		case []uint64:
-			if q == nil {
-				subScalarVecWordTo(vOut, v0, v1)
-				return
-			}
-			subScalarVecTo(vOut, v0, v1, q)
+	v1Scalar, v1IsScalar := any(v1).(uint64)
+	v1Vec, _ := any(v1).([]uint64)
+
+	switch {
+	case v0IsScalar && v1IsScalar:
+		panic("inconsistent input(s)")
+
+	case v0IsScalar && !v1IsScalar:
+		if q == nil {
+			subScalarVecWordTo(vOut, v0Scalar, v1Vec)
+			return
 		}
+		subScalarVecTo(vOut, v0Scalar, v1Vec, q)
 
-	case []uint64:
-		switch v1 := any(v1).(type) {
-		case uint64:
-			if q == nil {
-				subVecScalarWordTo(vOut, v0, v1)
-				return
-			}
-			subVecScalarTo(vOut, v0, v1, q)
-
-		case []uint64:
-			if q == nil {
-				subWordTo(vOut, v0, v1)
-				return
-			}
-			subTo(vOut, v0, v1, q)
+	case !v0IsScalar && v1IsScalar:
+		if q == nil {
+			subVecScalarWordTo(vOut, v0Vec, v1Scalar)
+			return
 		}
+		subVecScalarTo(vOut, v0Vec, v1Scalar, q)
+
+	case !v0IsScalar && !v1IsScalar:
+		if q == nil {
+			subWordTo(vOut, v0Vec, v1Vec)
+			return
+		}
+		subTo(vOut, v0Vec, v1Vec, q)
 	}
 }
 

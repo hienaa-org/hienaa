@@ -6,14 +6,12 @@ import (
 	"testing"
 
 	"github.com/hienaa-org/hienaa/math/crt"
-	"github.com/hienaa-org/hienaa/math/csprng"
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/stretchr/testify/assert"
 )
 
 var (
-	rSrc             = csprng.NewUniformSamplerWithSeed(nil)
 	reducerBenchLogN = []int{12, 13, 14}
 )
 
@@ -92,7 +90,7 @@ func BenchmarkReducer(b *testing.B) {
 			b.Run(fmt.Sprintf("LogN=%v", logN), func(b *testing.B) {
 				sqrtN := int(math.Sqrt(math.Exp2(float64(logN))))
 				m0 := num.NextPrime(sqrtN, 1)
-				m1 := num.NextPrime(m0+1, 2)
+				m1 := num.NextPrime(m0+2, 2)
 				M := m0 * m1
 				rP := dft.NewCyclotomicParameters(M)
 				N := rP.Rank()

@@ -7,7 +7,7 @@ type dftType uint64
 
 const (
 	// typePow2Cyclotomic is a power-of-two cyclotomic ring.
-	typePow2Cyclotomic = iota
+	typePow2Cyclotomic dftType = iota
 	// typeAnyCyclotomic is an arbitrary index cyclotomic ring.
 	typeAnyCyclotomic
 	// typePow235Cyclic is a cyclic ring with rank multiples of 2, 3, 5.
