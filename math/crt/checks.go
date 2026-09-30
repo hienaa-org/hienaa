@@ -1,16 +1,21 @@
 package crt
 
+import "github.com/hienaa-org/hienaa/math/dft"
+
 // checkScalarShape panics if c is not consistent with given modulus.
 func checkScalarShape(modLen int, c *Scalar) {
 	if c.ModLen() != modLen {
-		panic("input(s) not consistent")
+		panic("inconsistent input(s)")
 	}
 }
 
 // checkPolyShape panics if p is not consistent with given ring parameters and modulus.
 func checkPolyShape(rank, modLen int, p *Poly) {
 	if p.Rank() != rank || p.ModLen() != modLen {
-		panic("input(s) not consistent")
+		panic("inconsistent input(s)")
+	}
+	if !(p.Form == dft.FormCoeff || p.Form == dft.FormNTT) {
+		panic("inconsistent forms")
 	}
 }
 
@@ -72,8 +77,8 @@ func isBinaryOperable[TOut, T0, T1 *Scalar | *Poly](rank, modLen int, eOut TOut,
 		if eOutIsScalar {
 			panic("inconsistent input(s)")
 		}
-		if e0Poly.IsNTT != e1Poly.IsNTT {
-			panic("inconsistent NTT flags")
+		if e0Poly.Form != e1Poly.Form {
+			panic("inconsistent forms")
 		}
 		checkPolyShape(rank, modLen, e0Poly)
 		checkPolyShape(rank, modLen, e1Poly)

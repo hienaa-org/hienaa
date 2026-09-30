@@ -96,8 +96,8 @@ func (r *LongDivReducer) ReduceTo(pOut, p *Poly) {
 	checkPolyShape(p.Rank(), len(r.mod), p)
 	checkPolyShape(r.params.Rank(), len(r.mod), pOut)
 
-	if p.IsNTT {
-		panic("input(s) must be in standard form")
+	if p.Form == dft.FormNTT {
+		panic("input(s) must be in coefficient form")
 	} else if p.Rank() > r.maxRank {
 		panic("rank must be less than or equal to maxRank")
 	}
@@ -109,7 +109,7 @@ func (r *LongDivReducer) ReduceTo(pOut, p *Poly) {
 	for i := range r.mod {
 		r.quoRemTo(pQuo, pOut.Coeffs[i], p.Coeffs[i], i)
 	}
-	pOut.IsNTT = false
+	pOut.Form = dft.FormCoeff
 }
 
 // Quotient returns p / modPoly.
@@ -128,8 +128,8 @@ func (r *LongDivReducer) QuotientTo(pOut, p *Poly) {
 	checkPolyShape(p.Rank(), len(r.mod), p)
 	checkPolyShape(max(0, p.Rank()-r.params.Rank()), len(r.mod), pOut)
 
-	if p.IsNTT {
-		panic("input(s) must be in standard form")
+	if p.Form == dft.FormNTT {
+		panic("input(s) must be in coefficient form")
 	} else if p.Rank() > r.maxRank {
 		panic("rank must be less than or equal to maxRank")
 	}
@@ -141,7 +141,7 @@ func (r *LongDivReducer) QuotientTo(pOut, p *Poly) {
 	for i := range r.mod {
 		r.quoRemTo(pOut.Coeffs[i], pRem, p.Coeffs[i], i)
 	}
-	pOut.IsNTT = false
+	pOut.Form = dft.FormCoeff
 }
 
 // QuoRem returns p / modPoly and p % modPoly.
@@ -162,8 +162,8 @@ func (r *LongDivReducer) QuoRemTo(pQuo, pRem, p *Poly) {
 	checkPolyShape(max(0, p.Rank()-r.params.Rank()), len(r.mod), pQuo)
 	checkPolyShape(r.params.Rank(), len(r.mod), pRem)
 
-	if p.IsNTT {
-		panic("input(s) must be in standard form")
+	if p.Form == dft.FormNTT {
+		panic("input(s) must be in coefficient form")
 	} else if p.Rank() > r.maxRank {
 		panic("rank must be less than or equal to maxRank")
 	}
@@ -171,8 +171,8 @@ func (r *LongDivReducer) QuoRemTo(pQuo, pRem, p *Poly) {
 	for i := range r.mod {
 		r.quoRemTo(pQuo.Coeffs[i], pRem.Coeffs[i], p.Coeffs[i], i)
 	}
-	pQuo.IsNTT = false
-	pRem.IsNTT = false
+	pQuo.Form = dft.FormCoeff
+	pRem.Form = dft.FormCoeff
 }
 
 // Modulus returns the modulus.
@@ -557,8 +557,8 @@ func (r *CyclotomicReducer) ReduceTo(pOut, p *Poly) {
 	checkPolyShape(p.Rank(), len(r.mod), p)
 	checkPolyShape(r.params.Rank(), len(r.mod), pOut)
 
-	if p.IsNTT {
-		panic("input(s) must be in standard form")
+	if p.Form == dft.FormNTT {
+		panic("input(s) must be in coefficient form")
 	} else if p.Rank() > r.params.CycloIndex() {
 		panic("rank must be less than or equal to cycloIdx")
 	}
@@ -566,7 +566,7 @@ func (r *CyclotomicReducer) ReduceTo(pOut, p *Poly) {
 	for i := range r.mod {
 		r.reduceTo(pOut.Coeffs[i], p.Coeffs[i], i)
 	}
-	pOut.IsNTT = false
+	pOut.Form = dft.FormCoeff
 }
 
 // Modulus returns the modulus.
@@ -1070,8 +1070,8 @@ func (r *Reducer) ReduceTo(pOut, p *Poly) {
 	checkPolyShape(p.Rank(), len(r.mod), p)
 	checkPolyShape(r.params.Rank(), len(r.mod), pOut)
 
-	if p.IsNTT {
-		panic("input(s) must be in standard form")
+	if p.Form == dft.FormNTT {
+		panic("input(s) must be in coefficient form")
 	} else if p.Rank() > r.maxRank {
 		panic("rank must be less than or equal to maxRank")
 	}
@@ -1079,7 +1079,7 @@ func (r *Reducer) ReduceTo(pOut, p *Poly) {
 	for i := range r.mod {
 		r.reduceTo(pOut.Coeffs[i], p.Coeffs[i], i)
 	}
-	pOut.IsNTT = false
+	pOut.Form = dft.FormCoeff
 }
 
 // Params returns the ring parameters.

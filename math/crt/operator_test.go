@@ -134,7 +134,7 @@ func testOperator(t *testing.T, params dft.RingParameters) {
 
 	t.Run("MulAdd", func(t *testing.T) {
 		pOutNTT := randPoly(params.Rank(), q)
-		pOutNTT.IsNTT = true
+		pOutNTT.Form = dft.FormNTT
 		pOutNTTRef := pOutNTT.Copy()
 
 		op.MulAddTo(pOutNTT, p0NTT, p1NTT)
@@ -145,7 +145,7 @@ func testOperator(t *testing.T, params dft.RingParameters) {
 
 	t.Run("MulSub", func(t *testing.T) {
 		pOutNTT := randPoly(params.Rank(), q)
-		pOutNTT.IsNTT = true
+		pOutNTT.Form = dft.FormNTT
 		pOutNTTRef := pOutNTT.Copy()
 
 		op.MulSubTo(pOutNTT, p0NTT, p1NTT)

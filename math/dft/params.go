@@ -9,7 +9,7 @@ import (
 )
 
 // RingType is a type of the polynomial ring.
-type RingType uint64
+type RingType byte
 
 const (
 	// TypeCyclotomic is a cyclotomic ring ZZ[X]/Phi_M(X).

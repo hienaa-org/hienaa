@@ -8,7 +8,7 @@ import (
 	"github.com/hienaa-org/hienaa/math/vec"
 )
 
-type addSubType uint64
+type addSubType byte
 
 const (
 	typeTrivialAddSub addSubType = iota
@@ -65,19 +65,19 @@ func (op *trivialAddSubOperator) addTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, 
 		for i := range op.mod {
 			vec.AddTo(eOutPoly.Coeffs[i], e0Poly.Coeffs[i], e1Poly.Coeffs[i], op.mod[i])
 		}
-		eOutPoly.IsNTT = e0Poly.IsNTT
+		eOutPoly.Form = e0Poly.Form
 
 	default:
 		c, p := orderByType(e0IsScalar, e0Scalar, e0Poly, e1Scalar, e1Poly)
 		for i := range op.mod {
-			if p.IsNTT && op.isNTTFriendly[i] {
+			if p.Form == dft.FormNTT && op.isNTTFriendly[i] {
 				vec.AddTo(eOutPoly.Coeffs[i], p.Coeffs[i], num.MForm(c.Value[i], op.mod[i]), op.mod[i])
 			} else {
 				copy(eOutPoly.Coeffs[i], p.Coeffs[i])
 				eOutPoly.Coeffs[i][0] = num.Add(eOutPoly.Coeffs[i][0], c.Value[i], op.mod[i])
 			}
 		}
-		eOutPoly.IsNTT = p.IsNTT
+		eOutPoly.Form = p.Form
 	}
 }
 
@@ -103,29 +103,29 @@ func (op *trivialAddSubOperator) subTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, 
 		for i := range op.mod {
 			vec.SubTo(eOutPoly.Coeffs[i], e0Poly.Coeffs[i], e1Poly.Coeffs[i], op.mod[i])
 		}
-		eOutPoly.IsNTT = e0Poly.IsNTT
+		eOutPoly.Form = e0Poly.Form
 
 	case e0IsScalar && !e1IsScalar:
 		for i := range op.mod {
-			if e1Poly.IsNTT && op.isNTTFriendly[i] {
+			if e1Poly.Form == dft.FormNTT && op.isNTTFriendly[i] {
 				vec.SubTo(eOutPoly.Coeffs[i], num.MForm(e0Scalar.Value[i], op.mod[i]), e1Poly.Coeffs[i], op.mod[i])
 			} else {
 				vec.NegTo(eOutPoly.Coeffs[i], e1Poly.Coeffs[i], op.mod[i])
 				eOutPoly.Coeffs[i][0] = num.Add(eOutPoly.Coeffs[i][0], e0Scalar.Value[i], op.mod[i])
 			}
 		}
-		eOutPoly.IsNTT = e1Poly.IsNTT
+		eOutPoly.Form = e1Poly.Form
 
 	case !e0IsScalar && e1IsScalar:
 		for i := range op.mod {
-			if e0Poly.IsNTT && op.isNTTFriendly[i] {
+			if e0Poly.Form == dft.FormNTT && op.isNTTFriendly[i] {
 				vec.SubTo(eOutPoly.Coeffs[i], e0Poly.Coeffs[i], num.MForm(e1Scalar.Value[i], op.mod[i]), op.mod[i])
 			} else {
 				copy(eOutPoly.Coeffs[i], e0Poly.Coeffs[i])
 				eOutPoly.Coeffs[i][0] = num.Sub(eOutPoly.Coeffs[i][0], e1Scalar.Value[i], op.mod[i])
 			}
 		}
-		eOutPoly.IsNTT = e0Poly.IsNTT
+		eOutPoly.Form = e0Poly.Form
 	}
 }
 
@@ -204,18 +204,18 @@ func (op *primeAutFixedAddSubOperator) addTo[TOut, T0, T1 *Scalar | *Poly](eOut 
 		for i := range op.mod {
 			vec.AddTo(eOutPoly.Coeffs[i], e0Poly.Coeffs[i], e1Poly.Coeffs[i], op.mod[i])
 		}
-		eOutPoly.IsNTT = e0Poly.IsNTT
+		eOutPoly.Form = e0Poly.Form
 
 	default:
 		c, p := orderByType(e0IsScalar, e0Scalar, e0Poly, e1Scalar, e1Poly)
 		for i := range op.mod {
-			if p.IsNTT && op.isNTTFriendly[i] {
+			if p.Form == dft.FormNTT && op.isNTTFriendly[i] {
 				vec.AddTo(eOutPoly.Coeffs[i], p.Coeffs[i], num.MForm(c.Value[i], op.mod[i]), op.mod[i])
 			} else {
 				vec.SubTo(eOutPoly.Coeffs[i], p.Coeffs[i], c.Value[i], op.mod[i])
 			}
 		}
-		eOutPoly.IsNTT = p.IsNTT
+		eOutPoly.Form = p.Form
 	}
 }
 
@@ -241,27 +241,27 @@ func (op *primeAutFixedAddSubOperator) subTo[TOut, T0, T1 *Scalar | *Poly](eOut 
 		for i := range op.mod {
 			vec.SubTo(eOutPoly.Coeffs[i], e0Poly.Coeffs[i], e1Poly.Coeffs[i], op.mod[i])
 		}
-		eOutPoly.IsNTT = e0Poly.IsNTT
+		eOutPoly.Form = e0Poly.Form
 
 	case e0IsScalar && !e1IsScalar:
 		for i := range op.mod {
-			if e1Poly.IsNTT && op.isNTTFriendly[i] {
+			if e1Poly.Form == dft.FormNTT && op.isNTTFriendly[i] {
 				vec.SubTo(eOutPoly.Coeffs[i], num.MForm(e0Scalar.Value[i], op.mod[i]), e1Poly.Coeffs[i], op.mod[i])
 			} else {
 				vec.SubTo(eOutPoly.Coeffs[i], num.Neg(e0Scalar.Value[i], op.mod[i]), e1Poly.Coeffs[i], op.mod[i])
 			}
 		}
-		eOutPoly.IsNTT = e1Poly.IsNTT
+		eOutPoly.Form = e1Poly.Form
 
 	case !e0IsScalar && e1IsScalar:
 		for i := range op.mod {
-			if e0Poly.IsNTT && op.isNTTFriendly[i] {
+			if e0Poly.Form == dft.FormNTT && op.isNTTFriendly[i] {
 				vec.SubTo(eOutPoly.Coeffs[i], e0Poly.Coeffs[i], num.MForm(e1Scalar.Value[i], op.mod[i]), op.mod[i])
 			} else {
 				vec.AddTo(eOutPoly.Coeffs[i], e0Poly.Coeffs[i], e1Scalar.Value[i], op.mod[i])
 			}
 		}
-		eOutPoly.IsNTT = e0Poly.IsNTT
+		eOutPoly.Form = e0Poly.Form
 	}
 }
 

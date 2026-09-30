@@ -152,18 +152,18 @@ func (emb *VecEmbedder) Embed(v [][]uint64) [][]uint64 {
 func (emb *VecEmbedder) EmbedTo(vOut, v [][]uint64) {
 	inLen, outLen := len(v), len(vOut)
 	if inLen == 0 || inLen != len(emb.modIn) || outLen > len(emb.modOut) {
-		panic("input(s) not consistent")
+		panic("inconsistent input(s)")
 	}
 
 	N := len(v[0])
 	for i := 1; i < inLen; i++ {
 		if len(v[i]) != N {
-			panic("input(s) not consistent")
+			panic("inconsistent input(s)")
 		}
 	}
 	for i := 0; i < outLen; i++ {
 		if len(vOut[i]) != N {
-			panic("input(s) not consistent")
+			panic("inconsistent input(s)")
 		}
 	}
 
@@ -593,18 +593,18 @@ func (sc *VecScaler) ScaleTo(vOut, v [][]uint64) {
 
 	inLen, gcdLen, outLen := len(sc.modInSorted), sc.modGCDLen, len(sc.modOut)
 	if len(v) != len(sc.modIn) || len(vOut) != len(sc.modOut) {
-		panic("input(s) not consistent")
+		panic("inconsistent input(s)")
 	}
 
 	N := len(v[0])
 	for i := 1; i < inLen; i++ {
 		if len(v[i]) != N {
-			panic("input(s) not consistent")
+			panic("inconsistent input(s)")
 		}
 	}
 	for i := 0; i < outLen; i++ {
 		if len(vOut[i]) != N {
-			panic("input(s) not consistent")
+			panic("inconsistent input(s)")
 		}
 	}
 

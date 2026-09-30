@@ -9,7 +9,7 @@ import (
 	"github.com/hienaa-org/hienaa/math/vec"
 )
 
-type mulType uint64
+type mulType byte
 
 const (
 	typeTrivialMul mulType = iota
@@ -114,7 +114,7 @@ func (op *trivialMulOperator) mulTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 
 		}
 
 	case !e0IsScalar && !e1IsScalar:
-		if !e0Poly.IsNTT || !e1Poly.IsNTT {
+		if e0Poly.Form != dft.FormNTT || e1Poly.Form != dft.FormNTT {
 			panic("input(s) must be in NTT form")
 		}
 
@@ -147,14 +147,14 @@ func (op *trivialMulOperator) mulTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 
 			}
 		}
 
-		eOutPoly.IsNTT = true
+		eOutPoly.Form = dft.FormNTT
 
 	default:
 		c, p := orderByType(e0IsScalar, e0Scalar, e0Poly, e1Scalar, e1Poly)
 		for i := range op.mod {
 			vec.MulTo(eOutPoly.Coeffs[i], p.Coeffs[i], c.Value[i], op.mod[i])
 		}
-		eOutPoly.IsNTT = p.IsNTT
+		eOutPoly.Form = p.Form
 	}
 }
 
@@ -177,7 +177,7 @@ func (op *trivialMulOperator) mulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, 
 		}
 
 	case !e0IsScalar && !e1IsScalar:
-		if !eOutPoly.IsNTT || !e0Poly.IsNTT || !e1Poly.IsNTT {
+		if eOutPoly.Form != dft.FormNTT || e0Poly.Form != dft.FormNTT || e1Poly.Form != dft.FormNTT {
 			panic("input(s) must be in NTT form")
 		}
 
@@ -211,12 +211,12 @@ func (op *trivialMulOperator) mulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, 
 			}
 		}
 
-		eOutPoly.IsNTT = true
+		eOutPoly.Form = dft.FormNTT
 
 	default:
 		c, p := orderByType(e0IsScalar, e0Scalar, e0Poly, e1Scalar, e1Poly)
-		if p.IsNTT != eOutPoly.IsNTT {
-			panic("inconsistent NTT flags")
+		if p.Form != eOutPoly.Form {
+			panic("inconsistent form")
 		}
 
 		for i := range op.mod {
@@ -244,7 +244,7 @@ func (op *trivialMulOperator) mulSubTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, 
 		}
 
 	case !e0IsScalar && !e1IsScalar:
-		if !eOutPoly.IsNTT || !e0Poly.IsNTT || !e1Poly.IsNTT {
+		if eOutPoly.Form != dft.FormNTT || e0Poly.Form != dft.FormNTT || e1Poly.Form != dft.FormNTT {
 			panic("input(s) must be in NTT form")
 		}
 
@@ -278,12 +278,12 @@ func (op *trivialMulOperator) mulSubTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, 
 			}
 		}
 
-		eOutPoly.IsNTT = true
+		eOutPoly.Form = dft.FormNTT
 
 	default:
 		c, p := orderByType(e0IsScalar, e0Scalar, e0Poly, e1Scalar, e1Poly)
-		if p.IsNTT != eOutPoly.IsNTT {
-			panic("inconsistent NTT flags")
+		if p.Form != eOutPoly.Form {
+			panic("inconsistent form")
 		}
 
 		for i := range op.mod {
@@ -432,7 +432,7 @@ func (op *anyCyclotomicMulOperator) mulTo[TOut, T0, T1 *Scalar | *Poly](eOut TOu
 		}
 
 	case !e0IsScalar && !e1IsScalar:
-		if !e0Poly.IsNTT || !e1Poly.IsNTT {
+		if e0Poly.Form != dft.FormNTT || e1Poly.Form != dft.FormNTT {
 			panic("input(s) must be in NTT form")
 		}
 
@@ -473,14 +473,14 @@ func (op *anyCyclotomicMulOperator) mulTo[TOut, T0, T1 *Scalar | *Poly](eOut TOu
 			}
 		}
 
-		eOutPoly.IsNTT = true
+		eOutPoly.Form = dft.FormNTT
 
 	default:
 		c, p := orderByType(e0IsScalar, e0Scalar, e0Poly, e1Scalar, e1Poly)
 		for i := range op.mod {
 			vec.MulTo(eOutPoly.Coeffs[i], p.Coeffs[i], c.Value[i], op.mod[i])
 		}
-		eOutPoly.IsNTT = p.IsNTT
+		eOutPoly.Form = p.Form
 	}
 }
 
@@ -503,7 +503,7 @@ func (op *anyCyclotomicMulOperator) mulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut 
 		}
 
 	case !e0IsScalar && !e1IsScalar:
-		if !eOutPoly.IsNTT || !e0Poly.IsNTT || !e1Poly.IsNTT {
+		if eOutPoly.Form != dft.FormNTT || e0Poly.Form != dft.FormNTT || e1Poly.Form != dft.FormNTT {
 			panic("input(s) must be in NTT form")
 		}
 
@@ -545,12 +545,12 @@ func (op *anyCyclotomicMulOperator) mulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut 
 			}
 		}
 
-		eOutPoly.IsNTT = true
+		eOutPoly.Form = dft.FormNTT
 
 	default:
 		c, p := orderByType(e0IsScalar, e0Scalar, e0Poly, e1Scalar, e1Poly)
-		if p.IsNTT != eOutPoly.IsNTT {
-			panic("inconsistent NTT flags")
+		if p.Form != eOutPoly.Form {
+			panic("inconsistent form")
 		}
 
 		for i := range op.mod {
@@ -578,7 +578,7 @@ func (op *anyCyclotomicMulOperator) mulSubTo[TOut, T0, T1 *Scalar | *Poly](eOut 
 		}
 
 	case !e0IsScalar && !e1IsScalar:
-		if !eOutPoly.IsNTT || !e0Poly.IsNTT || !e1Poly.IsNTT {
+		if eOutPoly.Form != dft.FormNTT || e0Poly.Form != dft.FormNTT || e1Poly.Form != dft.FormNTT {
 			panic("input(s) must be in NTT form")
 		}
 
@@ -620,12 +620,12 @@ func (op *anyCyclotomicMulOperator) mulSubTo[TOut, T0, T1 *Scalar | *Poly](eOut 
 			}
 		}
 
-		eOutPoly.IsNTT = true
+		eOutPoly.Form = dft.FormNTT
 
 	default:
 		c, p := orderByType(e0IsScalar, e0Scalar, e0Poly, e1Scalar, e1Poly)
-		if p.IsNTT != eOutPoly.IsNTT {
-			panic("inconsistent NTT flags")
+		if p.Form != eOutPoly.Form {
+			panic("inconsistent form")
 		}
 
 		for i := range op.mod {
@@ -787,7 +787,7 @@ func (op *reduceMulOperator) mulTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T
 		}
 
 	case !e0IsScalar && !e1IsScalar:
-		if !e0Poly.IsNTT || !e1Poly.IsNTT {
+		if e0Poly.Form != dft.FormNTT || e1Poly.Form != dft.FormNTT {
 			panic("input(s) must be in NTT form")
 		}
 
@@ -827,14 +827,14 @@ func (op *reduceMulOperator) mulTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T
 			}
 		}
 
-		eOutPoly.IsNTT = true
+		eOutPoly.Form = dft.FormNTT
 
 	default:
 		c, p := orderByType(e0IsScalar, e0Scalar, e0Poly, e1Scalar, e1Poly)
 		for i := range op.mod {
 			vec.MulTo(eOutPoly.Coeffs[i], p.Coeffs[i], c.Value[i], op.mod[i])
 		}
-		eOutPoly.IsNTT = p.IsNTT
+		eOutPoly.Form = p.Form
 	}
 }
 
@@ -857,7 +857,7 @@ func (op *reduceMulOperator) mulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e
 		}
 
 	case !e0IsScalar && !e1IsScalar:
-		if !eOutPoly.IsNTT || !e0Poly.IsNTT || !e1Poly.IsNTT {
+		if eOutPoly.Form != dft.FormNTT || e0Poly.Form != dft.FormNTT || e1Poly.Form != dft.FormNTT {
 			panic("input(s) must be in NTT form")
 		}
 
@@ -899,12 +899,12 @@ func (op *reduceMulOperator) mulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e
 			}
 		}
 
-		eOutPoly.IsNTT = true
+		eOutPoly.Form = dft.FormNTT
 
 	default:
 		c, p := orderByType(e0IsScalar, e0Scalar, e0Poly, e1Scalar, e1Poly)
-		if p.IsNTT != eOutPoly.IsNTT {
-			panic("inconsistent NTT flags")
+		if p.Form != eOutPoly.Form {
+			panic("inconsistent form")
 		}
 
 		for i := range op.mod {
@@ -932,7 +932,7 @@ func (op *reduceMulOperator) mulSubTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e
 		}
 
 	case !e0IsScalar && !e1IsScalar:
-		if !eOutPoly.IsNTT || !e0Poly.IsNTT || !e1Poly.IsNTT {
+		if eOutPoly.Form != dft.FormNTT || e0Poly.Form != dft.FormNTT || e1Poly.Form != dft.FormNTT {
 			panic("input(s) must be in NTT form")
 		}
 
@@ -974,12 +974,12 @@ func (op *reduceMulOperator) mulSubTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e
 			}
 		}
 
-		eOutPoly.IsNTT = true
+		eOutPoly.Form = dft.FormNTT
 
 	default:
 		c, p := orderByType(e0IsScalar, e0Scalar, e0Poly, e1Scalar, e1Poly)
-		if p.IsNTT != eOutPoly.IsNTT {
-			panic("inconsistent NTT flags")
+		if p.Form != eOutPoly.Form {
+			panic("inconsistent form")
 		}
 
 		for i := range op.mod {

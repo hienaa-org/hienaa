@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"slices"
 
+	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
 )
@@ -121,7 +122,7 @@ func (c *Scalar) Copy() *Scalar {
 // Panics when c and c0 are not consistent.
 func (c *Scalar) CopyFrom(c0 *Scalar) {
 	if !c.IsConsistent(c0) {
-		panic("input(s) not consistent")
+		panic("inconsistent input(s)")
 	}
 
 	copy(c.Value, c0.Value)
@@ -145,22 +146,22 @@ type Poly struct {
 	// Ordered as [ModLen][Rank].
 	Coeffs [][]uint64
 
-	// IsNTT indicates whether the polynomial is in NTT form.
-	IsNTT bool
+	// Form represents the [dft.Form] of the polynomial.
+	Form dft.Form
 }
 
-// NewPoly creates a new [Poly] in Standard form.
+// NewPoly creates a new [Poly] in Coefficient form.
 func NewPoly(rank, modLen int) *Poly {
-	return NewPolyCustom(rank, modLen, false)
+	return NewPolyCustom(rank, modLen, dft.FormCoeff)
 }
 
 // NewNTTPoly creates a new [Poly] in NTT form.
 func NewNTTPoly(rank, modLen int) *Poly {
-	return NewPolyCustom(rank, modLen, true)
+	return NewPolyCustom(rank, modLen, dft.FormNTT)
 }
 
 // NewPolyCustom creates a new [Poly].
-func NewPolyCustom(rank, modLen int, isNTT bool) *Poly {
+func NewPolyCustom(rank, modLen int, form dft.Form) *Poly {
 	coeffs := make([][]uint64, modLen)
 	for i := 0; i < modLen; i++ {
 		coeffs[i] = make([]uint64, rank)
@@ -168,7 +169,7 @@ func NewPolyCustom(rank, modLen int, isNTT bool) *Poly {
 
 	return &Poly{
 		Coeffs: coeffs,
-		IsNTT:  isNTT,
+		Form:   form,
 	}
 }
 
@@ -214,7 +215,7 @@ func (p *Poly) WithModIdx(idx ...int) *Poly {
 
 	return &Poly{
 		Coeffs: coeffs,
-		IsNTT:  p.IsNTT,
+		Form:   p.Form,
 	}
 }
 
@@ -222,13 +223,13 @@ func (p *Poly) WithModIdx(idx ...int) *Poly {
 func (p *Poly) Slice(lo, hi int) *Poly {
 	return &Poly{
 		Coeffs: p.Coeffs[lo:hi],
-		IsNTT:  p.IsNTT,
+		Form:   p.Form,
 	}
 }
 
 // Copy returns a copy of p.
 func (p *Poly) Copy() *Poly {
-	pOut := NewPolyCustom(p.Rank(), p.ModLen(), p.IsNTT)
+	pOut := NewPolyCustom(p.Rank(), p.ModLen(), p.Form)
 	for i := range p.Coeffs {
 		copy(pOut.Coeffs[i], p.Coeffs[i])
 	}
@@ -240,13 +241,13 @@ func (p *Poly) Copy() *Poly {
 // Panics when p and p0 are not consistent.
 func (p *Poly) CopyFrom(p0 *Poly) {
 	if !p.IsConsistent(p0) {
-		panic("input(s) not consistent")
+		panic("inconsistent input(s)")
 	}
 
 	for i := range p.Coeffs {
 		copy(p.Coeffs[i], p0.Coeffs[i])
 	}
-	p.IsNTT = p0.IsNTT
+	p.Form = p0.Form
 }
 
 // IsEqual checks if p is equal to p0.
@@ -255,7 +256,7 @@ func (p *Poly) IsEqual(p0 *Poly) bool {
 		return false
 	}
 
-	if p.IsNTT != p0.IsNTT {
+	if p.Form != p0.Form {
 		return false
 	}
 

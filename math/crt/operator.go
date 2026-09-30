@@ -109,7 +109,7 @@ func (op *Operator) Modulus() []*num.Modulus {
 	return op.mod
 }
 
-// NewPoly creates a new [Poly] in Standard form.
+// NewPoly creates a new [Poly] in Coefficient form.
 func (op *Operator) NewPoly() *Poly {
 	return NewPoly(op.params.Rank(), len(op.mod))
 }
@@ -120,8 +120,8 @@ func (op *Operator) NewNTTPoly() *Poly {
 }
 
 // NewPolyCustom creates a new [Poly].
-func (op *Operator) NewPolyCustom(isNTT bool) *Poly {
-	return NewPolyCustom(op.params.Rank(), len(op.mod), isNTT)
+func (op *Operator) NewPolyCustom(form dft.Form) *Poly {
+	return NewPolyCustom(op.params.Rank(), len(op.mod), form)
 }
 
 // FwdNTT returns FwdNTT(p).
@@ -135,8 +135,8 @@ func (op *Operator) FwdNTT(p *Poly) *Poly {
 func (op *Operator) FwdNTTTo(pOut, p *Poly) {
 	isUnaryOperable(op.params.Rank(), len(op.mod), pOut, p)
 
-	if p.IsNTT {
-		panic("input(s) must be in standard form")
+	if p.Form == dft.FormNTT {
+		panic("input(s) must be in coefficient form")
 	}
 
 	for i := range op.ntt {
@@ -147,7 +147,7 @@ func (op *Operator) FwdNTTTo(pOut, p *Poly) {
 		}
 	}
 
-	pOut.IsNTT = true
+	pOut.Form = dft.FormNTT
 }
 
 // InvNTT returns InvNTT(p).
@@ -161,7 +161,7 @@ func (op *Operator) InvNTT(p *Poly) *Poly {
 func (op *Operator) InvNTTTo(pOut, p *Poly) {
 	isUnaryOperable(op.params.Rank(), len(op.mod), pOut, p)
 
-	if !p.IsNTT {
+	if p.Form != dft.FormNTT {
 		panic("input(s) must be in NTT form")
 	}
 
@@ -173,7 +173,7 @@ func (op *Operator) InvNTTTo(pOut, p *Poly) {
 		}
 	}
 
-	pOut.IsNTT = false
+	pOut.Form = dft.FormCoeff
 }
 
 // Add returns eOut = e0 + e1.
@@ -237,7 +237,7 @@ func (op *Operator) NegTo[TOut, T *Scalar | *Poly](eOut TOut, e T) {
 		for i := range op.mod {
 			vec.NegTo(eOutPoly.Coeffs[i], ePoly.Coeffs[i], op.mod[i])
 		}
-		eOutPoly.IsNTT = ePoly.IsNTT
+		eOutPoly.Form = ePoly.Form
 	}
 }
 

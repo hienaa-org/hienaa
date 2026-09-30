@@ -10,7 +10,7 @@ import (
 	"github.com/hienaa-org/hienaa/math/vec"
 )
 
-type autType uint64
+type autType byte
 
 const (
 	typePow2CyclotomicAut autType = iota
@@ -92,7 +92,7 @@ func (op *pow2CyclotomicAutOperator) autTo(pOut, p *Poly, idx int) {
 
 	for i := range op.mod {
 		pRow, pOutRow := p.Coeffs[i], pOut.Coeffs[i]
-		if p.IsNTT && op.isNTTFriendly[i] {
+		if p.Form == dft.FormNTT && op.isNTTFriendly[i] {
 			copy(pBuf, p.Coeffs[i])
 			revShiftBits := 64 - uint64(num.Log2(rank64))
 			for j := uint64(0); j < rank64; j++ {
@@ -116,7 +116,7 @@ func (op *pow2CyclotomicAutOperator) autTo(pOut, p *Poly, idx int) {
 		}
 	}
 
-	pOut.IsNTT = p.IsNTT
+	pOut.Form = p.Form
 }
 
 func (op *pow2CyclotomicAutOperator) withModIdx(idx ...int) *pow2CyclotomicAutOperator {
@@ -271,7 +271,7 @@ func (op *anyCyclotomicAutOperator) autTo(pOut, p *Poly, idx int) {
 
 	for i := range op.mod {
 		pRow, pOutRow := p.Coeffs[i], pOut.Coeffs[i]
-		if p.IsNTT && op.isNTTFriendly[i] {
+		if p.Form == dft.FormNTT && op.isNTTFriendly[i] {
 			idxDigits := make([]int, len(op.primeExpMods))
 			for cnt := 0; cnt < len(idxDigits); {
 				idxRed := num.Reduce(idx64, op.primeExpMods[cnt])
@@ -317,7 +317,7 @@ func (op *anyCyclotomicAutOperator) autTo(pOut, p *Poly, idx int) {
 		}
 	}
 
-	pOut.IsNTT = p.IsNTT
+	pOut.Form = p.Form
 }
 
 func (op *anyCyclotomicAutOperator) withModIdx(idx ...int) *anyCyclotomicAutOperator {
@@ -442,7 +442,7 @@ func (op *pow2AutFixedAutOperator) autTo(pOut, p *Poly, idx int) {
 
 	for i := range op.mod {
 		pRow, pOutRow := p.Coeffs[i], pOut.Coeffs[i]
-		if p.IsNTT && op.isNTTFriendly[i] {
+		if p.Form == dft.FormNTT && op.isNTTFriendly[i] {
 			copy(pBuf, pRow)
 			revShiftBits := 64 - uint64(num.Log2(rank64)+1)
 			for j := uint64(0); j < rank64; j++ {
@@ -477,7 +477,7 @@ func (op *pow2AutFixedAutOperator) autTo(pOut, p *Poly, idx int) {
 		}
 	}
 
-	pOut.IsNTT = p.IsNTT
+	pOut.Form = p.Form
 }
 
 func (op *pow2AutFixedAutOperator) withModIdx(idx ...int) *pow2AutFixedAutOperator {
@@ -595,7 +595,7 @@ func (op *primeAutFixedAutOperator) autTo(pOut, p *Poly, idx int) {
 	}
 
 	for i := range op.mod {
-		if p.IsNTT && op.isNTTFriendly[i] {
+		if p.Form == dft.FormNTT && op.isNTTFriendly[i] {
 			copy(pBuf[:rank-rotIdx], p.Coeffs[i][rotIdx:])
 			copy(pBuf[rank-rotIdx:], p.Coeffs[i][:rotIdx])
 			copy(pOut.Coeffs[i], pBuf)
@@ -606,7 +606,7 @@ func (op *primeAutFixedAutOperator) autTo(pOut, p *Poly, idx int) {
 		}
 	}
 
-	pOut.IsNTT = p.IsNTT
+	pOut.Form = p.Form
 }
 
 func (op *primeAutFixedAutOperator) withModIdx(idx ...int) *primeAutFixedAutOperator {

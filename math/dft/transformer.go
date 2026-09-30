@@ -3,7 +3,7 @@ package dft
 import "github.com/hienaa-org/hienaa/math/num"
 
 // dftType is a type for DFT algorithm.
-type dftType uint64
+type dftType byte
 
 const (
 	// typePow2Cyclotomic is a power-of-two cyclotomic ring.
@@ -95,7 +95,7 @@ func NewTransformer(params RingParameters, mod *num.Modulus) *Transformer {
 	return ntt
 }
 
-// ForwardTo transforms the uint64 vector to NTT form.
+// ForwardTo transforms the uint64 vector to ntt form.
 func (ntt *Transformer) ForwardTo(vNTT, v []uint64) {
 	checkLength(ntt.params.rank, len(vNTT), len(v))
 
@@ -115,7 +115,7 @@ func (ntt *Transformer) ForwardTo(vNTT, v []uint64) {
 	}
 }
 
-// InverseTo transforms the uint64 vector to Standard form.
+// InverseTo transforms the uint64 vector to coefficient form.
 func (ntt *Transformer) InverseTo(v, vNTT []uint64) {
 	checkLength(ntt.params.rank, len(v), len(vNTT))
 

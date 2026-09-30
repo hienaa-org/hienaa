@@ -6,7 +6,7 @@ import (
 	"github.com/mmcloughlin/avo/reg"
 )
 
-type OpType int
+type OpType byte
 
 const (
 	OpPure OpType = iota
@@ -14,7 +14,7 @@ const (
 	OpSub
 )
 
-type AVXType int
+type AVXType byte
 
 const (
 	TypeAVX2 AVXType = iota
