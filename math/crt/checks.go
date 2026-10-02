@@ -120,8 +120,8 @@ func isUnaryOperable[TOut, T *Scalar | *Poly](rank, modLen int, eOut TOut, e T) 
 	}
 }
 
-// orderByType returns e0, e1 as the order of [*Scalar] and [*Poly].
-// Assumes that one of e0, e1 is [*Scalar] and the other is [*Poly].
+// orderByType returns e0, e1 as the order of *[Scalar] and *[Poly].
+// Assumes that one of e0, e1 is *[Scalar] and the other is *[Poly].
 func orderByType(e0IsScalar bool, e0Scalar *Scalar, e0Poly *Poly, e1Scalar *Scalar, e1Poly *Poly) (*Scalar, *Poly) {
 	if e0IsScalar {
 		return e0Scalar, e1Poly

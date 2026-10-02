@@ -23,20 +23,20 @@ type Operator struct {
 	isNTTFriendly []bool
 	ntt           []*dft.Transformer
 
-	addSubType addSubType
-	*trivialAddSubOperator
-	*primeAutFixedAddSubOperator
+	addSubType          addSubType
+	trivialAddSub       *trivialAddSubOperator
+	primeAutFixedAddSub *primeAutFixedAddSubOperator
 
-	mulType mulType
-	*trivialMulOperator
-	*anyCyclotomicMulOperator
-	*reduceMulOperator
+	mulType          mulType
+	trivialMul       *trivialMulOperator
+	anyCyclotomicMul *anyCyclotomicMulOperator
+	reduceMul        *reduceMulOperator
 
-	autType autType
-	*pow2CyclotomicAutOperator
-	*anyCyclotomicAutOperator
-	*pow2AutFixedAutOperator
-	*primeAutFixedAutOperator
+	autType           autType
+	pow2CyclotomicAut *pow2CyclotomicAutOperator
+	anyCyclotomicAut  *anyCyclotomicAutOperator
+	pow2AutFixedAut   *pow2AutFixedAutOperator
+	primeAutFixedAut  *primeAutFixedAutOperator
 }
 
 // NewOperator creates a new [Operator].
@@ -69,42 +69,42 @@ func NewOperator(params dft.RingParameters, mod []*num.Modulus) *Operator {
 
 	switch op.addSubType {
 	case typeTrivialAddSub:
-		op.trivialAddSubOperator = newTrivialAddSubOperator(params, mod)
+		op.trivialAddSub = newTrivialAddSubOperator(params, mod)
 	case typePrimeAutFixedAddSub:
-		op.primeAutFixedAddSubOperator = newPrimeAutFixedAddSubOperator(params, mod)
+		op.primeAutFixedAddSub = newPrimeAutFixedAddSubOperator(params, mod)
 	}
 
 	switch op.mulType {
 	case typeTrivialMul:
-		op.trivialMulOperator = newTrivialMulOperator(params, mod)
+		op.trivialMul = newTrivialMulOperator(params, mod)
 	case typeAnyCyclotomicMul:
-		op.anyCyclotomicMulOperator = newAnyCyclotomicMulOperator(params, mod, reducer)
+		op.anyCyclotomicMul = newAnyCyclotomicMulOperator(params, mod, reducer)
 	case typeReduceMul:
 		modPoly := params.ModulusPoly()
 		maxRank := num.NextProdPower(2*len(modPoly)-1, []int{2})
-		op.reduceMulOperator = newReduceMulOperator(mod, modPoly, NewReducer(maxRank, mod, modPoly))
+		op.reduceMul = newReduceMulOperator(mod, modPoly, NewReducer(maxRank, mod, modPoly))
 	}
 
 	switch op.autType {
 	case typePow2CyclotomicAut:
-		op.pow2CyclotomicAutOperator = newPow2CyclotomicAutOperator(params, mod)
+		op.pow2CyclotomicAut = newPow2CyclotomicAutOperator(params, mod)
 	case typeAnyCyclotomicAut:
-		op.anyCyclotomicAutOperator = newAnyCyclotomicAutOperator(params, mod, reducer)
+		op.anyCyclotomicAut = newAnyCyclotomicAutOperator(params, mod, reducer)
 	case typePow2AutFixedAut:
-		op.pow2AutFixedAutOperator = newPow2AutFixedAutOperator(params, mod)
+		op.pow2AutFixedAut = newPow2AutFixedAutOperator(params, mod)
 	case typePrimeAutFixedAut:
-		op.primeAutFixedAutOperator = newPrimeAutFixedAutOperator(params, mod)
+		op.primeAutFixedAut = newPrimeAutFixedAutOperator(params, mod)
 	}
 
 	return op
 }
 
-// Params returns the ring parameters.
+// Params returns the [dft.RingParameters] of the operator.
 func (op *Operator) Params() dft.RingParameters {
 	return op.params
 }
 
-// Modulus returns the modulus.
+// Modulus returns the slice of *[num.Modulus] of the operator.
 func (op *Operator) Modulus() []*num.Modulus {
 	return op.mod
 }
@@ -136,7 +136,7 @@ func (op *Operator) FwdNTTTo(pOut, p *Poly) {
 	isUnaryOperable(op.params.Rank(), len(op.mod), pOut, p)
 
 	if p.Form == dft.FormNTT {
-		panic("input(s) must be in coefficient form")
+		panic("input(s) must be in Coeff form")
 	}
 
 	for i := range op.ntt {
@@ -187,9 +187,9 @@ func (op *Operator) Add[TOut, T0, T1 *Scalar | *Poly](e0 T0, e1 T1) TOut {
 func (op *Operator) AddTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
 	switch op.addSubType {
 	case typeTrivialAddSub:
-		op.trivialAddSubOperator.addTo(eOut, e0, e1)
+		op.trivialAddSub.addTo(eOut, e0, e1)
 	case typePrimeAutFixedAddSub:
-		op.primeAutFixedAddSubOperator.addTo(eOut, e0, e1)
+		op.primeAutFixedAddSub.addTo(eOut, e0, e1)
 	}
 }
 
@@ -204,9 +204,9 @@ func (op *Operator) Sub[TOut, T0, T1 *Scalar | *Poly](e0 T0, e1 T1) TOut {
 func (op *Operator) SubTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
 	switch op.addSubType {
 	case typeTrivialAddSub:
-		op.trivialAddSubOperator.subTo(eOut, e0, e1)
+		op.trivialAddSub.subTo(eOut, e0, e1)
 	case typePrimeAutFixedAddSub:
-		op.primeAutFixedAddSubOperator.subTo(eOut, e0, e1)
+		op.primeAutFixedAddSub.subTo(eOut, e0, e1)
 	}
 }
 
@@ -252,11 +252,11 @@ func (op *Operator) Mul[TOut, T0, T1 *Scalar | *Poly](e0 T0, e1 T1) TOut {
 func (op *Operator) MulTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
 	switch op.mulType {
 	case typeTrivialMul:
-		op.trivialMulOperator.mulTo(eOut, e0, e1)
+		op.trivialMul.mulTo(eOut, e0, e1)
 	case typeAnyCyclotomicMul:
-		op.anyCyclotomicMulOperator.mulTo(eOut, e0, e1)
+		op.anyCyclotomicMul.mulTo(eOut, e0, e1)
 	case typeReduceMul:
-		op.reduceMulOperator.mulTo(eOut, e0, e1)
+		op.reduceMul.mulTo(eOut, e0, e1)
 	}
 }
 
@@ -264,11 +264,11 @@ func (op *Operator) MulTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1)
 func (op *Operator) MulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
 	switch op.mulType {
 	case typeTrivialMul:
-		op.trivialMulOperator.mulAddTo(eOut, e0, e1)
+		op.trivialMul.mulAddTo(eOut, e0, e1)
 	case typeAnyCyclotomicMul:
-		op.anyCyclotomicMulOperator.mulAddTo(eOut, e0, e1)
+		op.anyCyclotomicMul.mulAddTo(eOut, e0, e1)
 	case typeReduceMul:
-		op.reduceMulOperator.mulAddTo(eOut, e0, e1)
+		op.reduceMul.mulAddTo(eOut, e0, e1)
 	}
 }
 
@@ -276,11 +276,11 @@ func (op *Operator) MulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 
 func (op *Operator) MulSubTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
 	switch op.mulType {
 	case typeTrivialMul:
-		op.trivialMulOperator.mulSubTo(eOut, e0, e1)
+		op.trivialMul.mulSubTo(eOut, e0, e1)
 	case typeAnyCyclotomicMul:
-		op.anyCyclotomicMulOperator.mulSubTo(eOut, e0, e1)
+		op.anyCyclotomicMul.mulSubTo(eOut, e0, e1)
 	case typeReduceMul:
-		op.reduceMulOperator.mulSubTo(eOut, e0, e1)
+		op.reduceMul.mulSubTo(eOut, e0, e1)
 	}
 }
 
@@ -288,13 +288,13 @@ func (op *Operator) MulSubTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 
 func (op *Operator) CanAut(idx int) bool {
 	switch op.autType {
 	case typePow2CyclotomicAut:
-		return op.pow2CyclotomicAutOperator.canAut(idx)
+		return op.pow2CyclotomicAut.canAut(idx)
 	case typeAnyCyclotomicAut:
-		return op.anyCyclotomicAutOperator.canAut(idx)
+		return op.anyCyclotomicAut.canAut(idx)
 	case typePow2AutFixedAut:
-		return op.pow2AutFixedAutOperator.canAut(idx)
+		return op.pow2AutFixedAut.canAut(idx)
 	case typePrimeAutFixedAut:
-		return op.primeAutFixedAutOperator.canAut(idx)
+		return op.primeAutFixedAut.canAut(idx)
 	}
 	return false
 }
@@ -310,13 +310,13 @@ func (op *Operator) Aut(p *Poly, idx int) *Poly {
 func (op *Operator) AutTo(pOut, p *Poly, idx int) {
 	switch op.autType {
 	case typePow2CyclotomicAut:
-		op.pow2CyclotomicAutOperator.autTo(pOut, p, idx)
+		op.pow2CyclotomicAut.autTo(pOut, p, idx)
 	case typeAnyCyclotomicAut:
-		op.anyCyclotomicAutOperator.autTo(pOut, p, idx)
+		op.anyCyclotomicAut.autTo(pOut, p, idx)
 	case typePow2AutFixedAut:
-		op.pow2AutFixedAutOperator.autTo(pOut, p, idx)
+		op.pow2AutFixedAut.autTo(pOut, p, idx)
 	case typePrimeAutFixedAut:
-		op.primeAutFixedAutOperator.autTo(pOut, p, idx)
+		op.primeAutFixedAut.autTo(pOut, p, idx)
 	default:
 		panic("automorphism unsupported")
 	}
@@ -340,29 +340,29 @@ func (op *Operator) WithModIdx(idx ...int) *Operator {
 
 	switch opOut.addSubType {
 	case typeTrivialAddSub:
-		opOut.trivialAddSubOperator = op.trivialAddSubOperator.withModIdx(idx...)
+		opOut.trivialAddSub = op.trivialAddSub.withModIdx(idx...)
 	case typePrimeAutFixedAddSub:
-		opOut.primeAutFixedAddSubOperator = op.primeAutFixedAddSubOperator.withModIdx(idx...)
+		opOut.primeAutFixedAddSub = op.primeAutFixedAddSub.withModIdx(idx...)
 	}
 
 	switch opOut.mulType {
 	case typeTrivialMul:
-		opOut.trivialMulOperator = op.trivialMulOperator.withModIdx(idx...)
+		opOut.trivialMul = op.trivialMul.withModIdx(idx...)
 	case typeAnyCyclotomicMul:
-		opOut.anyCyclotomicMulOperator = op.anyCyclotomicMulOperator.withModIdx(idx...)
+		opOut.anyCyclotomicMul = op.anyCyclotomicMul.withModIdx(idx...)
 	case typeReduceMul:
-		opOut.reduceMulOperator = op.reduceMulOperator.withModIdx(idx...)
+		opOut.reduceMul = op.reduceMul.withModIdx(idx...)
 	}
 
 	switch opOut.autType {
 	case typePow2CyclotomicAut:
-		opOut.pow2CyclotomicAutOperator = op.pow2CyclotomicAutOperator.withModIdx(idx...)
+		opOut.pow2CyclotomicAut = op.pow2CyclotomicAut.withModIdx(idx...)
 	case typeAnyCyclotomicAut:
-		opOut.anyCyclotomicAutOperator = op.anyCyclotomicAutOperator.withModIdx(idx...)
+		opOut.anyCyclotomicAut = op.anyCyclotomicAut.withModIdx(idx...)
 	case typePow2AutFixedAut:
-		opOut.pow2AutFixedAutOperator = op.pow2AutFixedAutOperator.withModIdx(idx...)
+		opOut.pow2AutFixedAut = op.pow2AutFixedAut.withModIdx(idx...)
 	case typePrimeAutFixedAut:
-		opOut.primeAutFixedAutOperator = op.primeAutFixedAutOperator.withModIdx(idx...)
+		opOut.primeAutFixedAut = op.primeAutFixedAut.withModIdx(idx...)
 	}
 
 	return opOut
@@ -385,29 +385,29 @@ func (op *Operator) Slice(lo, hi int) *Operator {
 
 	switch opOut.addSubType {
 	case typeTrivialAddSub:
-		opOut.trivialAddSubOperator = op.trivialAddSubOperator.slice(lo, hi)
+		opOut.trivialAddSub = op.trivialAddSub.slice(lo, hi)
 	case typePrimeAutFixedAddSub:
-		opOut.primeAutFixedAddSubOperator = op.primeAutFixedAddSubOperator.slice(lo, hi)
+		opOut.primeAutFixedAddSub = op.primeAutFixedAddSub.slice(lo, hi)
 	}
 
 	switch opOut.mulType {
 	case typeTrivialMul:
-		opOut.trivialMulOperator = op.trivialMulOperator.slice(lo, hi)
+		opOut.trivialMul = op.trivialMul.slice(lo, hi)
 	case typeAnyCyclotomicMul:
-		opOut.anyCyclotomicMulOperator = op.anyCyclotomicMulOperator.slice(lo, hi)
+		opOut.anyCyclotomicMul = op.anyCyclotomicMul.slice(lo, hi)
 	case typeReduceMul:
-		opOut.reduceMulOperator = op.reduceMulOperator.slice(lo, hi)
+		opOut.reduceMul = op.reduceMul.slice(lo, hi)
 	}
 
 	switch opOut.autType {
 	case typePow2CyclotomicAut:
-		opOut.pow2CyclotomicAutOperator = op.pow2CyclotomicAutOperator.slice(lo, hi)
+		opOut.pow2CyclotomicAut = op.pow2CyclotomicAut.slice(lo, hi)
 	case typeAnyCyclotomicAut:
-		opOut.anyCyclotomicAutOperator = op.anyCyclotomicAutOperator.slice(lo, hi)
+		opOut.anyCyclotomicAut = op.anyCyclotomicAut.slice(lo, hi)
 	case typePow2AutFixedAut:
-		opOut.pow2AutFixedAutOperator = op.pow2AutFixedAutOperator.slice(lo, hi)
+		opOut.pow2AutFixedAut = op.pow2AutFixedAut.slice(lo, hi)
 	case typePrimeAutFixedAut:
-		opOut.primeAutFixedAutOperator = op.primeAutFixedAutOperator.slice(lo, hi)
+		opOut.primeAutFixedAut = op.primeAutFixedAut.slice(lo, hi)
 	}
 
 	return opOut
@@ -435,29 +435,29 @@ func (op *Operator) Append(op0 *Operator) *Operator {
 
 	switch opOut.addSubType {
 	case typeTrivialAddSub:
-		opOut.trivialAddSubOperator = op.trivialAddSubOperator.append(op0.trivialAddSubOperator)
+		opOut.trivialAddSub = op.trivialAddSub.append(op0.trivialAddSub)
 	case typePrimeAutFixedAddSub:
-		opOut.primeAutFixedAddSubOperator = op.primeAutFixedAddSubOperator.append(op0.primeAutFixedAddSubOperator)
+		opOut.primeAutFixedAddSub = op.primeAutFixedAddSub.append(op0.primeAutFixedAddSub)
 	}
 
 	switch opOut.mulType {
 	case typeTrivialMul:
-		opOut.trivialMulOperator = op.trivialMulOperator.append(op0.trivialMulOperator)
+		opOut.trivialMul = op.trivialMul.append(op0.trivialMul)
 	case typeAnyCyclotomicMul:
-		opOut.anyCyclotomicMulOperator = op.anyCyclotomicMulOperator.append(op0.anyCyclotomicMulOperator)
+		opOut.anyCyclotomicMul = op.anyCyclotomicMul.append(op0.anyCyclotomicMul)
 	case typeReduceMul:
-		opOut.reduceMulOperator = op.reduceMulOperator.append(op0.reduceMulOperator)
+		opOut.reduceMul = op.reduceMul.append(op0.reduceMul)
 	}
 
 	switch opOut.autType {
 	case typePow2CyclotomicAut:
-		opOut.pow2CyclotomicAutOperator = op.pow2CyclotomicAutOperator.append(op0.pow2CyclotomicAutOperator)
+		opOut.pow2CyclotomicAut = op.pow2CyclotomicAut.append(op0.pow2CyclotomicAut)
 	case typeAnyCyclotomicAut:
-		opOut.anyCyclotomicAutOperator = op.anyCyclotomicAutOperator.append(op0.anyCyclotomicAutOperator)
+		opOut.anyCyclotomicAut = op.anyCyclotomicAut.append(op0.anyCyclotomicAut)
 	case typePow2AutFixedAut:
-		opOut.pow2AutFixedAutOperator = op.pow2AutFixedAutOperator.append(op0.pow2AutFixedAutOperator)
+		opOut.pow2AutFixedAut = op.pow2AutFixedAut.append(op0.pow2AutFixedAut)
 	case typePrimeAutFixedAut:
-		opOut.primeAutFixedAutOperator = op.primeAutFixedAutOperator.append(op0.primeAutFixedAutOperator)
+		opOut.primeAutFixedAut = op.primeAutFixedAut.append(op0.primeAutFixedAut)
 	}
 
 	return opOut
@@ -480,29 +480,29 @@ func (op *Operator) AppendTmpModulus(mod *num.Modulus) *Operator {
 
 	switch opOut.addSubType {
 	case typeTrivialAddSub:
-		opOut.trivialAddSubOperator = op.trivialAddSubOperator.appendTmpModulus(mod)
+		opOut.trivialAddSub = op.trivialAddSub.appendTmpModulus(mod)
 	case typePrimeAutFixedAddSub:
-		opOut.primeAutFixedAddSubOperator = op.primeAutFixedAddSubOperator.appendTmpModulus(mod)
+		opOut.primeAutFixedAddSub = op.primeAutFixedAddSub.appendTmpModulus(mod)
 	}
 
 	switch opOut.mulType {
 	case typeTrivialMul:
-		opOut.trivialMulOperator = op.trivialMulOperator.appendTmpModulus(mod)
+		opOut.trivialMul = op.trivialMul.appendTmpModulus(mod)
 	case typeAnyCyclotomicMul:
-		opOut.anyCyclotomicMulOperator = op.anyCyclotomicMulOperator.appendTmpModulus(mod)
+		opOut.anyCyclotomicMul = op.anyCyclotomicMul.appendTmpModulus(mod)
 	case typeReduceMul:
-		opOut.reduceMulOperator = op.reduceMulOperator.appendTmpModulus(mod)
+		opOut.reduceMul = op.reduceMul.appendTmpModulus(mod)
 	}
 
 	switch opOut.autType {
 	case typePow2CyclotomicAut:
-		opOut.pow2CyclotomicAutOperator = op.pow2CyclotomicAutOperator.appendTmpModulus(mod)
+		opOut.pow2CyclotomicAut = op.pow2CyclotomicAut.appendTmpModulus(mod)
 	case typeAnyCyclotomicAut:
-		opOut.anyCyclotomicAutOperator = op.anyCyclotomicAutOperator.appendTmpModulus(mod)
+		opOut.anyCyclotomicAut = op.anyCyclotomicAut.appendTmpModulus(mod)
 	case typePow2AutFixedAut:
-		opOut.pow2AutFixedAutOperator = op.pow2AutFixedAutOperator.appendTmpModulus(mod)
+		opOut.pow2AutFixedAut = op.pow2AutFixedAut.appendTmpModulus(mod)
 	case typePrimeAutFixedAut:
-		opOut.primeAutFixedAutOperator = op.primeAutFixedAutOperator.appendTmpModulus(mod)
+		opOut.primeAutFixedAut = op.primeAutFixedAut.appendTmpModulus(mod)
 	}
 
 	return opOut

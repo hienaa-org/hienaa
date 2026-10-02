@@ -1,6 +1,8 @@
 package crt
 
 import (
+	"github.com/hienaa-org/hienaa/internal/pool"
+	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/internal/modops"
 	"github.com/hienaa-org/hienaa/math/num"
 )
@@ -21,7 +23,7 @@ func halfProductMixedRadix(mod []*num.Modulus) []uint64 {
 	return half
 }
 
-// embedToModOut returns sign(x) mod qOut for x in [0, qIn).
+// embedToModOut returns balanced x mod qOut for x in [0, qIn).
 func embedToModOut(x uint64, qOut, qOutDivHi, qIn, halfQIn uint64) uint64 {
 	if x <= halfQIn {
 		return modops.BMod64(x, qOut, qOutDivHi)
@@ -43,4 +45,27 @@ func isMixedRadixNegative[T *[embedBatch]uint64 | []uint64](v []T, i int, half [
 		}
 	}
 	return 0
+}
+
+// getPolyFromPool fetches an *[Poly] with given rank, modLen and [dft.Form] from pool.
+func getPolyFromPool(pool *pool.Pool[*[]uint64], rank, modLen int, outForm dft.Form) (eOut *Poly, put func()) {
+	eOut = &Poly{
+		Coeffs: make([][]uint64, modLen),
+		Form:   outForm,
+	}
+
+	coeffsPtr := make([]*[]uint64, modLen)
+	for i := 0; i < modLen; i++ {
+		vPtr := pool.Get()
+		coeffsPtr[i] = vPtr
+		eOut.Coeffs[i] = (*vPtr)[:rank]
+	}
+
+	put = func() {
+		for i := range coeffsPtr {
+			pool.Put(coeffsPtr[i])
+		}
+	}
+
+	return eOut, put
 }

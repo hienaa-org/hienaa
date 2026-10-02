@@ -190,7 +190,7 @@ func SMulLazy(x0, x1, x1S uint64, q *Modulus) uint64 {
 }
 
 // Reduce returns x mod q using Barrett reduction.
-// If q is [*Modulus], it uses Barrett reduction.
+// If q is *[Modulus], it uses Barrett reduction.
 func Reduce[T Integer, Q uint64 | *Modulus](x T, q Q) uint64 {
 	switch q := any(q).(type) {
 	case uint64:
@@ -205,7 +205,7 @@ func Reduce[T Integer, Q uint64 | *Modulus](x T, q Q) uint64 {
 }
 
 // Reduce128 returns x mod q.
-// If q is [*Modulus], it uses Barrett reduction.
+// If q is *[Modulus], it uses Barrett reduction.
 func Reduce128[Q uint64 | *Modulus](xHi, xLo uint64, q Q) uint64 {
 	switch q := any(q).(type) {
 	case uint64:

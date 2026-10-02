@@ -97,7 +97,7 @@ func (r *LongDivReducer) ReduceTo(pOut, p *Poly) {
 	checkPolyShape(r.params.Rank(), len(r.mod), pOut)
 
 	if p.Form == dft.FormNTT {
-		panic("input(s) must be in coefficient form")
+		panic("input(s) must be in Coeff form")
 	} else if p.Rank() > r.maxRank {
 		panic("rank must be less than or equal to maxRank")
 	}
@@ -129,7 +129,7 @@ func (r *LongDivReducer) QuotientTo(pOut, p *Poly) {
 	checkPolyShape(max(0, p.Rank()-r.params.Rank()), len(r.mod), pOut)
 
 	if p.Form == dft.FormNTT {
-		panic("input(s) must be in coefficient form")
+		panic("input(s) must be in Coeff form")
 	} else if p.Rank() > r.maxRank {
 		panic("rank must be less than or equal to maxRank")
 	}
@@ -163,7 +163,7 @@ func (r *LongDivReducer) QuoRemTo(pQuo, pRem, p *Poly) {
 	checkPolyShape(r.params.Rank(), len(r.mod), pRem)
 
 	if p.Form == dft.FormNTT {
-		panic("input(s) must be in coefficient form")
+		panic("input(s) must be in Coeff form")
 	} else if p.Rank() > r.maxRank {
 		panic("rank must be less than or equal to maxRank")
 	}
@@ -558,7 +558,7 @@ func (r *CyclotomicReducer) ReduceTo(pOut, p *Poly) {
 	checkPolyShape(r.params.Rank(), len(r.mod), pOut)
 
 	if p.Form == dft.FormNTT {
-		panic("input(s) must be in coefficient form")
+		panic("input(s) must be in Coeff form")
 	} else if p.Rank() > r.params.CycloIndex() {
 		panic("rank must be less than or equal to cycloIdx")
 	}
@@ -1071,7 +1071,7 @@ func (r *Reducer) ReduceTo(pOut, p *Poly) {
 	checkPolyShape(r.params.Rank(), len(r.mod), pOut)
 
 	if p.Form == dft.FormNTT {
-		panic("input(s) must be in coefficient form")
+		panic("input(s) must be in Coeff form")
 	} else if p.Rank() > r.maxRank {
 		panic("rank must be less than or equal to maxRank")
 	}

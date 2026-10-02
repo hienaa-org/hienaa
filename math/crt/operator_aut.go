@@ -170,7 +170,7 @@ type anyCyclotomicAutOperator struct {
 
 	// primeExpMods is the prime power factors of the cyclotomic index.
 	primeExpMods []*num.Modulus
-	// rootExps is the generators modulo prime power factors of the cyclotomic index.
+	// rootExps is the powers of generators modulo prime power factors of the cyclotomic index.
 	rootExps [][]uint64
 	// dims is the dimension of the hypercube structure.
 	dims []int
