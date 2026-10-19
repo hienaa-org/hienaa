@@ -13,7 +13,7 @@ func newVecScalarOpOut[T0, T1 uint64 | []uint64](v0 T0, v1 T1) []uint64 {
 	v1Vec, v1IsVec := any(v1).([]uint64)
 
 	if !v0IsVec && !v1IsVec {
-		panic("inconsistent input(s)")
+		panic("inconsistent types")
 	}
 
 	if v0IsVec {
@@ -92,7 +92,7 @@ func MulTo[T0, T1 uint64 | []uint64](vOut []uint64, v0 T0, v1 T1, q *num.Modulus
 
 	switch {
 	case v0IsScalar && v1IsScalar:
-		panic("inconsistent input(s)")
+		panic("inconsistent types")
 
 	case !v0IsScalar && !v1IsScalar:
 		if q == nil {
@@ -159,7 +159,7 @@ func MulAddTo[T0, T1 uint64 | []uint64](vOut []uint64, v0 T0, v1 T1, q *num.Modu
 
 	switch {
 	case v0IsScalar && v1IsScalar:
-		panic("inconsistent input(s)")
+		panic("inconsistent types")
 
 	case !v0IsScalar && !v1IsScalar:
 		if q == nil {
@@ -226,7 +226,7 @@ func MulSubTo[T0, T1 uint64 | []uint64](vOut []uint64, v0 T0, v1 T1, q *num.Modu
 
 	switch {
 	case v0IsScalar && v1IsScalar:
-		panic("inconsistent input(s)")
+		panic("inconsistent types")
 
 	case !v0IsScalar && !v1IsScalar:
 		if q == nil {
@@ -303,7 +303,7 @@ func MulLazyTo[T0, T1 uint64 | []uint64](vOut []uint64, v0 T0, v1 T1, q *num.Mod
 
 	switch {
 	case v0IsScalar && v1IsScalar:
-		panic("inconsistent input(s)")
+		panic("inconsistent types")
 
 	case !v0IsScalar && !v1IsScalar:
 		mulLazyTo(vOut, v0Vec, v1Vec, q)
@@ -363,7 +363,7 @@ func MulAddLazyTo[T0, T1 uint64 | []uint64](vOut []uint64, v0 T0, v1 T1, q *num.
 
 	switch {
 	case v0IsScalar && v1IsScalar:
-		panic("inconsistent input(s)")
+		panic("inconsistent types")
 
 	case !v0IsScalar && !v1IsScalar:
 		mulAddLazyTo(vOut, v0Vec, v1Vec, q)
@@ -423,7 +423,7 @@ func MulSubLazyTo[T0, T1 uint64 | []uint64](vOut []uint64, v0 T0, v1 T1, q *num.
 
 	switch {
 	case v0IsScalar && v1IsScalar:
-		panic("inconsistent input(s)")
+		panic("inconsistent types")
 
 	case !v0IsScalar && !v1IsScalar:
 		mulSubLazyTo(vOut, v0Vec, v1Vec, q)
@@ -509,7 +509,7 @@ func MMulTo[T0, T1 uint64 | []uint64](vOutM []uint64, v0M T0, v1M T1, q *num.Mod
 
 	switch {
 	case v0IsScalar && v1IsScalar:
-		panic("inconsistent input(s)")
+		panic("inconsistent types")
 
 	case !v0IsScalar && !v1IsScalar:
 		mMulTo(vOutM, v0Vec, v1Vec, q)
@@ -532,7 +532,7 @@ func MMulAddTo[T0, T1 uint64 | []uint64](vOutM []uint64, v0M T0, v1M T1, q *num.
 
 	switch {
 	case v0IsScalar && v1IsScalar:
-		panic("inconsistent input(s)")
+		panic("inconsistent types")
 
 	case !v0IsScalar && !v1IsScalar:
 		mMulAddTo(vOutM, v0Vec, v1Vec, q)
@@ -555,7 +555,7 @@ func MMulSubTo[T0, T1 uint64 | []uint64](vOutM []uint64, v0M T0, v1M T1, q *num.
 
 	switch {
 	case v0IsScalar && v1IsScalar:
-		panic("inconsistent input(s)")
+		panic("inconsistent types")
 
 	case !v0IsScalar && !v1IsScalar:
 		mMulSubTo(vOutM, v0Vec, v1Vec, q)
@@ -589,7 +589,7 @@ func MMulLazyTo[T0, T1 uint64 | []uint64](vOutM []uint64, v0M T0, v1M T1, q *num
 
 	switch {
 	case v0IsScalar && v1IsScalar:
-		panic("inconsistent input(s)")
+		panic("inconsistent types")
 
 	case !v0IsScalar && !v1IsScalar:
 		mMulLazyTo(vOutM, v0Vec, v1Vec, q)
@@ -613,7 +613,7 @@ func MMulAddLazyTo[T0, T1 uint64 | []uint64](vOutM []uint64, v0M T0, v1M T1, q *
 
 	switch {
 	case v0IsScalar && v1IsScalar:
-		panic("inconsistent input(s)")
+		panic("inconsistent types")
 
 	case !v0IsScalar && !v1IsScalar:
 		mMulAddLazyTo(vOutM, v0Vec, v1Vec, q)
@@ -637,7 +637,7 @@ func MMulSubLazyTo[T0, T1 uint64 | []uint64](vOutM []uint64, v0M T0, v1M T1, q *
 
 	switch {
 	case v0IsScalar && v1IsScalar:
-		panic("inconsistent input(s)")
+		panic("inconsistent types")
 
 	case !v0IsScalar && !v1IsScalar:
 		mMulSubLazyTo(vOutM, v0Vec, v1Vec, q)

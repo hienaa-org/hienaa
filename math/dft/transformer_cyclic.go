@@ -101,7 +101,7 @@ type pow235CyclicTransformer struct {
 	pool *pool.Pool[*[]uint64]
 }
 
-// newPow235CyclicTransformer creates a new [pow235CyclicTransformer]
+// newPow235CyclicTransformer creates a new [pow235CyclicTransformer].
 func newPow235CyclicTransformer(params RingParameters, mod *num.Modulus) *pow235CyclicTransformer {
 	rankFactors := make([]int, len(cyclicNTTFactors))
 	rankTmp := params.rank

@@ -27,14 +27,39 @@ func newBinaryOpOut[TOut, T0, T1 *Scalar | *Poly](e0 T0, e1 T1) TOut {
 	_, e1IsScalar := any(e1).(*Scalar)
 	e1Poly, _ := any(e1).(*Poly)
 
-	if e0IsScalar && e1IsScalar {
-		return any(NewScalar(e0Scalar.ModLen())).(TOut)
-	}
+	var eOut TOut
+	_, eOutIsScalar := any(eOut).(*Scalar)
 
-	if !e0IsScalar {
+	switch {
+	case e0IsScalar && e1IsScalar:
+		if !eOutIsScalar {
+			panic("inconsistent types")
+		}
+		return any(NewScalar(e0Scalar.ModLen())).(TOut)
+
+	case e0IsScalar && !e1IsScalar:
+		if eOutIsScalar {
+			panic("inconsistent types")
+		}
+		return any(NewPoly(e1Poly.Rank(), e1Poly.ModLen())).(TOut)
+
+	case !e0IsScalar && e1IsScalar:
+		if eOutIsScalar {
+			panic("inconsistent types")
+		}
+		return any(NewPoly(e0Poly.Rank(), e0Poly.ModLen())).(TOut)
+
+	case !e0IsScalar && !e1IsScalar:
+		if eOutIsScalar {
+			panic("inconsistent types")
+		}
+		if e0Poly.Form != e1Poly.Form {
+			panic("inconsistent forms")
+		}
 		return any(NewPoly(e0Poly.Rank(), e0Poly.ModLen())).(TOut)
 	}
-	return any(NewPoly(e1Poly.Rank(), e1Poly.ModLen())).(TOut)
+
+	return nil
 }
 
 // isBinaryOperable panics if eOut, e0, e1 is not operable.
@@ -51,7 +76,7 @@ func isBinaryOperable[TOut, T0, T1 *Scalar | *Poly](rank, modLen int, eOut TOut,
 	switch {
 	case e0IsScalar && e1IsScalar:
 		if !eOutIsScalar {
-			panic("inconsistent input(s)")
+			panic("inconsistent types")
 		}
 		checkScalarShape(modLen, e0Scalar)
 		checkScalarShape(modLen, e1Scalar)
@@ -59,7 +84,7 @@ func isBinaryOperable[TOut, T0, T1 *Scalar | *Poly](rank, modLen int, eOut TOut,
 
 	case e0IsScalar && !e1IsScalar:
 		if eOutIsScalar {
-			panic("inconsistent input(s)")
+			panic("inconsistent types")
 		}
 		checkScalarShape(modLen, e0Scalar)
 		checkPolyShape(rank, modLen, e1Poly)
@@ -67,7 +92,7 @@ func isBinaryOperable[TOut, T0, T1 *Scalar | *Poly](rank, modLen int, eOut TOut,
 
 	case !e0IsScalar && e1IsScalar:
 		if eOutIsScalar {
-			panic("inconsistent input(s)")
+			panic("inconsistent types")
 		}
 		checkPolyShape(rank, modLen, e0Poly)
 		checkScalarShape(modLen, e1Scalar)
@@ -75,7 +100,7 @@ func isBinaryOperable[TOut, T0, T1 *Scalar | *Poly](rank, modLen int, eOut TOut,
 
 	case !e0IsScalar && !e1IsScalar:
 		if eOutIsScalar {
-			panic("inconsistent input(s)")
+			panic("inconsistent types")
 		}
 		if e0Poly.Form != e1Poly.Form {
 			panic("inconsistent forms")
@@ -90,6 +115,13 @@ func isBinaryOperable[TOut, T0, T1 *Scalar | *Poly](rank, modLen int, eOut TOut,
 func newUnaryOpOut[TOut, T *Scalar | *Poly](e T) TOut {
 	eScalar, eIsScalar := any(e).(*Scalar)
 	ePoly, _ := any(e).(*Poly)
+
+	var eOut TOut
+	_, eOutIsScalar := any(eOut).(*Scalar)
+
+	if eOutIsScalar != eIsScalar {
+		panic("inconsistent types")
+	}
 
 	if eIsScalar {
 		return any(NewScalar(eScalar.ModLen())).(TOut)
@@ -106,7 +138,7 @@ func isUnaryOperable[TOut, T *Scalar | *Poly](rank, modLen int, eOut TOut, e T) 
 	ePoly, _ := any(e).(*Poly)
 
 	if eOutIsScalar != eIsScalar {
-		panic("inconsistent input(s)")
+		panic("inconsistent types")
 	}
 
 	if eOutIsScalar && eIsScalar {

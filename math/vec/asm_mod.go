@@ -22,7 +22,7 @@ func AddTo[T0, T1 uint64 | []uint64](vOut []uint64, v0 T0, v1 T1, q *num.Modulus
 
 	switch {
 	case v0IsScalar && v1IsScalar:
-		panic("inconsistent input(s)")
+		panic("inconsistent types")
 
 	case !v0IsScalar && !v1IsScalar:
 		if q == nil {
@@ -182,7 +182,7 @@ func SubTo[T0, T1 uint64 | []uint64](vOut []uint64, v0 T0, v1 T1, q *num.Modulus
 
 	switch {
 	case v0IsScalar && v1IsScalar:
-		panic("inconsistent input(s)")
+		panic("inconsistent types")
 
 	case v0IsScalar && !v1IsScalar:
 		if q == nil {
