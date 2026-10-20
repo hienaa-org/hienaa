@@ -1,6 +1,9 @@
 package gr
 
-import "github.com/hienaa-org/hienaa/math/crt"
+import (
+	"github.com/hienaa-org/hienaa/math/crt"
+	"github.com/hienaa-org/hienaa/math/dft"
+)
 
 // Element represents an element in a finite field.
 type Element struct {
@@ -10,7 +13,7 @@ type Element struct {
 // NewElement creates a new [Element].
 func NewElement(rank int) *Element {
 	return &Element{
-		value: crt.NewNTTPoly(rank, 1),
+		value: crt.NewPoly(rank, 1, dft.FormNTT),
 	}
 }
 

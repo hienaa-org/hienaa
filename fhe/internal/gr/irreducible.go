@@ -41,10 +41,10 @@ func isIrreducible(f []int64, q *num.Modulus) bool {
 	op := crt.NewOperator(dft.NewOtherParameters(f), []*num.Modulus{q})
 	fRed := vec.Reduce(f, q)
 
-	hPrev := op.NewPoly()
+	hPrev := op.NewPoly(dft.FormCoeff)
 	hPrev.Coeffs[0][1] = 1
 	op.FwdNTTTo(hPrev, hPrev)
-	h, hInvNTT := op.NewNTTPoly(), op.NewPoly()
+	h, hInvNTT := op.NewPoly(dft.FormNTT), op.NewPoly(dft.FormCoeff)
 
 	p0 := make([]uint64, len(f))
 

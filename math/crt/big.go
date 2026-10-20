@@ -7,7 +7,7 @@ import (
 	"github.com/hienaa-org/hienaa/math/dft"
 )
 
-// BigConverter converts *[Scalar] and *[Poly] to *[big.Int] values.
+// BigConverter converts [Scalar] and [Poly] to *[big.Int] values.
 type BigConverter struct {
 	Op *Operator
 

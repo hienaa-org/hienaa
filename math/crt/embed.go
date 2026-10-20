@@ -23,7 +23,15 @@ var (
 	})
 )
 
-// Embedder embeds *[Scalar] and *[Poly] into different modulus.
+// NewEmbPool creates a new [pool.Pool] that can be used in [Embedder].
+func NewEmbedderPool(rank, modLen int) *pool.Pool[*[]uint64] {
+	return pool.NewPool(func() *[]uint64 {
+		v := make([]uint64, max(rank, modLen))
+		return &v
+	})
+}
+
+// Embedder embeds [Scalar] and [Poly] into different modulus.
 // In other words, it computes
 //
 //	[e]_modIn -> [e]_modOut
@@ -48,10 +56,7 @@ func NewEmbedder(opOut *Operator, opIn *Operator) *Embedder {
 		OpOut: opOut,
 
 		vecEmb: NewVecEmbedder(opOut.mod, opIn.mod),
-		pool: pool.NewPool(func() *[]uint64 {
-			v := make([]uint64, max(opIn.params.Rank(), len(opIn.mod)))
-			return &v
-		}),
+		pool:   NewEmbedderPool(opIn.params.Rank(), len(opIn.mod)),
 	}
 }
 
@@ -71,7 +76,7 @@ func (emb *Embedder) Embed[T *Scalar | *Poly](e T, outForm dft.Form) T {
 		emb.EmbedTo(eOut, eScalar, outForm)
 		return any(eOut).(T)
 	}
-	eOut := emb.OpOut.NewPoly()
+	eOut := emb.OpOut.NewPoly(outForm)
 	emb.EmbedTo(eOut, ePoly, outForm)
 	return any(eOut).(T)
 }
@@ -643,17 +648,17 @@ func (emb *VecEmbedder) EmbedTo(vOut, v [][]uint64) {
 	}
 }
 
-// ModulusIn returns the input modulus.
-func (emb *VecEmbedder) ModulusIn() []*num.Modulus {
+// ModIn returns the input modulus.
+func (emb *VecEmbedder) ModIn() []*num.Modulus {
 	return emb.modIn
 }
 
-// ModulusOut returns the output modulus.
-func (emb *VecEmbedder) ModulusOut() []*num.Modulus {
+// ModOut returns the output modulus.
+func (emb *VecEmbedder) ModOut() []*num.Modulus {
 	return emb.modOut
 }
 
-// Scaler scales *[Scalar] and *[Poly] from the input modulus to the output modulus.
+// Scaler scales [Scalar] and [Poly] from the input modulus to the output modulus.
 // In other words, it computes
 //
 //	[e]_modIn -> [(modOut / modIn) * e]_modOut
@@ -702,7 +707,7 @@ func (sc *Scaler) Scale[T *Scalar | *Poly](e T, outForm dft.Form) T {
 		sc.ScaleTo(eOut, eScalar, outForm)
 		return any(eOut).(T)
 	}
-	eOut := sc.OpOut.NewPoly()
+	eOut := sc.OpOut.NewPoly(outForm)
 	sc.ScaleTo(eOut, ePoly, outForm)
 	return any(eOut).(T)
 }
@@ -1582,12 +1587,12 @@ func (sc *VecScaler) ScaleTo(vOut, v [][]uint64) {
 	}
 }
 
-// ModulusIn returns the input modulus.
-func (sc *VecScaler) ModulusIn() []*num.Modulus {
+// ModIn returns the input modulus.
+func (sc *VecScaler) ModIn() []*num.Modulus {
 	return sc.modIn
 }
 
-// ModulusOut returns the output modulus.
-func (sc *VecScaler) ModulusOut() []*num.Modulus {
+// ModOut returns the output modulus.
+func (sc *VecScaler) ModOut() []*num.Modulus {
 	return sc.modOut
 }

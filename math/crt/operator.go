@@ -80,7 +80,7 @@ func NewOperator(params dft.RingParameters, mod []*num.Modulus) *Operator {
 	case typeAnyCyclotomicMul:
 		op.anyCyclotomicMul = newAnyCyclotomicMulOperator(params, mod, reducer)
 	case typeReduceMul:
-		modPoly := params.ModulusPoly()
+		modPoly := params.ModPoly()
 		maxRank := num.NextProdPower(2*len(modPoly)-1, []int{2})
 		op.reduceMul = newReduceMulOperator(mod, modPoly, NewReducer(maxRank, mod, modPoly))
 	}
@@ -104,29 +104,19 @@ func (op *Operator) Params() dft.RingParameters {
 	return op.params
 }
 
-// Modulus returns the slice of *[num.Modulus] of the operator.
-func (op *Operator) Modulus() []*num.Modulus {
+// Mod returns the slice of *[num.Modulus] of the operator.
+func (op *Operator) Mod() []*num.Modulus {
 	return op.mod
 }
 
-// NewPoly creates a new [Poly] in Coefficient form.
-func (op *Operator) NewPoly() *Poly {
-	return NewPoly(op.params.Rank(), len(op.mod))
-}
-
-// NewNTTPoly creates a new [Poly] in NTT form.
-func (op *Operator) NewNTTPoly() *Poly {
-	return NewNTTPoly(op.params.Rank(), len(op.mod))
-}
-
-// NewPolyCustom creates a new [Poly].
-func (op *Operator) NewPolyCustom(form dft.Form) *Poly {
-	return NewPolyCustom(op.params.Rank(), len(op.mod), form)
+// NewPoly creates a new [Poly].
+func (op *Operator) NewPoly(form dft.Form) *Poly {
+	return NewPoly(op.params.Rank(), len(op.mod), form)
 }
 
 // FwdNTT returns FwdNTT(p).
 func (op *Operator) FwdNTT(p *Poly) *Poly {
-	pOut := op.NewPoly()
+	pOut := op.NewPoly(dft.FormNTT)
 	op.FwdNTTTo(pOut, p)
 	return pOut
 }
@@ -152,7 +142,7 @@ func (op *Operator) FwdNTTTo(pOut, p *Poly) {
 
 // InvNTT returns InvNTT(p).
 func (op *Operator) InvNTT(p *Poly) *Poly {
-	pOut := op.NewPoly()
+	pOut := op.NewPoly(dft.FormCoeff)
 	op.InvNTTTo(pOut, p)
 	return pOut
 }
@@ -301,7 +291,7 @@ func (op *Operator) CanAut(idx int) bool {
 
 // Aut returns pOut = p(X^idx).
 func (op *Operator) Aut(p *Poly, idx int) *Poly {
-	pOut := op.NewPoly()
+	pOut := op.NewPoly(p.Form)
 	op.AutTo(pOut, p, idx)
 	return pOut
 }
@@ -371,6 +361,10 @@ func (op *Operator) WithModIdx(idx ...int) *Operator {
 // Slice slices the modulus of [Operator] and returns the new [Operator].
 // Equal to op.WithModIdx(vec.Range(lo, hi)...).
 func (op *Operator) Slice(lo, hi int) *Operator {
+	if lo == 0 && hi == len(op.mod) {
+		return op
+	}
+
 	opOut := &Operator{
 		params: op.params,
 		mod:    op.mod[lo:hi],
@@ -463,9 +457,9 @@ func (op *Operator) Append(op0 *Operator) *Operator {
 	return opOut
 }
 
-// AppendTmpModulus appends "temporary" modulus to the moduli chain and returns the new [Operator].
+// AppendTmpMod appends "temporary" modulus to the moduli chain and returns the new [Operator].
 // This assumes that modulus is NTT-unfriendly, trading the appending performance with operation performance.
-func (op *Operator) AppendTmpModulus(mod *num.Modulus) *Operator {
+func (op *Operator) AppendTmpMod(mod *num.Modulus) *Operator {
 	opOut := &Operator{
 		params: op.params,
 		mod:    slices.Concat(op.mod, []*num.Modulus{mod}),
@@ -480,29 +474,29 @@ func (op *Operator) AppendTmpModulus(mod *num.Modulus) *Operator {
 
 	switch opOut.addSubType {
 	case typeTrivialAddSub:
-		opOut.trivialAddSub = op.trivialAddSub.appendTmpModulus(mod)
+		opOut.trivialAddSub = op.trivialAddSub.appendTmpMod(mod)
 	case typePrimeAutFixedAddSub:
-		opOut.primeAutFixedAddSub = op.primeAutFixedAddSub.appendTmpModulus(mod)
+		opOut.primeAutFixedAddSub = op.primeAutFixedAddSub.appendTmpMod(mod)
 	}
 
 	switch opOut.mulType {
 	case typeTrivialMul:
-		opOut.trivialMul = op.trivialMul.appendTmpModulus(mod)
+		opOut.trivialMul = op.trivialMul.appendTmpMod(mod)
 	case typeAnyCyclotomicMul:
-		opOut.anyCyclotomicMul = op.anyCyclotomicMul.appendTmpModulus(mod)
+		opOut.anyCyclotomicMul = op.anyCyclotomicMul.appendTmpMod(mod)
 	case typeReduceMul:
-		opOut.reduceMul = op.reduceMul.appendTmpModulus(mod)
+		opOut.reduceMul = op.reduceMul.appendTmpMod(mod)
 	}
 
 	switch opOut.autType {
 	case typePow2CyclotomicAut:
-		opOut.pow2CyclotomicAut = op.pow2CyclotomicAut.appendTmpModulus(mod)
+		opOut.pow2CyclotomicAut = op.pow2CyclotomicAut.appendTmpMod(mod)
 	case typeAnyCyclotomicAut:
-		opOut.anyCyclotomicAut = op.anyCyclotomicAut.appendTmpModulus(mod)
+		opOut.anyCyclotomicAut = op.anyCyclotomicAut.appendTmpMod(mod)
 	case typePow2AutFixedAut:
-		opOut.pow2AutFixedAut = op.pow2AutFixedAut.appendTmpModulus(mod)
+		opOut.pow2AutFixedAut = op.pow2AutFixedAut.appendTmpMod(mod)
 	case typePrimeAutFixedAut:
-		opOut.primeAutFixedAut = op.primeAutFixedAut.appendTmpModulus(mod)
+		opOut.primeAutFixedAut = op.primeAutFixedAut.appendTmpMod(mod)
 	}
 
 	return opOut

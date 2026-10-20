@@ -90,7 +90,7 @@ func newTrivialMulOperator(params dft.RingParameters, mod []*num.Modulus) *trivi
 		embedder:  embedder,
 
 		pool: pool.NewPool(func() *Poly {
-			return NewPoly(params.Rank(), len(ambMod))
+			return NewPoly(params.Rank(), len(ambMod), dft.FormCoeff)
 		}),
 	}
 }
@@ -337,7 +337,7 @@ func (op *trivialMulOperator) append(op0 *trivialMulOperator) *trivialMulOperato
 	}
 }
 
-func (op *trivialMulOperator) appendTmpModulus(mod *num.Modulus) *trivialMulOperator {
+func (op *trivialMulOperator) appendTmpMod(mod *num.Modulus) *trivialMulOperator {
 	ambModLen := ambientModLen(op.ambMod, num.Log2(op.expFac)+2*num.Log2(mod.Value()))
 	embedder := NewVecEmbedder([]*num.Modulus{mod}, op.ambMod[:ambModLen])
 
@@ -408,7 +408,7 @@ func newAnyCyclotomicMulOperator(params dft.RingParameters, mod []*num.Modulus, 
 		reducer: reducer,
 
 		pool: pool.NewPool(func() *Poly {
-			return NewPoly(ambParams.Rank(), len(ambMod))
+			return NewPoly(ambParams.Rank(), len(ambMod), dft.FormCoeff)
 		}),
 	}
 }
@@ -682,7 +682,7 @@ func (op *anyCyclotomicMulOperator) append(op0 *anyCyclotomicMulOperator) *anyCy
 	}
 }
 
-func (op *anyCyclotomicMulOperator) appendTmpModulus(mod *num.Modulus) *anyCyclotomicMulOperator {
+func (op *anyCyclotomicMulOperator) appendTmpMod(mod *num.Modulus) *anyCyclotomicMulOperator {
 	ambExpFac := uint64(op.params.CycloIndex())
 	ambModLen := ambientModLen(op.ambMod, num.Log2(ambExpFac)+2*num.Log2(mod.Value()))
 
@@ -697,7 +697,7 @@ func (op *anyCyclotomicMulOperator) appendTmpModulus(mod *num.Modulus) *anyCyclo
 		ambNTT:    op.ambNTT,
 		embedder:  slices.Concat(op.embedder, []*VecEmbedder{embedder}),
 
-		reducer: op.reducer.AppendTmpModulus(mod),
+		reducer: op.reducer.AppendTmpMod(mod),
 
 		pool: op.pool,
 	}
@@ -763,7 +763,7 @@ func newReduceMulOperator(mod []*num.Modulus, modPoly []int64, reducer *Reducer)
 		reducer: reducer,
 
 		pool: pool.NewPool(func() *Poly {
-			return NewPoly(ambParams.Rank(), len(ambMod))
+			return NewPoly(ambParams.Rank(), len(ambMod), dft.FormCoeff)
 		}),
 	}
 }
@@ -1045,7 +1045,7 @@ func (op *reduceMulOperator) append(op0 *reduceMulOperator) *reduceMulOperator {
 	}
 }
 
-func (op *reduceMulOperator) appendTmpModulus(mod *num.Modulus) *reduceMulOperator {
+func (op *reduceMulOperator) appendTmpMod(mod *num.Modulus) *reduceMulOperator {
 	ambModLen := ambientModLen(op.ambMod, num.Log2(op.ambParams.Rank())+2*num.Log2(mod.Value()))
 
 	embedder := NewVecEmbedder([]*num.Modulus{mod}, op.ambMod[:ambModLen])
@@ -1062,7 +1062,7 @@ func (op *reduceMulOperator) appendTmpModulus(mod *num.Modulus) *reduceMulOperat
 		ambNTT:    op.ambNTT,
 		embedder:  slices.Concat(op.embedder, []*VecEmbedder{embedder}),
 
-		reducer: op.reducer.AppendTmpModulus(mod),
+		reducer: op.reducer.AppendTmpMod(mod),
 
 		pool: op.pool,
 	}

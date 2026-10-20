@@ -97,7 +97,7 @@ func testNTT(t *testing.T, params dft.RingParameters) {
 	var pMod []uint64
 	switch params.RingType() {
 	case dft.TypeCyclotomic, dft.TypeAutFixed:
-		pMod = vec.Reduce(params.ModulusPoly(), q)
+		pMod = vec.Reduce(params.ModPoly(), q)
 	case dft.TypeCyclic:
 		pMod = make([]uint64, N+1)
 		pMod[N] = 1

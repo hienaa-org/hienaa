@@ -153,7 +153,7 @@ func (op *trivialAddSubOperator) append(op0 *trivialAddSubOperator) *trivialAddS
 	}
 }
 
-func (op *trivialAddSubOperator) appendTmpModulus(mod *num.Modulus) *trivialAddSubOperator {
+func (op *trivialAddSubOperator) appendTmpMod(mod *num.Modulus) *trivialAddSubOperator {
 	return &trivialAddSubOperator{
 		rank:          op.rank,
 		mod:           slices.Concat(op.mod, []*num.Modulus{mod}),
@@ -289,7 +289,7 @@ func (op *primeAutFixedAddSubOperator) append(op0 *primeAutFixedAddSubOperator) 
 	}
 }
 
-func (op *primeAutFixedAddSubOperator) appendTmpModulus(mod *num.Modulus) *primeAutFixedAddSubOperator {
+func (op *primeAutFixedAddSubOperator) appendTmpMod(mod *num.Modulus) *primeAutFixedAddSubOperator {
 	return &primeAutFixedAddSubOperator{
 		rank:          op.rank,
 		mod:           slices.Concat(op.mod, []*num.Modulus{mod}),

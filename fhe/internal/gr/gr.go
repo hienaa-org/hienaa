@@ -55,7 +55,7 @@ func NewGaloisRing(modulus uint64, rank int) *GaloisRing {
 		invExp: invExp,
 
 		poolEl: pool.NewPool(func() *Element {
-			return &Element{value: crt.NewNTTPoly(rank, 1)}
+			return &Element{value: crt.NewPoly(rank, 1, dft.FormNTT)}
 		}),
 		poolBig: pool.NewPool(func() *big.Int {
 			return new(big.Int)
@@ -66,20 +66,20 @@ func NewGaloisRing(modulus uint64, rank int) *GaloisRing {
 // NewElement creates a new [Element] in the finite field.
 func (gr *GaloisRing) NewElement() *Element {
 	return &Element{
-		value: gr.op.NewNTTPoly(),
+		value: gr.op.NewPoly(dft.FormNTT),
 	}
 }
 
 // NewElementFromUint64 creates a new [Element] from a uint64 value.
 func (gr *GaloisRing) NewElementFromUint64(x uint64) *Element {
 	e := gr.NewElement()
-	e.value.Coeffs[0][0] = num.Reduce(x, gr.op.Modulus()[0])
+	e.value.Coeffs[0][0] = num.Reduce(x, gr.op.Mod()[0])
 	return e
 }
 
-// Modulus returns the modulus of the finite field.
-func (gr *GaloisRing) Modulus() uint64 {
-	return gr.op.Modulus()[0].Value()
+// Mod returns the modulus of the finite field.
+func (gr *GaloisRing) Mod() uint64 {
+	return gr.op.Mod()[0].Value()
 }
 
 // Rank returns the rank of the finite field.

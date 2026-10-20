@@ -84,7 +84,7 @@ func (r *LongDivReducer) quoRemTo(pQuo, pRem, p []uint64, idx int) {
 //
 // Panics when p is in NTT form, or the rank of p is larger than maxRank.
 func (r *LongDivReducer) Reduce(p *Poly) *Poly {
-	pOut := NewPoly(r.params.Rank(), p.ModLen())
+	pOut := NewPoly(r.params.Rank(), p.ModLen(), dft.FormCoeff)
 	r.ReduceTo(pOut, p)
 	return pOut
 }
@@ -116,7 +116,7 @@ func (r *LongDivReducer) ReduceTo(pOut, p *Poly) {
 //
 // Panics when p is in NTT form, or the rank of p is larger than maxRank.
 func (r *LongDivReducer) Quotient(p *Poly) *Poly {
-	pOut := NewPoly(max(0, p.Rank()-r.params.Rank()), p.ModLen())
+	pOut := NewPoly(max(0, p.Rank()-r.params.Rank()), p.ModLen(), dft.FormCoeff)
 	r.QuotientTo(pOut, p)
 	return pOut
 }
@@ -148,8 +148,8 @@ func (r *LongDivReducer) QuotientTo(pOut, p *Poly) {
 //
 // Panics when p is in NTT form, or the rank of p is larger than maxRank.
 func (r *LongDivReducer) QuoRem(p *Poly) (pQuo, pRem *Poly) {
-	pQuo = NewPoly(max(0, p.Rank()-r.params.Rank()), p.ModLen())
-	pRem = NewPoly(r.params.Rank(), p.ModLen())
+	pQuo = NewPoly(max(0, p.Rank()-r.params.Rank()), p.ModLen(), dft.FormCoeff)
+	pRem = NewPoly(r.params.Rank(), p.ModLen(), dft.FormCoeff)
 	r.QuoRemTo(pQuo, pRem, p)
 	return
 }
@@ -175,8 +175,8 @@ func (r *LongDivReducer) QuoRemTo(pQuo, pRem, p *Poly) {
 	pRem.Form = dft.FormCoeff
 }
 
-// Modulus returns the modulus.
-func (r *LongDivReducer) Modulus() []*num.Modulus {
+// Mod returns the modulus.
+func (r *LongDivReducer) Mod() []*num.Modulus {
 	return r.mod
 }
 
@@ -197,6 +197,10 @@ func (r *LongDivReducer) WithModIdx(idx ...int) *LongDivReducer {
 
 // Slice slices the modulus of [LongDivReducer] and returns the new [LongDivReducer].
 func (r *LongDivReducer) Slice(lo, hi int) *LongDivReducer {
+	if lo == 0 && hi == len(r.mod) {
+		return r
+	}
+
 	return &LongDivReducer{
 		params: r.params,
 		mod:    r.mod[lo:hi],
@@ -229,8 +233,8 @@ func (r *LongDivReducer) Append(r0 *LongDivReducer) *LongDivReducer {
 	}
 }
 
-// AppendTmpModulus appends "temporary" modulus to the moduli chain and returns the new [LongDivReducer].
-func (r *LongDivReducer) AppendTmpModulus(mod *num.Modulus) *LongDivReducer {
+// AppendTmpMod appends "temporary" modulus to the moduli chain and returns the new [LongDivReducer].
+func (r *LongDivReducer) AppendTmpMod(mod *num.Modulus) *LongDivReducer {
 	return &LongDivReducer{
 		params: r.params,
 		mod:    slices.Concat(r.mod, []*num.Modulus{mod}),
@@ -354,8 +358,8 @@ func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *Cyclot
 			}
 		}
 
-		cycloPolySigned := params.ModulusPoly()
-		dividend := NewPoly(redDeg+1, 1)
+		cycloPolySigned := params.ModPoly()
+		dividend := NewPoly(redDeg+1, 1, dft.FormCoeff)
 		dividend.Coeffs[0][redDeg] = 1
 
 		cycloPoly = make([][][]uint64, len(mod))
@@ -545,7 +549,7 @@ func (r *CyclotomicReducer) reduceTo(pOut, p []uint64, idx int) {
 //
 // Panics when p is in NTT form, or the rank of p is larger than CycloIdx.
 func (r *CyclotomicReducer) Reduce(p *Poly) *Poly {
-	pOut := NewPoly(r.params.Rank(), p.ModLen())
+	pOut := NewPoly(r.params.Rank(), p.ModLen(), dft.FormCoeff)
 	r.ReduceTo(pOut, p)
 	return pOut
 }
@@ -569,8 +573,8 @@ func (r *CyclotomicReducer) ReduceTo(pOut, p *Poly) {
 	pOut.Form = dft.FormCoeff
 }
 
-// Modulus returns the modulus.
-func (r *CyclotomicReducer) Modulus() []*num.Modulus {
+// Mod returns the modulus.
+func (r *CyclotomicReducer) Mod() []*num.Modulus {
 	return r.mod
 }
 
@@ -637,6 +641,10 @@ func (r *CyclotomicReducer) WithModIdx(idx ...int) *CyclotomicReducer {
 
 // Slice slices the modulus of [CyclotomicReducer] and returns the new [CyclotomicReducer].
 func (r *CyclotomicReducer) Slice(lo, hi int) *CyclotomicReducer {
+	if lo == 0 && hi == len(r.mod) {
+		return r
+	}
+
 	if r.isTrivial {
 		return &CyclotomicReducer{
 			params: r.params,
@@ -732,9 +740,9 @@ func (r *CyclotomicReducer) Append(r0 *CyclotomicReducer) *CyclotomicReducer {
 	}
 }
 
-// AppendTmpModulus appends "temporary" modulus to the moduli chain and returns the new [CyclotomicReducer].
+// AppendTmpMod appends "temporary" modulus to the moduli chain and returns the new [CyclotomicReducer].
 // This assumes that modulus is NTT-unfriendly, trading the appending performance with operation performance.
-func (r *CyclotomicReducer) AppendTmpModulus(mod *num.Modulus) *CyclotomicReducer {
+func (r *CyclotomicReducer) AppendTmpMod(mod *num.Modulus) *CyclotomicReducer {
 	if r.isTrivial {
 		return &CyclotomicReducer{
 			params: r.params,
@@ -755,17 +763,17 @@ func (r *CyclotomicReducer) AppendTmpModulus(mod *num.Modulus) *CyclotomicReduce
 	embedder := NewVecEmbedder([]*num.Modulus{mod}, r.ambMod[:ambModLen])
 
 	cycloPoly := make([][]uint64, ambModLen)
-	cycloPoly[0] = append(vec.Reduce(r.params.ModulusPoly(), mod), make([]uint64, r.degNext-len(r.params.ModulusPoly()))...)
+	cycloPoly[0] = append(vec.Reduce(r.params.ModPoly(), mod), make([]uint64, r.degNext-len(r.params.ModPoly()))...)
 	for j := 1; j < ambModLen; j++ {
 		cycloPoly[j] = make([]uint64, r.degNext)
 		copy(cycloPoly[j], cycloPoly[0])
 	}
 
-	dividend := NewPoly(r.redDeg+1, 1)
+	dividend := NewPoly(r.redDeg+1, 1, dft.FormCoeff)
 	dividend.Coeffs[0][r.redDeg] = 1
 
 	divPoly := make([][]uint64, ambModLen)
-	divReducer := NewLongDivReducer(r.redDeg+1, []*num.Modulus{mod}, r.params.ModulusPoly())
+	divReducer := NewLongDivReducer(r.redDeg+1, []*num.Modulus{mod}, r.params.ModPoly())
 	divPolyRef := divReducer.Quotient(dividend).Coeffs[0]
 	divPoly[0] = append(divPolyRef, make([]uint64, r.diffDegNext-len(divPolyRef))...)
 	for j := 1; j < ambModLen; j++ {
@@ -897,7 +905,7 @@ func NewReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *Reducer {
 		}
 	}
 
-	dividend := NewPoly(maxRank, 1)
+	dividend := NewPoly(maxRank, 1, dft.FormCoeff)
 	dividend.Coeffs[0][maxRank-1] = 1
 
 	modPolyRed := make([][][]uint64, len(mod))
@@ -1058,7 +1066,7 @@ func (r *Reducer) reduceTo(pOut, p []uint64, idx int) {
 //
 // Panics when p is in NTT form, or the rank of p is larger than MaxRank.
 func (r *Reducer) Reduce(p *Poly) *Poly {
-	pOut := NewPoly(r.params.Rank(), p.ModLen())
+	pOut := NewPoly(r.params.Rank(), p.ModLen(), dft.FormCoeff)
 	r.ReduceTo(pOut, p)
 	return pOut
 }
@@ -1092,8 +1100,8 @@ func (r *Reducer) MaxRank() int {
 	return r.maxRank
 }
 
-// Modulus returns the modulus.
-func (r *Reducer) Modulus() []*num.Modulus {
+// Mod returns the modulus.
+func (r *Reducer) Mod() []*num.Modulus {
 	return r.mod
 }
 
@@ -1127,6 +1135,10 @@ func (r *Reducer) WithModIdx(idx ...int) *Reducer {
 
 // Slice slices the modulus of [Reducer] and returns the new [Reducer].
 func (r *Reducer) Slice(lo, hi int) *Reducer {
+	if lo == 0 && hi == len(r.mod) {
+		return r
+	}
+
 	return &Reducer{
 		params: r.params,
 		mod:    r.mod[lo:hi],
@@ -1186,26 +1198,26 @@ func (r *Reducer) Append(r0 *Reducer) *Reducer {
 	}
 }
 
-// AppendTmpModulus appends "temporary" modulus to the moduli chain and returns the new [Reducer].
+// AppendTmpMod appends "temporary" modulus to the moduli chain and returns the new [Reducer].
 // This assumes that modulus is NTT-unfriendly, trading the appending performance with operation performance.
-func (r *Reducer) AppendTmpModulus(mod *num.Modulus) *Reducer {
+func (r *Reducer) AppendTmpMod(mod *num.Modulus) *Reducer {
 	ambExpFactorBits := num.Log2(2 * max(r.diffDegNext, r.degNext))
 	ambModLen := ambientModLen(r.ambMod, ambExpFactorBits+2*num.Log2(mod.Value()))
 
 	embedder := NewVecEmbedder([]*num.Modulus{mod}, r.ambMod[:ambModLen])
 
 	modPoly := make([][]uint64, ambModLen)
-	modPoly[0] = append(vec.Reduce(r.params.ModulusPoly(), mod), make([]uint64, r.degNext-len(r.params.ModulusPoly()))...)
+	modPoly[0] = append(vec.Reduce(r.params.ModPoly(), mod), make([]uint64, r.degNext-len(r.params.ModPoly()))...)
 	for j := 1; j < ambModLen; j++ {
 		modPoly[j] = make([]uint64, r.degNext)
 		copy(modPoly[j], modPoly[0])
 	}
 
-	dividend := NewPoly(r.maxRank, 1)
+	dividend := NewPoly(r.maxRank, 1, dft.FormCoeff)
 	dividend.Coeffs[0][r.maxRank-1] = 1
 
 	divPoly := make([][]uint64, ambModLen)
-	divReducer := NewLongDivReducer(r.maxRank, []*num.Modulus{mod}, r.params.ModulusPoly())
+	divReducer := NewLongDivReducer(r.maxRank, []*num.Modulus{mod}, r.params.ModPoly())
 	divPolyRef := divReducer.Quotient(dividend).Coeffs[0]
 	divPoly[0] = append(divPolyRef, make([]uint64, r.diffDegNext-len(divPolyRef))...)
 	for j := 1; j < ambModLen; j++ {

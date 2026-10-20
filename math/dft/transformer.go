@@ -140,7 +140,7 @@ func (ntt *Transformer) Params() RingParameters {
 	return ntt.params
 }
 
-// Modulus returns the *[num.Modulus] of transformer.
-func (ntt *Transformer) Modulus() *num.Modulus {
+// Mod returns the *[num.Modulus] of transformer.
+func (ntt *Transformer) Mod() *num.Modulus {
 	return ntt.mod
 }

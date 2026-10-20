@@ -25,7 +25,7 @@ func randTernaryPoly(rank int) []int64 {
 }
 
 func randPoly(rank int, q []*num.Modulus) *crt.Poly {
-	p := crt.NewPoly(rank, len(q))
+	p := crt.NewPoly(rank, len(q), dft.FormCoeff)
 	for i := 0; i < rank; i++ {
 		for j := range q {
 			p.Coeffs[j][i] = rSrc.SampleN(0, q[j].Value())
@@ -41,8 +41,8 @@ func TestReducer(t *testing.T) {
 		m0 := num.NextPrime(sqrtN, 1)
 		m1 := num.NextPrime(m0, 2)
 		M := m0 * m1
-		rP := dft.NewCyclotomicParameters(M)
-		N := rP.Rank()
+		ringParams := dft.NewCyclotomicParameters(M)
+		N := ringParams.Rank()
 
 		degNext := num.NextProdPower(N, []int{2})
 		diffDegNext := num.NextProdPower(2*(M-N)-1, []int{2})
@@ -51,7 +51,7 @@ func TestReducer(t *testing.T) {
 		q := dft.PrevNTTPrimes(ambParams, 40, 1)
 		q = append(q, num.NewModulus(num.NextPrime(q[0].Value(), 2)))
 
-		cycloReducer := crt.NewCyclotomicReducer(rP, q)
+		cycloReducer := crt.NewCyclotomicReducer(ringParams, q)
 		longDivReducer := crt.NewLongDivReducer(M, q, dft.CyclotomicPolynomial(M))
 
 		p := randPoly(M, q)
@@ -92,8 +92,8 @@ func BenchmarkReducer(b *testing.B) {
 				m0 := num.NextPrime(sqrtN, 1)
 				m1 := num.NextPrime(m0+2, 2)
 				M := m0 * m1
-				rP := dft.NewCyclotomicParameters(M)
-				N := rP.Rank()
+				ringParams := dft.NewCyclotomicParameters(M)
+				N := ringParams.Rank()
 
 				degNext := num.NextProdPower(N, []int{2})
 				diffDegNext := num.NextProdPower(2*(M-N)-1, []int{2})
@@ -102,10 +102,10 @@ func BenchmarkReducer(b *testing.B) {
 				b.Run("Mod=NTT", func(b *testing.B) {
 					q := dft.PrevNTTPrimes(ambParams, num.MaxModulusBits, 1)
 
-					reducer := crt.NewCyclotomicReducer(rP, q)
+					reducer := crt.NewCyclotomicReducer(ringParams, q)
 
 					p := randPoly(M, q)
-					pOut := crt.NewPoly(N, len(q))
+					pOut := crt.NewPoly(N, len(q), dft.FormCoeff)
 
 					b.ResetTimer()
 					for i := 0; i < b.N; i++ {
@@ -116,10 +116,10 @@ func BenchmarkReducer(b *testing.B) {
 				b.Run("Mod=Any", func(b *testing.B) {
 					q := []*num.Modulus{num.NewModulus(rSrc.SampleN[uint64](0, num.MaxModulus) | 1)}
 
-					reducer := crt.NewCyclotomicReducer(rP, q)
+					reducer := crt.NewCyclotomicReducer(ringParams, q)
 
 					p := randPoly(M, q)
-					pOut := crt.NewPoly(N, len(q))
+					pOut := crt.NewPoly(N, len(q), dft.FormCoeff)
 
 					b.ResetTimer()
 					for i := 0; i < b.N; i++ {
@@ -148,7 +148,7 @@ func BenchmarkReducer(b *testing.B) {
 					reducer := crt.NewReducer(maxRank, q, modPoly)
 
 					p := randPoly(maxRank, q)
-					pOut := crt.NewPoly(N, len(q))
+					pOut := crt.NewPoly(N, len(q), dft.FormCoeff)
 
 					b.ResetTimer()
 					for i := 0; i < b.N; i++ {
@@ -162,7 +162,7 @@ func BenchmarkReducer(b *testing.B) {
 					reducer := crt.NewReducer(maxRank, q, modPoly)
 
 					p := randPoly(maxRank, q)
-					pOut := crt.NewPoly(N, 1)
+					pOut := crt.NewPoly(N, 1, dft.FormCoeff)
 
 					b.ResetTimer()
 					for i := 0; i < b.N; i++ {

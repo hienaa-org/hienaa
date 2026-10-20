@@ -41,13 +41,13 @@ func newBinaryOpOut[TOut, T0, T1 *Scalar | *Poly](e0 T0, e1 T1) TOut {
 		if eOutIsScalar {
 			panic("inconsistent types")
 		}
-		return any(NewPoly(e1Poly.Rank(), e1Poly.ModLen())).(TOut)
+		return any(NewPoly(e1Poly.Rank(), e1Poly.ModLen(), dft.FormCoeff)).(TOut)
 
 	case !e0IsScalar && e1IsScalar:
 		if eOutIsScalar {
 			panic("inconsistent types")
 		}
-		return any(NewPoly(e0Poly.Rank(), e0Poly.ModLen())).(TOut)
+		return any(NewPoly(e0Poly.Rank(), e0Poly.ModLen(), dft.FormCoeff)).(TOut)
 
 	case !e0IsScalar && !e1IsScalar:
 		if eOutIsScalar {
@@ -56,7 +56,7 @@ func newBinaryOpOut[TOut, T0, T1 *Scalar | *Poly](e0 T0, e1 T1) TOut {
 		if e0Poly.Form != e1Poly.Form {
 			panic("inconsistent forms")
 		}
-		return any(NewPoly(e0Poly.Rank(), e0Poly.ModLen())).(TOut)
+		return any(NewPoly(e0Poly.Rank(), e0Poly.ModLen(), dft.FormCoeff)).(TOut)
 	}
 
 	return nil
@@ -126,7 +126,7 @@ func newUnaryOpOut[TOut, T *Scalar | *Poly](e T) TOut {
 	if eIsScalar {
 		return any(NewScalar(eScalar.ModLen())).(TOut)
 	}
-	return any(NewPoly(ePoly.Rank(), ePoly.ModLen())).(TOut)
+	return any(NewPoly(ePoly.Rank(), ePoly.ModLen(), dft.FormCoeff)).(TOut)
 }
 
 // isUnaryOperable panics if eOut, e is not operable.
@@ -152,8 +152,8 @@ func isUnaryOperable[TOut, T *Scalar | *Poly](rank, modLen int, eOut TOut, e T) 
 	}
 }
 
-// orderByType returns e0, e1 as the order of *[Scalar] and *[Poly].
-// Assumes that one of e0, e1 is *[Scalar] and the other is *[Poly].
+// orderByType returns e0, e1 as the order of [Scalar] and [Poly].
+// Assumes that one of e0, e1 is [Scalar] and the other is [Poly].
 func orderByType(e0IsScalar bool, e0Scalar *Scalar, e0Poly *Poly, e1Scalar *Scalar, e1Poly *Poly) (*Scalar, *Poly) {
 	if e0IsScalar {
 		return e0Scalar, e1Poly

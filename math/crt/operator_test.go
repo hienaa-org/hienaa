@@ -93,7 +93,7 @@ func testOperator(t *testing.T, params dft.RingParameters) {
 	pMod := make([][]uint64, len(q))
 	switch params.RingType() {
 	case dft.TypeCyclotomic, dft.TypeAutFixed:
-		cycloPoly := params.ModulusPoly()
+		cycloPoly := params.ModPoly()
 		for i := range q {
 			pMod[i] = vec.Reduce(cycloPoly, q[i])
 		}
@@ -105,7 +105,7 @@ func testOperator(t *testing.T, params dft.RingParameters) {
 		}
 	case dft.TypeOther:
 		for i := range q {
-			pMod[i] = vec.Reduce(params.ModulusPoly(), q[i])
+			pMod[i] = vec.Reduce(params.ModPoly(), q[i])
 		}
 	}
 

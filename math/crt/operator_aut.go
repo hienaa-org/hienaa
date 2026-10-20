@@ -149,7 +149,7 @@ func (op *pow2CyclotomicAutOperator) append(op0 *pow2CyclotomicAutOperator) *pow
 	}
 }
 
-func (op *pow2CyclotomicAutOperator) appendTmpModulus(mod *num.Modulus) *pow2CyclotomicAutOperator {
+func (op *pow2CyclotomicAutOperator) appendTmpMod(mod *num.Modulus) *pow2CyclotomicAutOperator {
 	return &pow2CyclotomicAutOperator{
 		params:        op.params,
 		mod:           slices.Concat(op.mod, []*num.Modulus{mod}),
@@ -371,14 +371,14 @@ func (op *anyCyclotomicAutOperator) append(op0 *anyCyclotomicAutOperator) *anyCy
 	}
 }
 
-func (op *anyCyclotomicAutOperator) appendTmpModulus(mod *num.Modulus) *anyCyclotomicAutOperator {
+func (op *anyCyclotomicAutOperator) appendTmpMod(mod *num.Modulus) *anyCyclotomicAutOperator {
 	return &anyCyclotomicAutOperator{
 		params:        op.params,
 		cycloIdxMod:   op.cycloIdxMod,
 		mod:           slices.Concat(op.mod, []*num.Modulus{mod}),
 		isNTTFriendly: slices.Concat(op.isNTTFriendly, []bool{false}),
 
-		reducer: op.reducer.AppendTmpModulus(mod),
+		reducer: op.reducer.AppendTmpMod(mod),
 
 		primeExpMods: op.primeExpMods,
 		rootExps:     op.rootExps,
@@ -510,7 +510,7 @@ func (op *pow2AutFixedAutOperator) append(op0 *pow2AutFixedAutOperator) *pow2Aut
 	}
 }
 
-func (op *pow2AutFixedAutOperator) appendTmpModulus(mod *num.Modulus) *pow2AutFixedAutOperator {
+func (op *pow2AutFixedAutOperator) appendTmpMod(mod *num.Modulus) *pow2AutFixedAutOperator {
 	return &pow2AutFixedAutOperator{
 		params:        op.params,
 		mod:           slices.Concat(op.mod, []*num.Modulus{mod}),
@@ -648,7 +648,7 @@ func (op *primeAutFixedAutOperator) append(op0 *primeAutFixedAutOperator) *prime
 	}
 }
 
-func (op *primeAutFixedAutOperator) appendTmpModulus(mod *num.Modulus) *primeAutFixedAutOperator {
+func (op *primeAutFixedAutOperator) appendTmpMod(mod *num.Modulus) *primeAutFixedAutOperator {
 	return &primeAutFixedAutOperator{
 		params:        op.params,
 		mod:           slices.Concat(op.mod, []*num.Modulus{mod}),

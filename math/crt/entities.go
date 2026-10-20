@@ -150,18 +150,8 @@ type Poly struct {
 	Form dft.Form
 }
 
-// NewPoly creates a new [Poly] in Coefficient form.
-func NewPoly(rank, modLen int) *Poly {
-	return NewPolyCustom(rank, modLen, dft.FormCoeff)
-}
-
-// NewNTTPoly creates a new [Poly] in NTT form.
-func NewNTTPoly(rank, modLen int) *Poly {
-	return NewPolyCustom(rank, modLen, dft.FormNTT)
-}
-
-// NewPolyCustom creates a new [Poly].
-func NewPolyCustom(rank, modLen int, form dft.Form) *Poly {
+// NewPoly creates a new [Poly].
+func NewPoly(rank, modLen int, form dft.Form) *Poly {
 	coeffs := make([][]uint64, modLen)
 	for i := 0; i < modLen; i++ {
 		coeffs[i] = make([]uint64, rank)
@@ -170,6 +160,17 @@ func NewPolyCustom(rank, modLen int, form dft.Form) *Poly {
 	return &Poly{
 		Coeffs: coeffs,
 		Form:   form,
+	}
+}
+
+// SetCoeff sets the i-th coefficient to c.
+func (p *Poly) SetCoeff(i int, c *Scalar) {
+	if len(p.Coeffs) != len(c.Value) {
+		panic("inconsistent input(s)")
+	}
+
+	for j := range p.Coeffs {
+		p.Coeffs[j][i] = c.Value[j]
 	}
 }
 
@@ -229,7 +230,7 @@ func (p *Poly) Slice(lo, hi int) *Poly {
 
 // Copy returns a copy of p.
 func (p *Poly) Copy() *Poly {
-	pOut := NewPolyCustom(p.Rank(), p.ModLen(), p.Form)
+	pOut := NewPoly(p.Rank(), p.ModLen(), p.Form)
 	for i := range p.Coeffs {
 		copy(pOut.Coeffs[i], p.Coeffs[i])
 	}

@@ -147,13 +147,13 @@ func (p RoundedGaussianSamplerParameters) Variance() float64 {
 	return p.StdDev*p.StdDev + 0.5
 }
 
-// Sampler is an interface for sampling *[Poly].
+// Sampler is an interface for sampling [Poly].
 type Sampler interface {
 	// SamplerParams returns the sampler parameters.
 	SamplerParams() SamplerParameters
-	// Sample samples a *[Poly] with given rank and modulus in standard domain.
+	// Sample samples a [Poly] with given rank and modulus in standard domain.
 	Sample(rank int, mod []*num.Modulus) *Poly
-	// SampleTo samples a *[Poly] to pOut in standard domain.
+	// SampleTo samples a [Poly] to pOut in standard domain.
 	SampleTo(pOut *Poly, mod []*num.Modulus)
 }
 
@@ -172,14 +172,14 @@ func (s *UniformSampler) SamplerParams() SamplerParameters {
 	}
 }
 
-// Sample samples a *[Poly] with given rank and modulus in standard domain.
+// Sample samples a [Poly] with given rank and modulus in standard domain.
 func (s *UniformSampler) Sample(rank int, mod []*num.Modulus) *Poly {
-	pOut := NewPoly(rank, len(mod))
+	pOut := NewPoly(rank, len(mod), dft.FormCoeff)
 	s.SampleTo(pOut, mod)
 	return pOut
 }
 
-// SampleTo samples a *[Poly] to pOut in standard domain.
+// SampleTo samples a [Poly] to pOut in standard domain.
 func (s *UniformSampler) SampleTo(pOut *Poly, mod []*num.Modulus) {
 	checkPolyShape(pOut.Rank(), len(mod), pOut)
 
@@ -249,14 +249,14 @@ func (s *TernarySampler) SamplerParams() SamplerParameters {
 	}
 }
 
-// Sample samples a *[Poly] with given rank and modulus in standard domain.
+// Sample samples a [Poly] with given rank and modulus in standard domain.
 func (s *TernarySampler) Sample(rank int, mod []*num.Modulus) *Poly {
-	pOut := NewPoly(rank, len(mod))
+	pOut := NewPoly(rank, len(mod), dft.FormCoeff)
 	s.SampleTo(pOut, mod)
 	return pOut
 }
 
-// SampleTo samples a *[Poly] to pOut in standard domain.
+// SampleTo samples a [Poly] to pOut in standard domain.
 func (s *TernarySampler) SampleTo(pOut *Poly, mod []*num.Modulus) {
 	checkPolyShape(pOut.Rank(), len(mod), pOut)
 	if s.hw > pOut.Rank() {
@@ -346,14 +346,14 @@ func (s *RoundedGaussianSampler) SamplerParams() SamplerParameters {
 	}
 }
 
-// Sample samples a *[Poly] with given rank and modulus in standard domain.
+// Sample samples a [Poly] with given rank and modulus in standard domain.
 func (s *RoundedGaussianSampler) Sample(rank int, mod []*num.Modulus) *Poly {
-	pOut := NewPoly(rank, len(mod))
+	pOut := NewPoly(rank, len(mod), dft.FormCoeff)
 	s.SampleTo(pOut, mod)
 	return pOut
 }
 
-// SampleTo samples a *[Poly] to pOut in standard domain.
+// SampleTo samples a [Poly] to pOut in standard domain.
 func (s *RoundedGaussianSampler) SampleTo(pOut *Poly, mod []*num.Modulus) {
 	checkPolyShape(pOut.Rank(), len(mod), pOut)
 

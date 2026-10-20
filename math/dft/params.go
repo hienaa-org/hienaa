@@ -128,8 +128,8 @@ func (p RingParameters) Rank() int {
 	return p.rank
 }
 
-// ModulusPoly returns the modulus polynomial of the ring.
-func (p RingParameters) ModulusPoly() []int64 {
+// ModPoly returns the modulus polynomial of the ring.
+func (p RingParameters) ModPoly() []int64 {
 	return p.modPoly
 }
 
