@@ -10,7 +10,7 @@ import (
 	"github.com/hienaa-org/hienaa/math/vec"
 )
 
-// Decomposer gadget decomposes [Poly].
+// Decomposer gadget decomposes polynomial [Element] values.
 type Decomposer struct {
 	params          Parameters
 	rnsDecomposer   *rnsDecomposer
@@ -44,7 +44,7 @@ func (d *Decomposer) GadgetParams() GadgetParameters {
 }
 
 // DecomposeLen returns the length of the decomposition of p.
-func (d *Decomposer) DecomposeLen(p *Poly) int {
+func (d *Decomposer) DecomposeLen(p *Element) int {
 	checkPolyShape(d.params, p)
 	switch d.params.gadgetParams.(type) {
 	case RNSGadgetParameters:
@@ -58,7 +58,7 @@ func (d *Decomposer) DecomposeLen(p *Poly) int {
 // Decompose returns the decomposition of p.
 //
 // Panics when p is in NTT form.
-func (d *Decomposer) Decompose(p *Poly, outForm dft.Form) *Vector {
+func (d *Decomposer) Decompose(p *Element, outForm dft.Form) *Vector {
 	pOut := NewVectorCustom(d.params.Rank(), p.BaseModLen(), len(d.params.auxMod), d.DecomposeLen(p), outForm)
 	d.DecomposeTo(pOut, p, outForm)
 	return pOut
@@ -67,7 +67,7 @@ func (d *Decomposer) Decompose(p *Poly, outForm dft.Form) *Vector {
 // DecomposeTo decomposes p to pOut.
 //
 // Panics when p is in NTT form.
-func (d *Decomposer) DecomposeTo(pOut *Vector, p *Poly, outForm dft.Form) {
+func (d *Decomposer) DecomposeTo(pOut *Vector, p *Element, outForm dft.Form) {
 	checkPolyShape(d.params, p)
 	if p.Form() == dft.FormNTT {
 		panic("inputs must be in standard form")
@@ -118,7 +118,7 @@ func (d *rnsDecomposer) decomposeLen(baseLen int) int {
 	return num.DivCeil(baseLen, d.gadgetParams.chunkSize)
 }
 
-func (d *rnsDecomposer) decomposeTo(pOut *Vector, p *Poly, outForm dft.Form) {
+func (d *rnsDecomposer) decomposeTo(pOut *Vector, p *Element, outForm dft.Form) {
 	for i := 0; i < pOut.Len(); i++ {
 		start := i * d.gadgetParams.chunkSize
 		end := min((i+1)*d.gadgetParams.chunkSize, p.BaseModLen())
@@ -137,7 +137,7 @@ type digitDecomposer struct {
 
 	baseInv []uint64
 
-	pool *pool.Pool[*Poly]
+	pool *pool.Pool[*Element]
 }
 
 // newDigitDecomposer creates a new [digitDecomposer].
@@ -172,7 +172,7 @@ func newDigitDecomposer(params Parameters) *digitDecomposer {
 
 		baseInv: baseInv,
 
-		pool: pool.NewPool(func() *Poly {
+		pool: pool.NewPool(func() *Element {
 			return NewPoly(params, false, dft.FormCoeff)
 		}),
 	}
@@ -186,7 +186,7 @@ func (d *digitDecomposer) decomposeLen(baseLen int) int {
 	return num.DivCeil(modBitLen, d.gadgetParams.logDigitBase)
 }
 
-func (d *digitDecomposer) decomposeTo(pOut *Vector, p *Poly, outForm dft.Form) {
+func (d *digitDecomposer) decomposeTo(pOut *Vector, p *Element, outForm dft.Form) {
 	pBufFull := d.pool.Get()
 	defer d.pool.Put(pBufFull)
 

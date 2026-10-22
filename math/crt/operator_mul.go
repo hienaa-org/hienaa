@@ -40,7 +40,7 @@ type trivialMulOperator struct {
 	ambNTT    []*dft.Transformer
 	embedder  []*VecEmbedder
 
-	pool *pool.Pool[*Poly]
+	pool *pool.Pool[*Element]
 }
 
 // newTrivialMulOperator creates a new [trivialMulOperator].
@@ -89,36 +89,27 @@ func newTrivialMulOperator(params dft.RingParameters, mod []*num.Modulus) *trivi
 		ambNTT:    ambNTT,
 		embedder:  embedder,
 
-		pool: pool.NewPool(func() *Poly {
+		pool: pool.NewPool(func() *Element {
 			return NewPoly(params.Rank(), len(ambMod), dft.FormCoeff)
 		}),
 	}
 }
 
-func (op *trivialMulOperator) mulTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
+func (op *trivialMulOperator) mulTo(eOut, e0, e1 *Element) {
 	checkBinaryOperable(op.params.Rank(), len(op.mod), eOut, e0, e1)
 
-	eOutScalar, _ := any(eOut).(*Scalar)
-	eOutPoly, _ := any(eOut).(*Poly)
-
-	e0Scalar, e0IsScalar := any(e0).(*Scalar)
-	e0Poly, _ := any(e0).(*Poly)
-
-	e1Scalar, e1IsScalar := any(e1).(*Scalar)
-	e1Poly, _ := any(e1).(*Poly)
-
 	switch {
-	case e0IsScalar && e1IsScalar:
+	case e0.Type == TypeScalar && e1.Type == TypeScalar:
 		for i := range op.mod {
-			eOutScalar.Value[i] = num.Mul(e0Scalar.Value[i], e1Scalar.Value[i], op.mod[i])
+			eOut.Coeffs[i][0] = num.Mul(e0.Coeffs[i][0], e1.Coeffs[i][0], op.mod[i])
 		}
 
-	case !e0IsScalar && !e1IsScalar:
-		if e0Poly.Form != dft.FormNTT || e1Poly.Form != dft.FormNTT {
+	case e0.Type == TypePoly && e1.Type == TypePoly:
+		if e0.Form != dft.FormNTT || e1.Form != dft.FormNTT {
 			panic("inputs must be in NTT form")
 		}
 
-		var p0Amb, p1Amb *Poly
+		var p0Amb, p1Amb *Element
 		for i := range op.ambModLen {
 			if op.ambModLen[i] > 0 {
 				p0Amb = op.pool.Get()
@@ -135,53 +126,44 @@ func (op *trivialMulOperator) mulTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 
 
 		for i := range op.mod {
 			if op.ambModLen[i] == 0 {
-				vec.MMulTo(eOutPoly.Coeffs[i], e0Poly.Coeffs[i], e1Poly.Coeffs[i], op.mod[i])
+				vec.MMulTo(eOut.Coeffs[i], e0.Coeffs[i], e1.Coeffs[i], op.mod[i])
 			} else {
 				for j := 0; j < op.ambModLen[i]; j++ {
-					op.ambNTT[j].ForwardTo(p0Amb.Coeffs[j], e0Poly.Coeffs[i])
-					op.ambNTT[j].ForwardTo(p1Amb.Coeffs[j], e1Poly.Coeffs[i])
+					op.ambNTT[j].ForwardTo(p0Amb.Coeffs[j], e0.Coeffs[i])
+					op.ambNTT[j].ForwardTo(p1Amb.Coeffs[j], e1.Coeffs[i])
 					vec.MMulTo(p0Amb.Coeffs[j], p0Amb.Coeffs[j], p1Amb.Coeffs[j], op.ambMod[j])
 					op.ambNTT[j].InverseTo(p0Amb.Coeffs[j], p0Amb.Coeffs[j])
 				}
-				op.embedder[i].EmbedTo(eOutPoly.Coeffs[i:i+1], p0Amb.Coeffs[:op.ambModLen[i]])
+				op.embedder[i].EmbedTo(eOut.Coeffs[i:i+1], p0Amb.Coeffs[:op.ambModLen[i]])
 			}
 		}
 
-		eOutPoly.Form = dft.FormNTT
+		eOut.Form = dft.FormNTT
 
 	default:
-		c, p := orderByType(e0IsScalar, e0Scalar, e0Poly, e1Scalar, e1Poly)
+		c, p := orderByType(e0, e1)
 		for i := range op.mod {
-			vec.MulTo(eOutPoly.Coeffs[i], p.Coeffs[i], c.Value[i], op.mod[i])
+			vec.MulTo(eOut.Coeffs[i], p.Coeffs[i], c.Coeffs[i][0], op.mod[i])
 		}
-		eOutPoly.Form = p.Form
+		eOut.Form = p.Form
 	}
 }
 
-func (op *trivialMulOperator) mulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
+func (op *trivialMulOperator) mulAddTo(eOut, e0, e1 *Element) {
 	checkBinaryOperable(op.params.Rank(), len(op.mod), eOut, e0, e1)
 
-	eOutScalar, _ := any(eOut).(*Scalar)
-	eOutPoly, _ := any(eOut).(*Poly)
-
-	e0Scalar, e0IsScalar := any(e0).(*Scalar)
-	e0Poly, _ := any(e0).(*Poly)
-
-	e1Scalar, e1IsScalar := any(e1).(*Scalar)
-	e1Poly, _ := any(e1).(*Poly)
-
 	switch {
-	case e0IsScalar && e1IsScalar:
+	case e0.Type == TypeScalar && e1.Type == TypeScalar:
 		for i := range op.mod {
-			eOutScalar.Value[i] = num.Add(eOutScalar.Value[i], num.Mul(e0Scalar.Value[i], e1Scalar.Value[i], op.mod[i]), op.mod[i])
+			eOut.Coeffs[i][0] = num.Add(eOut.Coeffs[i][0], num.Mul(e0.Coeffs[i][0], e1.Coeffs[i][0], op.mod[i]), op.mod[i])
 		}
 
-	case !e0IsScalar && !e1IsScalar:
-		if eOutPoly.Form != dft.FormNTT || e0Poly.Form != dft.FormNTT || e1Poly.Form != dft.FormNTT {
+	case e0.Type == TypePoly && e1.Type == TypePoly:
+		if eOut.Form != dft.FormNTT || e0.Form != dft.FormNTT || e1.Form != dft.FormNTT {
 			panic("inputs must be in NTT form")
 		}
 
-		var p0Amb, p1Amb *Poly
+		var p0Amb, p1Amb *Element
 		for i := range op.ambModLen {
 			if op.ambModLen[i] > 0 {
 				p0Amb = op.pool.Get()
@@ -198,57 +180,48 @@ func (op *trivialMulOperator) mulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, 
 
 		for i := range op.mod {
 			if op.ambModLen[i] == 0 {
-				vec.MMulAddTo(eOutPoly.Coeffs[i], e0Poly.Coeffs[i], e1Poly.Coeffs[i], op.mod[i])
+				vec.MMulAddTo(eOut.Coeffs[i], e0.Coeffs[i], e1.Coeffs[i], op.mod[i])
 			} else {
 				for j := 0; j < op.ambModLen[i]; j++ {
-					op.ambNTT[j].ForwardTo(p0Amb.Coeffs[j], e0Poly.Coeffs[i])
-					op.ambNTT[j].ForwardTo(p1Amb.Coeffs[j], e1Poly.Coeffs[i])
+					op.ambNTT[j].ForwardTo(p0Amb.Coeffs[j], e0.Coeffs[i])
+					op.ambNTT[j].ForwardTo(p1Amb.Coeffs[j], e1.Coeffs[i])
 					vec.MMulTo(p0Amb.Coeffs[j], p0Amb.Coeffs[j], p1Amb.Coeffs[j], op.ambMod[j])
 					op.ambNTT[j].InverseTo(p0Amb.Coeffs[j], p0Amb.Coeffs[j])
 				}
 				op.embedder[i].EmbedTo(p0Amb.Coeffs[:1], p0Amb.Coeffs[:op.ambModLen[i]])
-				vec.AddTo(eOutPoly.Coeffs[i], eOutPoly.Coeffs[i], p0Amb.Coeffs[0], op.mod[i])
+				vec.AddTo(eOut.Coeffs[i], eOut.Coeffs[i], p0Amb.Coeffs[0], op.mod[i])
 			}
 		}
 
-		eOutPoly.Form = dft.FormNTT
+		eOut.Form = dft.FormNTT
 
 	default:
-		c, p := orderByType(e0IsScalar, e0Scalar, e0Poly, e1Scalar, e1Poly)
-		if p.Form != eOutPoly.Form {
+		c, p := orderByType(e0, e1)
+		if p.Form != eOut.Form {
 			panic("inconsistent forms")
 		}
 
 		for i := range op.mod {
-			vec.MulAddTo(eOutPoly.Coeffs[i], p.Coeffs[i], c.Value[i], op.mod[i])
+			vec.MulAddTo(eOut.Coeffs[i], p.Coeffs[i], c.Coeffs[i][0], op.mod[i])
 		}
 	}
 }
 
-func (op *trivialMulOperator) mulSubTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
+func (op *trivialMulOperator) mulSubTo(eOut, e0, e1 *Element) {
 	checkBinaryOperable(op.params.Rank(), len(op.mod), eOut, e0, e1)
 
-	eOutScalar, _ := any(eOut).(*Scalar)
-	eOutPoly, _ := any(eOut).(*Poly)
-
-	e0Scalar, e0IsScalar := any(e0).(*Scalar)
-	e0Poly, _ := any(e0).(*Poly)
-
-	e1Scalar, e1IsScalar := any(e1).(*Scalar)
-	e1Poly, _ := any(e1).(*Poly)
-
 	switch {
-	case e0IsScalar && e1IsScalar:
+	case e0.Type == TypeScalar && e1.Type == TypeScalar:
 		for i := range op.mod {
-			eOutScalar.Value[i] = num.Sub(eOutScalar.Value[i], num.Mul(e0Scalar.Value[i], e1Scalar.Value[i], op.mod[i]), op.mod[i])
+			eOut.Coeffs[i][0] = num.Sub(eOut.Coeffs[i][0], num.Mul(e0.Coeffs[i][0], e1.Coeffs[i][0], op.mod[i]), op.mod[i])
 		}
 
-	case !e0IsScalar && !e1IsScalar:
-		if eOutPoly.Form != dft.FormNTT || e0Poly.Form != dft.FormNTT || e1Poly.Form != dft.FormNTT {
+	case e0.Type == TypePoly && e1.Type == TypePoly:
+		if eOut.Form != dft.FormNTT || e0.Form != dft.FormNTT || e1.Form != dft.FormNTT {
 			panic("inputs must be in NTT form")
 		}
 
-		var p0Amb, p1Amb *Poly
+		var p0Amb, p1Amb *Element
 		for i := range op.ambModLen {
 			if op.ambModLen[i] > 0 {
 				p0Amb = op.pool.Get()
@@ -265,29 +238,29 @@ func (op *trivialMulOperator) mulSubTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, 
 
 		for i := range op.mod {
 			if op.ambModLen[i] == 0 {
-				vec.MMulSubTo(eOutPoly.Coeffs[i], e0Poly.Coeffs[i], e1Poly.Coeffs[i], op.mod[i])
+				vec.MMulSubTo(eOut.Coeffs[i], e0.Coeffs[i], e1.Coeffs[i], op.mod[i])
 			} else {
 				for j := 0; j < op.ambModLen[i]; j++ {
-					op.ambNTT[j].ForwardTo(p0Amb.Coeffs[j], e0Poly.Coeffs[i])
-					op.ambNTT[j].ForwardTo(p1Amb.Coeffs[j], e1Poly.Coeffs[i])
+					op.ambNTT[j].ForwardTo(p0Amb.Coeffs[j], e0.Coeffs[i])
+					op.ambNTT[j].ForwardTo(p1Amb.Coeffs[j], e1.Coeffs[i])
 					vec.MMulTo(p0Amb.Coeffs[j], p0Amb.Coeffs[j], p1Amb.Coeffs[j], op.ambMod[j])
 					op.ambNTT[j].InverseTo(p0Amb.Coeffs[j], p0Amb.Coeffs[j])
 				}
 				op.embedder[i].EmbedTo(p0Amb.Coeffs[:1], p0Amb.Coeffs[:op.ambModLen[i]])
-				vec.SubTo(eOutPoly.Coeffs[i], eOutPoly.Coeffs[i], p0Amb.Coeffs[0], op.mod[i])
+				vec.SubTo(eOut.Coeffs[i], eOut.Coeffs[i], p0Amb.Coeffs[0], op.mod[i])
 			}
 		}
 
-		eOutPoly.Form = dft.FormNTT
+		eOut.Form = dft.FormNTT
 
 	default:
-		c, p := orderByType(e0IsScalar, e0Scalar, e0Poly, e1Scalar, e1Poly)
-		if p.Form != eOutPoly.Form {
+		c, p := orderByType(e0, e1)
+		if p.Form != eOut.Form {
 			panic("inconsistent forms")
 		}
 
 		for i := range op.mod {
-			vec.MulSubTo(eOutPoly.Coeffs[i], p.Coeffs[i], c.Value[i], op.mod[i])
+			vec.MulSubTo(eOut.Coeffs[i], p.Coeffs[i], c.Coeffs[i][0], op.mod[i])
 		}
 	}
 }
@@ -352,7 +325,7 @@ type anyCyclotomicMulOperator struct {
 
 	reducer *CyclotomicReducer
 
-	pool *pool.Pool[*Poly]
+	pool *pool.Pool[*Element]
 }
 
 // newAnyCyclotomicMulOperator creates a new [anyCyclotomicMulOperator].
@@ -392,36 +365,27 @@ func newAnyCyclotomicMulOperator(params dft.RingParameters, mod []*num.Modulus, 
 
 		reducer: reducer,
 
-		pool: pool.NewPool(func() *Poly {
+		pool: pool.NewPool(func() *Element {
 			return NewPoly(ambParams.Rank(), len(ambMod), dft.FormCoeff)
 		}),
 	}
 }
 
-func (op *anyCyclotomicMulOperator) mulTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
+func (op *anyCyclotomicMulOperator) mulTo(eOut, e0, e1 *Element) {
 	checkBinaryOperable(op.params.Rank(), len(op.mod), eOut, e0, e1)
 
-	eOutScalar, _ := any(eOut).(*Scalar)
-	eOutPoly, _ := any(eOut).(*Poly)
-
-	e0Scalar, e0IsScalar := any(e0).(*Scalar)
-	e0Poly, _ := any(e0).(*Poly)
-
-	e1Scalar, e1IsScalar := any(e1).(*Scalar)
-	e1Poly, _ := any(e1).(*Poly)
-
 	switch {
-	case e0IsScalar && e1IsScalar:
+	case e0.Type == TypeScalar && e1.Type == TypeScalar:
 		for i := range op.mod {
-			eOutScalar.Value[i] = num.Mul(e0Scalar.Value[i], e1Scalar.Value[i], op.mod[i])
+			eOut.Coeffs[i][0] = num.Mul(e0.Coeffs[i][0], e1.Coeffs[i][0], op.mod[i])
 		}
 
-	case !e0IsScalar && !e1IsScalar:
-		if e0Poly.Form != dft.FormNTT || e1Poly.Form != dft.FormNTT {
+	case e0.Type == TypePoly && e1.Type == TypePoly:
+		if e0.Form != dft.FormNTT || e1.Form != dft.FormNTT {
 			panic("inputs must be in NTT form")
 		}
 
-		var p0Amb, p1Amb *Poly
+		var p0Amb, p1Amb *Element
 		for i := range op.ambModLen {
 			if op.ambModLen[i] > 0 {
 				p0Amb = op.pool.Get()
@@ -438,15 +402,15 @@ func (op *anyCyclotomicMulOperator) mulTo[TOut, T0, T1 *Scalar | *Poly](eOut TOu
 
 		for i := range op.mod {
 			if op.ambModLen[i] == 0 {
-				vec.MMulTo(eOutPoly.Coeffs[i], e0Poly.Coeffs[i], e1Poly.Coeffs[i], op.mod[i])
+				vec.MMulTo(eOut.Coeffs[i], e0.Coeffs[i], e1.Coeffs[i], op.mod[i])
 			} else {
 				rank := op.params.Rank()
 				for j := 0; j < op.ambModLen[i]; j++ {
-					copy(p0Amb.Coeffs[j], e0Poly.Coeffs[i])
+					copy(p0Amb.Coeffs[j], e0.Coeffs[i])
 					clear(p0Amb.Coeffs[j][rank:])
 					op.ambNTT[j].ForwardTo(p0Amb.Coeffs[j], p0Amb.Coeffs[j])
 
-					copy(p1Amb.Coeffs[j], e1Poly.Coeffs[i])
+					copy(p1Amb.Coeffs[j], e1.Coeffs[i])
 					clear(p1Amb.Coeffs[j][rank:])
 					op.ambNTT[j].ForwardTo(p1Amb.Coeffs[j], p1Amb.Coeffs[j])
 
@@ -454,45 +418,36 @@ func (op *anyCyclotomicMulOperator) mulTo[TOut, T0, T1 *Scalar | *Poly](eOut TOu
 					op.ambNTT[j].InverseTo(p0Amb.Coeffs[j], p0Amb.Coeffs[j])
 				}
 				op.embedder[i].EmbedTo(p0Amb.Coeffs[:1], p0Amb.Coeffs[:op.ambModLen[i]])
-				op.reducer.reduceTo(eOutPoly.Coeffs[i], p0Amb.Coeffs[0], i)
+				op.reducer.reduceTo(eOut.Coeffs[i], p0Amb.Coeffs[0], i)
 			}
 		}
 
-		eOutPoly.Form = dft.FormNTT
+		eOut.Form = dft.FormNTT
 
 	default:
-		c, p := orderByType(e0IsScalar, e0Scalar, e0Poly, e1Scalar, e1Poly)
+		c, p := orderByType(e0, e1)
 		for i := range op.mod {
-			vec.MulTo(eOutPoly.Coeffs[i], p.Coeffs[i], c.Value[i], op.mod[i])
+			vec.MulTo(eOut.Coeffs[i], p.Coeffs[i], c.Coeffs[i][0], op.mod[i])
 		}
-		eOutPoly.Form = p.Form
+		eOut.Form = p.Form
 	}
 }
 
-func (op *anyCyclotomicMulOperator) mulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
+func (op *anyCyclotomicMulOperator) mulAddTo(eOut, e0, e1 *Element) {
 	checkBinaryOperable(op.params.Rank(), len(op.mod), eOut, e0, e1)
 
-	eOutScalar, _ := any(eOut).(*Scalar)
-	eOutPoly, _ := any(eOut).(*Poly)
-
-	e0Scalar, e0IsScalar := any(e0).(*Scalar)
-	e0Poly, _ := any(e0).(*Poly)
-
-	e1Scalar, e1IsScalar := any(e1).(*Scalar)
-	e1Poly, _ := any(e1).(*Poly)
-
 	switch {
-	case e0IsScalar && e1IsScalar:
+	case e0.Type == TypeScalar && e1.Type == TypeScalar:
 		for i := range op.mod {
-			eOutScalar.Value[i] = num.Add(eOutScalar.Value[i], num.Mul(e0Scalar.Value[i], e1Scalar.Value[i], op.mod[i]), op.mod[i])
+			eOut.Coeffs[i][0] = num.Add(eOut.Coeffs[i][0], num.Mul(e0.Coeffs[i][0], e1.Coeffs[i][0], op.mod[i]), op.mod[i])
 		}
 
-	case !e0IsScalar && !e1IsScalar:
-		if eOutPoly.Form != dft.FormNTT || e0Poly.Form != dft.FormNTT || e1Poly.Form != dft.FormNTT {
+	case e0.Type == TypePoly && e1.Type == TypePoly:
+		if eOut.Form != dft.FormNTT || e0.Form != dft.FormNTT || e1.Form != dft.FormNTT {
 			panic("inputs must be in NTT form")
 		}
 
-		var p0Amb, p1Amb *Poly
+		var p0Amb, p1Amb *Element
 		for i := range op.ambModLen {
 			if op.ambModLen[i] > 0 {
 				p0Amb = op.pool.Get()
@@ -509,15 +464,15 @@ func (op *anyCyclotomicMulOperator) mulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut 
 
 		for i := range op.mod {
 			if op.ambModLen[i] == 0 {
-				vec.MMulAddTo(eOutPoly.Coeffs[i], e0Poly.Coeffs[i], e1Poly.Coeffs[i], op.mod[i])
+				vec.MMulAddTo(eOut.Coeffs[i], e0.Coeffs[i], e1.Coeffs[i], op.mod[i])
 			} else {
 				rank := op.params.Rank()
 				for j := 0; j < op.ambModLen[i]; j++ {
-					copy(p0Amb.Coeffs[j], e0Poly.Coeffs[i])
+					copy(p0Amb.Coeffs[j], e0.Coeffs[i])
 					clear(p0Amb.Coeffs[j][rank:])
 					op.ambNTT[j].ForwardTo(p0Amb.Coeffs[j], p0Amb.Coeffs[j])
 
-					copy(p1Amb.Coeffs[j], e1Poly.Coeffs[i])
+					copy(p1Amb.Coeffs[j], e1.Coeffs[i])
 					clear(p1Amb.Coeffs[j][rank:])
 					op.ambNTT[j].ForwardTo(p1Amb.Coeffs[j], p1Amb.Coeffs[j])
 
@@ -526,48 +481,39 @@ func (op *anyCyclotomicMulOperator) mulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut 
 				}
 				op.embedder[i].EmbedTo(p0Amb.Coeffs[:1], p0Amb.Coeffs[:op.ambModLen[i]])
 				op.reducer.reduceTo(p0Amb.Coeffs[0][:rank], p0Amb.Coeffs[0], i)
-				vec.AddTo(eOutPoly.Coeffs[i], eOutPoly.Coeffs[i], p0Amb.Coeffs[0][:rank], op.mod[i])
+				vec.AddTo(eOut.Coeffs[i], eOut.Coeffs[i], p0Amb.Coeffs[0][:rank], op.mod[i])
 			}
 		}
 
-		eOutPoly.Form = dft.FormNTT
+		eOut.Form = dft.FormNTT
 
 	default:
-		c, p := orderByType(e0IsScalar, e0Scalar, e0Poly, e1Scalar, e1Poly)
-		if p.Form != eOutPoly.Form {
+		c, p := orderByType(e0, e1)
+		if p.Form != eOut.Form {
 			panic("inconsistent forms")
 		}
 
 		for i := range op.mod {
-			vec.MulAddTo(eOutPoly.Coeffs[i], p.Coeffs[i], c.Value[i], op.mod[i])
+			vec.MulAddTo(eOut.Coeffs[i], p.Coeffs[i], c.Coeffs[i][0], op.mod[i])
 		}
 	}
 }
 
-func (op *anyCyclotomicMulOperator) mulSubTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
+func (op *anyCyclotomicMulOperator) mulSubTo(eOut, e0, e1 *Element) {
 	checkBinaryOperable(op.params.Rank(), len(op.mod), eOut, e0, e1)
 
-	eOutScalar, _ := any(eOut).(*Scalar)
-	eOutPoly, _ := any(eOut).(*Poly)
-
-	e0Scalar, e0IsScalar := any(e0).(*Scalar)
-	e0Poly, _ := any(e0).(*Poly)
-
-	e1Scalar, e1IsScalar := any(e1).(*Scalar)
-	e1Poly, _ := any(e1).(*Poly)
-
 	switch {
-	case e0IsScalar && e1IsScalar:
+	case e0.Type == TypeScalar && e1.Type == TypeScalar:
 		for i := range op.mod {
-			eOutScalar.Value[i] = num.Sub(eOutScalar.Value[i], num.Mul(e0Scalar.Value[i], e1Scalar.Value[i], op.mod[i]), op.mod[i])
+			eOut.Coeffs[i][0] = num.Sub(eOut.Coeffs[i][0], num.Mul(e0.Coeffs[i][0], e1.Coeffs[i][0], op.mod[i]), op.mod[i])
 		}
 
-	case !e0IsScalar && !e1IsScalar:
-		if eOutPoly.Form != dft.FormNTT || e0Poly.Form != dft.FormNTT || e1Poly.Form != dft.FormNTT {
+	case e0.Type == TypePoly && e1.Type == TypePoly:
+		if eOut.Form != dft.FormNTT || e0.Form != dft.FormNTT || e1.Form != dft.FormNTT {
 			panic("inputs must be in NTT form")
 		}
 
-		var p0Amb, p1Amb *Poly
+		var p0Amb, p1Amb *Element
 		for i := range op.ambModLen {
 			if op.ambModLen[i] > 0 {
 				p0Amb = op.pool.Get()
@@ -584,15 +530,15 @@ func (op *anyCyclotomicMulOperator) mulSubTo[TOut, T0, T1 *Scalar | *Poly](eOut 
 
 		for i := range op.mod {
 			if op.ambModLen[i] == 0 {
-				vec.MMulSubTo(eOutPoly.Coeffs[i], e0Poly.Coeffs[i], e1Poly.Coeffs[i], op.mod[i])
+				vec.MMulSubTo(eOut.Coeffs[i], e0.Coeffs[i], e1.Coeffs[i], op.mod[i])
 			} else {
 				rank := op.params.Rank()
 				for j := 0; j < op.ambModLen[i]; j++ {
-					copy(p0Amb.Coeffs[j], e0Poly.Coeffs[i])
+					copy(p0Amb.Coeffs[j], e0.Coeffs[i])
 					clear(p0Amb.Coeffs[j][rank:])
 					op.ambNTT[j].ForwardTo(p0Amb.Coeffs[j], p0Amb.Coeffs[j])
 
-					copy(p1Amb.Coeffs[j], e1Poly.Coeffs[i])
+					copy(p1Amb.Coeffs[j], e1.Coeffs[i])
 					clear(p1Amb.Coeffs[j][rank:])
 					op.ambNTT[j].ForwardTo(p1Amb.Coeffs[j], p1Amb.Coeffs[j])
 
@@ -601,20 +547,20 @@ func (op *anyCyclotomicMulOperator) mulSubTo[TOut, T0, T1 *Scalar | *Poly](eOut 
 				}
 				op.embedder[i].EmbedTo(p0Amb.Coeffs[:1], p0Amb.Coeffs[:op.ambModLen[i]])
 				op.reducer.reduceTo(p0Amb.Coeffs[0][:rank], p0Amb.Coeffs[0], i)
-				vec.SubTo(eOutPoly.Coeffs[i], eOutPoly.Coeffs[i], p0Amb.Coeffs[0][:rank], op.mod[i])
+				vec.SubTo(eOut.Coeffs[i], eOut.Coeffs[i], p0Amb.Coeffs[0][:rank], op.mod[i])
 			}
 		}
 
-		eOutPoly.Form = dft.FormNTT
+		eOut.Form = dft.FormNTT
 
 	default:
-		c, p := orderByType(e0IsScalar, e0Scalar, e0Poly, e1Scalar, e1Poly)
-		if p.Form != eOutPoly.Form {
+		c, p := orderByType(e0, e1)
+		if p.Form != eOut.Form {
 			panic("inconsistent forms")
 		}
 
 		for i := range op.mod {
-			vec.MulSubTo(eOutPoly.Coeffs[i], p.Coeffs[i], c.Value[i], op.mod[i])
+			vec.MulSubTo(eOut.Coeffs[i], p.Coeffs[i], c.Coeffs[i][0], op.mod[i])
 		}
 	}
 }
@@ -687,7 +633,7 @@ type reduceMulOperator struct {
 
 	reducer *Reducer
 
-	pool *pool.Pool[*Poly]
+	pool *pool.Pool[*Element]
 }
 
 // newReduceMulOperator creates a new [reduceMulOperator].
@@ -731,32 +677,23 @@ func newReduceMulOperator(mod []*num.Modulus, modPoly []int64, reducer *Reducer)
 
 		reducer: reducer,
 
-		pool: pool.NewPool(func() *Poly {
+		pool: pool.NewPool(func() *Element {
 			return NewPoly(ambParams.Rank(), len(ambMod), dft.FormCoeff)
 		}),
 	}
 }
 
-func (op *reduceMulOperator) mulTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
+func (op *reduceMulOperator) mulTo(eOut, e0, e1 *Element) {
 	checkBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
 
-	eOutScalar, _ := any(eOut).(*Scalar)
-	eOutPoly, _ := any(eOut).(*Poly)
-
-	e0Scalar, e0IsScalar := any(e0).(*Scalar)
-	e0Poly, _ := any(e0).(*Poly)
-
-	e1Scalar, e1IsScalar := any(e1).(*Scalar)
-	e1Poly, _ := any(e1).(*Poly)
-
 	switch {
-	case e0IsScalar && e1IsScalar:
+	case e0.Type == TypeScalar && e1.Type == TypeScalar:
 		for i := range op.mod {
-			eOutScalar.Value[i] = num.Mul(e0Scalar.Value[i], e1Scalar.Value[i], op.mod[i])
+			eOut.Coeffs[i][0] = num.Mul(e0.Coeffs[i][0], e1.Coeffs[i][0], op.mod[i])
 		}
 
-	case !e0IsScalar && !e1IsScalar:
-		if e0Poly.Form != dft.FormNTT || e1Poly.Form != dft.FormNTT {
+	case e0.Type == TypePoly && e1.Type == TypePoly:
+		if e0.Form != dft.FormNTT || e1.Form != dft.FormNTT {
 			panic("inputs must be in NTT form")
 		}
 
@@ -767,24 +704,24 @@ func (op *reduceMulOperator) mulTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T
 
 		for i := range op.mod {
 			if op.ambModLen[i] == 0 {
-				copy(p0Amb.Coeffs[0], e0Poly.Coeffs[i])
+				copy(p0Amb.Coeffs[0], e0.Coeffs[i])
 				clear(p0Amb.Coeffs[0][op.rank:])
 				op.ntt[i].ForwardTo(p0Amb.Coeffs[0], p0Amb.Coeffs[0])
 
-				copy(p1Amb.Coeffs[0], e1Poly.Coeffs[i])
+				copy(p1Amb.Coeffs[0], e1.Coeffs[i])
 				clear(p1Amb.Coeffs[0][op.rank:])
 				op.ntt[i].ForwardTo(p1Amb.Coeffs[0], p1Amb.Coeffs[0])
 
 				vec.MMulTo(p0Amb.Coeffs[0], p0Amb.Coeffs[0], p1Amb.Coeffs[0], op.mod[i])
 				op.ntt[i].InverseTo(p0Amb.Coeffs[0], p0Amb.Coeffs[0])
-				op.reducer.reduceTo(eOutPoly.Coeffs[i], p0Amb.Coeffs[0], i)
+				op.reducer.reduceTo(eOut.Coeffs[i], p0Amb.Coeffs[0], i)
 			} else {
 				for j := 0; j < op.ambModLen[i]; j++ {
-					copy(p0Amb.Coeffs[j], e0Poly.Coeffs[i])
+					copy(p0Amb.Coeffs[j], e0.Coeffs[i])
 					clear(p0Amb.Coeffs[j][op.rank:])
 					op.ambNTT[j].ForwardTo(p0Amb.Coeffs[j], p0Amb.Coeffs[j])
 
-					copy(p1Amb.Coeffs[j], e1Poly.Coeffs[i])
+					copy(p1Amb.Coeffs[j], e1.Coeffs[i])
 					clear(p1Amb.Coeffs[j][op.rank:])
 					op.ambNTT[j].ForwardTo(p1Amb.Coeffs[j], p1Amb.Coeffs[j])
 
@@ -792,41 +729,32 @@ func (op *reduceMulOperator) mulTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T
 					op.ambNTT[j].InverseTo(p0Amb.Coeffs[j], p0Amb.Coeffs[j])
 				}
 				op.embedder[i].EmbedTo(p0Amb.Coeffs[:1], p0Amb.Coeffs[:op.ambModLen[i]])
-				op.reducer.reduceTo(eOutPoly.Coeffs[i], p0Amb.Coeffs[0], i)
+				op.reducer.reduceTo(eOut.Coeffs[i], p0Amb.Coeffs[0], i)
 			}
 		}
 
-		eOutPoly.Form = dft.FormNTT
+		eOut.Form = dft.FormNTT
 
 	default:
-		c, p := orderByType(e0IsScalar, e0Scalar, e0Poly, e1Scalar, e1Poly)
+		c, p := orderByType(e0, e1)
 		for i := range op.mod {
-			vec.MulTo(eOutPoly.Coeffs[i], p.Coeffs[i], c.Value[i], op.mod[i])
+			vec.MulTo(eOut.Coeffs[i], p.Coeffs[i], c.Coeffs[i][0], op.mod[i])
 		}
-		eOutPoly.Form = p.Form
+		eOut.Form = p.Form
 	}
 }
 
-func (op *reduceMulOperator) mulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
+func (op *reduceMulOperator) mulAddTo(eOut, e0, e1 *Element) {
 	checkBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
 
-	eOutScalar, _ := any(eOut).(*Scalar)
-	eOutPoly, _ := any(eOut).(*Poly)
-
-	e0Scalar, e0IsScalar := any(e0).(*Scalar)
-	e0Poly, _ := any(e0).(*Poly)
-
-	e1Scalar, e1IsScalar := any(e1).(*Scalar)
-	e1Poly, _ := any(e1).(*Poly)
-
 	switch {
-	case e0IsScalar && e1IsScalar:
+	case e0.Type == TypeScalar && e1.Type == TypeScalar:
 		for i := range op.mod {
-			eOutScalar.Value[i] = num.Add(eOutScalar.Value[i], num.Mul(e0Scalar.Value[i], e1Scalar.Value[i], op.mod[i]), op.mod[i])
+			eOut.Coeffs[i][0] = num.Add(eOut.Coeffs[i][0], num.Mul(e0.Coeffs[i][0], e1.Coeffs[i][0], op.mod[i]), op.mod[i])
 		}
 
-	case !e0IsScalar && !e1IsScalar:
-		if eOutPoly.Form != dft.FormNTT || e0Poly.Form != dft.FormNTT || e1Poly.Form != dft.FormNTT {
+	case e0.Type == TypePoly && e1.Type == TypePoly:
+		if eOut.Form != dft.FormNTT || e0.Form != dft.FormNTT || e1.Form != dft.FormNTT {
 			panic("inputs must be in NTT form")
 		}
 
@@ -837,25 +765,25 @@ func (op *reduceMulOperator) mulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e
 
 		for i := range op.mod {
 			if op.ambModLen[i] == 0 {
-				copy(p0Amb.Coeffs[0], e0Poly.Coeffs[i])
+				copy(p0Amb.Coeffs[0], e0.Coeffs[i])
 				clear(p0Amb.Coeffs[0][op.rank:])
 				op.ntt[i].ForwardTo(p0Amb.Coeffs[0], p0Amb.Coeffs[0])
 
-				copy(p1Amb.Coeffs[0], e1Poly.Coeffs[i])
+				copy(p1Amb.Coeffs[0], e1.Coeffs[i])
 				clear(p1Amb.Coeffs[0][op.rank:])
 				op.ntt[i].ForwardTo(p1Amb.Coeffs[0], p1Amb.Coeffs[0])
 
 				vec.MMulTo(p0Amb.Coeffs[0], p0Amb.Coeffs[0], p1Amb.Coeffs[0], op.mod[i])
 				op.ntt[i].InverseTo(p0Amb.Coeffs[0], p0Amb.Coeffs[0])
 				op.reducer.reduceTo(p0Amb.Coeffs[0][:op.rank], p0Amb.Coeffs[0], i)
-				vec.AddTo(eOutPoly.Coeffs[i], eOutPoly.Coeffs[i], p0Amb.Coeffs[0][:op.rank], op.mod[i])
+				vec.AddTo(eOut.Coeffs[i], eOut.Coeffs[i], p0Amb.Coeffs[0][:op.rank], op.mod[i])
 			} else {
 				for j := 0; j < op.ambModLen[i]; j++ {
-					copy(p0Amb.Coeffs[j], e0Poly.Coeffs[i])
+					copy(p0Amb.Coeffs[j], e0.Coeffs[i])
 					clear(p0Amb.Coeffs[j][op.rank:])
 					op.ambNTT[j].ForwardTo(p0Amb.Coeffs[j], p0Amb.Coeffs[j])
 
-					copy(p1Amb.Coeffs[j], e1Poly.Coeffs[i])
+					copy(p1Amb.Coeffs[j], e1.Coeffs[i])
 					clear(p1Amb.Coeffs[j][op.rank:])
 					op.ambNTT[j].ForwardTo(p1Amb.Coeffs[j], p1Amb.Coeffs[j])
 
@@ -864,44 +792,35 @@ func (op *reduceMulOperator) mulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e
 				}
 				op.embedder[i].EmbedTo(p0Amb.Coeffs[:1], p0Amb.Coeffs[:op.ambModLen[i]])
 				op.reducer.reduceTo(p0Amb.Coeffs[0][:op.rank], p0Amb.Coeffs[0], i)
-				vec.AddTo(eOutPoly.Coeffs[i], eOutPoly.Coeffs[i], p0Amb.Coeffs[0][:op.rank], op.mod[i])
+				vec.AddTo(eOut.Coeffs[i], eOut.Coeffs[i], p0Amb.Coeffs[0][:op.rank], op.mod[i])
 			}
 		}
 
-		eOutPoly.Form = dft.FormNTT
+		eOut.Form = dft.FormNTT
 
 	default:
-		c, p := orderByType(e0IsScalar, e0Scalar, e0Poly, e1Scalar, e1Poly)
-		if p.Form != eOutPoly.Form {
+		c, p := orderByType(e0, e1)
+		if p.Form != eOut.Form {
 			panic("inconsistent forms")
 		}
 
 		for i := range op.mod {
-			vec.MulAddTo(eOutPoly.Coeffs[i], p.Coeffs[i], c.Value[i], op.mod[i])
+			vec.MulAddTo(eOut.Coeffs[i], p.Coeffs[i], c.Coeffs[i][0], op.mod[i])
 		}
 	}
 }
 
-func (op *reduceMulOperator) mulSubTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
+func (op *reduceMulOperator) mulSubTo(eOut, e0, e1 *Element) {
 	checkBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
 
-	eOutScalar, _ := any(eOut).(*Scalar)
-	eOutPoly, _ := any(eOut).(*Poly)
-
-	e0Scalar, e0IsScalar := any(e0).(*Scalar)
-	e0Poly, _ := any(e0).(*Poly)
-
-	e1Scalar, e1IsScalar := any(e1).(*Scalar)
-	e1Poly, _ := any(e1).(*Poly)
-
 	switch {
-	case e0IsScalar && e1IsScalar:
+	case e0.Type == TypeScalar && e1.Type == TypeScalar:
 		for i := range op.mod {
-			eOutScalar.Value[i] = num.Sub(eOutScalar.Value[i], num.Mul(e0Scalar.Value[i], e1Scalar.Value[i], op.mod[i]), op.mod[i])
+			eOut.Coeffs[i][0] = num.Sub(eOut.Coeffs[i][0], num.Mul(e0.Coeffs[i][0], e1.Coeffs[i][0], op.mod[i]), op.mod[i])
 		}
 
-	case !e0IsScalar && !e1IsScalar:
-		if eOutPoly.Form != dft.FormNTT || e0Poly.Form != dft.FormNTT || e1Poly.Form != dft.FormNTT {
+	case e0.Type == TypePoly && e1.Type == TypePoly:
+		if eOut.Form != dft.FormNTT || e0.Form != dft.FormNTT || e1.Form != dft.FormNTT {
 			panic("inputs must be in NTT form")
 		}
 
@@ -912,25 +831,25 @@ func (op *reduceMulOperator) mulSubTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e
 
 		for i := range op.mod {
 			if op.ambModLen[i] == 0 {
-				copy(p0Amb.Coeffs[0], e0Poly.Coeffs[i])
+				copy(p0Amb.Coeffs[0], e0.Coeffs[i])
 				clear(p0Amb.Coeffs[0][op.rank:])
 				op.ntt[i].ForwardTo(p0Amb.Coeffs[0], p0Amb.Coeffs[0])
 
-				copy(p1Amb.Coeffs[0], e1Poly.Coeffs[i])
+				copy(p1Amb.Coeffs[0], e1.Coeffs[i])
 				clear(p1Amb.Coeffs[0][op.rank:])
 				op.ntt[i].ForwardTo(p1Amb.Coeffs[0], p1Amb.Coeffs[0])
 
 				vec.MMulTo(p0Amb.Coeffs[0], p0Amb.Coeffs[0], p1Amb.Coeffs[0], op.mod[i])
 				op.ntt[i].InverseTo(p0Amb.Coeffs[0], p0Amb.Coeffs[0])
 				op.reducer.reduceTo(p0Amb.Coeffs[0][:op.rank], p0Amb.Coeffs[0], i)
-				vec.SubTo(eOutPoly.Coeffs[i], eOutPoly.Coeffs[i], p0Amb.Coeffs[0][:op.rank], op.mod[i])
+				vec.SubTo(eOut.Coeffs[i], eOut.Coeffs[i], p0Amb.Coeffs[0][:op.rank], op.mod[i])
 			} else {
 				for j := 0; j < op.ambModLen[i]; j++ {
-					copy(p0Amb.Coeffs[j], e0Poly.Coeffs[i])
+					copy(p0Amb.Coeffs[j], e0.Coeffs[i])
 					clear(p0Amb.Coeffs[j][op.rank:])
 					op.ambNTT[j].ForwardTo(p0Amb.Coeffs[j], p0Amb.Coeffs[j])
 
-					copy(p1Amb.Coeffs[j], e1Poly.Coeffs[i])
+					copy(p1Amb.Coeffs[j], e1.Coeffs[i])
 					clear(p1Amb.Coeffs[j][op.rank:])
 					op.ambNTT[j].ForwardTo(p1Amb.Coeffs[j], p1Amb.Coeffs[j])
 
@@ -939,20 +858,20 @@ func (op *reduceMulOperator) mulSubTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e
 				}
 				op.embedder[i].EmbedTo(p0Amb.Coeffs[:1], p0Amb.Coeffs[:op.ambModLen[i]])
 				op.reducer.reduceTo(p0Amb.Coeffs[0][:op.rank], p0Amb.Coeffs[0], i)
-				vec.SubTo(eOutPoly.Coeffs[i], eOutPoly.Coeffs[i], p0Amb.Coeffs[0][:op.rank], op.mod[i])
+				vec.SubTo(eOut.Coeffs[i], eOut.Coeffs[i], p0Amb.Coeffs[0][:op.rank], op.mod[i])
 			}
 		}
 
-		eOutPoly.Form = dft.FormNTT
+		eOut.Form = dft.FormNTT
 
 	default:
-		c, p := orderByType(e0IsScalar, e0Scalar, e0Poly, e1Scalar, e1Poly)
-		if p.Form != eOutPoly.Form {
+		c, p := orderByType(e0, e1)
+		if p.Form != eOut.Form {
 			panic("inconsistent forms")
 		}
 
 		for i := range op.mod {
-			vec.MulSubTo(eOutPoly.Coeffs[i], p.Coeffs[i], c.Value[i], op.mod[i])
+			vec.MulSubTo(eOut.Coeffs[i], p.Coeffs[i], c.Coeffs[i][0], op.mod[i])
 		}
 	}
 }

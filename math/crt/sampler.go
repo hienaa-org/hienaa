@@ -147,14 +147,14 @@ func (p RoundedGaussianSamplerParameters) Variance() float64 {
 	return p.StdDev*p.StdDev + 0.5
 }
 
-// Sampler is an interface for sampling [Poly].
+// Sampler is an interface for sampling polynomial [Element] values.
 type Sampler interface {
 	// SamplerParams returns the sampler parameters.
 	SamplerParams() SamplerParameters
-	// Sample samples a [Poly] with given rank and modulus in standard domain.
-	Sample(rank int, mod []*num.Modulus) *Poly
-	// SampleTo samples a [Poly] to pOut in standard domain.
-	SampleTo(pOut *Poly, mod []*num.Modulus)
+	// Sample samples a polynomial [Element] with given rank and modulus in standard domain.
+	Sample(rank int, mod []*num.Modulus) *Element
+	// SampleTo samples a polynomial [Element] to pOut in standard domain.
+	SampleTo(pOut *Element, mod []*num.Modulus)
 }
 
 // UniformSampler is a sampler for uniform distribution.
@@ -172,15 +172,15 @@ func (s *UniformSampler) SamplerParams() SamplerParameters {
 	}
 }
 
-// Sample samples a [Poly] with given rank and modulus in standard domain.
-func (s *UniformSampler) Sample(rank int, mod []*num.Modulus) *Poly {
+// Sample samples a polynomial [Element] with given rank and modulus in standard domain.
+func (s *UniformSampler) Sample(rank int, mod []*num.Modulus) *Element {
 	pOut := NewPoly(rank, len(mod), dft.FormCoeff)
 	s.SampleTo(pOut, mod)
 	return pOut
 }
 
-// SampleTo samples a [Poly] to pOut in standard domain.
-func (s *UniformSampler) SampleTo(pOut *Poly, mod []*num.Modulus) {
+// SampleTo samples a polynomial [Element] to pOut in standard domain.
+func (s *UniformSampler) SampleTo(pOut *Element, mod []*num.Modulus) {
 	checkPolyShape(pOut.Rank(), len(mod), pOut)
 
 	if s.boundMin != nil || s.boundMax != nil {
@@ -198,7 +198,7 @@ func (s *UniformSampler) SampleTo(pOut *Poly, mod []*num.Modulus) {
 	pOut.Form = dft.FormCoeff
 }
 
-func (s *UniformSampler) sampleToBounded(pOut *Poly, mod []*num.Modulus) {
+func (s *UniformSampler) sampleToBounded(pOut *Element, mod []*num.Modulus) {
 	modBig := make([]*big.Int, len(mod))
 	modProd := big.NewInt(1)
 	for i := range mod {
@@ -249,15 +249,15 @@ func (s *TernarySampler) SamplerParams() SamplerParameters {
 	}
 }
 
-// Sample samples a [Poly] with given rank and modulus in standard domain.
-func (s *TernarySampler) Sample(rank int, mod []*num.Modulus) *Poly {
+// Sample samples a polynomial [Element] with given rank and modulus in standard domain.
+func (s *TernarySampler) Sample(rank int, mod []*num.Modulus) *Element {
 	pOut := NewPoly(rank, len(mod), dft.FormCoeff)
 	s.SampleTo(pOut, mod)
 	return pOut
 }
 
-// SampleTo samples a [Poly] to pOut in standard domain.
-func (s *TernarySampler) SampleTo(pOut *Poly, mod []*num.Modulus) {
+// SampleTo samples a polynomial [Element] to pOut in standard domain.
+func (s *TernarySampler) SampleTo(pOut *Element, mod []*num.Modulus) {
 	checkPolyShape(pOut.Rank(), len(mod), pOut)
 	if s.hw > pOut.Rank() {
 		panic("hamming weight must be less than or equal to rank")
@@ -346,15 +346,15 @@ func (s *RoundedGaussianSampler) SamplerParams() SamplerParameters {
 	}
 }
 
-// Sample samples a [Poly] with given rank and modulus in standard domain.
-func (s *RoundedGaussianSampler) Sample(rank int, mod []*num.Modulus) *Poly {
+// Sample samples a polynomial [Element] with given rank and modulus in standard domain.
+func (s *RoundedGaussianSampler) Sample(rank int, mod []*num.Modulus) *Element {
 	pOut := NewPoly(rank, len(mod), dft.FormCoeff)
 	s.SampleTo(pOut, mod)
 	return pOut
 }
 
-// SampleTo samples a [Poly] to pOut in standard domain.
-func (s *RoundedGaussianSampler) SampleTo(pOut *Poly, mod []*num.Modulus) {
+// SampleTo samples a polynomial [Element] to pOut in standard domain.
+func (s *RoundedGaussianSampler) SampleTo(pOut *Element, mod []*num.Modulus) {
 	checkPolyShape(pOut.Rank(), len(mod), pOut)
 
 	if math.Log2(s.stdDev) <= num.MaxModulusBits {
@@ -364,7 +364,7 @@ func (s *RoundedGaussianSampler) SampleTo(pOut *Poly, mod []*num.Modulus) {
 	}
 }
 
-func (s *RoundedGaussianSampler) sampleFloat64To(pOut *Poly, mod []*num.Modulus, stdDev float64) {
+func (s *RoundedGaussianSampler) sampleFloat64To(pOut *Element, mod []*num.Modulus, stdDev float64) {
 	for j := 0; j < pOut.Rank(); j++ {
 		c := s.baseSampler.Sample(stdDev)
 		for i := range mod {
@@ -375,7 +375,7 @@ func (s *RoundedGaussianSampler) sampleFloat64To(pOut *Poly, mod []*num.Modulus,
 	pOut.Form = dft.FormCoeff
 }
 
-func (s *RoundedGaussianSampler) sampleBigFloatTo(pOut *Poly, mod []*num.Modulus, stdDev float64) {
+func (s *RoundedGaussianSampler) sampleBigFloatTo(pOut *Element, mod []*num.Modulus, stdDev float64) {
 	modBig := make([]*big.Int, len(mod))
 	for i := range mod {
 		modBig[i] = new(big.Int).SetUint64(mod[i].Value())

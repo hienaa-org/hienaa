@@ -8,14 +8,14 @@ import (
 	"github.com/hienaa-org/hienaa/math/vec"
 )
 
-// Operator evaluates ring operations over [Scalar] and [Poly].
+// Operator evaluates ring operations over scalar and polynomial [Element] values.
 //
 // Operations usually take two forms: for example,
-//   - Add(p0, p1) adds p0, p1, allocates a new vector to store the result and returns it.
-//   - AddTo(pOut, p0, p1) adds p0, p1 and writes the result to pre-allocated pOut without returning.
+//   - Add(e0, e1) adds e0, e1, allocates a new element to store the result and returns it.
+//   - AddTo(eOut, e0, e1) adds e0, e1 and writes the result to pre-allocated eOut without returning.
 //
-// Moreover, operations panics when inputs are not consistent with the
-// Operator's parameters, or operations itself are not valid.
+// Operations panic when inputs are not consistent with the
+// Operator's parameters, or the operations themselves are not valid.
 type Operator struct {
 	params dft.RingParameters
 	mod    []*num.Modulus
@@ -115,24 +115,35 @@ func (op *Operator) Mod() []*num.Modulus {
 	return op.mod
 }
 
-// NewPoly creates a new [Poly].
-func (op *Operator) NewPoly(form dft.Form) *Poly {
+// NewScalar creates a new scalar [Element].
+func (op *Operator) NewScalar() *Element {
+	return NewScalar(len(op.mod))
+}
+
+// NewPoly creates a new polynomial [Element].
+func (op *Operator) NewPoly(form dft.Form) *Element {
 	return NewPoly(op.params.Rank(), len(op.mod), form)
 }
 
 // FwdNTT returns FwdNTT(p).
-func (op *Operator) FwdNTT(p *Poly) *Poly {
+//
+// Panics if p is [TypeScalar].
+func (op *Operator) FwdNTT(p *Element) *Element {
 	pOut := op.NewPoly(dft.FormNTT)
 	op.FwdNTTTo(pOut, p)
 	return pOut
 }
 
 // FwdNTTTo computes pOut = NTT(p).
-func (op *Operator) FwdNTTTo(pOut, p *Poly) {
+//
+// Panics if p is [TypeScalar].
+func (op *Operator) FwdNTTTo(pOut, p *Element) {
 	checkUnaryOperable(op.params.Rank(), len(op.mod), pOut, p)
 
 	if p.Form == dft.FormNTT {
 		panic("inputs must be in Coeff form")
+	} else if p.Type == TypeScalar {
+		panic("inputs must be polynomial")
 	}
 
 	for i := range op.ntt {
@@ -147,18 +158,24 @@ func (op *Operator) FwdNTTTo(pOut, p *Poly) {
 }
 
 // InvNTT returns InvNTT(p).
-func (op *Operator) InvNTT(p *Poly) *Poly {
+//
+// Panics if p is [TypeScalar].
+func (op *Operator) InvNTT(p *Element) *Element {
 	pOut := op.NewPoly(dft.FormCoeff)
 	op.InvNTTTo(pOut, p)
 	return pOut
 }
 
 // InvNTTTo computes pOut = InvNTT(p).
-func (op *Operator) InvNTTTo(pOut, p *Poly) {
+//
+// Panics if p is [TypeScalar].
+func (op *Operator) InvNTTTo(pOut, p *Element) {
 	checkUnaryOperable(op.params.Rank(), len(op.mod), pOut, p)
 
 	if p.Form != dft.FormNTT {
 		panic("inputs must be in NTT form")
+	} else if p.Type == TypeScalar {
+		panic("inputs must be polynomial")
 	}
 
 	for i := range op.ntt {
@@ -173,14 +190,14 @@ func (op *Operator) InvNTTTo(pOut, p *Poly) {
 }
 
 // Add returns eOut = e0 + e1.
-func (op *Operator) Add[TOut, T0, T1 *Scalar | *Poly](e0 T0, e1 T1) TOut {
-	eOut := newBinaryOpOut[TOut](e0, e1)
+func (op *Operator) Add(e0, e1 *Element) *Element {
+	eOut := newBinaryOpOut(e0, e1)
 	op.AddTo(eOut, e0, e1)
 	return eOut
 }
 
 // AddTo computes eOut = e0 + e1.
-func (op *Operator) AddTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
+func (op *Operator) AddTo(eOut, e0, e1 *Element) {
 	switch op.addSubType {
 	case typeTrivialAddSub:
 		op.trivialAddSub.addTo(eOut, e0, e1)
@@ -190,14 +207,14 @@ func (op *Operator) AddTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1)
 }
 
 // Sub returns eOut = e0 - e1.
-func (op *Operator) Sub[TOut, T0, T1 *Scalar | *Poly](e0 T0, e1 T1) TOut {
-	eOut := newBinaryOpOut[TOut](e0, e1)
+func (op *Operator) Sub(e0, e1 *Element) *Element {
+	eOut := newBinaryOpOut(e0, e1)
 	op.SubTo(eOut, e0, e1)
 	return eOut
 }
 
 // SubTo computes eOut = e0 - e1.
-func (op *Operator) SubTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
+func (op *Operator) SubTo(eOut, e0, e1 *Element) {
 	switch op.addSubType {
 	case typeTrivialAddSub:
 		op.trivialAddSub.subTo(eOut, e0, e1)
@@ -207,45 +224,31 @@ func (op *Operator) SubTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1)
 }
 
 // Neg returns eOut = -e.
-func (op *Operator) Neg[T *Scalar | *Poly](e T) T {
-	eOut := newUnaryOpOut[T](e)
+func (op *Operator) Neg(e *Element) *Element {
+	eOut := newUnaryOpOut(e)
 	op.NegTo(eOut, e)
 	return eOut
 }
 
 // NegTo computes eOut = -e.
-func (op *Operator) NegTo[T *Scalar | *Poly](eOut T, e T) {
+func (op *Operator) NegTo(eOut, e *Element) {
 	checkUnaryOperable(op.params.Rank(), len(op.mod), eOut, e)
 
-	eOutScalar, _ := any(eOut).(*Scalar)
-	eOutPoly, _ := any(eOut).(*Poly)
-
-	eScalar, eIsScalar := any(e).(*Scalar)
-	ePoly, _ := any(e).(*Poly)
-
-	switch {
-	case eIsScalar:
-		for i := range op.mod {
-			eOutScalar.Value[i] = num.Neg(eScalar.Value[i], op.mod[i])
-		}
-
-	case !eIsScalar:
-		for i := range op.mod {
-			vec.NegTo(eOutPoly.Coeffs[i], ePoly.Coeffs[i], op.mod[i])
-		}
-		eOutPoly.Form = ePoly.Form
+	for i := range op.mod {
+		vec.NegTo(eOut.Coeffs[i], e.Coeffs[i], op.mod[i])
 	}
+	eOut.Form = e.Form
 }
 
 // Mul returns eOut = e0 * e1.
-func (op *Operator) Mul[TOut, T0, T1 *Scalar | *Poly](e0 T0, e1 T1) TOut {
-	eOut := newBinaryOpOut[TOut](e0, e1)
+func (op *Operator) Mul(e0, e1 *Element) *Element {
+	eOut := newBinaryOpOut(e0, e1)
 	op.MulTo(eOut, e0, e1)
 	return eOut
 }
 
 // MulTo computes eOut = e0 * e1.
-func (op *Operator) MulTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
+func (op *Operator) MulTo(eOut, e0, e1 *Element) {
 	switch op.mulType {
 	case typeTrivialMul:
 		op.trivialMul.mulTo(eOut, e0, e1)
@@ -257,7 +260,7 @@ func (op *Operator) MulTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1)
 }
 
 // MulAddTo computes eOut += e0 * e1.
-func (op *Operator) MulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
+func (op *Operator) MulAddTo(eOut, e0, e1 *Element) {
 	switch op.mulType {
 	case typeTrivialMul:
 		op.trivialMul.mulAddTo(eOut, e0, e1)
@@ -269,7 +272,7 @@ func (op *Operator) MulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 
 }
 
 // MulSubTo computes eOut -= e0 * e1.
-func (op *Operator) MulSubTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
+func (op *Operator) MulSubTo(eOut, e0, e1 *Element) {
 	switch op.mulType {
 	case typeTrivialMul:
 		op.trivialMul.mulSubTo(eOut, e0, e1)
@@ -296,14 +299,22 @@ func (op *Operator) CanAut(idx int) bool {
 }
 
 // Aut returns pOut = p(X^idx).
-func (op *Operator) Aut(p *Poly, idx int) *Poly {
+//
+// Panics if p is [TypeScalar].
+func (op *Operator) Aut(p *Element, idx int) *Element {
 	pOut := op.NewPoly(p.Form)
 	op.AutTo(pOut, p, idx)
 	return pOut
 }
 
 // AutTo computes pOut = p(X^idx).
-func (op *Operator) AutTo(pOut, p *Poly, idx int) {
+//
+// Panics if p is [TypeScalar].
+func (op *Operator) AutTo(pOut, p *Element, idx int) {
+	if p.Type == TypeScalar {
+		panic("inputs must be polynomial")
+	}
+
 	switch op.autType {
 	case typePow2CyclotomicAut:
 		op.pow2CyclotomicAut.autTo(pOut, p, idx)

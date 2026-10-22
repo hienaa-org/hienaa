@@ -7,151 +7,43 @@ import (
 	"github.com/hienaa-org/hienaa/math/dft"
 )
 
-// Scalar is a scalar in CRT representation.
-type Scalar struct {
-	// Value is the underlying [crt.Scalar].
-	Value *crt.Scalar
+// Element represents an element with CRT representation.
+// Can be a scalar or a polynomial.
+//
+// A polynomial can have Standard or NTT form.
+type Element struct {
+	// Value is the underlying [crt.Element].
+	Value *crt.Element
 	// auxLen is the auxiliary modulus length.
 	auxLen int
 }
 
-// NewScalar creates a new [Scalar].
-func NewScalar(params Parameters, withAux bool) *Scalar {
+// NewScalar creates a new scalar [Element].
+func NewScalar(params Parameters, withAux bool) *Element {
 	if withAux && !params.HasAuxMod() {
 		panic("no auxiliary modulus")
 	}
 
 	if withAux {
-		return &Scalar{
-			Value:  crt.NewScalar(len(params.fullMod)),
-			auxLen: len(params.auxMod),
-		}
+		return NewScalarCustom(len(params.baseMod), len(params.auxMod))
 	}
-	return &Scalar{
-		Value:  crt.NewScalar(len(params.baseMod)),
-		auxLen: 0,
-	}
+	return NewScalarCustom(len(params.baseMod), 0)
 }
 
-// NewScalarCustom creates a new [Scalar] with the given parameters.
-func NewScalarCustom(baseLen, auxLen int) *Scalar {
+// NewScalarCustom creates a new scalar [Element] with the given parameters.
+func NewScalarCustom(baseLen, auxLen int) *Element {
 	if baseLen <= 0 || auxLen < 0 {
 		panic("invalid modulus length")
 	}
 
-	return &Scalar{
+	return &Element{
 		Value:  crt.NewScalar(baseLen + auxLen),
 		auxLen: auxLen,
 	}
 }
 
-// NewScalarFrom creates a new [Scalar] from [crt.Scalar].
-func NewScalarFrom(value *crt.Scalar, auxLen int) *Scalar {
-	if auxLen < 0 || auxLen > value.ModLen() {
-		panic("invalid auxLen")
-	}
-
-	return &Scalar{
-		Value:  value,
-		auxLen: auxLen,
-	}
-}
-
-// FullModLen returns the full modulus length.
-func (c *Scalar) FullModLen() int {
-	return c.Value.ModLen()
-}
-
-// BaseModLen returns the base modulus length.
-func (c *Scalar) BaseModLen() int {
-	return c.Value.ModLen() - c.auxLen
-}
-
-// AuxModLen returns the auxiliary modulus length.
-func (c *Scalar) AuxModLen() int {
-	return c.auxLen
-}
-
-// Clear clears c.
-func (c *Scalar) Clear() {
-	c.Value.Clear()
-}
-
-// WithModLen returns a shallow copy with the given modulus lengths.
-//
-// Panics when baseLen or auxLen is larger than the current base or auxiliary modulus lengths.
-func (c *Scalar) WithModLen(baseLen, auxLen int) *Scalar {
-	if baseLen <= 0 || auxLen < 0 {
-		panic("invalid modulus length")
-	} else if baseLen > c.BaseModLen() || auxLen > c.AuxModLen() {
-		panic("out of range")
-	}
-
-	return &Scalar{
-		Value:  c.Value.Slice(c.auxLen-auxLen, c.auxLen+baseLen),
-		auxLen: auxLen,
-	}
-}
-
-// Resize resizes c in place to the given base and auxiliary modulus lengths.
-//
-// Panics when baseLen or auxLen is invalid.
-func (c *Scalar) Resize(baseLen, auxLen int) {
-	if baseLen <= 0 || auxLen < 0 {
-		panic("invalid modulus length")
-	}
-
-	auxLenKeep := min(c.AuxModLen(), auxLen)
-	baseLenKeep := min(c.BaseModLen(), baseLen)
-
-	if auxLen+baseLen > len(c.Value.Value) {
-		c.Value.Value = slices.Grow(c.Value.Value, auxLen+baseLen-len(c.Value.Value))[:auxLen+baseLen]
-	}
-
-	copy(c.Value.Value[auxLen-auxLenKeep:auxLen+baseLenKeep], c.Value.Value[c.auxLen-auxLenKeep:c.auxLen+baseLenKeep])
-	clear(c.Value.Value[:auxLen-auxLenKeep])
-	clear(c.Value.Value[auxLen+baseLenKeep:])
-
-	c.Value.Value = c.Value.Value[:auxLen+baseLen]
-	c.auxLen = auxLen
-}
-
-// Copy returns a copy of c.
-func (c *Scalar) Copy() *Scalar {
-	return &Scalar{
-		Value:  c.Value.Copy(),
-		auxLen: c.auxLen,
-	}
-}
-
-// CopyFrom copies the coefficients from cIn to c.
-//
-// Panics when c and cIn are not consistent.
-func (c *Scalar) CopyFrom(cIn *Scalar) {
-	c.Value.CopyFrom(cIn.Value)
-	c.auxLen = cIn.auxLen
-}
-
-// IsEqual checks if c is equal to cIn.
-func (c *Scalar) IsEqual(cIn *Scalar) bool {
-	return c.Value.IsEqual(cIn.Value) && c.auxLen == cIn.auxLen
-}
-
-// IsConsistent checks if c has the same shape as cIn.
-func (c *Scalar) IsConsistent(cIn *Scalar) bool {
-	return c.Value.IsConsistent(cIn.Value)
-}
-
-// Poly is a polynomial in CRT representation.
-type Poly struct {
-	// Value is the underlying [crt.Poly].
-	Value *crt.Poly
-	// auxLen is the auxiliary modulus length.
-	auxLen int
-}
-
-// NewPoly creates a new [Poly].
-func NewPoly(params Parameters, withAux bool, form dft.Form) *Poly {
+// NewPoly creates a new polynomial [Element].
+func NewPoly(params Parameters, withAux bool, form dft.Form) *Element {
 	if withAux && !params.HasAuxMod() {
 		panic("no auxiliary modulus")
 	}
@@ -162,148 +54,154 @@ func NewPoly(params Parameters, withAux bool, form dft.Form) *Poly {
 	return NewPolyCustom(params.Rank(), len(params.baseMod), 0, form)
 }
 
-// NewPolyCustom creates a new [Poly] with the given parameters.
-func NewPolyCustom(rank, baseLen, auxLen int, form dft.Form) *Poly {
+// NewPolyCustom creates a new polynomial [Element] with the given parameters.
+func NewPolyCustom(rank, baseLen, auxLen int, form dft.Form) *Element {
 	if baseLen <= 0 || auxLen < 0 {
 		panic("invalid modulus length")
 	}
 
-	return &Poly{
+	return &Element{
 		Value:  crt.NewPoly(rank, baseLen+auxLen, form),
 		auxLen: auxLen,
 	}
 }
 
-// NewPolyFrom creates a new [Poly] from [crt.Poly].
-func NewPolyFrom(value *crt.Poly, auxLen int) *Poly {
+// NewElementFrom creates a new [Element] from [crt.Element].
+func NewElementFrom(value *crt.Element, auxLen int) *Element {
 	if auxLen < 0 || auxLen > value.ModLen() {
 		panic("invalid auxLen")
 	}
 
-	return &Poly{
+	return &Element{
 		Value:  value,
 		auxLen: auxLen,
 	}
 }
 
-// Rank returns the rank of p.
-func (p *Poly) Rank() int {
-	return p.Value.Rank()
+// Type returns the [crt.ElementType] of e.
+func (e *Element) Type() crt.ElementType {
+	return e.Value.Type
 }
 
-// Form returns the [dft.Form] of p.
-func (p *Poly) Form() dft.Form {
-	return p.Value.Form
+// Rank returns the rank of e.
+func (e *Element) Rank() int {
+	return e.Value.Rank()
+}
+
+// Form returns the [dft.Form] of e.
+// Ignored when the value is scalar.
+func (e *Element) Form() dft.Form {
+	return e.Value.Form
 }
 
 // FullModLen returns the full modulus length.
-func (p *Poly) FullModLen() int {
-	return p.Value.ModLen()
+func (e *Element) FullModLen() int {
+	return e.Value.ModLen()
 }
 
 // BaseModLen returns the base modulus length.
-func (p *Poly) BaseModLen() int {
-	return p.Value.ModLen() - p.auxLen
+func (e *Element) BaseModLen() int {
+	return e.Value.ModLen() - e.auxLen
 }
 
 // AuxModLen returns the auxiliary modulus length.
-func (p *Poly) AuxModLen() int {
-	return p.auxLen
+func (e *Element) AuxModLen() int {
+	return e.auxLen
 }
 
-// Clear clears p.
-func (p *Poly) Clear() {
-	p.Value.Clear()
+// Clear clears e.
+func (e *Element) Clear() {
+	e.Value.Clear()
 }
 
 // WithModLen returns a shallow copy with the given modulus lengths.
 //
 // Panics when baseLen or auxLen is larger than the current base or auxiliary modulus lengths.
-func (p *Poly) WithModLen(baseLen, auxLen int) *Poly {
+func (e *Element) WithModLen(baseLen, auxLen int) *Element {
 	if baseLen <= 0 || auxLen < 0 {
 		panic("invalid modulus length")
-	} else if baseLen > p.BaseModLen() || auxLen > p.AuxModLen() {
+	} else if baseLen > e.BaseModLen() || auxLen > e.AuxModLen() {
 		panic("out of range")
 	}
 
-	return &Poly{
-		Value:  p.Value.Slice(p.auxLen-auxLen, p.auxLen+baseLen),
+	return &Element{
+		Value:  e.Value.Slice(e.auxLen-auxLen, e.auxLen+baseLen),
 		auxLen: auxLen,
 	}
 }
 
-// Resize resizes p in place to the given base and auxiliary modulus lengths.
+// Resize resizes e in place to the given base and auxiliary modulus lengths.
 //
 // Panics when baseLen or auxLen is invalid.
-func (p *Poly) Resize(baseLen, auxLen int) {
+func (e *Element) Resize(baseLen, auxLen int) {
 	if baseLen <= 0 || auxLen < 0 {
 		panic("invalid modulus length")
 	}
 
-	rank := p.Rank()
-	auxLenKeep := min(p.AuxModLen(), auxLen)
-	baseLenKeep := min(p.BaseModLen(), baseLen)
+	rank := e.Rank()
+	auxLenKeep := min(e.AuxModLen(), auxLen)
+	baseLenKeep := min(e.BaseModLen(), baseLen)
 
-	if auxLen+baseLen > len(p.Value.Coeffs) {
-		p.Value.Coeffs = slices.Grow(p.Value.Coeffs, auxLen+baseLen-len(p.Value.Coeffs))[:auxLen+baseLen]
+	if auxLen+baseLen > len(e.Value.Coeffs) {
+		e.Value.Coeffs = slices.Grow(e.Value.Coeffs, auxLen+baseLen-len(e.Value.Coeffs))[:auxLen+baseLen]
 	}
 
-	for i := range p.Value.Coeffs {
-		if p.Value.Coeffs[i] == nil {
-			p.Value.Coeffs[i] = make([]uint64, rank)
+	for i := range e.Value.Coeffs {
+		if e.Value.Coeffs[i] == nil {
+			e.Value.Coeffs[i] = make([]uint64, rank)
 		}
 	}
 
 	switch {
-	case auxLen < p.auxLen:
+	case auxLen < e.auxLen:
 		for i := -auxLenKeep; i < baseLenKeep; i++ {
-			copy(p.Value.Coeffs[auxLen+i], p.Value.Coeffs[p.auxLen+i])
+			copy(e.Value.Coeffs[auxLen+i], e.Value.Coeffs[e.auxLen+i])
 		}
-	case auxLen > p.auxLen:
+	case auxLen > e.auxLen:
 		for i := baseLenKeep - 1; i >= -auxLenKeep; i-- {
-			copy(p.Value.Coeffs[auxLen+i], p.Value.Coeffs[p.auxLen+i])
+			copy(e.Value.Coeffs[auxLen+i], e.Value.Coeffs[e.auxLen+i])
 		}
 	}
 
 	for i := 0; i < auxLen-auxLenKeep; i++ {
-		clear(p.Value.Coeffs[i])
+		clear(e.Value.Coeffs[i])
 	}
-	for i := auxLen + baseLenKeep; i < len(p.Value.Coeffs); i++ {
-		clear(p.Value.Coeffs[i])
+	for i := auxLen + baseLenKeep; i < len(e.Value.Coeffs); i++ {
+		clear(e.Value.Coeffs[i])
 	}
 
-	p.Value.Coeffs = p.Value.Coeffs[:auxLen+baseLen]
-	p.auxLen = auxLen
+	e.Value.Coeffs = e.Value.Coeffs[:auxLen+baseLen]
+	e.auxLen = auxLen
 }
 
-// Copy returns a copy of p.
-func (p *Poly) Copy() *Poly {
-	return &Poly{
-		Value:  p.Value.Copy(),
-		auxLen: p.auxLen,
+// Copy returns a copy of e.
+func (e *Element) Copy() *Element {
+	return &Element{
+		Value:  e.Value.Copy(),
+		auxLen: e.auxLen,
 	}
 }
 
-// CopyFrom copies the coefficients from pIn to p.
+// CopyFrom copies the coefficients from eIn to e.
 //
-// Panics when p and pIn are not consistent.
-func (p *Poly) CopyFrom(pIn *Poly) {
-	p.Value.CopyFrom(pIn.Value)
-	p.auxLen = pIn.auxLen
+// Panics when e and eIn are not consistent.
+func (e *Element) CopyFrom(eIn *Element) {
+	e.Value.CopyFrom(eIn.Value)
+	e.auxLen = eIn.auxLen
 }
 
-// IsEqual checks if p is equal to pIn.
-func (p *Poly) IsEqual(pIn *Poly) bool {
-	return p.Value.IsEqual(pIn.Value) && p.auxLen == pIn.auxLen
+// IsEqual checks if e is equal to eIn.
+func (e *Element) IsEqual(eIn *Element) bool {
+	return e.Value.IsEqual(eIn.Value) && e.auxLen == eIn.auxLen
 }
 
-// IsConsistent checks if p has the same shape as pIn.
-func (p *Poly) IsConsistent(pIn *Poly) bool {
-	return p.Value.IsConsistent(pIn.Value)
+// IsConsistent checks if e has the same shape as eIn.
+func (e *Element) IsConsistent(eIn *Element) bool {
+	return e.Value.IsConsistent(eIn.Value)
 }
 
 // SecretKey is an RLWE secret key.
-type SecretKey Poly
+type SecretKey Element
 
 // NewSecretKey creates a new [SecretKey].
 func NewSecretKey(params Parameters, withAux bool, form dft.Form) *SecretKey {
@@ -317,66 +215,66 @@ func NewSecretKeyCustom(rank, baseLen, auxLen int, form dft.Form) *SecretKey {
 
 // Rank returns the rank of sk.
 func (sk *SecretKey) Rank() int {
-	return (*Poly)(sk).Rank()
+	return (*Element)(sk).Rank()
 }
 
 // Form returns the [dft.Form] of sk.
 func (sk *SecretKey) Form() dft.Form {
-	return (*Poly)(sk).Form()
+	return (*Element)(sk).Form()
 }
 
 // FullModLen returns the full modulus length.
 func (sk *SecretKey) FullModLen() int {
-	return (*Poly)(sk).FullModLen()
+	return (*Element)(sk).FullModLen()
 }
 
 // BaseModLen returns the base modulus length.
 func (sk *SecretKey) BaseModLen() int {
-	return (*Poly)(sk).BaseModLen()
+	return (*Element)(sk).BaseModLen()
 }
 
 // AuxModLen returns the auxiliary modulus length.
 func (sk *SecretKey) AuxModLen() int {
-	return (*Poly)(sk).AuxModLen()
+	return (*Element)(sk).AuxModLen()
 }
 
 // Clear clears sk.
 func (sk *SecretKey) Clear() {
-	(*Poly)(sk).Clear()
+	(*Element)(sk).Clear()
 }
 
 // WithModLen returns a shallow copy with the given modulus lengths.
 //
 // Panics when baseLen or auxLen is larger than the current base or auxiliary modulus lengths.
 func (sk *SecretKey) WithModLen(baseLen, auxLen int) *SecretKey {
-	return (*SecretKey)((*Poly)(sk).WithModLen(baseLen, auxLen))
+	return (*SecretKey)((*Element)(sk).WithModLen(baseLen, auxLen))
 }
 
 // Copy returns a copy of sk.
 func (sk *SecretKey) Copy() *SecretKey {
-	return (*SecretKey)((*Poly)(sk).Copy())
+	return (*SecretKey)((*Element)(sk).Copy())
 }
 
 // CopyFrom copies the coefficients from skIn to sk.
 //
 // Panics when sk and skIn are not consistent.
 func (sk *SecretKey) CopyFrom(skIn *SecretKey) {
-	(*Poly)(sk).CopyFrom((*Poly)(skIn))
+	(*Element)(sk).CopyFrom((*Element)(skIn))
 }
 
 // IsEqual checks if sk is equal to skIn.
 func (sk *SecretKey) IsEqual(skIn *SecretKey) bool {
-	return (*Poly)(sk).IsEqual((*Poly)(skIn))
+	return (*Element)(sk).IsEqual((*Element)(skIn))
 }
 
 // IsConsistent checks if sk has the same shape as skIn.
 func (sk *SecretKey) IsConsistent(skIn *SecretKey) bool {
-	return (*Poly)(sk).IsConsistent((*Poly)(skIn))
+	return (*Element)(sk).IsConsistent((*Element)(skIn))
 }
 
 // Ciphertext is an RLWE ciphertext.
 type Ciphertext struct {
-	Body, Mask *Poly
+	Body, Mask *Element
 }
 
 // NewCiphertext creates a new [Ciphertext].
@@ -560,9 +458,9 @@ func (pk *PublicKey) IsConsistent(pkIn *PublicKey) bool {
 	return (*Ciphertext)(pk).IsConsistent((*Ciphertext)(pkIn))
 }
 
-// Vector is a vector of [Poly].
+// Vector is a vector of [Element].
 type Vector struct {
-	Value []*Poly
+	Value []*Element
 }
 
 // NewVector creates a new [Vector].
@@ -579,7 +477,7 @@ func NewVector(params Parameters, length int, withAux bool, form dft.Form) *Vect
 
 // NewVectorCustom creates a new [Vector] with the given parameters.
 func NewVectorCustom(rank, baseLen, auxLen, length int, form dft.Form) *Vector {
-	value := make([]*Poly, length)
+	value := make([]*Element, length)
 	for i := range value {
 		value[i] = NewPolyCustom(rank, baseLen, auxLen, form)
 	}
@@ -667,7 +565,7 @@ func (v *Vector) WithModLen(baseLen, auxLen int) *Vector {
 		panic("invalid modulus length")
 	}
 
-	value := make([]*Poly, v.Len())
+	value := make([]*Element, v.Len())
 	for i := range value {
 		value[i] = v.Value[i].WithModLen(baseLen, auxLen)
 	}
@@ -690,7 +588,7 @@ func (v *Vector) Resize(baseLen, auxLen int) {
 
 // Copy returns a copy of v.
 func (v *Vector) Copy() *Vector {
-	value := make([]*Poly, v.Len())
+	value := make([]*Element, v.Len())
 	for i := 0; i < v.Len(); i++ {
 		value[i] = v.Value[i].Copy()
 	}

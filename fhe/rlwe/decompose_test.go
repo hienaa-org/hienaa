@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func recompose(params rlwe.Parameters, pDcmp *rlwe.Vector, gadVec []*rlwe.Scalar) *rlwe.Poly {
+func recompose(params rlwe.Parameters, pDcmp *rlwe.Vector, gadVec []*rlwe.Element) *rlwe.Element {
 	fullOp := params.Operator().Slice(0, pDcmp.FullModLen())
 	pSum := crt.NewPoly(params.Rank(), pDcmp.FullModLen(), dft.FormNTT)
 	for i := range pDcmp.Value {
@@ -18,7 +18,7 @@ func recompose(params rlwe.Parameters, pDcmp *rlwe.Vector, gadVec []*rlwe.Scalar
 	}
 
 	scaler := crt.NewScaler(fullOp.Slice(pDcmp.AuxModLen(), pDcmp.FullModLen()), fullOp)
-	return rlwe.NewPolyFrom(scaler.Scale(pSum, dft.FormNTT), 0)
+	return rlwe.NewElementFrom(scaler.Scale(pSum, dft.FormNTT), 0)
 }
 
 func TestDecompose(t *testing.T) {

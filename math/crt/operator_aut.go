@@ -70,7 +70,7 @@ func (op *pow2CyclotomicAutOperator) canAut(idx int) bool {
 	return idx64%2 == 1
 }
 
-func (op *pow2CyclotomicAutOperator) autTo(pOut, p *Poly, idx int) {
+func (op *pow2CyclotomicAutOperator) autTo(pOut, p *Element, idx int) {
 	checkUnaryOperable(op.params.Rank(), len(op.mod), pOut, p)
 
 	if !op.canAut(idx) {
@@ -241,7 +241,7 @@ func (op *anyCyclotomicAutOperator) canAut(idx int) bool {
 	return num.GCD(idx64, cycloIdx64) == 1
 }
 
-func (op *anyCyclotomicAutOperator) autTo(pOut, p *Poly, idx int) {
+func (op *anyCyclotomicAutOperator) autTo(pOut, p *Element, idx int) {
 	checkUnaryOperable(op.params.Rank(), len(op.mod), pOut, p)
 
 	if !op.canAut(idx) {
@@ -405,7 +405,7 @@ func (op *pow2AutFixedAutOperator) canAut(idx int) bool {
 	return idx64%4 == 1
 }
 
-func (op *pow2AutFixedAutOperator) autTo(pOut, p *Poly, idx int) {
+func (op *pow2AutFixedAutOperator) autTo(pOut, p *Element, idx int) {
 	checkUnaryOperable(op.params.Rank(), len(op.mod), pOut, p)
 
 	if !op.canAut(idx) {
@@ -547,7 +547,7 @@ func (op *primeAutFixedAutOperator) canAut(idx int) bool {
 	return slices.Contains(op.rootPow, idx64) || slices.Contains(op.rootPowInv, idx64)
 }
 
-func (op *primeAutFixedAutOperator) autTo(pOut, p *Poly, idx int) {
+func (op *primeAutFixedAutOperator) autTo(pOut, p *Element, idx int) {
 	checkUnaryOperable(op.params.Rank(), len(op.mod), pOut, p)
 
 	if !op.canAut(idx) {

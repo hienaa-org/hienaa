@@ -43,89 +43,71 @@ func newTrivialAddSubOperator(params dft.RingParameters, mod []*num.Modulus) *tr
 	}
 }
 
-func (op *trivialAddSubOperator) addTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
+func (op *trivialAddSubOperator) addTo(eOut, e0, e1 *Element) {
 	checkBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
 
-	eOutScalar, _ := any(eOut).(*Scalar)
-	eOutPoly, _ := any(eOut).(*Poly)
-
-	e0Scalar, e0IsScalar := any(e0).(*Scalar)
-	e0Poly, _ := any(e0).(*Poly)
-
-	e1Scalar, e1IsScalar := any(e1).(*Scalar)
-	e1Poly, _ := any(e1).(*Poly)
-
 	switch {
-	case e0IsScalar && e1IsScalar:
+	case e0.Type == TypeScalar && e1.Type == TypeScalar:
 		for i := range op.mod {
-			eOutScalar.Value[i] = num.Add(e0Scalar.Value[i], e1Scalar.Value[i], op.mod[i])
+			eOut.Coeffs[i][0] = num.Add(e0.Coeffs[i][0], e1.Coeffs[i][0], op.mod[i])
 		}
 
-	case !e0IsScalar && !e1IsScalar:
+	case e0.Type == TypePoly && e1.Type == TypePoly:
 		for i := range op.mod {
-			vec.AddTo(eOutPoly.Coeffs[i], e0Poly.Coeffs[i], e1Poly.Coeffs[i], op.mod[i])
+			vec.AddTo(eOut.Coeffs[i], e0.Coeffs[i], e1.Coeffs[i], op.mod[i])
 		}
-		eOutPoly.Form = e0Poly.Form
+		eOut.Form = e0.Form
 
 	default:
-		c, p := orderByType(e0IsScalar, e0Scalar, e0Poly, e1Scalar, e1Poly)
+		c, p := orderByType(e0, e1)
 		for i := range op.mod {
 			if p.Form == dft.FormNTT && op.isNTTFriendly[i] {
-				vec.AddTo(eOutPoly.Coeffs[i], p.Coeffs[i], num.MForm(c.Value[i], op.mod[i]), op.mod[i])
+				vec.AddTo(eOut.Coeffs[i], p.Coeffs[i], num.MForm(c.Coeffs[i][0], op.mod[i]), op.mod[i])
 			} else {
-				copy(eOutPoly.Coeffs[i], p.Coeffs[i])
-				eOutPoly.Coeffs[i][0] = num.Add(eOutPoly.Coeffs[i][0], c.Value[i], op.mod[i])
+				copy(eOut.Coeffs[i], p.Coeffs[i])
+				eOut.Coeffs[i][0] = num.Add(eOut.Coeffs[i][0], c.Coeffs[i][0], op.mod[i])
 			}
 		}
-		eOutPoly.Form = p.Form
+		eOut.Form = p.Form
 	}
 }
 
-func (op *trivialAddSubOperator) subTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
+func (op *trivialAddSubOperator) subTo(eOut, e0, e1 *Element) {
 	checkBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
 
-	eOutScalar, _ := any(eOut).(*Scalar)
-	eOutPoly, _ := any(eOut).(*Poly)
-
-	e0Scalar, e0IsScalar := any(e0).(*Scalar)
-	e0Poly, _ := any(e0).(*Poly)
-
-	e1Scalar, e1IsScalar := any(e1).(*Scalar)
-	e1Poly, _ := any(e1).(*Poly)
-
 	switch {
-	case e0IsScalar && e1IsScalar:
+	case e0.Type == TypeScalar && e1.Type == TypeScalar:
 		for i := range op.mod {
-			eOutScalar.Value[i] = num.Sub(e0Scalar.Value[i], e1Scalar.Value[i], op.mod[i])
+			eOut.Coeffs[i][0] = num.Sub(e0.Coeffs[i][0], e1.Coeffs[i][0], op.mod[i])
 		}
 
-	case !e0IsScalar && !e1IsScalar:
+	case e0.Type == TypePoly && e1.Type == TypePoly:
 		for i := range op.mod {
-			vec.SubTo(eOutPoly.Coeffs[i], e0Poly.Coeffs[i], e1Poly.Coeffs[i], op.mod[i])
+			vec.SubTo(eOut.Coeffs[i], e0.Coeffs[i], e1.Coeffs[i], op.mod[i])
 		}
-		eOutPoly.Form = e0Poly.Form
+		eOut.Form = e0.Form
 
-	case e0IsScalar && !e1IsScalar:
+	case e0.Type == TypeScalar && e1.Type == TypePoly:
 		for i := range op.mod {
-			if e1Poly.Form == dft.FormNTT && op.isNTTFriendly[i] {
-				vec.SubTo(eOutPoly.Coeffs[i], num.MForm(e0Scalar.Value[i], op.mod[i]), e1Poly.Coeffs[i], op.mod[i])
+			if e1.Form == dft.FormNTT && op.isNTTFriendly[i] {
+				vec.SubTo(eOut.Coeffs[i], num.MForm(e0.Coeffs[i][0], op.mod[i]), e1.Coeffs[i], op.mod[i])
 			} else {
-				vec.NegTo(eOutPoly.Coeffs[i], e1Poly.Coeffs[i], op.mod[i])
-				eOutPoly.Coeffs[i][0] = num.Add(eOutPoly.Coeffs[i][0], e0Scalar.Value[i], op.mod[i])
+				vec.NegTo(eOut.Coeffs[i], e1.Coeffs[i], op.mod[i])
+				eOut.Coeffs[i][0] = num.Add(eOut.Coeffs[i][0], e0.Coeffs[i][0], op.mod[i])
 			}
 		}
-		eOutPoly.Form = e1Poly.Form
+		eOut.Form = e1.Form
 
-	case !e0IsScalar && e1IsScalar:
+	case e0.Type == TypePoly && e1.Type == TypeScalar:
 		for i := range op.mod {
-			if e0Poly.Form == dft.FormNTT && op.isNTTFriendly[i] {
-				vec.SubTo(eOutPoly.Coeffs[i], e0Poly.Coeffs[i], num.MForm(e1Scalar.Value[i], op.mod[i]), op.mod[i])
+			if e0.Form == dft.FormNTT && op.isNTTFriendly[i] {
+				vec.SubTo(eOut.Coeffs[i], e0.Coeffs[i], num.MForm(e1.Coeffs[i][0], op.mod[i]), op.mod[i])
 			} else {
-				copy(eOutPoly.Coeffs[i], e0Poly.Coeffs[i])
-				eOutPoly.Coeffs[i][0] = num.Sub(eOutPoly.Coeffs[i][0], e1Scalar.Value[i], op.mod[i])
+				copy(eOut.Coeffs[i], e0.Coeffs[i])
+				eOut.Coeffs[i][0] = num.Sub(eOut.Coeffs[i][0], e1.Coeffs[i][0], op.mod[i])
 			}
 		}
-		eOutPoly.Form = e0Poly.Form
+		eOut.Form = e0.Form
 	}
 }
 
@@ -174,86 +156,68 @@ func newPrimeAutFixedAddSubOperator(params dft.RingParameters, mod []*num.Modulu
 	}
 }
 
-func (op *primeAutFixedAddSubOperator) addTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
+func (op *primeAutFixedAddSubOperator) addTo(eOut, e0, e1 *Element) {
 	checkBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
 
-	eOutScalar, _ := any(eOut).(*Scalar)
-	eOutPoly, _ := any(eOut).(*Poly)
-
-	e0Scalar, e0IsScalar := any(e0).(*Scalar)
-	e0Poly, _ := any(e0).(*Poly)
-
-	e1Scalar, e1IsScalar := any(e1).(*Scalar)
-	e1Poly, _ := any(e1).(*Poly)
-
 	switch {
-	case e0IsScalar && e1IsScalar:
+	case e0.Type == TypeScalar && e1.Type == TypeScalar:
 		for i := range op.mod {
-			eOutScalar.Value[i] = num.Add(e0Scalar.Value[i], e1Scalar.Value[i], op.mod[i])
+			eOut.Coeffs[i][0] = num.Add(e0.Coeffs[i][0], e1.Coeffs[i][0], op.mod[i])
 		}
 
-	case !e0IsScalar && !e1IsScalar:
+	case e0.Type == TypePoly && e1.Type == TypePoly:
 		for i := range op.mod {
-			vec.AddTo(eOutPoly.Coeffs[i], e0Poly.Coeffs[i], e1Poly.Coeffs[i], op.mod[i])
+			vec.AddTo(eOut.Coeffs[i], e0.Coeffs[i], e1.Coeffs[i], op.mod[i])
 		}
-		eOutPoly.Form = e0Poly.Form
+		eOut.Form = e0.Form
 
 	default:
-		c, p := orderByType(e0IsScalar, e0Scalar, e0Poly, e1Scalar, e1Poly)
+		c, p := orderByType(e0, e1)
 		for i := range op.mod {
 			if p.Form == dft.FormNTT && op.isNTTFriendly[i] {
-				vec.AddTo(eOutPoly.Coeffs[i], p.Coeffs[i], num.MForm(c.Value[i], op.mod[i]), op.mod[i])
+				vec.AddTo(eOut.Coeffs[i], p.Coeffs[i], num.MForm(c.Coeffs[i][0], op.mod[i]), op.mod[i])
 			} else {
-				vec.SubTo(eOutPoly.Coeffs[i], p.Coeffs[i], c.Value[i], op.mod[i])
+				vec.SubTo(eOut.Coeffs[i], p.Coeffs[i], c.Coeffs[i][0], op.mod[i])
 			}
 		}
-		eOutPoly.Form = p.Form
+		eOut.Form = p.Form
 	}
 }
 
-func (op *primeAutFixedAddSubOperator) subTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
+func (op *primeAutFixedAddSubOperator) subTo(eOut, e0, e1 *Element) {
 	checkBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
 
-	eOutScalar, _ := any(eOut).(*Scalar)
-	eOutPoly, _ := any(eOut).(*Poly)
-
-	e0Scalar, e0IsScalar := any(e0).(*Scalar)
-	e0Poly, _ := any(e0).(*Poly)
-
-	e1Scalar, e1IsScalar := any(e1).(*Scalar)
-	e1Poly, _ := any(e1).(*Poly)
-
 	switch {
-	case e0IsScalar && e1IsScalar:
+	case e0.Type == TypeScalar && e1.Type == TypeScalar:
 		for i := range op.mod {
-			eOutScalar.Value[i] = num.Sub(e0Scalar.Value[i], e1Scalar.Value[i], op.mod[i])
+			eOut.Coeffs[i][0] = num.Sub(e0.Coeffs[i][0], e1.Coeffs[i][0], op.mod[i])
 		}
 
-	case !e0IsScalar && !e1IsScalar:
+	case e0.Type == TypePoly && e1.Type == TypePoly:
 		for i := range op.mod {
-			vec.SubTo(eOutPoly.Coeffs[i], e0Poly.Coeffs[i], e1Poly.Coeffs[i], op.mod[i])
+			vec.SubTo(eOut.Coeffs[i], e0.Coeffs[i], e1.Coeffs[i], op.mod[i])
 		}
-		eOutPoly.Form = e0Poly.Form
+		eOut.Form = e0.Form
 
-	case e0IsScalar && !e1IsScalar:
+	case e0.Type == TypeScalar && e1.Type == TypePoly:
 		for i := range op.mod {
-			if e1Poly.Form == dft.FormNTT && op.isNTTFriendly[i] {
-				vec.SubTo(eOutPoly.Coeffs[i], num.MForm(e0Scalar.Value[i], op.mod[i]), e1Poly.Coeffs[i], op.mod[i])
+			if e1.Form == dft.FormNTT && op.isNTTFriendly[i] {
+				vec.SubTo(eOut.Coeffs[i], num.MForm(e0.Coeffs[i][0], op.mod[i]), e1.Coeffs[i], op.mod[i])
 			} else {
-				vec.SubTo(eOutPoly.Coeffs[i], num.Neg(e0Scalar.Value[i], op.mod[i]), e1Poly.Coeffs[i], op.mod[i])
+				vec.SubTo(eOut.Coeffs[i], num.Neg(e0.Coeffs[i][0], op.mod[i]), e1.Coeffs[i], op.mod[i])
 			}
 		}
-		eOutPoly.Form = e1Poly.Form
+		eOut.Form = e1.Form
 
-	case !e0IsScalar && e1IsScalar:
+	case e0.Type == TypePoly && e1.Type == TypeScalar:
 		for i := range op.mod {
-			if e0Poly.Form == dft.FormNTT && op.isNTTFriendly[i] {
-				vec.SubTo(eOutPoly.Coeffs[i], e0Poly.Coeffs[i], num.MForm(e1Scalar.Value[i], op.mod[i]), op.mod[i])
+			if e0.Form == dft.FormNTT && op.isNTTFriendly[i] {
+				vec.SubTo(eOut.Coeffs[i], e0.Coeffs[i], num.MForm(e1.Coeffs[i][0], op.mod[i]), op.mod[i])
 			} else {
-				vec.AddTo(eOutPoly.Coeffs[i], e0Poly.Coeffs[i], e1Scalar.Value[i], op.mod[i])
+				vec.AddTo(eOut.Coeffs[i], e0.Coeffs[i], e1.Coeffs[i][0], op.mod[i])
 			}
 		}
-		eOutPoly.Form = e0Poly.Form
+		eOut.Form = e0.Form
 	}
 }
 

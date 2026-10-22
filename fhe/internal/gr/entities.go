@@ -7,7 +7,7 @@ import (
 
 // Element represents an element in a galois ring.
 type Element struct {
-	value *crt.Poly
+	value *crt.Element
 }
 
 // NewElement creates a new [Element].

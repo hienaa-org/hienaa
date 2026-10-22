@@ -2,158 +2,79 @@ package crt
 
 import "github.com/hienaa-org/hienaa/math/dft"
 
-// checkScalarShape panics if c is not consistent with given modulus.
-func checkScalarShape(modLen int, c *Scalar) {
-	if c.ModLen() != modLen {
-		panic("inconsistent inputs")
+// checkElementShape panics if e is not consistent with given ring parameters and modulus.
+func checkElementShape(rank, modLen int, e *Element) {
+	if e.Type == TypeScalar {
+		if e.Rank() != 1 || e.ModLen() != modLen {
+			panic("inconsistent inputs")
+		}
+	} else {
+		checkPolyShape(rank, modLen, e)
 	}
 }
 
-// checkPolyShape panics if p is not consistent with given ring parameters and modulus.
-func checkPolyShape(rank, modLen int, p *Poly) {
+// checkPolyShape panics if p does not have the given rank and modulus length.
+func checkPolyShape(rank, modLen int, p *Element) {
 	if p.Rank() != rank || p.ModLen() != modLen {
 		panic("inconsistent inputs")
 	}
 }
 
 // newBinaryOpOut returns eOut given e0, e1 in binary operations.
-func newBinaryOpOut[TOut, T0, T1 *Scalar | *Poly](e0 T0, e1 T1) TOut {
-	e0Scalar, e0IsScalar := any(e0).(*Scalar)
-	e0Poly, _ := any(e0).(*Poly)
-
-	_, e1IsScalar := any(e1).(*Scalar)
-	e1Poly, _ := any(e1).(*Poly)
-
-	var eOut TOut
-	_, eOutIsScalar := any(eOut).(*Scalar)
-
-	switch {
-	case e0IsScalar && e1IsScalar:
-		if !eOutIsScalar {
-			panic("inconsistent types")
-		}
-		return any(NewScalar(e0Scalar.ModLen())).(TOut)
-
-	case e0IsScalar && !e1IsScalar:
-		if eOutIsScalar {
-			panic("inconsistent types")
-		}
-		return any(NewPoly(e1Poly.Rank(), e1Poly.ModLen(), dft.FormCoeff)).(TOut)
-
-	case !e0IsScalar && e1IsScalar:
-		if eOutIsScalar {
-			panic("inconsistent types")
-		}
-		return any(NewPoly(e0Poly.Rank(), e0Poly.ModLen(), dft.FormCoeff)).(TOut)
-
-	case !e0IsScalar && !e1IsScalar:
-		if eOutIsScalar {
-			panic("inconsistent types")
-		}
-		if e0Poly.Form != e1Poly.Form {
-			panic("inconsistent forms")
-		}
-		return any(NewPoly(e0Poly.Rank(), e0Poly.ModLen(), dft.FormCoeff)).(TOut)
+func newBinaryOpOut(e0, e1 *Element) *Element {
+	if e0.Type == TypeScalar && e1.Type == TypeScalar {
+		return NewScalar(e0.ModLen())
+	}
+	if e0.Type == TypeScalar {
+		return NewPoly(e1.Rank(), e1.ModLen(), dft.FormCoeff)
 	}
 
-	return nil
+	return NewPoly(e0.Rank(), e0.ModLen(), dft.FormCoeff)
 }
 
 // checkBinaryOperable panics if eOut, e0, e1 is not operable.
-func checkBinaryOperable[TOut, T0, T1 *Scalar | *Poly](rank, modLen int, eOut TOut, e0 T0, e1 T1) {
-	eOutScalar, eOutIsScalar := any(eOut).(*Scalar)
-	eOutPoly, _ := any(eOut).(*Poly)
-
-	e0Scalar, e0IsScalar := any(e0).(*Scalar)
-	e0Poly, _ := any(e0).(*Poly)
-
-	e1Scalar, e1IsScalar := any(e1).(*Scalar)
-	e1Poly, _ := any(e1).(*Poly)
-
-	switch {
-	case e0IsScalar && e1IsScalar:
-		if !eOutIsScalar {
+func checkBinaryOperable(rank, modLen int, eOut, e0, e1 *Element) {
+	if e0.Type == TypeScalar && e1.Type == TypeScalar {
+		if eOut.Type != TypeScalar {
 			panic("inconsistent types")
 		}
-		checkScalarShape(modLen, e0Scalar)
-		checkScalarShape(modLen, e1Scalar)
-		checkScalarShape(modLen, eOutScalar)
-
-	case e0IsScalar && !e1IsScalar:
-		if eOutIsScalar {
+	} else {
+		if eOut.Type != TypePoly {
 			panic("inconsistent types")
 		}
-		checkScalarShape(modLen, e0Scalar)
-		checkPolyShape(rank, modLen, e1Poly)
-		checkPolyShape(rank, modLen, eOutPoly)
-
-	case !e0IsScalar && e1IsScalar:
-		if eOutIsScalar {
-			panic("inconsistent types")
-		}
-		checkPolyShape(rank, modLen, e0Poly)
-		checkScalarShape(modLen, e1Scalar)
-		checkPolyShape(rank, modLen, eOutPoly)
-
-	case !e0IsScalar && !e1IsScalar:
-		if eOutIsScalar {
-			panic("inconsistent types")
-		}
-		if e0Poly.Form != e1Poly.Form {
+		if e0.Type == TypePoly && e1.Type == TypePoly && e0.Form != e1.Form {
 			panic("inconsistent forms")
 		}
-		checkPolyShape(rank, modLen, e0Poly)
-		checkPolyShape(rank, modLen, e1Poly)
-		checkPolyShape(rank, modLen, eOutPoly)
 	}
+
+	checkElementShape(rank, modLen, eOut)
+	checkElementShape(rank, modLen, e0)
+	checkElementShape(rank, modLen, e1)
 }
 
 // newUnaryOpOut returns eOut given e in unary operations.
-func newUnaryOpOut[TOut, T *Scalar | *Poly](e T) TOut {
-	eScalar, eIsScalar := any(e).(*Scalar)
-	ePoly, _ := any(e).(*Poly)
-
-	var eOut TOut
-	_, eOutIsScalar := any(eOut).(*Scalar)
-
-	if eOutIsScalar != eIsScalar {
-		panic("inconsistent types")
+func newUnaryOpOut(e *Element) *Element {
+	if e.Type == TypeScalar {
+		return NewScalar(e.ModLen())
 	}
-
-	if eIsScalar {
-		return any(NewScalar(eScalar.ModLen())).(TOut)
-	}
-	return any(NewPoly(ePoly.Rank(), ePoly.ModLen(), dft.FormCoeff)).(TOut)
+	return NewPoly(e.Rank(), e.ModLen(), dft.FormCoeff)
 }
 
 // checkUnaryOperable panics if eOut, e is not operable.
-func checkUnaryOperable[TOut, T *Scalar | *Poly](rank, modLen int, eOut TOut, e T) {
-	eOutScalar, eOutIsScalar := any(eOut).(*Scalar)
-	eOutPoly, _ := any(eOut).(*Poly)
-
-	eScalar, eIsScalar := any(e).(*Scalar)
-	ePoly, _ := any(e).(*Poly)
-
-	if eOutIsScalar != eIsScalar {
+func checkUnaryOperable(rank, modLen int, eOut, e *Element) {
+	if eOut.Type != e.Type {
 		panic("inconsistent types")
 	}
 
-	if eOutIsScalar && eIsScalar {
-		checkScalarShape(modLen, eOutScalar)
-		checkScalarShape(modLen, eScalar)
-	}
-
-	if !eOutIsScalar && !eIsScalar {
-		checkPolyShape(rank, modLen, eOutPoly)
-		checkPolyShape(rank, modLen, ePoly)
-	}
+	checkElementShape(rank, modLen, eOut)
+	checkElementShape(rank, modLen, e)
 }
 
-// orderByType returns e0, e1 as the order of [Scalar] and [Poly].
-// Assumes that one of e0, e1 is [Scalar] and the other is [Poly].
-func orderByType(e0IsScalar bool, e0Scalar *Scalar, e0Poly *Poly, e1Scalar *Scalar, e1Poly *Poly) (*Scalar, *Poly) {
-	if e0IsScalar {
-		return e0Scalar, e1Poly
+// orderByType returns e0, e1 as the order of [TypeScalar] and [TypePoly].
+// Assumes that one of e0, e1 is [TypeScalar] and the other is [TypePoly].
+func orderByType(e0, e1 *Element) (eScalar *Element, ePoly *Element) {
+	if e0.Type == TypeScalar {
+		return e0, e1
 	}
-	return e1Scalar, e0Poly
+	return e1, e0
 }

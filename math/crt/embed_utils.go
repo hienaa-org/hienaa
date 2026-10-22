@@ -47,11 +47,12 @@ func isMixedRadixNegative[T *[embedBatch]uint64 | []uint64](v []T, i int, half [
 	return 0
 }
 
-// getPolyFromPool fetches an [Poly] with given rank, modLen and [dft.Form] from pool.
-func getPolyFromPool(pool *pool.Pool[*[]uint64], rank, modLen int, outForm dft.Form) (eOut *Poly, put func()) {
-	eOut = &Poly{
+// getPolyFromPool fetches a polynomial [Element] with given rank, modLen and [dft.Form] from pool.
+func getPolyFromPool(pool *pool.Pool[*[]uint64], rank, modLen int, outForm dft.Form) (eOut *Element, put func()) {
+	eOut = &Element{
 		Coeffs: make([][]uint64, modLen),
 		Form:   outForm,
+		Type:   TypePoly,
 	}
 
 	coeffsPtr := make([]*[]uint64, modLen)

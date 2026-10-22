@@ -31,7 +31,7 @@ func NewEmbedderPool(rank, modLen int) *pool.Pool[*[]uint64] {
 	})
 }
 
-// Embedder embeds [Scalar] and [Poly] into different modulus.
+// Embedder embeds scalar and polynomial [Element] values into different modulus.
 // In other words, it computes
 //
 //	[e]_modIn -> [e]_modOut
@@ -67,60 +67,55 @@ func (emb *Embedder) WithPool(p *pool.Pool[*[]uint64]) *Embedder {
 }
 
 // Embed returns the embedding of e to the output modulus.
-func (emb *Embedder) Embed[T *Scalar | *Poly](e T, outForm dft.Form) T {
-	eScalar, eIsScalar := any(e).(*Scalar)
-	ePoly, _ := any(e).(*Poly)
-
-	if eIsScalar {
+func (emb *Embedder) Embed(e *Element, outForm dft.Form) *Element {
+	if e.Type == TypeScalar {
 		eOut := NewScalar(len(emb.OpOut.mod))
-		emb.EmbedTo(eOut, eScalar, outForm)
-		return any(eOut).(T)
+		emb.EmbedTo(eOut, e, outForm)
+		return eOut
 	}
 	eOut := emb.OpOut.NewPoly(outForm)
-	emb.EmbedTo(eOut, ePoly, outForm)
-	return any(eOut).(T)
+	emb.EmbedTo(eOut, e, outForm)
+	return eOut
 }
 
 // EmbedTo embeds e to eOut.
-func (emb *Embedder) EmbedTo[T *Scalar | *Poly](eOut, e T, outForm dft.Form) {
-	eOutScalar, _ := any(eOut).(*Scalar)
-	eOutPoly, _ := any(eOut).(*Poly)
+func (emb *Embedder) EmbedTo(eOut, e *Element, outForm dft.Form) {
+	if eOut.Type != e.Type {
+		panic("inconsistent types")
+	}
 
-	eScalar, eIsScalar := any(e).(*Scalar)
-	ePoly, _ := any(e).(*Poly)
-
-	if eIsScalar {
-		emb.embedScalarTo(eOutScalar, eScalar)
+	if e.Type == TypeScalar {
+		emb.embedScalarTo(eOut, e)
 		return
 	}
 
-	if eOutPoly.Rank() != emb.OpOut.params.Rank() || ePoly.Rank() != emb.OpIn.params.Rank() {
+	if eOut.Rank() != emb.OpOut.params.Rank() || e.Rank() != emb.OpIn.params.Rank() {
 		panic("inconsistent inputs")
 	}
 
 	switch {
-	case ePoly.Form == dft.FormNTT && outForm == dft.FormNTT:
-		emb.embedNTTTo(eOutPoly, ePoly)
-		eOutPoly.Form = dft.FormNTT
+	case e.Form == dft.FormNTT && outForm == dft.FormNTT:
+		emb.embedNTTTo(eOut, e)
+		eOut.Form = dft.FormNTT
 
-	case ePoly.Form == dft.FormNTT && outForm == dft.FormCoeff:
-		pInvNTT, put := getPolyFromPool(emb.pool, ePoly.Rank(), ePoly.ModLen(), dft.FormCoeff)
+	case e.Form == dft.FormNTT && outForm == dft.FormCoeff:
+		pInvNTT, put := getPolyFromPool(emb.pool, e.Rank(), e.ModLen(), dft.FormCoeff)
 		defer put()
 
-		emb.OpIn.InvNTTTo(pInvNTT, ePoly)
-		emb.vecEmb.EmbedTo(eOutPoly.Coeffs, pInvNTT.Coeffs)
-		eOutPoly.Form = dft.FormCoeff
+		emb.OpIn.InvNTTTo(pInvNTT, e)
+		emb.vecEmb.EmbedTo(eOut.Coeffs, pInvNTT.Coeffs)
+		eOut.Form = dft.FormCoeff
 
-	case ePoly.Form == dft.FormCoeff:
-		emb.vecEmb.EmbedTo(eOutPoly.Coeffs, ePoly.Coeffs)
-		eOutPoly.Form = dft.FormCoeff
+	case e.Form == dft.FormCoeff:
+		emb.vecEmb.EmbedTo(eOut.Coeffs, e.Coeffs)
+		eOut.Form = dft.FormCoeff
 		if outForm == dft.FormNTT {
-			emb.OpOut.Slice(0, eOutPoly.ModLen()).FwdNTTTo(eOutPoly, eOutPoly)
+			emb.OpOut.Slice(0, eOut.ModLen()).FwdNTTTo(eOut, eOut)
 		}
 	}
 }
 
-func (emb *Embedder) embedNTTTo(pOutNTT, pNTT *Poly) {
+func (emb *Embedder) embedNTTTo(pOutNTT, pNTT *Element) {
 	M := (len(pNTT.Coeffs[0]) >> 3) << 3
 	L := unsafe.Sizeof(uint64(0))
 
@@ -265,7 +260,7 @@ func (emb *Embedder) embedNTTTo(pOutNTT, pNTT *Poly) {
 	pOutNTT.Form = dft.FormNTT
 }
 
-func (emb *Embedder) embedScalarTo(cOut, c *Scalar) {
+func (emb *Embedder) embedScalarTo(cOut, c *Element) {
 	vecEmb := emb.vecEmb
 	inLen, outLen := c.ModLen(), cOut.ModLen()
 	if inLen == 0 || inLen != len(vecEmb.modIn) || outLen > len(vecEmb.modOut) {
@@ -273,16 +268,16 @@ func (emb *Embedder) embedScalarTo(cOut, c *Scalar) {
 	}
 
 	if inLen == 1 {
-		x := c.Value[0]
+		x := c.Coeffs[0][0]
 		qv := vecEmb.modInSorted[0].Value()
 		halfQv := qv >> 1
 		for i := 0; i < outLen; i++ {
 			if vecEmb.idx[i] == 0 {
-				cOut.Value[i] = x
+				cOut.Coeffs[i][0] = x
 			} else {
 				qOut := vecEmb.modOut[i].Value()
 				qOutDivHi, _ := vecEmb.modOut[i].Div()
-				cOut.Value[i] = embedToModOut(x, qOut, qOutDivHi, qv, halfQv)
+				cOut.Coeffs[i][0] = embedToModOut(x, qOut, qOutDivHi, qv, halfQv)
 			}
 		}
 		return
@@ -293,11 +288,11 @@ func (emb *Embedder) embedScalarTo(cOut, c *Scalar) {
 	defer emb.pool.Put(cBufPtr)
 
 	for i := 0; i < inLen; i++ {
-		cBuf[i] = c.Value[vecEmb.modInMap[i]]
+		cBuf[i] = c.Coeffs[vecEmb.modInMap[i]][0]
 	}
 	for i := 0; i < outLen; i++ {
 		if 0 <= vecEmb.idx[i] && vecEmb.idx[i] < inLen {
-			cOut.Value[i] = cBuf[vecEmb.idx[i]]
+			cOut.Coeffs[i][0] = cBuf[vecEmb.idx[i]]
 		}
 	}
 
@@ -333,7 +328,7 @@ func (emb *Embedder) embedScalarTo(cOut, c *Scalar) {
 		if isNegative {
 			x = num.Sub(x, vecEmb.inModOut[i], modOut)
 		}
-		cOut.Value[i] = x
+		cOut.Coeffs[i][0] = x
 	}
 }
 
@@ -665,7 +660,7 @@ func (emb *VecEmbedder) ModOut() []*num.Modulus {
 	return emb.modOut
 }
 
-// Scaler scales [Scalar] and [Poly] from the input modulus to the output modulus.
+// Scaler scales scalar and polynomial [Element] values from the input modulus to the output modulus.
 // In other words, it computes
 //
 //	[e]_modIn -> [(modOut / modIn) * e]_modOut
@@ -702,60 +697,55 @@ func (sc *Scaler) WithPool(p *pool.Pool[*[]uint64]) *Scaler {
 }
 
 // Scale returns the scaling of e to the output modulus.
-func (sc *Scaler) Scale[T *Scalar | *Poly](e T, outForm dft.Form) T {
-	eScalar, eIsScalar := any(e).(*Scalar)
-	ePoly, _ := any(e).(*Poly)
-
-	if eIsScalar {
+func (sc *Scaler) Scale(e *Element, outForm dft.Form) *Element {
+	if e.Type == TypeScalar {
 		eOut := NewScalar(len(sc.OpOut.mod))
-		sc.ScaleTo(eOut, eScalar, outForm)
-		return any(eOut).(T)
+		sc.ScaleTo(eOut, e, outForm)
+		return eOut
 	}
 	eOut := sc.OpOut.NewPoly(outForm)
-	sc.ScaleTo(eOut, ePoly, outForm)
-	return any(eOut).(T)
+	sc.ScaleTo(eOut, e, outForm)
+	return eOut
 }
 
 // ScaleTo scales e to eOut.
-func (sc *Scaler) ScaleTo[T *Scalar | *Poly](eOut, e T, outForm dft.Form) {
-	eOutScalar, _ := any(eOut).(*Scalar)
-	eOutPoly, _ := any(eOut).(*Poly)
+func (sc *Scaler) ScaleTo(eOut, e *Element, outForm dft.Form) {
+	if eOut.Type != e.Type {
+		panic("inconsistent types")
+	}
 
-	eScalar, eIsScalar := any(e).(*Scalar)
-	ePoly, _ := any(e).(*Poly)
-
-	if eIsScalar {
-		sc.scaleScalarTo(eOutScalar, eScalar)
+	if e.Type == TypeScalar {
+		sc.scaleScalarTo(eOut, e)
 		return
 	}
 
-	if eOutPoly.Rank() != sc.OpOut.params.Rank() || ePoly.Rank() != sc.OpIn.params.Rank() {
+	if eOut.Rank() != sc.OpOut.params.Rank() || e.Rank() != sc.OpIn.params.Rank() {
 		panic("inconsistent inputs")
 	}
 
 	switch {
-	case ePoly.Form == dft.FormNTT && outForm == dft.FormNTT:
-		sc.scaleNTTTo(eOutPoly, ePoly)
-		eOutPoly.Form = dft.FormNTT
+	case e.Form == dft.FormNTT && outForm == dft.FormNTT:
+		sc.scaleNTTTo(eOut, e)
+		eOut.Form = dft.FormNTT
 
-	case ePoly.Form == dft.FormNTT && outForm == dft.FormCoeff:
-		pInvNTT, put := getPolyFromPool(sc.pool, ePoly.Rank(), ePoly.ModLen(), dft.FormCoeff)
+	case e.Form == dft.FormNTT && outForm == dft.FormCoeff:
+		pInvNTT, put := getPolyFromPool(sc.pool, e.Rank(), e.ModLen(), dft.FormCoeff)
 		defer put()
 
-		sc.OpIn.InvNTTTo(pInvNTT, ePoly)
-		sc.vecSc.ScaleTo(eOutPoly.Coeffs, pInvNTT.Coeffs)
-		eOutPoly.Form = dft.FormCoeff
+		sc.OpIn.InvNTTTo(pInvNTT, e)
+		sc.vecSc.ScaleTo(eOut.Coeffs, pInvNTT.Coeffs)
+		eOut.Form = dft.FormCoeff
 
-	case ePoly.Form == dft.FormCoeff:
-		sc.vecSc.ScaleTo(eOutPoly.Coeffs, ePoly.Coeffs)
-		eOutPoly.Form = dft.FormCoeff
+	case e.Form == dft.FormCoeff:
+		sc.vecSc.ScaleTo(eOut.Coeffs, e.Coeffs)
+		eOut.Form = dft.FormCoeff
 		if outForm == dft.FormNTT {
-			sc.OpOut.Slice(0, eOutPoly.ModLen()).FwdNTTTo(eOutPoly, eOutPoly)
+			sc.OpOut.Slice(0, eOut.ModLen()).FwdNTTTo(eOut, eOut)
 		}
 	}
 }
 
-func (sc *Scaler) scaleNTTTo(pOutNTT, pNTT *Poly) {
+func (sc *Scaler) scaleNTTTo(pOutNTT, pNTT *Element) {
 	M := (len(pNTT.Coeffs[0]) >> 3) << 3
 	L := unsafe.Sizeof(uint64(0))
 
@@ -934,7 +924,7 @@ func (sc *Scaler) scaleNTTTo(pOutNTT, pNTT *Poly) {
 	pOutNTT.Form = dft.FormNTT
 }
 
-func (sc *Scaler) scaleScalarTo(cOut, c *Scalar) {
+func (sc *Scaler) scaleScalarTo(cOut, c *Element) {
 	inLen, gcdLen, outLen := c.ModLen(), sc.vecSc.modGCDLen, cOut.ModLen()
 	if inLen == 0 || inLen != len(sc.vecSc.modIn) || outLen != len(sc.vecSc.modOut) {
 		panic("inconsistent inputs")
@@ -946,23 +936,25 @@ func (sc *Scaler) scaleScalarTo(cOut, c *Scalar) {
 
 	if inLen == outLen && inLen == gcdLen {
 		for i := 0; i < inLen; i++ {
-			cBuf[i] = c.Value[sc.vecSc.idxGCDToIn[sc.vecSc.idxOutToGCD[i]]]
+			cBuf[i] = c.Coeffs[sc.vecSc.idxGCDToIn[sc.vecSc.idxOutToGCD[i]]][0]
 		}
-		copy(cOut.Value, cBuf)
+		for i := range cBuf {
+			cOut.Coeffs[i][0] = cBuf[i]
+		}
 		return
 	}
 
 	if inLen == gcdLen {
 		for i := 0; i < inLen; i++ {
 			ii := sc.vecSc.idxInToGCD[i]
-			cBuf[ii] = num.SMul(c.Value[sc.vecSc.modInMap[i]], sc.vecSc.outCompModIn[i], sc.vecSc.outCompModInS[i], sc.vecSc.modInSorted[i])
+			cBuf[ii] = num.SMul(c.Coeffs[sc.vecSc.modInMap[i]][0], sc.vecSc.outCompModIn[i], sc.vecSc.outCompModInS[i], sc.vecSc.modInSorted[i])
 		}
 		for i := 0; i < outLen; i++ {
 			ii := sc.vecSc.idxOutToGCD[i]
 			if ii >= 0 {
-				cOut.Value[i] = cBuf[ii]
+				cOut.Coeffs[i][0] = cBuf[ii]
 			} else {
-				cOut.Value[i] = 0
+				cOut.Coeffs[i][0] = 0
 			}
 		}
 		return
@@ -976,13 +968,13 @@ func (sc *Scaler) scaleScalarTo(cOut, c *Scalar) {
 	for i := 0; i < inLen; i++ {
 		ii := sc.vecSc.idxInToGCD[i]
 		if ii >= 0 {
-			cMul[ii] = num.SMul(c.Value[sc.vecSc.modInMap[i]], sc.vecSc.outCompModIn[i], sc.vecSc.outCompModInS[i], sc.vecSc.modInSorted[i])
+			cMul[ii] = num.SMul(c.Coeffs[sc.vecSc.modInMap[i]][0], sc.vecSc.outCompModIn[i], sc.vecSc.outCompModInS[i], sc.vecSc.modInSorted[i])
 		}
 	}
 	for i := 0; i < inLen; i++ {
 		ii := sc.vecSc.idxInToComp[i]
 		if ii >= 0 {
-			cBuf[ii] = num.SMul(c.Value[sc.vecSc.modInMap[i]], sc.vecSc.outCompModIn[i], sc.vecSc.outCompModInS[i], sc.vecSc.modInSorted[i])
+			cBuf[ii] = num.SMul(c.Coeffs[sc.vecSc.modInMap[i]][0], sc.vecSc.outCompModIn[i], sc.vecSc.outCompModInS[i], sc.vecSc.modInSorted[i])
 		}
 	}
 
@@ -993,7 +985,7 @@ func (sc *Scaler) scaleScalarTo(cOut, c *Scalar) {
 		for i := 0; i < outLen; i++ {
 			qOut := sc.vecSc.modOut[i].Value()
 			qOutDivHi, _ := sc.vecSc.modOut[i].Div()
-			cOut.Value[i] = embedToModOut(x, qOut, qOutDivHi, qv, halfQv)
+			cOut.Coeffs[i][0] = embedToModOut(x, qOut, qOutDivHi, qv, halfQv)
 		}
 	} else {
 		for i := 0; i < inLen-gcdLen; i++ {
@@ -1024,7 +1016,7 @@ func (sc *Scaler) scaleScalarTo(cOut, c *Scalar) {
 			if isNegative {
 				x = num.Sub(x, sc.vecSc.inCompModOut[i], modOut)
 			}
-			cOut.Value[i] = x
+			cOut.Coeffs[i][0] = x
 		}
 	}
 
@@ -1032,9 +1024,9 @@ func (sc *Scaler) scaleScalarTo(cOut, c *Scalar) {
 		modOut := sc.vecSc.modOut[i]
 		ii := sc.vecSc.idxOutToGCD[i]
 		if ii >= 0 {
-			cOut.Value[i] = num.Sub(cOut.Value[i], cMul[ii], modOut)
+			cOut.Coeffs[i][0] = num.Sub(cOut.Coeffs[i][0], cMul[ii], modOut)
 		}
-		cOut.Value[i] = num.SMul(cOut.Value[i], sc.vecSc.negInCompInvModOut[i], sc.vecSc.negInCompInvModOutS[i], modOut)
+		cOut.Coeffs[i][0] = num.SMul(cOut.Coeffs[i][0], sc.vecSc.negInCompInvModOut[i], sc.vecSc.negInCompInvModOutS[i], modOut)
 	}
 }
 

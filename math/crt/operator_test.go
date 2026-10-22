@@ -113,7 +113,7 @@ func testOperator(t *testing.T, params dft.RingParameters) {
 	p1NTT := op.FwdNTT(p1)
 
 	t.Run("Mul", func(t *testing.T) {
-		pOutNTT := op.Mul[*crt.Poly](p0NTT, p1NTT)
+		pOutNTT := op.Mul(p0NTT, p1NTT)
 		pOut := op.InvNTT(pOutNTT)
 
 		switch params.RingType() {
@@ -138,7 +138,7 @@ func testOperator(t *testing.T, params dft.RingParameters) {
 		pOutNTTRef := pOutNTT.Copy()
 
 		op.MulAddTo(pOutNTT, p0NTT, p1NTT)
-		op.AddTo(pOutNTTRef, pOutNTTRef, op.Mul[*crt.Poly](p0NTT, p1NTT))
+		op.AddTo(pOutNTTRef, pOutNTTRef, op.Mul(p0NTT, p1NTT))
 
 		assert.Equal(t, pOutNTTRef.Coeffs, pOutNTT.Coeffs)
 	})
@@ -149,7 +149,7 @@ func testOperator(t *testing.T, params dft.RingParameters) {
 		pOutNTTRef := pOutNTT.Copy()
 
 		op.MulSubTo(pOutNTT, p0NTT, p1NTT)
-		op.SubTo(pOutNTTRef, pOutNTTRef, op.Mul[*crt.Poly](p0NTT, p1NTT))
+		op.SubTo(pOutNTTRef, pOutNTTRef, op.Mul(p0NTT, p1NTT))
 
 		assert.Equal(t, pOutNTTRef.Coeffs, pOutNTT.Coeffs)
 	})

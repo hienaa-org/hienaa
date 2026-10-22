@@ -7,7 +7,7 @@ import (
 	"github.com/hienaa-org/hienaa/math/dft"
 )
 
-// BigConverter converts [Scalar] and [Poly] to *[big.Int] values.
+// BigConverter converts scalar and polynomial [Element] values to *[big.Int] values.
 type BigConverter struct {
 	Op *Operator
 
@@ -50,11 +50,9 @@ func NewBigConverter(op *Operator) *BigConverter {
 }
 
 // Convert converts e to a vector of *[big.Int].
-func (cvt *BigConverter) Convert[T *Scalar | *Poly](e T) []*big.Int {
-	_, eIsScalar := any(e).(*Scalar)
-
+func (cvt *BigConverter) Convert(e *Element) []*big.Int {
 	var vOut []*big.Int
-	if eIsScalar {
+	if e.Type == TypeScalar {
 		vOut = make([]*big.Int, 1)
 	} else {
 		vOut = make([]*big.Int, cvt.Op.params.Rank())
@@ -68,23 +66,20 @@ func (cvt *BigConverter) Convert[T *Scalar | *Poly](e T) []*big.Int {
 }
 
 // ConvertTo converts e to vOut.
-func (cvt *BigConverter) ConvertTo[T *Scalar | *Poly](vOut []*big.Int, e T) {
+func (cvt *BigConverter) ConvertTo(vOut []*big.Int, e *Element) {
 	checkUnaryOperable(cvt.Op.params.Rank(), len(cvt.Op.mod), e, e)
-
-	eScalar, eIsScalar := any(e).(*Scalar)
-	ePoly, _ := any(e).(*Poly)
 
 	mul := cvt.pool.Get()
 	defer cvt.pool.Put(mul)
 
-	if eIsScalar {
+	if e.Type == TypeScalar {
 		if len(vOut) != 1 {
 			panic("inconsistent inputs")
 		}
 
 		vOut[0].SetUint64(0)
 		for l := range cvt.Op.mod {
-			mul.SetUint64(eScalar.Value[l])
+			mul.SetUint64(e.Coeffs[l][0])
 			mul.Mul(mul, cvt.gadget[l])
 			vOut[0].Add(vOut[0], mul)
 		}
@@ -93,7 +88,7 @@ func (cvt *BigConverter) ConvertTo[T *Scalar | *Poly](vOut []*big.Int, e T) {
 			vOut[0].Sub(vOut[0], cvt.bigMod)
 		}
 	} else {
-		if ePoly.Form == dft.FormNTT {
+		if e.Form == dft.FormNTT {
 			panic("inputs must be in Coeff form")
 		} else if len(vOut) != cvt.Op.params.Rank() {
 			panic("inconsistent inputs")
@@ -102,7 +97,7 @@ func (cvt *BigConverter) ConvertTo[T *Scalar | *Poly](vOut []*big.Int, e T) {
 		for i := range cvt.Op.params.Rank() {
 			vOut[i].SetUint64(0)
 			for l := range cvt.Op.mod {
-				mul.SetUint64(ePoly.Coeffs[l][i])
+				mul.SetUint64(e.Coeffs[l][i])
 				mul.Mul(mul, cvt.gadget[l])
 				vOut[i].Add(vOut[i], mul)
 			}

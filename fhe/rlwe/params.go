@@ -150,10 +150,10 @@ func (p ParametersLiteral) Compile() Parameters {
 	_ = p.SecretKeyParams.Sampler()
 	_ = p.NoiseParams.Sampler()
 
-	var gadgetVec []*Scalar
+	var gadgetVec []*Element
 	switch gadgetParams := gadgetParams.(type) {
 	case RNSGadgetParameters:
-		gadgetVec = make([]*Scalar, num.DivCeil(len(p.BaseModulus), gadgetParams.chunkSize))
+		gadgetVec = make([]*Element, num.DivCeil(len(p.BaseModulus), gadgetParams.chunkSize))
 		g, chunk := new(big.Int), new(big.Int)
 		for i := range gadgetVec {
 			start := i * gadgetParams.chunkSize
@@ -176,7 +176,7 @@ func (p ParametersLiteral) Compile() Parameters {
 			g.Mod(g, baseModBig)
 			g.Mul(g, auxModBig)
 
-			gadgetVec[i] = &Scalar{
+			gadgetVec[i] = &Element{
 				Value:  crt.NewScalarFrom(g, fullMod),
 				auxLen: len(p.AuxModulus),
 			}
@@ -193,7 +193,7 @@ func (p ParametersLiteral) Compile() Parameters {
 		for _, q := range p.BaseModulus {
 			modBitLen += bits.Len64(q.Value() - 1)
 		}
-		gadgetVec = make([]*Scalar, num.DivCeil(modBitLen, gadgetParams.logDigitBase))
+		gadgetVec = make([]*Element, num.DivCeil(modBitLen, gadgetParams.logDigitBase))
 
 		g := new(big.Int).Set(auxModBig)
 		if len(p.AuxModulus) == 0 {
@@ -201,7 +201,7 @@ func (p ParametersLiteral) Compile() Parameters {
 		}
 
 		for i := range gadgetVec {
-			gadgetVec[i] = &Scalar{
+			gadgetVec[i] = &Element{
 				Value:  crt.NewScalarFrom(g, fullMod),
 				auxLen: len(p.AuxModulus),
 			}
@@ -251,7 +251,7 @@ type Parameters struct {
 	// GadgetParams is the parameters for the gadget.
 	gadgetParams GadgetParameters
 	// gadgetVec is the gadget vector.
-	gadgetVec []*Scalar
+	gadgetVec []*Element
 	// SecretKeyParams is the parameters for secret key sampler.
 	secretKeyParams crt.SamplerParameters
 	// NoiseParams is the parameters for noise sampler.
@@ -320,7 +320,7 @@ func (p Parameters) GadgetLen() int {
 }
 
 // GadgetVec returns the gadget vector.
-func (p Parameters) GadgetVec() []*Scalar {
+func (p Parameters) GadgetVec() []*Element {
 	return p.gadgetVec
 }
 
