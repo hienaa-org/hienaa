@@ -7,6 +7,18 @@ import (
 	"github.com/hienaa-org/hienaa/math/num"
 )
 
+// IsCoprime checks if all values in mod is pairwise coprime.
+func IsCoprime(mod []*num.Modulus) bool {
+	for i := range mod {
+		for j := range mod {
+			if i != j && num.GCD(mod[i].Value(), mod[j].Value()) != 1 {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // ambientNTTPrimes finds a list of prime moduli that is NTT friendly,
 // and its product exceeds 2^minBits.
 // minBits is assumed to be finite.

@@ -15,7 +15,7 @@ var (
 // IsPrime checks of x is prime.
 // Any x <= 1 are not considered prime.
 func IsPrime[T Integer](x T) bool {
-	return (x > 1) && isPrimeUint64(uint64(Abs((x))))
+	return (x > 1) && isPrimeUint64(uint64(x))
 }
 
 // isPrimeUint64 checks of x is prime.
@@ -204,7 +204,6 @@ func Factor[T Integer](x T) (primes []T, exps []T) {
 }
 
 // factorRecurse finds a non-trivial factor of x and adds it to factors.
-// It uses Brent-Pollard's rho algorithm without trivial checks.
 func factorRecurse(x uint64, factors map[uint64]uint64) {
 	for _, p := range smallPrimes {
 		for {
@@ -217,8 +216,6 @@ func factorRecurse(x uint64, factors map[uint64]uint64) {
 	}
 
 	switch {
-	case x == 0:
-		return
 	case x == 1:
 		if len(factors) == 0 {
 			factors[1] = 1

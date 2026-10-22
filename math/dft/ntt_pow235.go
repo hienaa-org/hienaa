@@ -49,7 +49,7 @@ func fwdNTTInPlacePow2Ref(coeffs, tw, twS []uint64, q uint64) {
 
 // invNTTInPlacePow2 computes the inverse NTT transform in-place for power-of-two length coefficients.
 func invNTTInPlacePow2(coeffs, twInv, twInvS []uint64, q uint64) {
-	if len(coeffs) < 32 {
+	if len(coeffs) <= nttUnrollBound {
 		invNTTInPlacePow2Ref(coeffs, twInv, twInvS, q)
 		return
 	}

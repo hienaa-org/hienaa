@@ -8,7 +8,6 @@ import (
 
 func VecConstants() {
 	ConstData("MASK_LO", U64(1<<32-1))
-	ConstData("MASK_52", U64(1<<52-1))
 }
 
 func VecAddSubToAVX(avxType AVXType, opType OpType, isWordOp bool) {
@@ -1628,7 +1627,7 @@ func VecReduceToAVX512() {
 	RET()
 }
 
-func VecReduceFixedQToAVX(factor int, avxType AVXType) {
+func VecReduceFixedQToAVX(avxType AVXType, factor int) {
 	switch avxType {
 	case TypeAVX2:
 		switch factor {

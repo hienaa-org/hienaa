@@ -6,7 +6,6 @@ import (
 
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
-	"github.com/hienaa-org/hienaa/math/vec"
 )
 
 // Scalar is a scalar in CRT representation.
@@ -88,21 +87,6 @@ func (c *Scalar) Clear() {
 	clear(c.Value)
 }
 
-// WithModIdx returns a copy of c with the given modulus indices.
-//
-// Panics when idx is out of range.
-func (c *Scalar) WithModIdx(idx ...int) *Scalar {
-	for i := range idx {
-		if !(0 <= idx[i] && idx[i] < c.ModLen()) {
-			panic("index out of range")
-		}
-	}
-
-	return &Scalar{
-		Value: vec.Gather(c.Value, idx...),
-	}
-}
-
 // Slice slices the modulus of [Scalar] and returns the new [Scalar].
 func (c *Scalar) Slice(lo, hi int) *Scalar {
 	return &Scalar{
@@ -117,30 +101,29 @@ func (c *Scalar) Copy() *Scalar {
 	return cOut
 }
 
-// CopyFrom copies the coefficients from c0 to c.
+// CopyFrom copies the coefficients from cIn to c.
 //
-// Panics when c and c0 are not consistent.
-func (c *Scalar) CopyFrom(c0 *Scalar) {
-	if !c.IsConsistent(c0) {
-		panic("inconsistent input(s)")
+// Panics when c and cIn are not consistent.
+func (c *Scalar) CopyFrom(cIn *Scalar) {
+	if !c.IsConsistent(cIn) {
+		panic("inconsistent inputs")
 	}
 
-	copy(c.Value, c0.Value)
+	copy(c.Value, cIn.Value)
 }
 
-// IsEqual checks if c is equal to c0.
-func (c *Scalar) IsEqual(c0 *Scalar) bool {
-	return slices.Equal(c.Value, c0.Value)
+// IsEqual checks if c is equal to cIn.
+func (c *Scalar) IsEqual(cIn *Scalar) bool {
+	return slices.Equal(c.Value, cIn.Value)
 }
 
-// IsConsistent checks if c has the same shape as c0.
-func (c *Scalar) IsConsistent(c0 *Scalar) bool {
-	return c.ModLen() == c0.ModLen()
+// IsConsistent checks if c has the same shape as cIn.
+func (c *Scalar) IsConsistent(cIn *Scalar) bool {
+	return c.ModLen() == cIn.ModLen()
 }
 
 // Poly is a polynomial in CRT representation.
 // It can have Standard or NTT form.
-// All coefficients in NTT form are also in Montgomery form.
 type Poly struct {
 	// Coeffs are the coefficients of the polynomial.
 	// Ordered as [ModLen][Rank].
@@ -166,7 +149,7 @@ func NewPoly(rank, modLen int, form dft.Form) *Poly {
 // SetCoeff sets the i-th coefficient to c.
 func (p *Poly) SetCoeff(i int, c *Scalar) {
 	if len(p.Coeffs) != len(c.Value) {
-		panic("inconsistent input(s)")
+		panic("inconsistent inputs")
 	}
 
 	for j := range p.Coeffs {
@@ -202,24 +185,6 @@ func (p *Poly) Clear() {
 	}
 }
 
-// WithModIdx returns a shallow copy of p with the given modulus indices.
-//
-// Panics when idx is out of range.
-func (p *Poly) WithModIdx(idx ...int) *Poly {
-	for i := range idx {
-		if !(0 <= idx[i] && idx[i] < p.ModLen()) {
-			panic("index out of range")
-		}
-	}
-
-	coeffs := vec.Gather(p.Coeffs, idx...)
-
-	return &Poly{
-		Coeffs: coeffs,
-		Form:   p.Form,
-	}
-}
-
 // Slice slices the modulus of [Poly] and returns the new [Poly].
 func (p *Poly) Slice(lo, hi int) *Poly {
 	return &Poly{
@@ -237,32 +202,32 @@ func (p *Poly) Copy() *Poly {
 	return pOut
 }
 
-// CopyFrom copies the coefficients from p0 to p.
+// CopyFrom copies the coefficients from pIn to p.
 //
-// Panics when p and p0 are not consistent.
-func (p *Poly) CopyFrom(p0 *Poly) {
-	if !p.IsConsistent(p0) {
-		panic("inconsistent input(s)")
+// Panics when p and pIn are not consistent.
+func (p *Poly) CopyFrom(pIn *Poly) {
+	if !p.IsConsistent(pIn) {
+		panic("inconsistent inputs")
 	}
 
 	for i := range p.Coeffs {
-		copy(p.Coeffs[i], p0.Coeffs[i])
+		copy(p.Coeffs[i], pIn.Coeffs[i])
 	}
-	p.Form = p0.Form
+	p.Form = pIn.Form
 }
 
-// IsEqual checks if p is equal to p0.
-func (p *Poly) IsEqual(p0 *Poly) bool {
-	if !p.IsConsistent(p0) {
+// IsEqual checks if p is equal to pIn.
+func (p *Poly) IsEqual(pIn *Poly) bool {
+	if !p.IsConsistent(pIn) {
 		return false
 	}
 
-	if p.Form != p0.Form {
+	if p.Form != pIn.Form {
 		return false
 	}
 
 	for i := range p.Coeffs {
-		if !slices.Equal(p.Coeffs[i], p0.Coeffs[i]) {
+		if !slices.Equal(p.Coeffs[i], pIn.Coeffs[i]) {
 			return false
 		}
 	}
@@ -270,14 +235,14 @@ func (p *Poly) IsEqual(p0 *Poly) bool {
 	return true
 }
 
-// IsConsistent checks if p has the same shape as p0.
-func (p *Poly) IsConsistent(p0 *Poly) bool {
-	if len(p.Coeffs) != len(p0.Coeffs) {
+// IsConsistent checks if p has the same shape as pIn.
+func (p *Poly) IsConsistent(pIn *Poly) bool {
+	if len(p.Coeffs) != len(pIn.Coeffs) {
 		return false
 	}
 
 	for i := range p.Coeffs {
-		if len(p.Coeffs[i]) != len(p0.Coeffs[i]) {
+		if len(p.Coeffs[i]) != len(pIn.Coeffs[i]) {
 			return false
 		}
 	}

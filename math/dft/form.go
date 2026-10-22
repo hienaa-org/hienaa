@@ -1,11 +1,11 @@
 package dft
 
 // Form represents the form of a polynomial.
-type Form byte
+type Form bool
 
 const (
 	// FormCoeff represents the standard, coefficient form.
-	FormCoeff Form = iota
+	FormCoeff Form = false
 	// FormNTT represents the NTT form.
-	FormNTT
+	FormNTT Form = true
 )

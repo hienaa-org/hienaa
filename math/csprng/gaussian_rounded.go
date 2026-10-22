@@ -126,10 +126,10 @@ func (s *RoundedGaussianSampler) normFloat() float64 {
 // For large standard deviation, it heuristically samples the lower bits as uniform.
 // If the output is not representable in int64, it overflows.
 //
-// Panics when stdDev is negative or too large.
+// Panics when stdDev is negative, invalid or too large.
 func (s *RoundedGaussianSampler) Sample(stdDev float64) int64 {
-	if stdDev < 0 {
-		panic("stdDev must be nonnegative")
+	if stdDev < 0 || math.IsNaN(stdDev) || math.IsInf(stdDev, 0) {
+		panic("stdDev must be finite and nonnegative")
 	}
 
 	if stdDev <= math.Exp2(roundPrec) {
@@ -157,10 +157,10 @@ func (s *RoundedGaussianSampler) Sample(stdDev float64) int64 {
 // with given standard deviation.
 // For large standard deviation, it heuristically samples the lower bits as uniform.
 //
-// Panics when stdDev is negative.
+// Panics when stdDev is negative or invalid.
 func (s *RoundedGaussianSampler) SampleBig(stdDev float64) *big.Int {
-	if stdDev < 0 || math.IsNaN(stdDev) {
-		panic("stdDev must be nonnegative")
+	if stdDev < 0 || math.IsNaN(stdDev) || math.IsInf(stdDev, 0) {
+		panic("stdDev must be finite and nonnegative")
 	}
 
 	if stdDev <= math.Exp2(roundPrec) {

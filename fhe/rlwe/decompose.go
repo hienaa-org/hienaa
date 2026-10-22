@@ -45,6 +45,7 @@ func (d *Decomposer) GadgetParams() GadgetParameters {
 
 // DecomposeLen returns the length of the decomposition of p.
 func (d *Decomposer) DecomposeLen(p *Poly) int {
+	checkPolyShape(d.params, p)
 	switch d.params.gadgetParams.(type) {
 	case RNSGadgetParameters:
 		return d.rnsDecomposer.decomposeLen(p.BaseModLen())
@@ -54,7 +55,9 @@ func (d *Decomposer) DecomposeLen(p *Poly) int {
 	return 0
 }
 
-// Decompose decomposes p.
+// Decompose returns the decomposition of p.
+//
+// Panics when p is in NTT form.
 func (d *Decomposer) Decompose(p *Poly, outForm dft.Form) *Vector {
 	pOut := NewVectorCustom(d.params.Rank(), p.BaseModLen(), len(d.params.auxMod), d.DecomposeLen(p), outForm)
 	d.DecomposeTo(pOut, p, outForm)
@@ -62,13 +65,16 @@ func (d *Decomposer) Decompose(p *Poly, outForm dft.Form) *Vector {
 }
 
 // DecomposeTo decomposes p to pOut.
+//
+// Panics when p is in NTT form.
 func (d *Decomposer) DecomposeTo(pOut *Vector, p *Poly, outForm dft.Form) {
+	checkPolyShape(d.params, p)
 	if p.Form() == dft.FormNTT {
-		panic("input(s) must be in standard form")
+		panic("inputs must be in standard form")
 	} else if p.AuxModLen() > 0 {
-		panic("input(s) must not have auxiliary modulus")
-	} else if pOut.Len() != d.DecomposeLen(p) || pOut.BaseModLen() != p.BaseModLen() || pOut.AuxModLen() != len(d.params.auxMod) {
-		panic("input(s) not consistent")
+		panic("inputs must not have auxiliary modulus")
+	} else if pOut.Len() != d.DecomposeLen(p) || pOut.AuxModLen() != len(d.params.auxMod) || pOut.BaseModLen() != p.BaseModLen() {
+		panic("inconsistent inputs")
 	}
 
 	switch d.params.gadgetParams.(type) {
@@ -81,9 +87,8 @@ func (d *Decomposer) DecomposeTo(pOut *Vector, p *Poly, outForm dft.Form) {
 
 // rnsDecomposer computes RNS decomposition.
 type rnsDecomposer struct {
-	params    Parameters
-	gadparams RNSGadgetParameters
-	embedders [][]*crt.Embedder
+	gadgetParams RNSGadgetParameters
+	embedders    [][]*crt.Embedder
 }
 
 // newRNSDecomposer creates a new [rnsDecomposer].
@@ -104,32 +109,33 @@ func newRNSDecomposer(params Parameters) *rnsDecomposer {
 	}
 
 	return &rnsDecomposer{
-		params:    params,
-		gadparams: params.gadgetParams.(RNSGadgetParameters),
-		embedders: embedders,
+		gadgetParams: params.gadgetParams.(RNSGadgetParameters),
+		embedders:    embedders,
 	}
 }
 
 func (d *rnsDecomposer) decomposeLen(baseLen int) int {
-	return num.DivCeil(baseLen, d.gadparams.chunkSize)
+	return num.DivCeil(baseLen, d.gadgetParams.chunkSize)
 }
 
 func (d *rnsDecomposer) decomposeTo(pOut *Vector, p *Poly, outForm dft.Form) {
 	for i := 0; i < pOut.Len(); i++ {
-		start := i * d.gadparams.chunkSize
-		end := min((i+1)*d.gadparams.chunkSize, p.BaseModLen())
+		start := i * d.gadgetParams.chunkSize
+		end := min((i+1)*d.gadgetParams.chunkSize, p.BaseModLen())
 		d.embedders[i][end-start-1].EmbedTo(pOut.Value[i].Value, p.Value.Slice(start, end), outForm)
 	}
 }
 
-// digitDecomposer computes Digit Decomposition.
+// digitDecomposer computes digit decomposition.
 type digitDecomposer struct {
-	params    Parameters
-	gadParams DigitGadgetParameters
+	params       Parameters
+	gadgetParams DigitGadgetParameters
 
 	digitEmbedder []*crt.Embedder
 	lastEmbedder  []*crt.Embedder
 	modEmbedder   *crt.Embedder
+
+	baseInv []uint64
 
 	pool *pool.Pool[*Poly]
 }
@@ -151,13 +157,20 @@ func newDigitDecomposer(params Parameters) *digitDecomposer {
 	}
 	modEmbedder := crt.NewEmbedder(params.Operator(), baseModOp).WithPool(embPool)
 
+	baseInv := make([]uint64, len(params.baseMod))
+	for i := range baseInv {
+		baseInv[i] = num.Inv(uint64(1)<<logDigitBase, params.baseMod[i])
+	}
+
 	return &digitDecomposer{
-		params:    params,
-		gadParams: params.gadgetParams.(DigitGadgetParameters),
+		params:       params,
+		gadgetParams: params.gadgetParams.(DigitGadgetParameters),
 
 		digitEmbedder: digitEmbedder,
 		lastEmbedder:  lastEmbedder,
 		modEmbedder:   modEmbedder,
+
+		baseInv: baseInv,
 
 		pool: pool.NewPool(func() *Poly {
 			return NewPoly(params, false, dft.FormCoeff)
@@ -170,7 +183,7 @@ func (d *digitDecomposer) decomposeLen(baseLen int) int {
 	for i := 0; i < baseLen; i++ {
 		modBitLen += bits.Len64(d.params.baseMod[i].Value() - 1)
 	}
-	return num.DivCeil(modBitLen, d.gadParams.logDigitBase)
+	return num.DivCeil(modBitLen, d.gadgetParams.logDigitBase)
 }
 
 func (d *digitDecomposer) decomposeTo(pOut *Vector, p *Poly, outForm dft.Form) {
@@ -180,15 +193,14 @@ func (d *digitDecomposer) decomposeTo(pOut *Vector, p *Poly, outForm dft.Form) {
 	pBuf := pBufFull.WithModLen(p.BaseModLen(), 0)
 	pBuf.CopyFrom(p)
 
-	base := uint64(1 << d.gadParams.logDigitBase)
 	outOp := d.params.Operator().Slice(0, pOut.FullModLen())
 	for i := 0; i < pOut.Len()-1; i++ {
-		pOutDigit := pOut.Value[i].Value.WithModIdx(0)
+		pOutDigit := pOut.Value[i].Value.Slice(0, 1)
 		d.digitEmbedder[p.BaseModLen()-1].EmbedTo(pOutDigit, pBuf.Value, dft.FormCoeff)
 		d.modEmbedder.EmbedTo(pOut.Value[i].Value, pOutDigit, dft.FormCoeff)
 		for j := 0; j < p.BaseModLen(); j++ {
 			vec.SubTo(pBuf.Value.Coeffs[j], pBuf.Value.Coeffs[j], pOut.Value[i].Value.Coeffs[pOut.AuxModLen()+j], d.params.baseMod[j])
-			vec.MulTo(pBuf.Value.Coeffs[j], pBuf.Value.Coeffs[j], num.Inv(base, d.params.baseMod[j]), d.params.baseMod[j])
+			vec.MulTo(pBuf.Value.Coeffs[j], pBuf.Value.Coeffs[j], d.baseInv[j], d.params.baseMod[j])
 		}
 
 		if outForm == dft.FormNTT {

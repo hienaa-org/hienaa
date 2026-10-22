@@ -43,7 +43,7 @@ type trivialMulOperator struct {
 	pool *pool.Pool[*Poly]
 }
 
-// newTrivialMulOperator creates a new [baseMulOperator].
+// newTrivialMulOperator creates a new [trivialMulOperator].
 func newTrivialMulOperator(params dft.RingParameters, mod []*num.Modulus) *trivialMulOperator {
 	var expFac uint64
 	switch params.RingType() {
@@ -96,7 +96,7 @@ func newTrivialMulOperator(params dft.RingParameters, mod []*num.Modulus) *trivi
 }
 
 func (op *trivialMulOperator) mulTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
-	isBinaryOperable(op.params.Rank(), len(op.mod), eOut, e0, e1)
+	checkBinaryOperable(op.params.Rank(), len(op.mod), eOut, e0, e1)
 
 	eOutScalar, _ := any(eOut).(*Scalar)
 	eOutPoly, _ := any(eOut).(*Poly)
@@ -115,7 +115,7 @@ func (op *trivialMulOperator) mulTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 
 
 	case !e0IsScalar && !e1IsScalar:
 		if e0Poly.Form != dft.FormNTT || e1Poly.Form != dft.FormNTT {
-			panic("input(s) must be in NTT form")
+			panic("inputs must be in NTT form")
 		}
 
 		var p0Amb, p1Amb *Poly
@@ -159,7 +159,7 @@ func (op *trivialMulOperator) mulTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 
 }
 
 func (op *trivialMulOperator) mulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
-	isBinaryOperable(op.params.Rank(), len(op.mod), eOut, e0, e1)
+	checkBinaryOperable(op.params.Rank(), len(op.mod), eOut, e0, e1)
 
 	eOutScalar, _ := any(eOut).(*Scalar)
 	eOutPoly, _ := any(eOut).(*Poly)
@@ -178,7 +178,7 @@ func (op *trivialMulOperator) mulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, 
 
 	case !e0IsScalar && !e1IsScalar:
 		if eOutPoly.Form != dft.FormNTT || e0Poly.Form != dft.FormNTT || e1Poly.Form != dft.FormNTT {
-			panic("input(s) must be in NTT form")
+			panic("inputs must be in NTT form")
 		}
 
 		var p0Amb, p1Amb *Poly
@@ -216,7 +216,7 @@ func (op *trivialMulOperator) mulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, 
 	default:
 		c, p := orderByType(e0IsScalar, e0Scalar, e0Poly, e1Scalar, e1Poly)
 		if p.Form != eOutPoly.Form {
-			panic("inconsistent form")
+			panic("inconsistent forms")
 		}
 
 		for i := range op.mod {
@@ -226,7 +226,7 @@ func (op *trivialMulOperator) mulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, 
 }
 
 func (op *trivialMulOperator) mulSubTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
-	isBinaryOperable(op.params.Rank(), len(op.mod), eOut, e0, e1)
+	checkBinaryOperable(op.params.Rank(), len(op.mod), eOut, e0, e1)
 
 	eOutScalar, _ := any(eOut).(*Scalar)
 	eOutPoly, _ := any(eOut).(*Poly)
@@ -245,7 +245,7 @@ func (op *trivialMulOperator) mulSubTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, 
 
 	case !e0IsScalar && !e1IsScalar:
 		if eOutPoly.Form != dft.FormNTT || e0Poly.Form != dft.FormNTT || e1Poly.Form != dft.FormNTT {
-			panic("input(s) must be in NTT form")
+			panic("inputs must be in NTT form")
 		}
 
 		var p0Amb, p1Amb *Poly
@@ -283,27 +283,12 @@ func (op *trivialMulOperator) mulSubTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, 
 	default:
 		c, p := orderByType(e0IsScalar, e0Scalar, e0Poly, e1Scalar, e1Poly)
 		if p.Form != eOutPoly.Form {
-			panic("inconsistent form")
+			panic("inconsistent forms")
 		}
 
 		for i := range op.mod {
 			vec.MulSubTo(eOutPoly.Coeffs[i], p.Coeffs[i], c.Value[i], op.mod[i])
 		}
-	}
-}
-
-func (op *trivialMulOperator) withModIdx(idx ...int) *trivialMulOperator {
-	return &trivialMulOperator{
-		params: op.params,
-		mod:    vec.Gather(op.mod, idx...),
-
-		expFac:    op.expFac,
-		ambModLen: vec.Gather(op.ambModLen, idx...),
-		ambMod:    op.ambMod,
-		ambNTT:    op.ambNTT,
-		embedder:  vec.Gather(op.embedder, idx...),
-
-		pool: op.pool,
 	}
 }
 
@@ -322,16 +307,16 @@ func (op *trivialMulOperator) slice(lo, hi int) *trivialMulOperator {
 	}
 }
 
-func (op *trivialMulOperator) append(op0 *trivialMulOperator) *trivialMulOperator {
+func (op *trivialMulOperator) append(opIn *trivialMulOperator) *trivialMulOperator {
 	return &trivialMulOperator{
-		params: op0.params,
-		mod:    slices.Concat(op.mod, op0.mod),
+		params: opIn.params,
+		mod:    slices.Concat(op.mod, opIn.mod),
 
 		expFac:    op.expFac,
-		ambModLen: slices.Concat(op.ambModLen, op0.ambModLen),
-		ambMod:    op0.ambMod,
-		ambNTT:    op0.ambNTT,
-		embedder:  slices.Concat(op.embedder, op0.embedder),
+		ambModLen: slices.Concat(op.ambModLen, opIn.ambModLen),
+		ambMod:    opIn.ambMod,
+		ambNTT:    opIn.ambNTT,
+		embedder:  slices.Concat(op.embedder, opIn.embedder),
 
 		pool: op.pool,
 	}
@@ -414,7 +399,7 @@ func newAnyCyclotomicMulOperator(params dft.RingParameters, mod []*num.Modulus, 
 }
 
 func (op *anyCyclotomicMulOperator) mulTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
-	isBinaryOperable(op.params.Rank(), len(op.mod), eOut, e0, e1)
+	checkBinaryOperable(op.params.Rank(), len(op.mod), eOut, e0, e1)
 
 	eOutScalar, _ := any(eOut).(*Scalar)
 	eOutPoly, _ := any(eOut).(*Poly)
@@ -433,7 +418,7 @@ func (op *anyCyclotomicMulOperator) mulTo[TOut, T0, T1 *Scalar | *Poly](eOut TOu
 
 	case !e0IsScalar && !e1IsScalar:
 		if e0Poly.Form != dft.FormNTT || e1Poly.Form != dft.FormNTT {
-			panic("input(s) must be in NTT form")
+			panic("inputs must be in NTT form")
 		}
 
 		var p0Amb, p1Amb *Poly
@@ -485,7 +470,7 @@ func (op *anyCyclotomicMulOperator) mulTo[TOut, T0, T1 *Scalar | *Poly](eOut TOu
 }
 
 func (op *anyCyclotomicMulOperator) mulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
-	isBinaryOperable(op.params.Rank(), len(op.mod), eOut, e0, e1)
+	checkBinaryOperable(op.params.Rank(), len(op.mod), eOut, e0, e1)
 
 	eOutScalar, _ := any(eOut).(*Scalar)
 	eOutPoly, _ := any(eOut).(*Poly)
@@ -504,7 +489,7 @@ func (op *anyCyclotomicMulOperator) mulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut 
 
 	case !e0IsScalar && !e1IsScalar:
 		if eOutPoly.Form != dft.FormNTT || e0Poly.Form != dft.FormNTT || e1Poly.Form != dft.FormNTT {
-			panic("input(s) must be in NTT form")
+			panic("inputs must be in NTT form")
 		}
 
 		var p0Amb, p1Amb *Poly
@@ -550,7 +535,7 @@ func (op *anyCyclotomicMulOperator) mulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut 
 	default:
 		c, p := orderByType(e0IsScalar, e0Scalar, e0Poly, e1Scalar, e1Poly)
 		if p.Form != eOutPoly.Form {
-			panic("inconsistent form")
+			panic("inconsistent forms")
 		}
 
 		for i := range op.mod {
@@ -560,7 +545,7 @@ func (op *anyCyclotomicMulOperator) mulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut 
 }
 
 func (op *anyCyclotomicMulOperator) mulSubTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
-	isBinaryOperable(op.params.Rank(), len(op.mod), eOut, e0, e1)
+	checkBinaryOperable(op.params.Rank(), len(op.mod), eOut, e0, e1)
 
 	eOutScalar, _ := any(eOut).(*Scalar)
 	eOutPoly, _ := any(eOut).(*Poly)
@@ -579,7 +564,7 @@ func (op *anyCyclotomicMulOperator) mulSubTo[TOut, T0, T1 *Scalar | *Poly](eOut 
 
 	case !e0IsScalar && !e1IsScalar:
 		if eOutPoly.Form != dft.FormNTT || e0Poly.Form != dft.FormNTT || e1Poly.Form != dft.FormNTT {
-			panic("input(s) must be in NTT form")
+			panic("inputs must be in NTT form")
 		}
 
 		var p0Amb, p1Amb *Poly
@@ -625,28 +610,12 @@ func (op *anyCyclotomicMulOperator) mulSubTo[TOut, T0, T1 *Scalar | *Poly](eOut 
 	default:
 		c, p := orderByType(e0IsScalar, e0Scalar, e0Poly, e1Scalar, e1Poly)
 		if p.Form != eOutPoly.Form {
-			panic("inconsistent form")
+			panic("inconsistent forms")
 		}
 
 		for i := range op.mod {
 			vec.MulSubTo(eOutPoly.Coeffs[i], p.Coeffs[i], c.Value[i], op.mod[i])
 		}
-	}
-}
-
-func (op *anyCyclotomicMulOperator) withModIdx(idx ...int) *anyCyclotomicMulOperator {
-	return &anyCyclotomicMulOperator{
-		params: op.params,
-		mod:    vec.Gather(op.mod, idx...),
-
-		ambModLen: vec.Gather(op.ambModLen, idx...),
-		ambMod:    op.ambMod,
-		ambNTT:    op.ambNTT,
-		embedder:  vec.Gather(op.embedder, idx...),
-
-		reducer: op.reducer.WithModIdx(idx...),
-
-		pool: op.pool,
 	}
 }
 
@@ -666,17 +635,17 @@ func (op *anyCyclotomicMulOperator) slice(lo, hi int) *anyCyclotomicMulOperator 
 	}
 }
 
-func (op *anyCyclotomicMulOperator) append(op0 *anyCyclotomicMulOperator) *anyCyclotomicMulOperator {
+func (op *anyCyclotomicMulOperator) append(opIn *anyCyclotomicMulOperator) *anyCyclotomicMulOperator {
 	return &anyCyclotomicMulOperator{
 		params: op.params,
-		mod:    slices.Concat(op.mod, op0.mod),
+		mod:    slices.Concat(op.mod, opIn.mod),
 
-		ambModLen: slices.Concat(op.ambModLen, op0.ambModLen),
+		ambModLen: slices.Concat(op.ambModLen, opIn.ambModLen),
 		ambMod:    op.ambMod,
 		ambNTT:    op.ambNTT,
-		embedder:  slices.Concat(op.embedder, op0.embedder),
+		embedder:  slices.Concat(op.embedder, opIn.embedder),
 
-		reducer: op.reducer.Append(op0.reducer),
+		reducer: op.reducer.Append(opIn.reducer),
 
 		pool: op.pool,
 	}
@@ -769,7 +738,7 @@ func newReduceMulOperator(mod []*num.Modulus, modPoly []int64, reducer *Reducer)
 }
 
 func (op *reduceMulOperator) mulTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
-	isBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
+	checkBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
 
 	eOutScalar, _ := any(eOut).(*Scalar)
 	eOutPoly, _ := any(eOut).(*Poly)
@@ -788,7 +757,7 @@ func (op *reduceMulOperator) mulTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T
 
 	case !e0IsScalar && !e1IsScalar:
 		if e0Poly.Form != dft.FormNTT || e1Poly.Form != dft.FormNTT {
-			panic("input(s) must be in NTT form")
+			panic("inputs must be in NTT form")
 		}
 
 		p0Amb := op.pool.Get()
@@ -839,7 +808,7 @@ func (op *reduceMulOperator) mulTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T
 }
 
 func (op *reduceMulOperator) mulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
-	isBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
+	checkBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
 
 	eOutScalar, _ := any(eOut).(*Scalar)
 	eOutPoly, _ := any(eOut).(*Poly)
@@ -858,7 +827,7 @@ func (op *reduceMulOperator) mulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e
 
 	case !e0IsScalar && !e1IsScalar:
 		if eOutPoly.Form != dft.FormNTT || e0Poly.Form != dft.FormNTT || e1Poly.Form != dft.FormNTT {
-			panic("input(s) must be in NTT form")
+			panic("inputs must be in NTT form")
 		}
 
 		p0Amb := op.pool.Get()
@@ -904,7 +873,7 @@ func (op *reduceMulOperator) mulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e
 	default:
 		c, p := orderByType(e0IsScalar, e0Scalar, e0Poly, e1Scalar, e1Poly)
 		if p.Form != eOutPoly.Form {
-			panic("inconsistent form")
+			panic("inconsistent forms")
 		}
 
 		for i := range op.mod {
@@ -914,7 +883,7 @@ func (op *reduceMulOperator) mulAddTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e
 }
 
 func (op *reduceMulOperator) mulSubTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
-	isBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
+	checkBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
 
 	eOutScalar, _ := any(eOut).(*Scalar)
 	eOutPoly, _ := any(eOut).(*Poly)
@@ -933,7 +902,7 @@ func (op *reduceMulOperator) mulSubTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e
 
 	case !e0IsScalar && !e1IsScalar:
 		if eOutPoly.Form != dft.FormNTT || e0Poly.Form != dft.FormNTT || e1Poly.Form != dft.FormNTT {
-			panic("input(s) must be in NTT form")
+			panic("inputs must be in NTT form")
 		}
 
 		p0Amb := op.pool.Get()
@@ -979,31 +948,12 @@ func (op *reduceMulOperator) mulSubTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e
 	default:
 		c, p := orderByType(e0IsScalar, e0Scalar, e0Poly, e1Scalar, e1Poly)
 		if p.Form != eOutPoly.Form {
-			panic("inconsistent form")
+			panic("inconsistent forms")
 		}
 
 		for i := range op.mod {
 			vec.MulSubTo(eOutPoly.Coeffs[i], p.Coeffs[i], c.Value[i], op.mod[i])
 		}
-	}
-}
-
-func (op *reduceMulOperator) withModIdx(idx ...int) *reduceMulOperator {
-	return &reduceMulOperator{
-		rank:      op.rank,
-		ambParams: op.ambParams,
-		mod:       vec.Gather(op.mod, idx...),
-
-		ntt: vec.Gather(op.ntt, idx...),
-
-		ambModLen: vec.Gather(op.ambModLen, idx...),
-		ambMod:    op.ambMod,
-		ambNTT:    op.ambNTT,
-		embedder:  vec.Gather(op.embedder, idx...),
-
-		reducer: op.reducer.WithModIdx(idx...),
-
-		pool: op.pool,
 	}
 }
 
@@ -1026,20 +976,20 @@ func (op *reduceMulOperator) slice(lo, hi int) *reduceMulOperator {
 	}
 }
 
-func (op *reduceMulOperator) append(op0 *reduceMulOperator) *reduceMulOperator {
+func (op *reduceMulOperator) append(opIn *reduceMulOperator) *reduceMulOperator {
 	return &reduceMulOperator{
 		rank:      op.rank,
 		ambParams: op.ambParams,
-		mod:       slices.Concat(op.mod, op0.mod),
+		mod:       slices.Concat(op.mod, opIn.mod),
 
-		ntt: slices.Concat(op.ntt, op0.ntt),
+		ntt: slices.Concat(op.ntt, opIn.ntt),
 
-		ambModLen: slices.Concat(op.ambModLen, op0.ambModLen),
+		ambModLen: slices.Concat(op.ambModLen, opIn.ambModLen),
 		ambMod:    op.ambMod,
 		ambNTT:    op.ambNTT,
-		embedder:  slices.Concat(op.embedder, op0.embedder),
+		embedder:  slices.Concat(op.embedder, opIn.embedder),
 
-		reducer: op.reducer.Append(op0.reducer),
+		reducer: op.reducer.Append(opIn.reducer),
 
 		pool: op.pool,
 	}

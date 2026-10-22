@@ -106,11 +106,11 @@ func main() {
 
 		VecReduceToAVX512()
 
-		VecReduceFixedQToAVX(2, TypeAVX2)
-		VecReduceFixedQToAVX(2, TypeAVX512)
+		VecReduceFixedQToAVX(TypeAVX2, 2)
+		VecReduceFixedQToAVX(TypeAVX512, 2)
 
-		VecReduceFixedQToAVX(4, TypeAVX2)
-		VecReduceFixedQToAVX(4, TypeAVX512)
+		VecReduceFixedQToAVX(TypeAVX2, 4)
+		VecReduceFixedQToAVX(TypeAVX512, 4)
 	}
 
 	if *ntt {

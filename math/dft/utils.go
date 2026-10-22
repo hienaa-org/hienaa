@@ -14,7 +14,7 @@ func checkLength(xs ...int) {
 
 	for i := 1; i < len(xs); i++ {
 		if xs[i] != xs[0] {
-			panic("inconsistent input(s)")
+			panic("inconsistent inputs")
 		}
 	}
 }
@@ -49,7 +49,6 @@ func CyclotomicPolynomial(cycloIdx int) []int64 {
 	if primes[0] == 2 {
 		twoExp = exps[0]
 		primes = primes[1:]
-		exps = exps[1:]
 	}
 
 	cycloIdxSqFree := 1

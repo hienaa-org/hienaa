@@ -32,6 +32,8 @@ func NewLongDivReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *LongDi
 		panic("maxRank must be greater than or equal to modPoly degree")
 	} else if modPoly[len(modPoly)-1] != 1 {
 		panic("modPoly must be monic")
+	} else if !IsCoprime(mod) {
+		panic("modulus must be coprime")
 	}
 
 	modPolyRed := make([][]uint64, len(mod))
@@ -49,7 +51,7 @@ func NewLongDivReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *LongDi
 		modPoly:       modPolyRed,
 
 		pool: pool.NewPool(func() *[]uint64 {
-			v := make([]uint64, max(maxRank, maxRank-len(modPoly)+1))
+			v := make([]uint64, maxRank)
 			return &v
 		}),
 	}
@@ -97,7 +99,7 @@ func (r *LongDivReducer) ReduceTo(pOut, p *Poly) {
 	checkPolyShape(r.params.Rank(), len(r.mod), pOut)
 
 	if p.Form == dft.FormNTT {
-		panic("input(s) must be in Coeff form")
+		panic("inputs must be in Coeff form")
 	} else if p.Rank() > r.maxRank {
 		panic("rank must be less than or equal to maxRank")
 	}
@@ -129,7 +131,7 @@ func (r *LongDivReducer) QuotientTo(pOut, p *Poly) {
 	checkPolyShape(max(0, p.Rank()-r.params.Rank()), len(r.mod), pOut)
 
 	if p.Form == dft.FormNTT {
-		panic("input(s) must be in Coeff form")
+		panic("inputs must be in Coeff form")
 	} else if p.Rank() > r.maxRank {
 		panic("rank must be less than or equal to maxRank")
 	}
@@ -163,7 +165,7 @@ func (r *LongDivReducer) QuoRemTo(pQuo, pRem, p *Poly) {
 	checkPolyShape(r.params.Rank(), len(r.mod), pRem)
 
 	if p.Form == dft.FormNTT {
-		panic("input(s) must be in Coeff form")
+		panic("inputs must be in Coeff form")
 	} else if p.Rank() > r.maxRank {
 		panic("rank must be less than or equal to maxRank")
 	}
@@ -178,21 +180,6 @@ func (r *LongDivReducer) QuoRemTo(pQuo, pRem, p *Poly) {
 // Mod returns the modulus.
 func (r *LongDivReducer) Mod() []*num.Modulus {
 	return r.mod
-}
-
-// WithModIdx returns a [LongDivReducer] for modulus of given indices.
-func (r *LongDivReducer) WithModIdx(idx ...int) *LongDivReducer {
-	return &LongDivReducer{
-		params: r.params,
-		mod:    vec.Gather(r.mod, idx...),
-
-		maxRank: r.maxRank,
-
-		modPoly:       vec.Gather(r.modPoly, idx...),
-		modPolySigned: r.modPolySigned,
-
-		pool: r.pool,
-	}
 }
 
 // Slice slices the modulus of [LongDivReducer] and returns the new [LongDivReducer].
@@ -214,19 +201,25 @@ func (r *LongDivReducer) Slice(lo, hi int) *LongDivReducer {
 	}
 }
 
-// Append appends a new [LongDivReducer] and returns the new [LongDivReducer].
-func (r *LongDivReducer) Append(r0 *LongDivReducer) *LongDivReducer {
-	if !r.params.IsEqual(r0.params) || r.maxRank != r0.maxRank {
-		panic("inconsistent input(s)")
+// Append returns a new [LongDivReducer] with the moduli of r followed by those of rIn.
+// Panics when the resulting moduli are not pairwise coprime.
+func (r *LongDivReducer) Append(rIn *LongDivReducer) *LongDivReducer {
+	if !r.params.IsEqual(rIn.params) || r.maxRank != rIn.maxRank {
+		panic("inconsistent inputs")
+	}
+
+	modOut := slices.Concat(r.mod, rIn.mod)
+	if !IsCoprime(modOut) {
+		panic("modulus must be coprime")
 	}
 
 	return &LongDivReducer{
 		params: r.params,
-		mod:    slices.Concat(r.mod, r0.mod),
+		mod:    modOut,
 
 		maxRank: r.maxRank,
 
-		modPoly:       slices.Concat(r.modPoly, r0.modPoly),
+		modPoly:       slices.Concat(r.modPoly, rIn.modPoly),
 		modPolySigned: r.modPolySigned,
 
 		pool: r.pool,
@@ -234,10 +227,16 @@ func (r *LongDivReducer) Append(r0 *LongDivReducer) *LongDivReducer {
 }
 
 // AppendTmpMod appends "temporary" modulus to the moduli chain and returns the new [LongDivReducer].
+// Panics when the resulting moduli are not pairwise coprime.
 func (r *LongDivReducer) AppendTmpMod(mod *num.Modulus) *LongDivReducer {
+	modOut := slices.Concat(r.mod, []*num.Modulus{mod})
+	if !IsCoprime(modOut) {
+		panic("modulus must be coprime")
+	}
+
 	return &LongDivReducer{
 		params: r.params,
-		mod:    slices.Concat(r.mod, []*num.Modulus{mod}),
+		mod:    modOut,
 
 		maxRank: r.maxRank,
 
@@ -249,21 +248,19 @@ func (r *LongDivReducer) AppendTmpMod(mod *num.Modulus) *LongDivReducer {
 }
 
 // CyclotomicReducer is an optimized Reducer for cyclotomic polynomial.
-// It computes a(X) mod \Phi_m(X), where a(X) is at most degree m-1.
-// It uses Optimised Barrett reduction for polynomial, from https://eprint.iacr.org/2017/748.
-// In this implementation, Q_sp = (X^m-1)/(X^(m/p)-1) for the smallest odd prime factor p.
 type CyclotomicReducer struct {
 	params dft.RingParameters
 	mod    []*num.Modulus
 
-	// leastFac is the smallest prime factor of the cyclotomic polynomial.
+	// leastFac is the smallest odd prime factor of the cyclotomic index,
+	// or 2 when the index is a power of two.
 	leastFac int
 	// isTrivial is true if the reduction is trivial.
 	isTrivial bool
 
 	// redDeg is the degree of the intermediate reducing polynomial Q_sp.
 	redDeg int
-	// diffDeg is the differences of the degree between the cyclotomic polynomial and the intermediate reducing polynomial Q_sp.
+	// diffDeg is redDeg minus the degree of the cyclotomic polynomial.
 	diffDeg int
 	// diffDegNext is the smallest power of 2 that is greater than 2*diffDeg+1.
 	diffDegNext int
@@ -289,8 +286,7 @@ type CyclotomicReducer struct {
 
 	// cycloPoly is the cyclotomic polynomial modulo the modulus.
 	cycloPoly [][][]uint64
-	// divPoly is rounding of a monomial over the cyclotomic polynomial modulo the modulus.
-	// Precisely, it is floor(X^d_qs/\Phi_m(X)) modulo the modulus, where d_qs is the degree of the quotient polynomial Q_sp.
+	// divPoly stores the quotient of X^redDeg by the cyclotomic polynomial in NTT form.
 	divPoly [][][]uint64
 
 	pool *pool.Pool[*[][]uint64]
@@ -298,6 +294,10 @@ type CyclotomicReducer struct {
 
 // NewCyclotomicReducer creates a new [CyclotomicReducer].
 func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *CyclotomicReducer {
+	if !IsCoprime(mod) {
+		panic("modulus must be coprime")
+	}
+
 	cycloIdx, rank := params.CycloIndex(), params.Rank()
 	primes, _ := num.Factor(cycloIdx)
 
@@ -547,7 +547,7 @@ func (r *CyclotomicReducer) reduceTo(pOut, p []uint64, idx int) {
 
 // Reduce reduces p.
 //
-// Panics when p is in NTT form, or the rank of p is larger than CycloIdx.
+// Panics when p is in NTT form, or p.Rank() exceeds r.params.CycloIndex().
 func (r *CyclotomicReducer) Reduce(p *Poly) *Poly {
 	pOut := NewPoly(r.params.Rank(), p.ModLen(), dft.FormCoeff)
 	r.ReduceTo(pOut, p)
@@ -556,13 +556,13 @@ func (r *CyclotomicReducer) Reduce(p *Poly) *Poly {
 
 // ReduceTo reduces p to pOut.
 //
-// Panics when p is in NTT form, or the rank of p is larger than CycloIdx.
+// Panics when p is in NTT form, or p.Rank() exceeds r.params.CycloIndex().
 func (r *CyclotomicReducer) ReduceTo(pOut, p *Poly) {
 	checkPolyShape(p.Rank(), len(r.mod), p)
 	checkPolyShape(r.params.Rank(), len(r.mod), pOut)
 
 	if p.Form == dft.FormNTT {
-		panic("input(s) must be in Coeff form")
+		panic("inputs must be in Coeff form")
 	} else if p.Rank() > r.params.CycloIndex() {
 		panic("rank must be less than or equal to cycloIdx")
 	}
@@ -576,67 +576,6 @@ func (r *CyclotomicReducer) ReduceTo(pOut, p *Poly) {
 // Mod returns the modulus.
 func (r *CyclotomicReducer) Mod() []*num.Modulus {
 	return r.mod
-}
-
-// WithModIdx returns a [CyclotomicReducer] for modulus of given indices.
-func (r *CyclotomicReducer) WithModIdx(idx ...int) *CyclotomicReducer {
-	if r.isTrivial {
-		return &CyclotomicReducer{
-			params: r.params,
-			mod:    vec.Gather(r.mod, idx...),
-
-			leastFac:  r.leastFac,
-			isTrivial: r.isTrivial,
-
-			redDeg:      r.redDeg,
-			diffDeg:     r.diffDeg,
-			diffDegNext: r.diffDegNext,
-			degNext:     r.degNext,
-
-			diffDegNextNTT: r.diffDegNextNTT,
-			degNextNTT:     r.degNextNTT,
-
-			ambModLen: r.ambModLen,
-			ambMod:    r.ambMod,
-			embedder:  r.embedder,
-
-			diffDegNextAmbNTT: r.diffDegNextAmbNTT,
-			degNextAmbNTT:     r.degNextAmbNTT,
-
-			cycloPoly: r.cycloPoly,
-			divPoly:   r.divPoly,
-
-			pool: r.pool,
-		}
-	}
-
-	return &CyclotomicReducer{
-		params: r.params,
-		mod:    vec.Gather(r.mod, idx...),
-
-		leastFac:  r.leastFac,
-		isTrivial: r.isTrivial,
-
-		redDeg:      r.redDeg,
-		diffDeg:     r.diffDeg,
-		diffDegNext: r.diffDegNext,
-		degNext:     r.degNext,
-
-		diffDegNextNTT: vec.Gather(r.diffDegNextNTT, idx...),
-		degNextNTT:     vec.Gather(r.degNextNTT, idx...),
-
-		ambModLen: vec.Gather(r.ambModLen, idx...),
-		ambMod:    r.ambMod,
-		embedder:  vec.Gather(r.embedder, idx...),
-
-		diffDegNextAmbNTT: r.diffDegNextAmbNTT,
-		degNextAmbNTT:     r.degNextAmbNTT,
-
-		cycloPoly: vec.Gather(r.cycloPoly, idx...),
-		divPoly:   vec.Gather(r.divPoly, idx...),
-
-		pool: r.pool,
-	}
 }
 
 // Slice slices the modulus of [CyclotomicReducer] and returns the new [CyclotomicReducer].
@@ -704,15 +643,21 @@ func (r *CyclotomicReducer) Slice(lo, hi int) *CyclotomicReducer {
 	}
 }
 
-// Append appends a new [CyclotomicReducer] and returns the new [CyclotomicReducer].
-func (r *CyclotomicReducer) Append(r0 *CyclotomicReducer) *CyclotomicReducer {
-	if !r.params.IsEqual(r0.params) {
-		panic("inconsistent input(s)")
+// Append returns a new [CyclotomicReducer] with the moduli of r followed by those of rIn.
+// Panics when the resulting moduli are not pairwise coprime.
+func (r *CyclotomicReducer) Append(rIn *CyclotomicReducer) *CyclotomicReducer {
+	if !r.params.IsEqual(rIn.params) {
+		panic("inconsistent inputs")
+	}
+
+	modOut := slices.Concat(r.mod, rIn.mod)
+	if !IsCoprime(modOut) {
+		panic("modulus must be coprime")
 	}
 
 	return &CyclotomicReducer{
 		params: r.params,
-		mod:    slices.Concat(r.mod, r0.mod),
+		mod:    modOut,
 
 		leastFac:  r.leastFac,
 		isTrivial: r.isTrivial,
@@ -723,18 +668,18 @@ func (r *CyclotomicReducer) Append(r0 *CyclotomicReducer) *CyclotomicReducer {
 		diffDegNext: r.diffDegNext,
 		degNext:     r.degNext,
 
-		diffDegNextNTT: slices.Concat(r.diffDegNextNTT, r0.diffDegNextNTT),
-		degNextNTT:     slices.Concat(r.degNextNTT, r0.degNextNTT),
+		diffDegNextNTT: slices.Concat(r.diffDegNextNTT, rIn.diffDegNextNTT),
+		degNextNTT:     slices.Concat(r.degNextNTT, rIn.degNextNTT),
 
-		ambModLen: slices.Concat(r.ambModLen, r0.ambModLen),
+		ambModLen: slices.Concat(r.ambModLen, rIn.ambModLen),
 		ambMod:    r.ambMod,
-		embedder:  slices.Concat(r.embedder, r0.embedder),
+		embedder:  slices.Concat(r.embedder, rIn.embedder),
 
 		diffDegNextAmbNTT: r.diffDegNextAmbNTT,
 		degNextAmbNTT:     r.degNextAmbNTT,
 
-		cycloPoly: slices.Concat(r.cycloPoly, r0.cycloPoly),
-		divPoly:   slices.Concat(r.divPoly, r0.divPoly),
+		cycloPoly: slices.Concat(r.cycloPoly, rIn.cycloPoly),
+		divPoly:   slices.Concat(r.divPoly, rIn.divPoly),
 
 		pool: r.pool,
 	}
@@ -742,11 +687,17 @@ func (r *CyclotomicReducer) Append(r0 *CyclotomicReducer) *CyclotomicReducer {
 
 // AppendTmpMod appends "temporary" modulus to the moduli chain and returns the new [CyclotomicReducer].
 // This assumes that modulus is NTT-unfriendly, trading the appending performance with operation performance.
+// Panics when the resulting moduli are not pairwise coprime.
 func (r *CyclotomicReducer) AppendTmpMod(mod *num.Modulus) *CyclotomicReducer {
+	modOut := slices.Concat(r.mod, []*num.Modulus{mod})
+	if !IsCoprime(modOut) {
+		panic("modulus must be coprime")
+	}
+
 	if r.isTrivial {
 		return &CyclotomicReducer{
 			params: r.params,
-			mod:    slices.Concat(r.mod, []*num.Modulus{mod}),
+			mod:    modOut,
 
 			leastFac:  r.leastFac,
 			isTrivial: r.isTrivial,
@@ -788,7 +739,7 @@ func (r *CyclotomicReducer) AppendTmpMod(mod *num.Modulus) *CyclotomicReducer {
 
 	return &CyclotomicReducer{
 		params: r.params,
-		mod:    slices.Concat(r.mod, []*num.Modulus{mod}),
+		mod:    modOut,
 
 		leastFac:  r.leastFac,
 		isTrivial: r.isTrivial,
@@ -817,15 +768,14 @@ func (r *CyclotomicReducer) AppendTmpMod(mod *num.Modulus) *CyclotomicReducer {
 }
 
 // Reducer reduces a polynomial modulo modulus polynomial.
-// In other words, it computes p(X) mod f(X), where the rank of p is at most maxRank.
-// It uses the Barrett reduction for polynomial, from https://eprint.iacr.org/2015/818.
 type Reducer struct {
 	params dft.RingParameters
 	mod    []*num.Modulus
 
 	// maxRank is the maximum rank of the input polynomial.
 	maxRank int
-	// diffDeg is the difference of the degree between the modulus polynomial and the intermediate reducing polynomial Q_sp.
+	// diffDeg is the maximum input degree minus the modulus polynomial degree:
+	// maxRank - params.Rank() - 1.
 	diffDeg int
 	// diffDegNext is the smallest power of 2 that is greater than 2*diffDeg+1.
 	diffDegNext int
@@ -851,8 +801,7 @@ type Reducer struct {
 
 	// modPoly is the polynomial we target to reduce to.
 	modPoly [][][]uint64
-	// divPoly is rounding of a monomial over the mod polynomial modulo the modulus.
-	// Precisely, it is floor(X^d_qs/modPoly(X)) modulo the modulus, where d_qs is the degree of the quotient polynomial Q_sp.
+	// divPoly stores the quotient of X^(maxRank-1) by modPoly in NTT form.
 	divPoly [][][]uint64
 
 	pool *pool.Pool[*[][]uint64]
@@ -864,6 +813,8 @@ func NewReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *Reducer {
 		panic("maxRank must be greater than modPoly degree")
 	} else if modPoly[len(modPoly)-1] != 1 {
 		panic("modPoly must be monic")
+	} else if !IsCoprime(mod) {
+		panic("modulus must be coprime")
 	}
 
 	rank := len(modPoly) - 1
@@ -1079,7 +1030,7 @@ func (r *Reducer) ReduceTo(pOut, p *Poly) {
 	checkPolyShape(r.params.Rank(), len(r.mod), pOut)
 
 	if p.Form == dft.FormNTT {
-		panic("input(s) must be in Coeff form")
+		panic("inputs must be in Coeff form")
 	} else if p.Rank() > r.maxRank {
 		panic("rank must be less than or equal to maxRank")
 	}
@@ -1103,34 +1054,6 @@ func (r *Reducer) MaxRank() int {
 // Mod returns the modulus.
 func (r *Reducer) Mod() []*num.Modulus {
 	return r.mod
-}
-
-// WithModIdx returns a [Reducer] for modulus of given indices.
-func (r *Reducer) WithModIdx(idx ...int) *Reducer {
-	return &Reducer{
-		params: r.params,
-		mod:    vec.Gather(r.mod, idx...),
-
-		maxRank:     r.maxRank,
-		diffDeg:     r.diffDeg,
-		diffDegNext: r.diffDegNext,
-		degNext:     r.degNext,
-
-		diffDegNextNTT: vec.Gather(r.diffDegNextNTT, idx...),
-		degNextNTT:     vec.Gather(r.degNextNTT, idx...),
-
-		ambModLen: vec.Gather(r.ambModLen, idx...),
-		ambMod:    r.ambMod,
-		embedder:  vec.Gather(r.embedder, idx...),
-
-		diffDegNextAmbNTT: r.diffDegNextAmbNTT,
-		degNextAmbNTT:     r.degNextAmbNTT,
-
-		modPoly: vec.Gather(r.modPoly, idx...),
-		divPoly: vec.Gather(r.divPoly, idx...),
-
-		pool: r.pool,
-	}
 }
 
 // Slice slices the modulus of [Reducer] and returns the new [Reducer].
@@ -1165,15 +1088,21 @@ func (r *Reducer) Slice(lo, hi int) *Reducer {
 	}
 }
 
-// Append appends a new [Reducer] and returns the new [Reducer].
-func (r *Reducer) Append(r0 *Reducer) *Reducer {
-	if !r.params.IsEqual(r0.params) || r.maxRank != r0.maxRank {
-		panic("inconsistent input(s)")
+// Append returns a new [Reducer] with the moduli of r followed by those of rIn.
+// Panics when the resulting moduli are not pairwise coprime.
+func (r *Reducer) Append(rIn *Reducer) *Reducer {
+	if !r.params.IsEqual(rIn.params) || r.maxRank != rIn.maxRank {
+		panic("inconsistent inputs")
+	}
+
+	modOut := slices.Concat(r.mod, rIn.mod)
+	if !IsCoprime(modOut) {
+		panic("modulus must be coprime")
 	}
 
 	return &Reducer{
 		params: r.params,
-		mod:    slices.Concat(r.mod, r0.mod),
+		mod:    modOut,
 
 		maxRank: r.maxRank,
 
@@ -1181,18 +1110,18 @@ func (r *Reducer) Append(r0 *Reducer) *Reducer {
 		diffDegNext: r.diffDegNext,
 		degNext:     r.degNext,
 
-		diffDegNextNTT: slices.Concat(r.diffDegNextNTT, r0.diffDegNextNTT),
-		degNextNTT:     slices.Concat(r.degNextNTT, r0.degNextNTT),
+		diffDegNextNTT: slices.Concat(r.diffDegNextNTT, rIn.diffDegNextNTT),
+		degNextNTT:     slices.Concat(r.degNextNTT, rIn.degNextNTT),
 
-		ambModLen: slices.Concat(r.ambModLen, r0.ambModLen),
+		ambModLen: slices.Concat(r.ambModLen, rIn.ambModLen),
 		ambMod:    r.ambMod,
-		embedder:  slices.Concat(r.embedder, r0.embedder),
+		embedder:  slices.Concat(r.embedder, rIn.embedder),
 
 		diffDegNextAmbNTT: r.diffDegNextAmbNTT,
 		degNextAmbNTT:     r.degNextAmbNTT,
 
-		modPoly: slices.Concat(r.modPoly, r0.modPoly),
-		divPoly: slices.Concat(r.divPoly, r0.divPoly),
+		modPoly: slices.Concat(r.modPoly, rIn.modPoly),
+		divPoly: slices.Concat(r.divPoly, rIn.divPoly),
 
 		pool: r.pool,
 	}
@@ -1200,7 +1129,13 @@ func (r *Reducer) Append(r0 *Reducer) *Reducer {
 
 // AppendTmpMod appends "temporary" modulus to the moduli chain and returns the new [Reducer].
 // This assumes that modulus is NTT-unfriendly, trading the appending performance with operation performance.
+// Panics when the resulting moduli are not pairwise coprime.
 func (r *Reducer) AppendTmpMod(mod *num.Modulus) *Reducer {
+	modOut := slices.Concat(r.mod, []*num.Modulus{mod})
+	if !IsCoprime(modOut) {
+		panic("modulus must be coprime")
+	}
+
 	ambExpFactorBits := num.Log2(2 * max(r.diffDegNext, r.degNext))
 	ambModLen := ambientModLen(r.ambMod, ambExpFactorBits+2*num.Log2(mod.Value()))
 
@@ -1232,7 +1167,7 @@ func (r *Reducer) AppendTmpMod(mod *num.Modulus) *Reducer {
 
 	return &Reducer{
 		params: r.params,
-		mod:    slices.Concat(r.mod, []*num.Modulus{mod}),
+		mod:    modOut,
 
 		maxRank: r.maxRank,
 

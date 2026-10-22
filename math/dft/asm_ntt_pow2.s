@@ -98,7 +98,6 @@ TEXT ·fwdNTTInPlacePow2UnrollAVX512(SB), NOSPLIT, $0-104
 	VPADDQ       Z0, Z0, Z1
 	VPBROADCASTQ (CX)(SI*8), Z2
 	VPBROADCASTQ (DX)(SI*8), Z3
-	INCQ         SI
 	VPSRLQ       $0x20, Z3, Z4
 	MOVQ         BX, R8
 	SHRQ         $0x01, R8

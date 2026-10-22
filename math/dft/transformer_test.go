@@ -136,7 +136,7 @@ func TestCyclotomicNTT(t *testing.T) {
 	t.Run("type=Any", func(t *testing.T) {
 		sqrtN := int(math.Sqrt(math.Exp2(10)))
 		m0 := num.NextPrime(sqrtN, 1)
-		m1 := num.NextPrime(m0, 2)
+		m1 := num.NextPrime(m0+2, 2)
 		M := m0 * m1
 
 		testNTT(t, dft.NewCyclotomicParameters(M))

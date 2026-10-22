@@ -61,10 +61,10 @@ func TestDecompose(t *testing.T) {
 		p := rlwe.NewPolyCustom(params.Rank(), baseLen, 0, dft.FormCoeff)
 		us.SampleTo(p.Value, q[:baseLen])
 		pDcmp := dcmp.Decompose(p, dft.FormNTT)
-		pRef := recompose(params, pDcmp, params.GadgetVec())
+		pRcmp := recompose(params, pDcmp, params.GadgetVec())
 
 		baseOp.FwdNTTTo(p.Value, p.Value)
-		assert.Equal(t, pRef, p)
+		assert.Equal(t, p, pRcmp)
 	})
 
 	t.Run("type=Digit", func(t *testing.T) {
@@ -82,9 +82,9 @@ func TestDecompose(t *testing.T) {
 		p := rlwe.NewPolyCustom(params.Rank(), baseLen, 0, dft.FormCoeff)
 		us.SampleTo(p.Value, q[:baseLen])
 		pDcmp := dcmp.Decompose(p, dft.FormNTT)
-		pRef := recompose(params, pDcmp, params.GadgetVec())
+		pRcmp := recompose(params, pDcmp, params.GadgetVec())
 
 		baseOp.FwdNTTTo(p.Value, p.Value)
-		assert.Equal(t, pRef, p)
+		assert.Equal(t, p, pRcmp)
 	})
 }

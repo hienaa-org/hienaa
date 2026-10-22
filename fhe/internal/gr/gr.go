@@ -30,7 +30,7 @@ func NewGaloisRing(modulus uint64, rank int) *GaloisRing {
 	primes, exps := num.Factor(modulus)
 	if len(primes) != 1 {
 		panic("modulus must be a prime power")
-	} else if !num.IsPrime(primes[0]) {
+	} else if modulus == 1 {
 		panic("modulus must be a prime")
 	}
 
@@ -63,26 +63,26 @@ func NewGaloisRing(modulus uint64, rank int) *GaloisRing {
 	}
 }
 
-// NewElement creates a new [Element] in the finite field.
+// NewElement creates a new [Element] in the galois ring.
 func (gr *GaloisRing) NewElement() *Element {
 	return &Element{
 		value: gr.op.NewPoly(dft.FormNTT),
 	}
 }
 
-// NewElementFromUint64 creates a new [Element] from a uint64 value.
-func (gr *GaloisRing) NewElementFromUint64(x uint64) *Element {
+// NewElementFrom creates a new [Element] from a uint64 value.
+func (gr *GaloisRing) NewElementFrom(x uint64) *Element {
 	e := gr.NewElement()
 	e.value.Coeffs[0][0] = num.Reduce(x, gr.op.Mod()[0])
 	return e
 }
 
-// Mod returns the modulus of the finite field.
+// Mod returns the modulus of the galois ring.
 func (gr *GaloisRing) Mod() uint64 {
 	return gr.op.Mod()[0].Value()
 }
 
-// Rank returns the rank of the finite field.
+// Rank returns the rank of the galois ring.
 func (gr *GaloisRing) Rank() int {
 	return gr.op.Params().Rank()
 }
@@ -119,7 +119,7 @@ func (gr *GaloisRing) SubTo(xOut, x0, x1 *Element) {
 // Neg returns -x.
 func (gr *GaloisRing) Neg(x *Element) *Element {
 	xOut := gr.NewElement()
-	gr.op.NegTo(xOut.value, x.value)
+	gr.NegTo(xOut, x)
 	return xOut
 }
 
@@ -150,7 +150,7 @@ func (gr *GaloisRing) MulSubTo(xOut, x0, x1 *Element) {
 	gr.op.MulSubTo(xOut.value, x0.value, x1.value)
 }
 
-// Exp returns xOut = x^e.
+// Exp returns x^e.
 func (gr *GaloisRing) Exp(x *Element, e uint64) *Element {
 	xOut := gr.NewElement()
 	gr.ExpTo(xOut, x, e)
@@ -174,14 +174,18 @@ func (gr *GaloisRing) ExpTo(xOut, x *Element, e uint64) {
 			gr.MulTo(xOutBuf, xOutBuf, xBuf)
 		}
 		e >>= 1
+		if e == 0 {
+			break
+		}
 		gr.MulTo(xBuf, xBuf, xBuf)
 	}
 
 	xOut.CopyFrom(xOutBuf)
 }
 
-// ExpBig returns xOut = x^e.
-func (gr *GaloisRing) ExpBig(xOut, x *Element, e *big.Int) *Element {
+// ExpBig returns x^e.
+func (gr *GaloisRing) ExpBig(x *Element, e *big.Int) *Element {
+	xOut := gr.NewElement()
 	gr.ExpBigTo(xOut, x, e)
 	return xOut
 }
@@ -211,6 +215,9 @@ func (gr *GaloisRing) ExpBigTo(xOut, x *Element, e *big.Int) {
 			gr.MulTo(xOutBuf, xOutBuf, xBuf)
 		}
 		exp.Rsh(exp, 1)
+		if exp.Sign() == 0 {
+			break
+		}
 		gr.MulTo(xBuf, xBuf, xBuf)
 	}
 
@@ -227,7 +234,7 @@ func (gr *GaloisRing) IsUnit(x *Element) bool {
 	return false
 }
 
-// Inv returns xOut = x^-1.
+// Inv returns x^-1.
 func (gr *GaloisRing) Inv(x *Element) *Element {
 	xOut := gr.NewElement()
 	gr.InvTo(xOut, x)

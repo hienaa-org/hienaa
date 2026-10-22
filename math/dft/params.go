@@ -104,7 +104,7 @@ func NewAutFixedParameters(cycloIdx, rank int) RingParameters {
 // NewOtherParameters creates a new [RingParameters] for arbitrary quotient ring.
 func NewOtherParameters(modPoly []int64) RingParameters {
 	if len(modPoly) <= 1 {
-		panic("rank must be larger than 1")
+		panic("rank must be positive")
 	} else if modPoly[len(modPoly)-1] != 1 {
 		panic("modPoly must be monic")
 	}
@@ -138,12 +138,12 @@ func (p RingParameters) RingType() RingType {
 	return p.ringType
 }
 
-// IsEqual checks if two parameters are equal.
-func (p RingParameters) IsEqual(p0 RingParameters) bool {
-	eq := p.cycloIdx == p0.cycloIdx && p.rank == p0.rank && p.ringType == p0.ringType
+// IsEqual checks if p is equal to pIn.
+func (p RingParameters) IsEqual(pIn RingParameters) bool {
+	eq := p.cycloIdx == pIn.cycloIdx && p.rank == pIn.rank && p.ringType == pIn.ringType
 
 	if p.ringType == TypeOther {
-		return eq && slices.Equal(p.modPoly, p0.modPoly)
+		return eq && slices.Equal(p.modPoly, pIn.modPoly)
 	}
 	return eq
 }

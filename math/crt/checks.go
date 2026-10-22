@@ -5,17 +5,14 @@ import "github.com/hienaa-org/hienaa/math/dft"
 // checkScalarShape panics if c is not consistent with given modulus.
 func checkScalarShape(modLen int, c *Scalar) {
 	if c.ModLen() != modLen {
-		panic("inconsistent input(s)")
+		panic("inconsistent inputs")
 	}
 }
 
 // checkPolyShape panics if p is not consistent with given ring parameters and modulus.
 func checkPolyShape(rank, modLen int, p *Poly) {
 	if p.Rank() != rank || p.ModLen() != modLen {
-		panic("inconsistent input(s)")
-	}
-	if !(p.Form == dft.FormCoeff || p.Form == dft.FormNTT) {
-		panic("inconsistent forms")
+		panic("inconsistent inputs")
 	}
 }
 
@@ -62,8 +59,8 @@ func newBinaryOpOut[TOut, T0, T1 *Scalar | *Poly](e0 T0, e1 T1) TOut {
 	return nil
 }
 
-// isBinaryOperable panics if eOut, e0, e1 is not operable.
-func isBinaryOperable[TOut, T0, T1 *Scalar | *Poly](rank, modLen int, eOut TOut, e0 T0, e1 T1) {
+// checkBinaryOperable panics if eOut, e0, e1 is not operable.
+func checkBinaryOperable[TOut, T0, T1 *Scalar | *Poly](rank, modLen int, eOut TOut, e0 T0, e1 T1) {
 	eOutScalar, eOutIsScalar := any(eOut).(*Scalar)
 	eOutPoly, _ := any(eOut).(*Poly)
 
@@ -129,8 +126,8 @@ func newUnaryOpOut[TOut, T *Scalar | *Poly](e T) TOut {
 	return any(NewPoly(ePoly.Rank(), ePoly.ModLen(), dft.FormCoeff)).(TOut)
 }
 
-// isUnaryOperable panics if eOut, e is not operable.
-func isUnaryOperable[TOut, T *Scalar | *Poly](rank, modLen int, eOut TOut, e T) {
+// checkUnaryOperable panics if eOut, e is not operable.
+func checkUnaryOperable[TOut, T *Scalar | *Poly](rank, modLen int, eOut TOut, e T) {
 	eOutScalar, eOutIsScalar := any(eOut).(*Scalar)
 	eOutPoly, _ := any(eOut).(*Poly)
 

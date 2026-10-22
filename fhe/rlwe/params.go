@@ -18,7 +18,7 @@ type GadgetParametersLiteral interface {
 	// Compile compiles [GadgetParametersLiteral] to [GadgetParameters].
 	// Panics when non-sensible values exist.
 	Compile() GadgetParameters
-	isGagdetParametersLiteral()
+	isGadgetParamsLiteral()
 }
 
 // RNSGadgetParametersLiteral is the [GadgetParametersLiteral] for the RNS decomposition.
@@ -37,7 +37,7 @@ func (p RNSGadgetParametersLiteral) Compile() GadgetParameters {
 	}
 }
 
-func (RNSGadgetParametersLiteral) isGagdetParametersLiteral() {}
+func (RNSGadgetParametersLiteral) isGadgetParamsLiteral() {}
 
 // DigitGadgetParametersLiteral is the [GadgetParametersLiteral] for the digit decomposition.
 type DigitGadgetParametersLiteral struct {
@@ -55,14 +55,14 @@ func (p DigitGadgetParametersLiteral) Compile() GadgetParameters {
 	}
 }
 
-func (DigitGadgetParametersLiteral) isGagdetParametersLiteral() {}
+func (DigitGadgetParametersLiteral) isGadgetParamsLiteral() {}
 
 // GadgetParameters is read-only parameters for gadget decomposition.
 //
-// Currenty, two types of gadgets are supported:
+// Currently, two types of gadgets are supported:
 // [RNSGadgetParameters] and [DigitGadgetParameters].
 type GadgetParameters interface {
-	isGadgetParameters()
+	isGadgetParams()
 }
 
 // RNSGadgetParameters is the [GadgetParameters] for the RNS decomposition.
@@ -76,7 +76,7 @@ func (p RNSGadgetParameters) ChunkSize() int {
 	return p.chunkSize
 }
 
-func (RNSGadgetParameters) isGadgetParameters() {}
+func (RNSGadgetParameters) isGadgetParams() {}
 
 // DigitGadgetParameters is the [GadgetParameters] for the digit decomposition.
 type DigitGadgetParameters struct {
@@ -89,7 +89,7 @@ func (p DigitGadgetParameters) LogDigitBase() int {
 	return p.logDigitBase
 }
 
-func (DigitGadgetParameters) isGadgetParameters() {}
+func (DigitGadgetParameters) isGadgetParams() {}
 
 // ParametersLiteral is a basic config for [Parameters].
 // Must be compiled to [Parameters] before usage.
@@ -118,6 +118,10 @@ type ParametersLiteral struct {
 // Compile compiles [ParametersLiteral] to [Parameters].
 // Panics when non-sensible values exist.
 func (p ParametersLiteral) Compile() Parameters {
+	if len(p.BaseModulus) == 0 {
+		panic("BaseModulus should be non-empty")
+	}
+
 	gadgetParamsLiteral := p.GadgetParams
 	if gadgetParamsLiteral == nil {
 		gadgetParamsLiteral = RNSGadgetParametersLiteral{ChunkSize: 1}
@@ -219,14 +223,14 @@ func (p ParametersLiteral) Compile() Parameters {
 		baseModBig: baseModBig,
 		auxModBig:  auxModBig,
 
-		gadgetParams:    gadgetParamsLiteral.Compile(),
+		gadgetParams:    gadgetParams,
 		gadgetVec:       gadgetVec,
 		secretKeyParams: p.SecretKeyParams,
 		noiseParams:     p.NoiseParams,
 	}
 }
 
-// Parameters is read-only parameters for the BGV scheme.
+// Parameters is read-only parameters for RLWE.
 type Parameters struct {
 	// crtOp is an underlying [crt.Operator].
 	crtOp *crt.Operator

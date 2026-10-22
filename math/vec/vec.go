@@ -23,7 +23,7 @@ func checkLength(xs ...int) {
 
 	for i := 1; i < len(xs); i++ {
 		if xs[i] != xs[0] {
-			panic("inconsistent input(s)")
+			panic("inconsistent inputs")
 		}
 	}
 }
@@ -46,6 +46,7 @@ func Cast[TOut, T num.Real](v []T) []TOut {
 
 // CastTo casts v of type []T to vOut of type []TOut.
 func CastTo[TOut, T num.Real](vOut []TOut, v []T) {
+	checkLength(len(vOut), len(v))
 	for i := range v {
 		vOut[i] = TOut(v[i])
 	}

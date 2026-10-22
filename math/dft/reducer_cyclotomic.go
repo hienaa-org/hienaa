@@ -7,21 +7,18 @@ import (
 )
 
 // cyclotomicReducer reduces a polynomial modulo a cyclotomic polynomial.
-// In other words, it computes a(X) mod \Phi_m(X), where a(X) is at most degree m-1.
-// It uses Optimised Barrett reduction for polynomial, from https://eprint.iacr.org/2017/748.
-// In this implementation, Q_sp = (X^m-1)/(X^(m/p)-1) for the smallest prime factor p.
 type cyclotomicReducer struct {
 	params RingParameters
 	mod    *num.Modulus
 
-	// leastFac is the smallest prime factor of the cyclotomic polynomial.
+	// leastFac is the smallest odd prime factor of the cyclotomic index.
 	leastFac int
 	// isTrivial is true if the reduction is trivial.
 	isTrivial bool
 
 	// redDeg is the degree of the intermediate reducing polynomial Q_sp.
 	redDeg int
-	// diffDeg is the degree of the difference between the cyclotomic polynomial and the intermediate reducing polynomial Q_sp.
+	// diffDeg is redDeg minus the degree of the cyclotomic polynomial.
 	diffDeg int
 	// diffDegNext is the smallest power of 2 that is greater than 2*diffDeg+1.
 	diffDegNext int
@@ -35,8 +32,7 @@ type cyclotomicReducer struct {
 
 	// cycloPoly is the cyclotomic polynomial modulo the modulus.
 	cycloPoly []uint64
-	// divPoly is rounding of a monomial over the cyclotomic polynomial modulo the modulus.
-	// Precisely, it is floor(X^d_qs/\Phi_m(X)) modulo the modulus, where d_qs is the degree of the quotient polynomial Q_sp.
+	// divPoly stores the quotient of X^redDeg by the cyclotomic polynomial in NTT form.
 	divPoly []uint64
 
 	pool *pool.Pool[*[]uint64]

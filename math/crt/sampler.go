@@ -85,9 +85,9 @@ type TernarySamplerParameters struct {
 
 // Sampler returns the [Sampler].
 func (p TernarySamplerParameters) Sampler() Sampler {
-	if p.Positive < 0 || p.Positive > 1 {
+	if p.Positive < 0 || p.Positive > 1 || math.IsNaN(p.Positive) {
 		panic("positive must be in [0, 1]")
-	} else if p.Negative < 0 || p.Negative > 1 {
+	} else if p.Negative < 0 || p.Negative > 1 || math.IsNaN(p.Negative) {
 		panic("negative must be in [0, 1]")
 	} else if p.Positive+p.Negative > 1 {
 		panic("positive + negative must be in [0, 1]")

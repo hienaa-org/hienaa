@@ -5,7 +5,7 @@ import (
 	"github.com/hienaa-org/hienaa/math/dft"
 )
 
-// Element represents an element in a finite field.
+// Element represents an element in a galois ring.
 type Element struct {
 	value *crt.Poly
 }
@@ -39,14 +39,14 @@ func (e *Element) Copy() *Element {
 	}
 }
 
-// CopyFrom copies the coefficients from e0 to e.
+// CopyFrom copies the coefficients from eIn to e.
 //
 // Panics when e and eIn are not consistent.
 func (e *Element) CopyFrom(eIn *Element) {
 	e.value.CopyFrom(eIn.value)
 }
 
-// IsEqual checks if e is equal to e0.
-func (e *Element) IsEqual(e0 *Element) bool {
-	return e.value.IsEqual(e0.value)
+// IsEqual checks if e is equal to eIn.
+func (e *Element) IsEqual(eIn *Element) bool {
+	return e.value.IsEqual(eIn.value)
 }

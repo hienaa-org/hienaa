@@ -7,9 +7,6 @@
 DATA MASK_LO<>+0(SB)/8, $0x00000000ffffffff
 GLOBL MASK_LO<>(SB), RODATA|NOPTR, $8
 
-DATA MASK_52<>+0(SB)/8, $0x000fffffffffffff
-GLOBL MASK_52<>(SB), RODATA|NOPTR, $8
-
 // func addToAVX2(vOut []uint64, v0 []uint64, v1 []uint64, q uint64)
 // Requires: AVX, AVX2, CMOV
 TEXT ·addToAVX2(SB), NOSPLIT, $0-80

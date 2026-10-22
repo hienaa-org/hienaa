@@ -10,7 +10,7 @@ import (
 )
 
 func TestIsPrime(t *testing.T) {
-	composite := rSrc.Uint64N(1<<(num.MaxModulusBits/2)) * rSrc.Uint64N(1<<(num.MaxModulusBits/2))
+	composite := (2 + rSrc.Uint64N(1<<(num.MaxModulusBits/2)-2)) * (2 + rSrc.Uint64N(1<<(num.MaxModulusBits/2)-2))
 	assert.False(t, num.IsPrime(composite))
 
 	prime, err := crand.Prime(nil, num.MaxModulusBits-1)
@@ -19,11 +19,12 @@ func TestIsPrime(t *testing.T) {
 }
 
 func TestFactor(t *testing.T) {
-	x := rSrc.Uint64N(num.MaxModulus)
+	x := 2 + rSrc.Uint64N(num.MaxModulus-2)
 	primes, exps := num.Factor(x)
 
 	xComp := uint64(1)
 	for i := range primes {
+		assert.True(t, num.IsPrime(primes[i]))
 		for j := uint64(0); j < exps[i]; j++ {
 			xComp *= primes[i]
 		}

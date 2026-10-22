@@ -31,8 +31,8 @@ func cyclicTwiddleFactor(rank, radix int, root []uint64, mod *num.Modulus) (tw, 
 		twInv[i] = num.Mul(twInv[i-1], zInv, mod)
 	}
 
-	vec.RadixReverseInPlace(tw[:rank/radix], int(radix))
-	vec.RadixReverseInPlace(twInv[:rank/radix], int(radix))
+	vec.RadixReverseInPlace(tw[:rank/radix], radix)
+	vec.RadixReverseInPlace(twInv[:rank/radix], radix)
 
 	t := rank / radix
 	for i := 0; i < t; i++ {
@@ -134,7 +134,7 @@ func newPow235CyclicTransformer(params RingParameters, mod *num.Modulus) *pow235
 		rootExp[i] = make([]uint64, r)
 		rootExp[i][0] = 1
 		rootExp[i][1] = num.NthRoot(uint64(r), root, mod.Value())
-		for j := 2; j < int(r); j++ {
+		for j := 2; j < r; j++ {
 			rootExp[i][j] = num.Mul(rootExp[i][j-1], rootExp[i][1], mod)
 		}
 		rootExpS[i] = vec.SForm(rootExp[i], mod)
@@ -285,10 +285,10 @@ func newAnyCyclicTransformer(params RingParameters, mod *num.Modulus) *anyCyclic
 
 	z := make([]uint64, params.rank)
 	zInv := make([]uint64, params.rank)
-	for i := 0; i < params.rank; i++ {
-		idx := num.Mul(uint64(i), uint64(i), uint64(params.rank)<<1)
-		z[i] = num.Exp(zz, uint64(idx), mod)
-		zInv[i] = num.Exp(zzInv, uint64(idx), mod)
+	for i := uint64(0); i < uint64(params.rank); i++ {
+		idx := num.Mul(i, i, uint64(params.rank)<<1)
+		z[i] = num.Exp(zz, idx, mod)
+		zInv[i] = num.Exp(zzInv, idx, mod)
 	}
 
 	ambNTT := newPow235CyclicTransformer(NewCyclicParameters(ambRank), mod)

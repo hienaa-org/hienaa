@@ -69,7 +69,7 @@ func (cvt *BigConverter) Convert[T *Scalar | *Poly](e T) []*big.Int {
 
 // ConvertTo converts e to vOut.
 func (cvt *BigConverter) ConvertTo[T *Scalar | *Poly](vOut []*big.Int, e T) {
-	isUnaryOperable(cvt.Op.params.Rank(), len(cvt.Op.mod), e, e)
+	checkUnaryOperable(cvt.Op.params.Rank(), len(cvt.Op.mod), e, e)
 
 	eScalar, eIsScalar := any(e).(*Scalar)
 	ePoly, _ := any(e).(*Poly)
@@ -79,7 +79,7 @@ func (cvt *BigConverter) ConvertTo[T *Scalar | *Poly](vOut []*big.Int, e T) {
 
 	if eIsScalar {
 		if len(vOut) != 1 {
-			panic("inconsistent input(s)")
+			panic("inconsistent inputs")
 		}
 
 		vOut[0].SetUint64(0)
@@ -94,9 +94,9 @@ func (cvt *BigConverter) ConvertTo[T *Scalar | *Poly](vOut []*big.Int, e T) {
 		}
 	} else {
 		if ePoly.Form == dft.FormNTT {
-			panic("input(s) must be in Coeff form")
+			panic("inputs must be in Coeff form")
 		} else if len(vOut) != cvt.Op.params.Rank() {
-			panic("inconsistent input(s)")
+			panic("inconsistent inputs")
 		}
 
 		for i := range cvt.Op.params.Rank() {

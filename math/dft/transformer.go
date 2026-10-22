@@ -10,7 +10,7 @@ const (
 	typePow2Cyclotomic dftType = iota
 	// typeAnyCyclotomic is an arbitrary index cyclotomic ring.
 	typeAnyCyclotomic
-	// typePow235Cyclic is a cyclic ring with rank multiples of 2, 3, 5.
+	// typePow235Cyclic is a cyclic ring with rank product of powers of 2, 3, 5.
 	typePow235Cyclic
 	// typeAnyCyclic is an arbitrary rank cyclic ring.
 	typeAnyCyclic

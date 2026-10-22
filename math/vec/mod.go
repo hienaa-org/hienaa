@@ -695,7 +695,7 @@ func SFormTo(vOutS, v []uint64, q *num.Modulus) {
 //
 // Panics when v0, v1 have different lengths, or q is nil.
 func SMul[T1 uint64 | []uint64](v0 []uint64, v1, v1S T1, q *num.Modulus) []uint64 {
-	vOut := newVecScalarOpOut(v0, v1)
+	vOut := make([]uint64, len(v0))
 	SMulTo(vOut, v0, v1, v1S, q)
 	return vOut
 }
@@ -762,7 +762,7 @@ func SMulSubTo[T1 uint64 | []uint64](vOut, v0 []uint64, v1, v1S T1, q *num.Modul
 //
 // Panics when v0, v1 have different lengths, or q is nil.
 func SMulLazy[T1 uint64 | []uint64](v0 []uint64, v1, v1S T1, q *num.Modulus) []uint64 {
-	vOut := newVecScalarOpOut(v0, v1)
+	vOut := make([]uint64, len(v0))
 	SMulLazyTo(vOut, v0, v1, v1S, q)
 	return vOut
 }

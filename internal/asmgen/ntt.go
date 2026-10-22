@@ -97,7 +97,6 @@ func FwdNTTInPlacePow2UnrollAVX512() {
 	w, wS := ZMM(), ZMM()
 	VPBROADCASTQ(Mem{Base: tw, Index: wIdx, Scale: 8}, w)
 	VPBROADCASTQ(Mem{Base: twS, Index: wIdx, Scale: 8}, wS)
-	INCQ(wIdx)
 
 	wSHi := ZMM()
 	VPSRLQ(Imm(32), wS, wSHi)

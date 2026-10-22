@@ -23,7 +23,7 @@ var (
 	})
 )
 
-// NewEmbPool creates a new [pool.Pool] that can be used in [Embedder].
+// NewEmbedderPool creates a new [pool.Pool] that can be used in [Embedder].
 func NewEmbedderPool(rank, modLen int) *pool.Pool[*[]uint64] {
 	return pool.NewPool(func() *[]uint64 {
 		v := make([]uint64, max(rank, modLen))
@@ -94,6 +94,10 @@ func (emb *Embedder) EmbedTo[T *Scalar | *Poly](eOut, e T, outForm dft.Form) {
 		return
 	}
 
+	if eOutPoly.Rank() != emb.OpOut.params.Rank() || ePoly.Rank() != emb.OpIn.params.Rank() {
+		panic("inconsistent inputs")
+	}
+
 	switch {
 	case ePoly.Form == dft.FormNTT && outForm == dft.FormNTT:
 		emb.embedNTTTo(eOutPoly, ePoly)
@@ -122,18 +126,18 @@ func (emb *Embedder) embedNTTTo(pOutNTT, pNTT *Poly) {
 
 	inLen, outLen := len(pNTT.Coeffs), len(pOutNTT.Coeffs)
 	if inLen != len(emb.vecEmb.modIn) || outLen > len(emb.vecEmb.modOut) {
-		panic("input(s) not consistent")
+		panic("inconsistent inputs")
 	}
 
 	N := len(pNTT.Coeffs[0])
 	for i := 1; i < inLen; i++ {
 		if len(pNTT.Coeffs[i]) != N {
-			panic("inconsistent input(s)")
+			panic("inconsistent inputs")
 		}
 	}
 	for i := 0; i < outLen; i++ {
 		if len(pOutNTT.Coeffs[i]) != N {
-			panic("inconsistent input(s)")
+			panic("inconsistent inputs")
 		}
 	}
 
@@ -218,7 +222,6 @@ func (emb *Embedder) embedNTTTo(pOutNTT, pNTT *Poly) {
 		}
 	}
 
-	clear(vBool[:])
 	for i := 0; i < M; i += 8 {
 		vBool[i+0] = isMixedRadixNegative(pInvNTTCoeffs, i+0, emb.vecEmb.modInHalf)
 		vBool[i+1] = isMixedRadixNegative(pInvNTTCoeffs, i+1, emb.vecEmb.modInHalf)
@@ -266,7 +269,7 @@ func (emb *Embedder) embedScalarTo(cOut, c *Scalar) {
 	vecEmb := emb.vecEmb
 	inLen, outLen := c.ModLen(), cOut.ModLen()
 	if inLen == 0 || inLen != len(vecEmb.modIn) || outLen > len(vecEmb.modOut) {
-		panic("inconsistent input(s)")
+		panic("inconsistent inputs")
 	}
 
 	if inLen == 1 {
@@ -375,6 +378,12 @@ type VecEmbedder struct {
 
 // NewVecEmbedder creates a new [VecEmbedder].
 func NewVecEmbedder(modOut []*num.Modulus, modIn []*num.Modulus) *VecEmbedder {
+	if len(modOut) == 0 || len(modIn) == 0 {
+		panic("modulus must be nonempty")
+	} else if !IsCoprime(modOut) || !IsCoprime(modIn) {
+		panic("modulus must be coprime")
+	}
+
 	modInSorted := make([]*num.Modulus, len(modIn))
 	copy(modInSorted, modIn)
 	slices.SortFunc(modInSorted, num.CmpModulus)
@@ -464,18 +473,18 @@ func (emb *VecEmbedder) Embed(v [][]uint64) [][]uint64 {
 func (emb *VecEmbedder) EmbedTo(vOut, v [][]uint64) {
 	inLen, outLen := len(v), len(vOut)
 	if inLen == 0 || inLen != len(emb.modIn) || outLen > len(emb.modOut) {
-		panic("inconsistent input(s)")
+		panic("inconsistent inputs")
 	}
 
 	N := len(v[0])
 	for i := 1; i < inLen; i++ {
 		if len(v[i]) != N {
-			panic("inconsistent input(s)")
+			panic("inconsistent inputs")
 		}
 	}
 	for i := 0; i < outLen; i++ {
 		if len(vOut[i]) != N {
-			panic("inconsistent input(s)")
+			panic("inconsistent inputs")
 		}
 	}
 
@@ -572,7 +581,6 @@ func (emb *VecEmbedder) EmbedTo(vOut, v [][]uint64) {
 			}
 		}
 
-		clear(vBool[:])
 		for i := 0; i < embedBatch; i += 8 {
 			vBool[i+0] = isMixedRadixNegative(vBuf, i+0, emb.modInHalf)
 			vBool[i+1] = isMixedRadixNegative(vBuf, i+1, emb.modInHalf)
@@ -624,7 +632,6 @@ func (emb *VecEmbedder) EmbedTo(vOut, v [][]uint64) {
 		}
 	}
 
-	clear(vBool[:])
 	for i := 0; i < len(v[0])-M; i++ {
 		vBool[i] = isMixedRadixNegative(vBuf, i, emb.modInHalf)
 	}
@@ -684,10 +691,7 @@ func NewScaler(opOut *Operator, opIn *Operator) *Scaler {
 		OpOut: opOut,
 
 		vecSc: NewVecScaler(opOut.mod, opIn.mod),
-		pool: pool.NewPool(func() *[]uint64 {
-			v := make([]uint64, max(opIn.params.Rank(), len(opIn.mod)))
-			return &v
-		}),
+		pool:  NewEmbedderPool(opIn.params.Rank(), len(opIn.mod)),
 	}
 }
 
@@ -725,6 +729,10 @@ func (sc *Scaler) ScaleTo[T *Scalar | *Poly](eOut, e T, outForm dft.Form) {
 		return
 	}
 
+	if eOutPoly.Rank() != sc.OpOut.params.Rank() || ePoly.Rank() != sc.OpIn.params.Rank() {
+		panic("inconsistent inputs")
+	}
+
 	switch {
 	case ePoly.Form == dft.FormNTT && outForm == dft.FormNTT:
 		sc.scaleNTTTo(eOutPoly, ePoly)
@@ -753,18 +761,18 @@ func (sc *Scaler) scaleNTTTo(pOutNTT, pNTT *Poly) {
 
 	inLen, gcdLen, outLen := len(pNTT.Coeffs), sc.vecSc.modGCDLen, len(pOutNTT.Coeffs)
 	if inLen != len(sc.vecSc.modIn) || outLen != len(sc.vecSc.modOut) {
-		panic("input(s) not consistent")
+		panic("inconsistent inputs")
 	}
 
 	N := len(pNTT.Coeffs[0])
 	for i := 1; i < inLen; i++ {
 		if len(pNTT.Coeffs[i]) != N {
-			panic("inconsistent input(s)")
+			panic("inconsistent inputs")
 		}
 	}
 	for i := 0; i < outLen; i++ {
 		if len(pOutNTT.Coeffs[i]) != N {
-			panic("inconsistent input(s)")
+			panic("inconsistent inputs")
 		}
 	}
 
@@ -880,7 +888,6 @@ func (sc *Scaler) scaleNTTTo(pOutNTT, pNTT *Poly) {
 			}
 		}
 
-		clear(vBool[:])
 		for i := 0; i < M; i += 8 {
 			vBool[i+0] = isMixedRadixNegative(pNTTCopy.Coeffs, i+0, sc.vecSc.modInCompHalf)
 			vBool[i+1] = isMixedRadixNegative(pNTTCopy.Coeffs, i+1, sc.vecSc.modInCompHalf)
@@ -930,7 +937,7 @@ func (sc *Scaler) scaleNTTTo(pOutNTT, pNTT *Poly) {
 func (sc *Scaler) scaleScalarTo(cOut, c *Scalar) {
 	inLen, gcdLen, outLen := c.ModLen(), sc.vecSc.modGCDLen, cOut.ModLen()
 	if inLen == 0 || inLen != len(sc.vecSc.modIn) || outLen != len(sc.vecSc.modOut) {
-		panic("inconsistent input(s)")
+		panic("inconsistent inputs")
 	}
 
 	cBufPtr := sc.pool.Get()
@@ -1094,6 +1101,12 @@ type VecScaler struct {
 
 // NewVecScaler creates a new [VecScaler].
 func NewVecScaler(modOut, modIn []*num.Modulus) *VecScaler {
+	if len(modOut) == 0 || len(modIn) == 0 {
+		panic("modulus must be nonempty")
+	} else if !IsCoprime(modOut) || !IsCoprime(modIn) {
+		panic("modulus must be coprime")
+	}
+
 	modInSorted := make([]*num.Modulus, len(modIn))
 	copy(modInSorted, modIn)
 	slices.SortFunc(modInSorted, num.CmpModulus)
@@ -1273,25 +1286,25 @@ func (sc *VecScaler) Scale(v [][]uint64) [][]uint64 {
 //
 // Panics when v and vOut is inconsistent.
 func (sc *VecScaler) ScaleTo(vOut, v [][]uint64) {
-	M := (len(v[0]) >> logEmbedBatch) << logEmbedBatch
-	L := unsafe.Sizeof(uint64(0))
-
 	inLen, gcdLen, outLen := len(sc.modInSorted), sc.modGCDLen, len(sc.modOut)
 	if len(v) != len(sc.modIn) || len(vOut) != len(sc.modOut) {
-		panic("inconsistent input(s)")
+		panic("inconsistent inputs")
 	}
 
 	N := len(v[0])
 	for i := 1; i < inLen; i++ {
 		if len(v[i]) != N {
-			panic("inconsistent input(s)")
+			panic("inconsistent inputs")
 		}
 	}
 	for i := 0; i < outLen; i++ {
 		if len(vOut[i]) != N {
-			panic("inconsistent input(s)")
+			panic("inconsistent inputs")
 		}
 	}
+
+	M := (len(v[0]) >> logEmbedBatch) << logEmbedBatch
+	L := unsafe.Sizeof(uint64(0))
 
 	if inLen == outLen && inLen == gcdLen {
 		vBuf := make([]*[embedBatch]uint64, inLen)
@@ -1474,7 +1487,6 @@ func (sc *VecScaler) ScaleTo(vOut, v [][]uint64) {
 				}
 			}
 
-			clear(vBool[:])
 			for i := 0; i < embedBatch; i += 8 {
 				vBool[i+0] = isMixedRadixNegative(vBuf, i+0, sc.modInCompHalf)
 				vBool[i+1] = isMixedRadixNegative(vBuf, i+1, sc.modInCompHalf)
@@ -1553,7 +1565,6 @@ func (sc *VecScaler) ScaleTo(vOut, v [][]uint64) {
 			}
 		}
 
-		clear(vBool[:])
 		for i := 0; i < len(v[0])-M; i++ {
 			vBool[i] = isMixedRadixNegative(vBuf, i, sc.modInCompHalf)
 		}

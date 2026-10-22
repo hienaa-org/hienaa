@@ -185,7 +185,7 @@ func TestScaler(t *testing.T) {
 	assert.Equal(t, vOutRef, vOut)
 
 	t.Run("modIn|modOut", func(t *testing.T) {
-		modIn = modOut[:len(modOut)>>1]
+		modIn := modOut[:len(modOut)>>1]
 
 		embBig := NewBigEmbedder(modOut, modIn)
 		sc := crt.NewVecScaler(modOut, modIn)
@@ -199,7 +199,7 @@ func TestScaler(t *testing.T) {
 	})
 
 	t.Run("modOut|modIn", func(t *testing.T) {
-		modOut = modIn[:len(modIn)>>1]
+		modOut := modIn[:len(modIn)>>1]
 
 		embBig := NewBigEmbedder(modOut, modIn)
 		sc := crt.NewVecScaler(modOut, modIn)

@@ -39,7 +39,7 @@ func TestReducer(t *testing.T) {
 	t.Run("type=Cyclotomic", func(t *testing.T) {
 		sqrtN := int(math.Sqrt(math.Exp2(10)))
 		m0 := num.NextPrime(sqrtN, 1)
-		m1 := num.NextPrime(m0, 2)
+		m1 := num.NextPrime(m0+2, 2)
 		M := m0 * m1
 		ringParams := dft.NewCyclotomicParameters(M)
 		N := ringParams.Rank()
@@ -49,7 +49,7 @@ func TestReducer(t *testing.T) {
 		ambParams := dft.NewCyclicParameters(max(degNext, diffDegNext))
 
 		q := dft.PrevNTTPrimes(ambParams, 40, 1)
-		q = append(q, num.NewModulus(num.NextPrime(q[0].Value(), 2)))
+		q = append(q, num.NewModulus(num.NextPrime(q[0].Value()+2, 2)))
 
 		cycloReducer := crt.NewCyclotomicReducer(ringParams, q)
 		longDivReducer := crt.NewLongDivReducer(M, q, dft.CyclotomicPolynomial(M))
@@ -70,7 +70,7 @@ func TestReducer(t *testing.T) {
 		ambParams := dft.NewCyclicParameters(max(degNext, diffDegNext))
 
 		q := dft.PrevNTTPrimes(ambParams, 40, 1)
-		q = append(q, num.NewModulus(num.NextPrime(q[0].Value(), 2)))
+		q = append(q, num.NewModulus(num.NextPrime(q[0].Value()+2, 2)))
 
 		modPoly := randTernaryPoly(N + 1)
 		reducer := crt.NewReducer(maxRank, q, modPoly)
@@ -114,7 +114,7 @@ func BenchmarkReducer(b *testing.B) {
 				})
 
 				b.Run("Mod=Any", func(b *testing.B) {
-					q := []*num.Modulus{num.NewModulus(rSrc.SampleN[uint64](0, num.MaxModulus) | 1)}
+					q := []*num.Modulus{num.NewModulus(rSrc.SampleN[uint64](3, num.MaxModulus) | 1)}
 
 					reducer := crt.NewCyclotomicReducer(ringParams, q)
 
@@ -157,7 +157,7 @@ func BenchmarkReducer(b *testing.B) {
 				})
 
 				b.Run("Mod=Any", func(b *testing.B) {
-					q := []*num.Modulus{num.NewModulus(rSrc.SampleN[uint64](0, num.MaxModulus) | 1)}
+					q := []*num.Modulus{num.NewModulus(rSrc.SampleN[uint64](3, num.MaxModulus) | 1)}
 
 					reducer := crt.NewReducer(maxRank, q, modPoly)
 

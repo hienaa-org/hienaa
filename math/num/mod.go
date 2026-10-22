@@ -249,6 +249,9 @@ func Exp[Q uint64 | *Modulus](x, e uint64, q Q) uint64 {
 				r = Mul(r, x, q)
 			}
 			e >>= 1
+			if e == 0 {
+				break
+			}
 			x = Mul(x, x, q)
 		}
 
@@ -259,6 +262,9 @@ func Exp[Q uint64 | *Modulus](x, e uint64, q Q) uint64 {
 					r = r * x
 				}
 				e >>= 1
+				if e == 0 {
+					break
+				}
 				x = x * x
 			}
 		} else {
@@ -267,6 +273,9 @@ func Exp[Q uint64 | *Modulus](x, e uint64, q Q) uint64 {
 					r = Mul(r, x, q)
 				}
 				e >>= 1
+				if e == 0 {
+					break
+				}
 				x = Mul(x, x, q)
 			}
 		}
@@ -300,7 +309,6 @@ func Inv[Q uint64 | *Modulus](x uint64, q Q) uint64 {
 		} else {
 			if ss > quo*s {
 				ss, s = s, ss-quo*s
-				ssSign, sSign = sSign, ssSign
 			} else {
 				ss, s = s, quo*s-ss
 				ssSign, sSign = sSign, !sSign

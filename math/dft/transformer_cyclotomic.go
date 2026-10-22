@@ -8,8 +8,7 @@ import (
 
 // pow2CyclotomicTransformer is a transformer for [typePow2Cyclotomic].
 type pow2CyclotomicTransformer struct {
-	params RingParameters
-	mod    *num.Modulus
+	mod *num.Modulus
 
 	// tw is the twiddle factor for NTT.
 	tw []uint64
@@ -47,8 +46,7 @@ func newPow2CyclotomicTransformer(params RingParameters, mod *num.Modulus) *pow2
 	rankInv := num.InvMForm(num.Inv(uint64(params.rank), mod), mod)
 
 	return &pow2CyclotomicTransformer{
-		params: params,
-		mod:    mod,
+		mod: mod,
 
 		tw:     tw,
 		twS:    vec.SForm(tw, mod),
@@ -75,7 +73,6 @@ func (ntt *pow2CyclotomicTransformer) inverseTo(v, vNTT []uint64) {
 // anyCyclotomicTransformer is a transformer for [typeAnyCyclotomic].
 type anyCyclotomicTransformer struct {
 	params RingParameters
-	mod    *num.Modulus
 
 	ambNTT  *Transformer
 	reducer *cyclotomicReducer
@@ -163,7 +160,6 @@ func newAnyCyclotomicTransformer(params RingParameters, mod *num.Modulus) *anyCy
 
 	return &anyCyclotomicTransformer{
 		params: params,
-		mod:    mod,
 
 		ambNTT:  NewTransformer(NewCyclicParameters(params.cycloIdx), mod),
 		reducer: newCyclotomicReducer(params, mod),

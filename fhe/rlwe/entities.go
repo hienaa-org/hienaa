@@ -35,6 +35,10 @@ func NewScalar(params Parameters, withAux bool) *Scalar {
 
 // NewScalarCustom creates a new [Scalar] with the given parameters.
 func NewScalarCustom(baseLen, auxLen int) *Scalar {
+	if baseLen <= 0 || auxLen < 0 {
+		panic("invalid modulus length")
+	}
+
 	return &Scalar{
 		Value:  crt.NewScalar(baseLen + auxLen),
 		auxLen: auxLen,
@@ -43,6 +47,10 @@ func NewScalarCustom(baseLen, auxLen int) *Scalar {
 
 // NewScalarFrom creates a new [Scalar] from [crt.Scalar].
 func NewScalarFrom(value *crt.Scalar, auxLen int) *Scalar {
+	if auxLen < 0 || auxLen > value.ModLen() {
+		panic("invalid auxLen")
+	}
+
 	return &Scalar{
 		Value:  value,
 		auxLen: auxLen,
@@ -73,8 +81,8 @@ func (c *Scalar) Clear() {
 //
 // Panics when baseLen or auxLen is larger than the current base or auxiliary modulus lengths.
 func (c *Scalar) WithModLen(baseLen, auxLen int) *Scalar {
-	if baseLen < 0 || auxLen < 0 {
-		panic("negative modulus length")
+	if baseLen <= 0 || auxLen < 0 {
+		panic("invalid modulus length")
 	} else if baseLen > c.BaseModLen() || auxLen > c.AuxModLen() {
 		panic("out of range")
 	}
@@ -86,7 +94,6 @@ func (c *Scalar) WithModLen(baseLen, auxLen int) *Scalar {
 }
 
 // Resize resizes c in place to the given base and auxiliary modulus lengths.
-// It preserves the auxiliary suffix and base prefix, and zeroes new coefficients.
 //
 // Panics when baseLen or auxLen is invalid.
 func (c *Scalar) Resize(baseLen, auxLen int) {
@@ -117,22 +124,22 @@ func (c *Scalar) Copy() *Scalar {
 	}
 }
 
-// CopyFrom copies the coefficients from c0 to c.
+// CopyFrom copies the coefficients from cIn to c.
 //
-// Panics when c and c0 are not consistent.
-func (c *Scalar) CopyFrom(c0 *Scalar) {
-	c.Value.CopyFrom(c0.Value)
-	c.auxLen = c0.auxLen
+// Panics when c and cIn are not consistent.
+func (c *Scalar) CopyFrom(cIn *Scalar) {
+	c.Value.CopyFrom(cIn.Value)
+	c.auxLen = cIn.auxLen
 }
 
-// IsEqual checks if c is equal to c0.
-func (c *Scalar) IsEqual(c0 *Scalar) bool {
-	return c.Value.IsEqual(c0.Value) && c.auxLen == c0.auxLen
+// IsEqual checks if c is equal to cIn.
+func (c *Scalar) IsEqual(cIn *Scalar) bool {
+	return c.Value.IsEqual(cIn.Value) && c.auxLen == cIn.auxLen
 }
 
-// IsConsistent checks if c has the same shape as c0.
-func (c *Scalar) IsConsistent(c0 *Scalar) bool {
-	return c.Value.IsConsistent(c0.Value)
+// IsConsistent checks if c has the same shape as cIn.
+func (c *Scalar) IsConsistent(cIn *Scalar) bool {
+	return c.Value.IsConsistent(cIn.Value)
 }
 
 // Poly is a polynomial in CRT representation.
@@ -157,6 +164,10 @@ func NewPoly(params Parameters, withAux bool, form dft.Form) *Poly {
 
 // NewPolyCustom creates a new [Poly] with the given parameters.
 func NewPolyCustom(rank, baseLen, auxLen int, form dft.Form) *Poly {
+	if baseLen <= 0 || auxLen < 0 {
+		panic("invalid modulus length")
+	}
+
 	return &Poly{
 		Value:  crt.NewPoly(rank, baseLen+auxLen, form),
 		auxLen: auxLen,
@@ -165,6 +176,10 @@ func NewPolyCustom(rank, baseLen, auxLen int, form dft.Form) *Poly {
 
 // NewPolyFrom creates a new [Poly] from [crt.Poly].
 func NewPolyFrom(value *crt.Poly, auxLen int) *Poly {
+	if auxLen < 0 || auxLen > value.ModLen() {
+		panic("invalid auxLen")
+	}
+
 	return &Poly{
 		Value:  value,
 		auxLen: auxLen,
@@ -205,8 +220,8 @@ func (p *Poly) Clear() {
 //
 // Panics when baseLen or auxLen is larger than the current base or auxiliary modulus lengths.
 func (p *Poly) WithModLen(baseLen, auxLen int) *Poly {
-	if baseLen < 0 || auxLen < 0 {
-		panic("negative modulus length")
+	if baseLen <= 0 || auxLen < 0 {
+		panic("invalid modulus length")
 	} else if baseLen > p.BaseModLen() || auxLen > p.AuxModLen() {
 		panic("out of range")
 	}
@@ -218,12 +233,11 @@ func (p *Poly) WithModLen(baseLen, auxLen int) *Poly {
 }
 
 // Resize resizes p in place to the given base and auxiliary modulus lengths.
-// It preserves the auxiliary suffix and base prefix, and zeroes new coefficients.
 //
 // Panics when baseLen or auxLen is invalid.
 func (p *Poly) Resize(baseLen, auxLen int) {
 	if baseLen <= 0 || auxLen < 0 {
-		panic("negative modulus length")
+		panic("invalid modulus length")
 	}
 
 	rank := p.Rank()
@@ -234,14 +248,29 @@ func (p *Poly) Resize(baseLen, auxLen int) {
 		p.Value.Coeffs = slices.Grow(p.Value.Coeffs, auxLen+baseLen-len(p.Value.Coeffs))[:auxLen+baseLen]
 	}
 
-	copy(p.Value.Coeffs[auxLen-auxLenKeep:auxLen+baseLenKeep], p.Value.Coeffs[p.auxLen-auxLenKeep:p.auxLen+baseLenKeep])
+	for i := range p.Value.Coeffs {
+		if p.Value.Coeffs[i] == nil {
+			p.Value.Coeffs[i] = make([]uint64, rank)
+		}
+	}
+
+	switch {
+	case auxLen < p.auxLen:
+		for i := -auxLenKeep; i < baseLenKeep; i++ {
+			copy(p.Value.Coeffs[auxLen+i], p.Value.Coeffs[p.auxLen+i])
+		}
+	case auxLen > p.auxLen:
+		for i := baseLenKeep - 1; i >= -auxLenKeep; i-- {
+			copy(p.Value.Coeffs[auxLen+i], p.Value.Coeffs[p.auxLen+i])
+		}
+	}
+
 	for i := 0; i < auxLen-auxLenKeep; i++ {
-		p.Value.Coeffs[i] = make([]uint64, rank)
+		clear(p.Value.Coeffs[i])
 	}
-	for i := auxLen + baseLenKeep; i < auxLen+baseLen; i++ {
-		p.Value.Coeffs[i] = make([]uint64, rank)
+	for i := auxLen + baseLenKeep; i < len(p.Value.Coeffs); i++ {
+		clear(p.Value.Coeffs[i])
 	}
-	clear(p.Value.Coeffs[auxLen+baseLen:])
 
 	p.Value.Coeffs = p.Value.Coeffs[:auxLen+baseLen]
 	p.auxLen = auxLen
@@ -255,22 +284,22 @@ func (p *Poly) Copy() *Poly {
 	}
 }
 
-// CopyFrom copies the coefficients from p0 to p.
+// CopyFrom copies the coefficients from pIn to p.
 //
-// Panics when p and p0 are not consistent.
-func (p *Poly) CopyFrom(p0 *Poly) {
-	p.Value.CopyFrom(p0.Value)
-	p.auxLen = p0.auxLen
+// Panics when p and pIn are not consistent.
+func (p *Poly) CopyFrom(pIn *Poly) {
+	p.Value.CopyFrom(pIn.Value)
+	p.auxLen = pIn.auxLen
 }
 
-// IsEqual checks if p is equal to p0.
-func (p *Poly) IsEqual(p0 *Poly) bool {
-	return p.Value.IsEqual(p0.Value) && p.auxLen == p0.auxLen
+// IsEqual checks if p is equal to pIn.
+func (p *Poly) IsEqual(pIn *Poly) bool {
+	return p.Value.IsEqual(pIn.Value) && p.auxLen == pIn.auxLen
 }
 
-// IsConsistent checks if p has the same shape as p0.
-func (p *Poly) IsConsistent(p0 *Poly) bool {
-	return p.Value.IsConsistent(p0.Value)
+// IsConsistent checks if p has the same shape as pIn.
+func (p *Poly) IsConsistent(pIn *Poly) bool {
+	return p.Value.IsConsistent(pIn.Value)
 }
 
 // SecretKey is an RLWE secret key.
@@ -328,21 +357,21 @@ func (sk *SecretKey) Copy() *SecretKey {
 	return (*SecretKey)((*Poly)(sk).Copy())
 }
 
-// CopyFrom copies the coefficients from sk0 to sk.
+// CopyFrom copies the coefficients from skIn to sk.
 //
-// Panics when sk and sk0 are not consistent.
-func (sk *SecretKey) CopyFrom(sk0 *SecretKey) {
-	(*Poly)(sk).CopyFrom((*Poly)(sk0))
+// Panics when sk and skIn are not consistent.
+func (sk *SecretKey) CopyFrom(skIn *SecretKey) {
+	(*Poly)(sk).CopyFrom((*Poly)(skIn))
 }
 
-// IsEqual checks if sk is equal to sk0.
-func (sk *SecretKey) IsEqual(sk0 *SecretKey) bool {
-	return (*Poly)(sk).IsEqual((*Poly)(sk0))
+// IsEqual checks if sk is equal to skIn.
+func (sk *SecretKey) IsEqual(skIn *SecretKey) bool {
+	return (*Poly)(sk).IsEqual((*Poly)(skIn))
 }
 
-// IsConsistent checks if sk has the same shape as sk0.
-func (sk *SecretKey) IsConsistent(sk0 *SecretKey) bool {
-	return (*Poly)(sk).IsConsistent((*Poly)(sk0))
+// IsConsistent checks if sk has the same shape as skIn.
+func (sk *SecretKey) IsConsistent(skIn *SecretKey) bool {
+	return (*Poly)(sk).IsConsistent((*Poly)(skIn))
 }
 
 // Ciphertext is an RLWE ciphertext.
@@ -377,7 +406,7 @@ func (ct *Ciphertext) Rank() int {
 // Form returns the [dft.Form] of ct.
 func (ct *Ciphertext) Form() dft.Form {
 	if ct.Body.Form() != ct.Mask.Form() {
-		panic("inconsistent form")
+		panic("inconsistent forms")
 	}
 	return ct.Body.Form()
 }
@@ -423,7 +452,6 @@ func (ct *Ciphertext) WithModLen(baseLen, auxLen int) *Ciphertext {
 }
 
 // Resize resizes ct in place to the given base and auxiliary modulus lengths.
-// It preserves the auxiliary suffix and base prefix, and zeroes new coefficients.
 //
 // Panics when baseLen or auxLen is negative.
 func (ct *Ciphertext) Resize(baseLen, auxLen int) {
@@ -439,25 +467,25 @@ func (ct *Ciphertext) Copy() *Ciphertext {
 	}
 }
 
-// CopyFrom copies the coefficients from ct0 to ct.
+// CopyFrom copies the coefficients from ctIn to ct.
 //
-// Panics when ct and ct0 are not consistent.
-func (ct *Ciphertext) CopyFrom(ct0 *Ciphertext) {
-	if !ct.IsConsistent(ct0) {
-		panic("inconsistent input(s)")
+// Panics when ct and ctIn are not consistent.
+func (ct *Ciphertext) CopyFrom(ctIn *Ciphertext) {
+	if !ct.IsConsistent(ctIn) {
+		panic("inconsistent inputs")
 	}
-	ct.Body.CopyFrom(ct0.Body)
-	ct.Mask.CopyFrom(ct0.Mask)
+	ct.Body.CopyFrom(ctIn.Body)
+	ct.Mask.CopyFrom(ctIn.Mask)
 }
 
-// IsEqual checks if ct is equal to ct0.
-func (ct *Ciphertext) IsEqual(ct0 *Ciphertext) bool {
-	return ct.Body.IsEqual(ct0.Body) && ct.Mask.IsEqual(ct0.Mask)
+// IsEqual checks if ct is equal to ctIn.
+func (ct *Ciphertext) IsEqual(ctIn *Ciphertext) bool {
+	return ct.Body.IsEqual(ctIn.Body) && ct.Mask.IsEqual(ctIn.Mask)
 }
 
-// IsConsistent checks if ct has the same shape as ct0.
-func (ct *Ciphertext) IsConsistent(ct0 *Ciphertext) bool {
-	return ct.Body.IsConsistent(ct0.Body) && ct.Mask.IsConsistent(ct0.Mask)
+// IsConsistent checks if ct has the same shape as ctIn.
+func (ct *Ciphertext) IsConsistent(ctIn *Ciphertext) bool {
+	return ct.Body.IsConsistent(ctIn.Body) && ct.Mask.IsConsistent(ctIn.Mask)
 }
 
 // PublicKey is an RLWE public key.
@@ -515,21 +543,21 @@ func (pk *PublicKey) Copy() *PublicKey {
 	return (*PublicKey)((*Ciphertext)(pk).Copy())
 }
 
-// CopyFrom copies the coefficients from pk0 to pk.
+// CopyFrom copies the coefficients from pkIn to pk.
 //
-// Panics when pk and pk0 are not consistent.
-func (pk *PublicKey) CopyFrom(pk0 *PublicKey) {
-	(*Ciphertext)(pk).CopyFrom((*Ciphertext)(pk0))
+// Panics when pk and pkIn are not consistent.
+func (pk *PublicKey) CopyFrom(pkIn *PublicKey) {
+	(*Ciphertext)(pk).CopyFrom((*Ciphertext)(pkIn))
 }
 
-// IsEqual checks if pk is equal to pk0.
-func (pk *PublicKey) IsEqual(pk0 *PublicKey) bool {
-	return (*Ciphertext)(pk).IsEqual((*Ciphertext)(pk0))
+// IsEqual checks if pk is equal to pkIn.
+func (pk *PublicKey) IsEqual(pkIn *PublicKey) bool {
+	return (*Ciphertext)(pk).IsEqual((*Ciphertext)(pkIn))
 }
 
-// IsConsistent checks if pk has the same shape as pk0.
-func (pk *PublicKey) IsConsistent(pk0 *PublicKey) bool {
-	return (*Ciphertext)(pk).IsConsistent((*Ciphertext)(pk0))
+// IsConsistent checks if pk has the same shape as pkIn.
+func (pk *PublicKey) IsConsistent(pkIn *PublicKey) bool {
+	return (*Ciphertext)(pk).IsConsistent((*Ciphertext)(pkIn))
 }
 
 // Vector is a vector of [Poly].
@@ -580,7 +608,7 @@ func (v *Vector) Form() dft.Form {
 	form := v.Value[0].Form()
 	for i := 1; i < v.Len(); i++ {
 		if form != v.Value[i].Form() {
-			panic("inconsistent form")
+			panic("inconsistent forms")
 		}
 	}
 	return form
@@ -627,19 +655,8 @@ func (v *Vector) Clear() {
 }
 
 // Slice returns a shallow copy with the given element indices.
-//
-// Panics when idx is out of range.
-func (v *Vector) Slice(idx ...int) *Vector {
-	length := len(idx)
-	value := make([]*Poly, length)
-	for i := range value {
-		if idx[i] < 0 || idx[i] >= v.Len() {
-			panic("index out of range")
-		}
-		value[i] = v.Value[idx[i]]
-	}
-
-	return &Vector{Value: value}
+func (v *Vector) Slice(lo, hi int) *Vector {
+	return &Vector{Value: v.Value[lo:hi]}
 }
 
 // WithModLen returns a shallow copy with the given modulus lengths.
@@ -647,7 +664,7 @@ func (v *Vector) Slice(idx ...int) *Vector {
 // Panics when baseLen or auxLen is larger than the current base or auxiliary modulus lengths.
 func (v *Vector) WithModLen(baseLen, auxLen int) *Vector {
 	if baseLen < 0 || auxLen < 0 {
-		panic("negative modulus length")
+		panic("invalid modulus length")
 	}
 
 	value := make([]*Poly, v.Len())
@@ -659,12 +676,11 @@ func (v *Vector) WithModLen(baseLen, auxLen int) *Vector {
 }
 
 // Resize resizes v in place to the given base and auxiliary modulus lengths.
-// It preserves the auxiliary suffix and base prefix, and zeroes new coefficients.
 //
 // Panics when baseLen or auxLen is invalid.
 func (v *Vector) Resize(baseLen, auxLen int) {
 	if baseLen <= 0 || auxLen < 0 {
-		panic("negative modulus length")
+		panic("invalid modulus length")
 	}
 
 	for i := range v.Value {
@@ -682,41 +698,41 @@ func (v *Vector) Copy() *Vector {
 	return &Vector{Value: value}
 }
 
-// CopyFrom copies the coefficients from v0 to v.
+// CopyFrom copies the coefficients from vIn to v.
 //
-// Panics when v and v0 are not consistent.
-func (v *Vector) CopyFrom(v0 *Vector) {
-	if !v.IsConsistent(v0) {
-		panic("inconsistent input(s)")
+// Panics when v and vIn are not consistent.
+func (v *Vector) CopyFrom(vIn *Vector) {
+	if !v.IsConsistent(vIn) {
+		panic("inconsistent inputs")
 	}
 
 	for i := 0; i < v.Len(); i++ {
-		v.Value[i].CopyFrom(v0.Value[i])
+		v.Value[i].CopyFrom(vIn.Value[i])
 	}
 }
 
-// IsEqual checks if v is equal to v0.
-func (v *Vector) IsEqual(v0 *Vector) bool {
-	if !v.IsConsistent(v0) {
+// IsEqual checks if v is equal to vIn.
+func (v *Vector) IsEqual(vIn *Vector) bool {
+	if !v.IsConsistent(vIn) {
 		return false
 	}
 
 	for i := 0; i < v.Len(); i++ {
-		if !v.Value[i].IsEqual(v0.Value[i]) {
+		if !v.Value[i].IsEqual(vIn.Value[i]) {
 			return false
 		}
 	}
 	return true
 }
 
-// IsConsistent checks if v has the same shape as v0.
-func (v *Vector) IsConsistent(v0 *Vector) bool {
-	if v.Len() != v0.Len() {
+// IsConsistent checks if v has the same shape as vIn.
+func (v *Vector) IsConsistent(vIn *Vector) bool {
+	if v.Len() != vIn.Len() {
 		return false
 	}
 
 	for i := 0; i < v.Len(); i++ {
-		if !v.Value[i].IsConsistent(v0.Value[i]) {
+		if !v.Value[i].IsConsistent(vIn.Value[i]) {
 			return false
 		}
 	}
@@ -764,7 +780,7 @@ func (ct *GadgetEncryption) Form() dft.Form {
 	form := ct.Value[0].Form()
 	for i := 1; i < ct.GadgetLen(); i++ {
 		if form != ct.Value[i].Form() {
-			panic("inconsistent form")
+			panic("inconsistent forms")
 		}
 	}
 	return form
@@ -810,28 +826,12 @@ func (ct *GadgetEncryption) Clear() {
 	}
 }
 
-// Slice returns a shallow copy with the given element indices.
-//
-// Panics when idx is out of range.
-func (ct *GadgetEncryption) Slice(idx ...int) *GadgetEncryption {
-	length := len(idx)
-	value := make([]*Ciphertext, length)
-	for i := range value {
-		if idx[i] < 0 || idx[i] >= ct.GadgetLen() {
-			panic("index out of range")
-		}
-		value[i] = ct.Value[idx[i]]
-	}
-
-	return &GadgetEncryption{Value: value}
-}
-
 // WithModLen returns a shallow copy with the given modulus lengths.
 //
 // Panics when baseLen or auxLen is larger than the current base or auxiliary modulus lengths.
 func (ct *GadgetEncryption) WithModLen(baseLen, auxLen int) *GadgetEncryption {
 	if baseLen < 0 || auxLen < 0 {
-		panic("negative modulus length")
+		panic("invalid modulus length")
 	}
 
 	value := make([]*Ciphertext, ct.GadgetLen())
@@ -843,12 +843,11 @@ func (ct *GadgetEncryption) WithModLen(baseLen, auxLen int) *GadgetEncryption {
 }
 
 // Resize resizes ct in place to the given base and auxiliary modulus lengths.
-// It preserves the auxiliary suffix and base prefix, and zeroes new coefficients.
 //
 // Panics when baseLen or auxLen is negative.
 func (ct *GadgetEncryption) Resize(baseLen, auxLen int) {
-	if baseLen < 0 || auxLen < 0 {
-		panic("negative modulus length")
+	if baseLen <= 0 || auxLen < 0 {
+		panic("invalid modulus length")
 	}
 
 	for i := range ct.Value {
@@ -866,41 +865,41 @@ func (ct *GadgetEncryption) Copy() *GadgetEncryption {
 	return &GadgetEncryption{Value: value}
 }
 
-// CopyFrom copies the coefficients from ct0 to ct.
+// CopyFrom copies the coefficients from ctIn to ct.
 //
-// Panics when ct and ct0 are not consistent.
-func (ct *GadgetEncryption) CopyFrom(ct0 *GadgetEncryption) {
-	if !ct.IsConsistent(ct0) {
-		panic("inconsistent input(s)")
+// Panics when ct and ctIn are not consistent.
+func (ct *GadgetEncryption) CopyFrom(ctIn *GadgetEncryption) {
+	if !ct.IsConsistent(ctIn) {
+		panic("inconsistent inputs")
 	}
 
 	for i := 0; i < ct.GadgetLen(); i++ {
-		ct.Value[i].CopyFrom(ct0.Value[i])
+		ct.Value[i].CopyFrom(ctIn.Value[i])
 	}
 }
 
-// IsEqual checks if ct is equal to ct0.
-func (ct *GadgetEncryption) IsEqual(ct0 *GadgetEncryption) bool {
-	if !ct.IsConsistent(ct0) {
+// IsEqual checks if ct is equal to ctIn.
+func (ct *GadgetEncryption) IsEqual(ctIn *GadgetEncryption) bool {
+	if !ct.IsConsistent(ctIn) {
 		return false
 	}
 
 	for i := 0; i < ct.GadgetLen(); i++ {
-		if !ct.Value[i].IsEqual(ct0.Value[i]) {
+		if !ct.Value[i].IsEqual(ctIn.Value[i]) {
 			return false
 		}
 	}
 	return true
 }
 
-// IsConsistent checks if ct has the same shape as ct0.
-func (ct *GadgetEncryption) IsConsistent(ct0 *GadgetEncryption) bool {
-	if ct.GadgetLen() != ct0.GadgetLen() {
+// IsConsistent checks if ct has the same shape as ctIn.
+func (ct *GadgetEncryption) IsConsistent(ctIn *GadgetEncryption) bool {
+	if ct.GadgetLen() != ctIn.GadgetLen() {
 		return false
 	}
 
 	for i := 0; i < ct.GadgetLen(); i++ {
-		if !ct.Value[i].IsConsistent(ct0.Value[i]) {
+		if !ct.Value[i].IsConsistent(ctIn.Value[i]) {
 			return false
 		}
 	}
@@ -947,7 +946,7 @@ func (ct *RGSWEncryption) Rank() int {
 // Form returns the [dft.Form] of ct.
 func (ct *RGSWEncryption) Form() dft.Form {
 	if ct.Body.Form() != ct.Mask.Form() {
-		panic("inconsistent form")
+		panic("inconsistent forms")
 	}
 	return ct.Body.Form()
 }
@@ -982,16 +981,6 @@ func (ct *RGSWEncryption) Clear() {
 	ct.Mask.Clear()
 }
 
-// Slice returns a shallow copy with the given element indices.
-//
-// Panics when idx is out of range.
-func (ct *RGSWEncryption) Slice(idx ...int) *RGSWEncryption {
-	return &RGSWEncryption{
-		Body: ct.Body.Slice(idx...),
-		Mask: ct.Mask.Slice(idx...),
-	}
-}
-
 // WithModLen returns a shallow copy with the given modulus lengths.
 //
 // Panics when baseLen or auxLen is larger than the current base or auxiliary modulus lengths.
@@ -1003,7 +992,6 @@ func (ct *RGSWEncryption) WithModLen(baseLen, auxLen int) *RGSWEncryption {
 }
 
 // Resize resizes ct in place to the given base and auxiliary modulus lengths.
-// It preserves the auxiliary suffix and base prefix, and zeroes new coefficients.
 //
 // Panics when baseLen or auxLen is negative.
 func (ct *RGSWEncryption) Resize(baseLen, auxLen int) {
@@ -1019,24 +1007,24 @@ func (ct *RGSWEncryption) Copy() *RGSWEncryption {
 	}
 }
 
-// CopyFrom copies the coefficients from ct0 to ct.
+// CopyFrom copies the coefficients from ctIn to ct.
 //
-// Panics when ct and ct0 are not consistent.
-func (ct *RGSWEncryption) CopyFrom(ct0 *RGSWEncryption) {
-	if !ct.IsConsistent(ct0) {
-		panic("inconsistent input(s)")
+// Panics when ct and ctIn are not consistent.
+func (ct *RGSWEncryption) CopyFrom(ctIn *RGSWEncryption) {
+	if !ct.IsConsistent(ctIn) {
+		panic("inconsistent inputs")
 	}
 
-	ct.Body.CopyFrom(ct0.Body)
-	ct.Mask.CopyFrom(ct0.Mask)
+	ct.Body.CopyFrom(ctIn.Body)
+	ct.Mask.CopyFrom(ctIn.Mask)
 }
 
-// IsEqual checks if ct is equal to ct0.
-func (ct *RGSWEncryption) IsEqual(ct0 *RGSWEncryption) bool {
-	return ct.Body.IsEqual(ct0.Body) && ct.Mask.IsEqual(ct0.Mask)
+// IsEqual checks if ct is equal to ctIn.
+func (ct *RGSWEncryption) IsEqual(ctIn *RGSWEncryption) bool {
+	return ct.Body.IsEqual(ctIn.Body) && ct.Mask.IsEqual(ctIn.Mask)
 }
 
-// IsConsistent checks if ct has the same shape as ct0.
-func (ct *RGSWEncryption) IsConsistent(ct0 *RGSWEncryption) bool {
-	return ct.Body.IsConsistent(ct0.Body) && ct.Mask.IsConsistent(ct0.Mask)
+// IsConsistent checks if ct has the same shape as ctIn.
+func (ct *RGSWEncryption) IsConsistent(ctIn *RGSWEncryption) bool {
+	return ct.Body.IsConsistent(ctIn.Body) && ct.Mask.IsConsistent(ctIn.Mask)
 }

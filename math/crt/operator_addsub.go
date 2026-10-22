@@ -29,7 +29,7 @@ type trivialAddSubOperator struct {
 	isNTTFriendly []bool
 }
 
-// newTrivialAddSubOperator creates a new [baseAddSubOperator].
+// newTrivialAddSubOperator creates a new [trivialAddSubOperator].
 func newTrivialAddSubOperator(params dft.RingParameters, mod []*num.Modulus) *trivialAddSubOperator {
 	isNTTFriendly := make([]bool, len(mod))
 	for i := range mod {
@@ -44,7 +44,7 @@ func newTrivialAddSubOperator(params dft.RingParameters, mod []*num.Modulus) *tr
 }
 
 func (op *trivialAddSubOperator) addTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
-	isBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
+	checkBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
 
 	eOutScalar, _ := any(eOut).(*Scalar)
 	eOutPoly, _ := any(eOut).(*Poly)
@@ -82,7 +82,7 @@ func (op *trivialAddSubOperator) addTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, 
 }
 
 func (op *trivialAddSubOperator) subTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
-	isBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
+	checkBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
 
 	eOutScalar, _ := any(eOut).(*Scalar)
 	eOutPoly, _ := any(eOut).(*Poly)
@@ -129,14 +129,6 @@ func (op *trivialAddSubOperator) subTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, 
 	}
 }
 
-func (op *trivialAddSubOperator) withModIdx(idx ...int) *trivialAddSubOperator {
-	return &trivialAddSubOperator{
-		rank:          op.rank,
-		mod:           vec.Gather(op.mod, idx...),
-		isNTTFriendly: vec.Gather(op.isNTTFriendly, idx...),
-	}
-}
-
 func (op *trivialAddSubOperator) slice(lo, hi int) *trivialAddSubOperator {
 	return &trivialAddSubOperator{
 		rank:          op.rank,
@@ -145,11 +137,11 @@ func (op *trivialAddSubOperator) slice(lo, hi int) *trivialAddSubOperator {
 	}
 }
 
-func (op *trivialAddSubOperator) append(op0 *trivialAddSubOperator) *trivialAddSubOperator {
+func (op *trivialAddSubOperator) append(opIn *trivialAddSubOperator) *trivialAddSubOperator {
 	return &trivialAddSubOperator{
-		rank:          op0.rank,
-		mod:           slices.Concat(op.mod, op0.mod),
-		isNTTFriendly: slices.Concat(op.isNTTFriendly, op0.isNTTFriendly),
+		rank:          opIn.rank,
+		mod:           slices.Concat(op.mod, opIn.mod),
+		isNTTFriendly: slices.Concat(op.isNTTFriendly, opIn.isNTTFriendly),
 	}
 }
 
@@ -183,7 +175,7 @@ func newPrimeAutFixedAddSubOperator(params dft.RingParameters, mod []*num.Modulu
 }
 
 func (op *primeAutFixedAddSubOperator) addTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
-	isBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
+	checkBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
 
 	eOutScalar, _ := any(eOut).(*Scalar)
 	eOutPoly, _ := any(eOut).(*Poly)
@@ -220,7 +212,7 @@ func (op *primeAutFixedAddSubOperator) addTo[TOut, T0, T1 *Scalar | *Poly](eOut 
 }
 
 func (op *primeAutFixedAddSubOperator) subTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1) {
-	isBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
+	checkBinaryOperable(op.rank, len(op.mod), eOut, e0, e1)
 
 	eOutScalar, _ := any(eOut).(*Scalar)
 	eOutPoly, _ := any(eOut).(*Poly)
@@ -265,14 +257,6 @@ func (op *primeAutFixedAddSubOperator) subTo[TOut, T0, T1 *Scalar | *Poly](eOut 
 	}
 }
 
-func (op *primeAutFixedAddSubOperator) withModIdx(idx ...int) *primeAutFixedAddSubOperator {
-	return &primeAutFixedAddSubOperator{
-		rank:          op.rank,
-		mod:           vec.Gather(op.mod, idx...),
-		isNTTFriendly: vec.Gather(op.isNTTFriendly, idx...),
-	}
-}
-
 func (op *primeAutFixedAddSubOperator) slice(lo, hi int) *primeAutFixedAddSubOperator {
 	return &primeAutFixedAddSubOperator{
 		rank:          op.rank,
@@ -281,11 +265,11 @@ func (op *primeAutFixedAddSubOperator) slice(lo, hi int) *primeAutFixedAddSubOpe
 	}
 }
 
-func (op *primeAutFixedAddSubOperator) append(op0 *primeAutFixedAddSubOperator) *primeAutFixedAddSubOperator {
+func (op *primeAutFixedAddSubOperator) append(opIn *primeAutFixedAddSubOperator) *primeAutFixedAddSubOperator {
 	return &primeAutFixedAddSubOperator{
-		rank:          op0.rank,
-		mod:           slices.Concat(op.mod, op0.mod),
-		isNTTFriendly: slices.Concat(op.isNTTFriendly, op0.isNTTFriendly),
+		rank:          opIn.rank,
+		mod:           slices.Concat(op.mod, opIn.mod),
+		isNTTFriendly: slices.Concat(op.isNTTFriendly, opIn.isNTTFriendly),
 	}
 }
 

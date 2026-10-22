@@ -15,7 +15,7 @@ var (
 )
 
 func TestReduce(t *testing.T) {
-	q := num.NewModulus(rSrc.Uint64N(num.MaxModulus) | 1)
+	q := num.NewModulus(1 + (rSrc.Uint64N(num.MaxModulus-1) | 1))
 
 	x64 := rSrc.Uint64()
 	x128Hi := rSrc.Uint64()
@@ -24,12 +24,12 @@ func TestReduce(t *testing.T) {
 	x128.Add(x128, new(big.Int).SetUint64(x128Lo))
 
 	t.Run("Reduce", func(t *testing.T) {
-		assert.Equal(t, num.Reduce(x64, q), x64%q.Value())
+		assert.Equal(t, x64%q.Value(), num.Reduce(x64, q))
 	})
 
 	t.Run("Reduce128", func(t *testing.T) {
 		x128.Mod(x128, new(big.Int).SetUint64(q.Value()))
-		assert.Equal(t, num.Reduce128(x128Hi, x128Lo, q), x128.Uint64())
+		assert.Equal(t, x128.Uint64(), num.Reduce128(x128Hi, x128Lo, q))
 	})
 }
 
@@ -38,8 +38,8 @@ func TestOps(t *testing.T) {
 	assert.NoError(t, err)
 
 	q := num.NewModulus(qBig.Uint64())
-	x0 := rSrc.Uint64N(q.Value())
-	x1 := rSrc.Uint64N(q.Value())
+	x0 := 1 + rSrc.Uint64N(q.Value()-1)
+	x1 := 1 + rSrc.Uint64N(q.Value()-1)
 
 	x0Big := new(big.Int).SetUint64(x0)
 	x1Big := new(big.Int).SetUint64(x1)

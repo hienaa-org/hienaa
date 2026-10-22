@@ -7,7 +7,6 @@ import (
 	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/num"
-	"github.com/hienaa-org/hienaa/math/vec"
 )
 
 type autType byte
@@ -72,7 +71,7 @@ func (op *pow2CyclotomicAutOperator) canAut(idx int) bool {
 }
 
 func (op *pow2CyclotomicAutOperator) autTo(pOut, p *Poly, idx int) {
-	isUnaryOperable(op.params.Rank(), len(op.mod), pOut, p)
+	checkUnaryOperable(op.params.Rank(), len(op.mod), pOut, p)
 
 	if !op.canAut(idx) {
 		panic("invalid automorphism index")
@@ -102,7 +101,6 @@ func (op *pow2CyclotomicAutOperator) autTo(pOut, p *Poly, idx int) {
 				pOutRow[idxOut] = pBuf[idxIn]
 			}
 		} else {
-			clear(pBuf)
 			var idxOut uint64
 			for j := uint64(0); j < rank64; j++ {
 				if idxOut >= rank64 {
@@ -119,16 +117,6 @@ func (op *pow2CyclotomicAutOperator) autTo(pOut, p *Poly, idx int) {
 	pOut.Form = p.Form
 }
 
-func (op *pow2CyclotomicAutOperator) withModIdx(idx ...int) *pow2CyclotomicAutOperator {
-	return &pow2CyclotomicAutOperator{
-		params:        op.params,
-		mod:           vec.Gather(op.mod, idx...),
-		isNTTFriendly: vec.Gather(op.isNTTFriendly, idx...),
-
-		pool: op.pool,
-	}
-}
-
 func (op *pow2CyclotomicAutOperator) slice(lo, hi int) *pow2CyclotomicAutOperator {
 	return &pow2CyclotomicAutOperator{
 		params:        op.params,
@@ -139,11 +127,11 @@ func (op *pow2CyclotomicAutOperator) slice(lo, hi int) *pow2CyclotomicAutOperato
 	}
 }
 
-func (op *pow2CyclotomicAutOperator) append(op0 *pow2CyclotomicAutOperator) *pow2CyclotomicAutOperator {
+func (op *pow2CyclotomicAutOperator) append(opIn *pow2CyclotomicAutOperator) *pow2CyclotomicAutOperator {
 	return &pow2CyclotomicAutOperator{
 		params:        op.params,
-		mod:           slices.Concat(op.mod, op0.mod),
-		isNTTFriendly: slices.Concat(op.isNTTFriendly, op0.isNTTFriendly),
+		mod:           slices.Concat(op.mod, opIn.mod),
+		isNTTFriendly: slices.Concat(op.isNTTFriendly, opIn.isNTTFriendly),
 
 		pool: op.pool,
 	}
@@ -175,7 +163,8 @@ type anyCyclotomicAutOperator struct {
 	// dims is the dimension of the hypercube structure.
 	dims []int
 
-	pool *pool.Pool[*[]uint64]
+	pool       *pool.Pool[*[]uint64]
+	poolDigits *pool.Pool[*[]int]
 }
 
 // newAnyCyclotomicAutOperator creates a new [anyCyclotomicAutOperator].
@@ -199,12 +188,10 @@ func newAnyCyclotomicAutOperator(params dft.RingParameters, mod []*num.Modulus, 
 		dims[i] = int(pExp - pExp/primes[i])
 		rootExps[i] = make([]uint64, dims[i])
 		root := uint64(1)
-		if pExp != 2 {
-			root = num.Generators(pExp)[0]
-		}
-
 		if primes[i] == 2 && exps[i] > 2 {
 			root = 5
+		} else if pExp != 2 {
+			root = num.Generators(pExp)[0]
 		}
 
 		rootExps[i][0] = 1
@@ -241,6 +228,10 @@ func newAnyCyclotomicAutOperator(params dft.RingParameters, mod []*num.Modulus, 
 			v := make([]uint64, params.CycloIndex())
 			return &v
 		}),
+		poolDigits: pool.NewPool(func() *[]int {
+			v := make([]int, len(pExpMods))
+			return &v
+		}),
 	}
 }
 
@@ -251,7 +242,7 @@ func (op *anyCyclotomicAutOperator) canAut(idx int) bool {
 }
 
 func (op *anyCyclotomicAutOperator) autTo(pOut, p *Poly, idx int) {
-	isUnaryOperable(op.params.Rank(), len(op.mod), pOut, p)
+	checkUnaryOperable(op.params.Rank(), len(op.mod), pOut, p)
 
 	if !op.canAut(idx) {
 		panic("invalid automorphism index")
@@ -269,30 +260,37 @@ func (op *anyCyclotomicAutOperator) autTo(pOut, p *Poly, idx int) {
 	pBuf := *pBufPtr
 	defer op.pool.Put(pBufPtr)
 
+	idxDigitsPtr := op.poolDigits.Get()
+	idxDigits := *idxDigitsPtr
+	defer op.poolDigits.Put(idxDigitsPtr)
+
+	idxOutDigitsPtr := op.poolDigits.Get()
+	idxOutDigits := *idxOutDigitsPtr
+	defer op.poolDigits.Put(idxOutDigitsPtr)
+
+	if p.Form == dft.FormNTT && slices.Contains(op.isNTTFriendly, true) {
+		for cnt := 0; cnt < len(idxDigits); {
+			idxRed := num.Reduce(idx64, op.primeExpMods[cnt])
+			if op.primeExpMods[cnt].Value()%8 == 0 {
+				if idx64%4 == 1 {
+					idxDigits[cnt+1] = 0
+				} else {
+					idxDigits[cnt+1] = 1
+					idxRed = num.Neg(idxRed, op.primeExpMods[cnt])
+				}
+				idxDigits[cnt] = slices.Index(op.rootExps[cnt], idxRed)
+				cnt += 2
+			} else {
+				idxDigits[cnt] = slices.Index(op.rootExps[cnt], idxRed)
+				cnt += 1
+			}
+		}
+	}
+
 	for i := range op.mod {
 		pRow, pOutRow := p.Coeffs[i], pOut.Coeffs[i]
 		if p.Form == dft.FormNTT && op.isNTTFriendly[i] {
-			idxDigits := make([]int, len(op.primeExpMods))
-			for cnt := 0; cnt < len(idxDigits); {
-				idxRed := num.Reduce(idx64, op.primeExpMods[cnt])
-				if op.primeExpMods[cnt].Value()%8 == 0 {
-					if idx64%4 == 1 {
-						idxDigits[cnt+1] = 0
-					} else {
-						idxDigits[cnt+1] = 1
-						idxRed = num.Neg(idxRed, op.primeExpMods[cnt])
-					}
-					idxDigits[cnt] = slices.Index(op.rootExps[cnt], idxRed)
-					cnt += 2
-				} else {
-					idxDigits[cnt] = slices.Index(op.rootExps[cnt], idxRed)
-					cnt += 1
-				}
-			}
-
 			copy(pBuf, pRow)
-
-			idxOutDigits := make([]int, len(op.primeExpMods))
 			for j := 0; j < op.params.Rank(); j++ {
 				idxIn := j
 				for k := 0; k < len(idxOutDigits); k++ {
@@ -320,23 +318,6 @@ func (op *anyCyclotomicAutOperator) autTo(pOut, p *Poly, idx int) {
 	pOut.Form = p.Form
 }
 
-func (op *anyCyclotomicAutOperator) withModIdx(idx ...int) *anyCyclotomicAutOperator {
-	return &anyCyclotomicAutOperator{
-		params:        op.params,
-		cycloIdxMod:   op.cycloIdxMod,
-		mod:           vec.Gather(op.mod, idx...),
-		isNTTFriendly: vec.Gather(op.isNTTFriendly, idx...),
-
-		reducer: op.reducer.WithModIdx(idx...),
-
-		primeExpMods: op.primeExpMods,
-		rootExps:     op.rootExps,
-		dims:         op.dims,
-
-		pool: op.pool,
-	}
-}
-
 func (op *anyCyclotomicAutOperator) slice(lo, hi int) *anyCyclotomicAutOperator {
 	return &anyCyclotomicAutOperator{
 		params:        op.params,
@@ -350,24 +331,26 @@ func (op *anyCyclotomicAutOperator) slice(lo, hi int) *anyCyclotomicAutOperator 
 		rootExps:     op.rootExps,
 		dims:         op.dims,
 
-		pool: op.pool,
+		pool:       op.pool,
+		poolDigits: op.poolDigits,
 	}
 }
 
-func (op *anyCyclotomicAutOperator) append(op0 *anyCyclotomicAutOperator) *anyCyclotomicAutOperator {
+func (op *anyCyclotomicAutOperator) append(opIn *anyCyclotomicAutOperator) *anyCyclotomicAutOperator {
 	return &anyCyclotomicAutOperator{
 		params:        op.params,
 		cycloIdxMod:   op.cycloIdxMod,
-		mod:           slices.Concat(op.mod, op0.mod),
-		isNTTFriendly: slices.Concat(op.isNTTFriendly, op0.isNTTFriendly),
+		mod:           slices.Concat(op.mod, opIn.mod),
+		isNTTFriendly: slices.Concat(op.isNTTFriendly, opIn.isNTTFriendly),
 
-		reducer: op.reducer.Append(op0.reducer),
+		reducer: op.reducer.Append(opIn.reducer),
 
 		primeExpMods: op.primeExpMods,
 		rootExps:     op.rootExps,
 		dims:         op.dims,
 
-		pool: op.pool,
+		pool:       op.pool,
+		poolDigits: op.poolDigits,
 	}
 }
 
@@ -384,7 +367,8 @@ func (op *anyCyclotomicAutOperator) appendTmpMod(mod *num.Modulus) *anyCyclotomi
 		rootExps:     op.rootExps,
 		dims:         op.dims,
 
-		pool: op.pool,
+		pool:       op.pool,
+		poolDigits: op.poolDigits,
 	}
 }
 
@@ -422,7 +406,7 @@ func (op *pow2AutFixedAutOperator) canAut(idx int) bool {
 }
 
 func (op *pow2AutFixedAutOperator) autTo(pOut, p *Poly, idx int) {
-	isUnaryOperable(op.params.Rank(), len(op.mod), pOut, p)
+	checkUnaryOperable(op.params.Rank(), len(op.mod), pOut, p)
 
 	if !op.canAut(idx) {
 		panic("invalid automorphism index")
@@ -458,7 +442,6 @@ func (op *pow2AutFixedAutOperator) autTo(pOut, p *Poly, idx int) {
 				pOutRow[idxOut] = pBuf[idxIn]
 			}
 		} else {
-			clear(pBuf)
 			var idxOut uint64
 			for j := uint64(0); j < rank64; j++ {
 				switch {
@@ -480,16 +463,6 @@ func (op *pow2AutFixedAutOperator) autTo(pOut, p *Poly, idx int) {
 	pOut.Form = p.Form
 }
 
-func (op *pow2AutFixedAutOperator) withModIdx(idx ...int) *pow2AutFixedAutOperator {
-	return &pow2AutFixedAutOperator{
-		params:        op.params,
-		mod:           vec.Gather(op.mod, idx...),
-		isNTTFriendly: vec.Gather(op.isNTTFriendly, idx...),
-
-		pool: op.pool,
-	}
-}
-
 func (op *pow2AutFixedAutOperator) slice(lo, hi int) *pow2AutFixedAutOperator {
 	return &pow2AutFixedAutOperator{
 		params:        op.params,
@@ -500,11 +473,11 @@ func (op *pow2AutFixedAutOperator) slice(lo, hi int) *pow2AutFixedAutOperator {
 	}
 }
 
-func (op *pow2AutFixedAutOperator) append(op0 *pow2AutFixedAutOperator) *pow2AutFixedAutOperator {
+func (op *pow2AutFixedAutOperator) append(opIn *pow2AutFixedAutOperator) *pow2AutFixedAutOperator {
 	return &pow2AutFixedAutOperator{
 		params:        op.params,
-		mod:           slices.Concat(op.mod, op0.mod),
-		isNTTFriendly: slices.Concat(op.isNTTFriendly, op0.isNTTFriendly),
+		mod:           slices.Concat(op.mod, opIn.mod),
+		isNTTFriendly: slices.Concat(op.isNTTFriendly, opIn.isNTTFriendly),
 
 		pool: op.pool,
 	}
@@ -575,7 +548,7 @@ func (op *primeAutFixedAutOperator) canAut(idx int) bool {
 }
 
 func (op *primeAutFixedAutOperator) autTo(pOut, p *Poly, idx int) {
-	isUnaryOperable(op.params.Rank(), len(op.mod), pOut, p)
+	checkUnaryOperable(op.params.Rank(), len(op.mod), pOut, p)
 
 	if !op.canAut(idx) {
 		panic("invalid automorphism index")
@@ -609,19 +582,6 @@ func (op *primeAutFixedAutOperator) autTo(pOut, p *Poly, idx int) {
 	pOut.Form = p.Form
 }
 
-func (op *primeAutFixedAutOperator) withModIdx(idx ...int) *primeAutFixedAutOperator {
-	return &primeAutFixedAutOperator{
-		params:        op.params,
-		mod:           vec.Gather(op.mod, idx...),
-		isNTTFriendly: vec.Gather(op.isNTTFriendly, idx...),
-
-		rootPow:    op.rootPow,
-		rootPowInv: op.rootPowInv,
-
-		pool: op.pool,
-	}
-}
-
 func (op *primeAutFixedAutOperator) slice(lo, hi int) *primeAutFixedAutOperator {
 	return &primeAutFixedAutOperator{
 		params:        op.params,
@@ -635,11 +595,11 @@ func (op *primeAutFixedAutOperator) slice(lo, hi int) *primeAutFixedAutOperator 
 	}
 }
 
-func (op *primeAutFixedAutOperator) append(op0 *primeAutFixedAutOperator) *primeAutFixedAutOperator {
+func (op *primeAutFixedAutOperator) append(opIn *primeAutFixedAutOperator) *primeAutFixedAutOperator {
 	return &primeAutFixedAutOperator{
 		params:        op.params,
-		mod:           slices.Concat(op.mod, op0.mod),
-		isNTTFriendly: slices.Concat(op.isNTTFriendly, op0.isNTTFriendly),
+		mod:           slices.Concat(op.mod, opIn.mod),
+		isNTTFriendly: slices.Concat(op.isNTTFriendly, opIn.isNTTFriendly),
 
 		rootPow:    op.rootPow,
 		rootPowInv: op.rootPowInv,

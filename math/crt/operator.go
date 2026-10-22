@@ -41,6 +41,12 @@ type Operator struct {
 
 // NewOperator creates a new [Operator].
 func NewOperator(params dft.RingParameters, mod []*num.Modulus) *Operator {
+	if len(mod) == 0 {
+		panic("empty modulus")
+	} else if !IsCoprime(mod) {
+		panic("modulus must be coprime")
+	}
+
 	isNTTFriendly := make([]bool, len(mod))
 	ntt := make([]*dft.Transformer, len(mod))
 	for i := range mod {
@@ -123,10 +129,10 @@ func (op *Operator) FwdNTT(p *Poly) *Poly {
 
 // FwdNTTTo computes pOut = NTT(p).
 func (op *Operator) FwdNTTTo(pOut, p *Poly) {
-	isUnaryOperable(op.params.Rank(), len(op.mod), pOut, p)
+	checkUnaryOperable(op.params.Rank(), len(op.mod), pOut, p)
 
 	if p.Form == dft.FormNTT {
-		panic("input(s) must be in Coeff form")
+		panic("inputs must be in Coeff form")
 	}
 
 	for i := range op.ntt {
@@ -149,10 +155,10 @@ func (op *Operator) InvNTT(p *Poly) *Poly {
 
 // InvNTTTo computes pOut = InvNTT(p).
 func (op *Operator) InvNTTTo(pOut, p *Poly) {
-	isUnaryOperable(op.params.Rank(), len(op.mod), pOut, p)
+	checkUnaryOperable(op.params.Rank(), len(op.mod), pOut, p)
 
 	if p.Form != dft.FormNTT {
-		panic("input(s) must be in NTT form")
+		panic("inputs must be in NTT form")
 	}
 
 	for i := range op.ntt {
@@ -201,15 +207,15 @@ func (op *Operator) SubTo[TOut, T0, T1 *Scalar | *Poly](eOut TOut, e0 T0, e1 T1)
 }
 
 // Neg returns eOut = -e.
-func (op *Operator) Neg[TOut, T *Scalar | *Poly](e T) TOut {
-	eOut := newUnaryOpOut[TOut](e)
+func (op *Operator) Neg[T *Scalar | *Poly](e T) T {
+	eOut := newUnaryOpOut[T](e)
 	op.NegTo(eOut, e)
 	return eOut
 }
 
 // NegTo computes eOut = -e.
-func (op *Operator) NegTo[TOut, T *Scalar | *Poly](eOut TOut, e T) {
-	isUnaryOperable(op.params.Rank(), len(op.mod), eOut, e)
+func (op *Operator) NegTo[T *Scalar | *Poly](eOut T, e T) {
+	checkUnaryOperable(op.params.Rank(), len(op.mod), eOut, e)
 
 	eOutScalar, _ := any(eOut).(*Scalar)
 	eOutPoly, _ := any(eOut).(*Poly)
@@ -312,54 +318,7 @@ func (op *Operator) AutTo(pOut, p *Poly, idx int) {
 	}
 }
 
-// WithModIdx returns an [Operator] for modulus of given indices.
-// Useful for "levelled" operations with arbitrary modulus indices.
-// Use [Operator.Slice] for contiguous ranges.
-func (op *Operator) WithModIdx(idx ...int) *Operator {
-	opOut := &Operator{
-		params: op.params,
-		mod:    vec.Gather(op.mod, idx...),
-
-		isNTTFriendly: vec.Gather(op.isNTTFriendly, idx...),
-		ntt:           vec.Gather(op.ntt, idx...),
-
-		addSubType: op.addSubType,
-		mulType:    op.mulType,
-		autType:    op.autType,
-	}
-
-	switch opOut.addSubType {
-	case typeTrivialAddSub:
-		opOut.trivialAddSub = op.trivialAddSub.withModIdx(idx...)
-	case typePrimeAutFixedAddSub:
-		opOut.primeAutFixedAddSub = op.primeAutFixedAddSub.withModIdx(idx...)
-	}
-
-	switch opOut.mulType {
-	case typeTrivialMul:
-		opOut.trivialMul = op.trivialMul.withModIdx(idx...)
-	case typeAnyCyclotomicMul:
-		opOut.anyCyclotomicMul = op.anyCyclotomicMul.withModIdx(idx...)
-	case typeReduceMul:
-		opOut.reduceMul = op.reduceMul.withModIdx(idx...)
-	}
-
-	switch opOut.autType {
-	case typePow2CyclotomicAut:
-		opOut.pow2CyclotomicAut = op.pow2CyclotomicAut.withModIdx(idx...)
-	case typeAnyCyclotomicAut:
-		opOut.anyCyclotomicAut = op.anyCyclotomicAut.withModIdx(idx...)
-	case typePow2AutFixedAut:
-		opOut.pow2AutFixedAut = op.pow2AutFixedAut.withModIdx(idx...)
-	case typePrimeAutFixedAut:
-		opOut.primeAutFixedAut = op.primeAutFixedAut.withModIdx(idx...)
-	}
-
-	return opOut
-}
-
 // Slice slices the modulus of [Operator] and returns the new [Operator].
-// Equal to op.WithModIdx(vec.Range(lo, hi)...).
 func (op *Operator) Slice(lo, hi int) *Operator {
 	if lo == 0 && hi == len(op.mod) {
 		return op
@@ -407,20 +366,25 @@ func (op *Operator) Slice(lo, hi int) *Operator {
 	return opOut
 }
 
-// Append appends a new [Operator] and returns the new [Operator].
+// Append returns a new [Operator] with the moduli of op followed by those of opIn.
 //
-// Panics when the ring parameters do not match.
-func (op *Operator) Append(op0 *Operator) *Operator {
-	if !op.params.IsEqual(op0.params) {
-		panic("inconsistent input(s)")
+// Panics when the ring parameters do not match or the resulting moduli are not pairwise coprime.
+func (op *Operator) Append(opIn *Operator) *Operator {
+	if !op.params.IsEqual(opIn.params) {
+		panic("inconsistent inputs")
+	}
+
+	modOut := slices.Concat(op.mod, opIn.mod)
+	if !IsCoprime(modOut) {
+		panic("modulus must be coprime")
 	}
 
 	opOut := &Operator{
 		params: op.params,
-		mod:    slices.Concat(op.mod, op0.mod),
+		mod:    modOut,
 
-		isNTTFriendly: slices.Concat(op.isNTTFriendly, op0.isNTTFriendly),
-		ntt:           slices.Concat(op.ntt, op0.ntt),
+		isNTTFriendly: slices.Concat(op.isNTTFriendly, opIn.isNTTFriendly),
+		ntt:           slices.Concat(op.ntt, opIn.ntt),
 
 		addSubType: op.addSubType,
 		mulType:    op.mulType,
@@ -429,29 +393,29 @@ func (op *Operator) Append(op0 *Operator) *Operator {
 
 	switch opOut.addSubType {
 	case typeTrivialAddSub:
-		opOut.trivialAddSub = op.trivialAddSub.append(op0.trivialAddSub)
+		opOut.trivialAddSub = op.trivialAddSub.append(opIn.trivialAddSub)
 	case typePrimeAutFixedAddSub:
-		opOut.primeAutFixedAddSub = op.primeAutFixedAddSub.append(op0.primeAutFixedAddSub)
+		opOut.primeAutFixedAddSub = op.primeAutFixedAddSub.append(opIn.primeAutFixedAddSub)
 	}
 
 	switch opOut.mulType {
 	case typeTrivialMul:
-		opOut.trivialMul = op.trivialMul.append(op0.trivialMul)
+		opOut.trivialMul = op.trivialMul.append(opIn.trivialMul)
 	case typeAnyCyclotomicMul:
-		opOut.anyCyclotomicMul = op.anyCyclotomicMul.append(op0.anyCyclotomicMul)
+		opOut.anyCyclotomicMul = op.anyCyclotomicMul.append(opIn.anyCyclotomicMul)
 	case typeReduceMul:
-		opOut.reduceMul = op.reduceMul.append(op0.reduceMul)
+		opOut.reduceMul = op.reduceMul.append(opIn.reduceMul)
 	}
 
 	switch opOut.autType {
 	case typePow2CyclotomicAut:
-		opOut.pow2CyclotomicAut = op.pow2CyclotomicAut.append(op0.pow2CyclotomicAut)
+		opOut.pow2CyclotomicAut = op.pow2CyclotomicAut.append(opIn.pow2CyclotomicAut)
 	case typeAnyCyclotomicAut:
-		opOut.anyCyclotomicAut = op.anyCyclotomicAut.append(op0.anyCyclotomicAut)
+		opOut.anyCyclotomicAut = op.anyCyclotomicAut.append(opIn.anyCyclotomicAut)
 	case typePow2AutFixedAut:
-		opOut.pow2AutFixedAut = op.pow2AutFixedAut.append(op0.pow2AutFixedAut)
+		opOut.pow2AutFixedAut = op.pow2AutFixedAut.append(opIn.pow2AutFixedAut)
 	case typePrimeAutFixedAut:
-		opOut.primeAutFixedAut = op.primeAutFixedAut.append(op0.primeAutFixedAut)
+		opOut.primeAutFixedAut = op.primeAutFixedAut.append(opIn.primeAutFixedAut)
 	}
 
 	return opOut
@@ -459,10 +423,17 @@ func (op *Operator) Append(op0 *Operator) *Operator {
 
 // AppendTmpMod appends "temporary" modulus to the moduli chain and returns the new [Operator].
 // This assumes that modulus is NTT-unfriendly, trading the appending performance with operation performance.
+//
+// Panics when the resulting moduli are not pairwise coprime.
 func (op *Operator) AppendTmpMod(mod *num.Modulus) *Operator {
+	modOut := slices.Concat(op.mod, []*num.Modulus{mod})
+	if !IsCoprime(modOut) {
+		panic("modulus must be coprime")
+	}
+
 	opOut := &Operator{
 		params: op.params,
-		mod:    slices.Concat(op.mod, []*num.Modulus{mod}),
+		mod:    modOut,
 
 		isNTTFriendly: slices.Concat(op.isNTTFriendly, []bool{false}),
 		ntt:           slices.Concat(op.ntt, []*dft.Transformer{nil}),
