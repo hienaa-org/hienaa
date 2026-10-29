@@ -11,13 +11,13 @@ import (
 )
 
 func recompose(params rlwe.Parameters, pDcmp *rlwe.Vector, gadVec []*rlwe.Element) *rlwe.Element {
-	fullOp := params.Operator().Slice(0, pDcmp.FullModLen())
+	fullOp := params.Op().WithModSlice(0, pDcmp.FullModLen())
 	pSum := crt.NewPoly(params.Rank(), pDcmp.FullModLen(), dft.FormNTT)
 	for i := range pDcmp.Value {
-		fullOp.MulAddTo(pSum, pDcmp.Value[i].Value, gadVec[i].Value.Slice(0, pDcmp.FullModLen()))
+		fullOp.MulAddTo(pSum, pDcmp.Value[i].Value, gadVec[i].Value.WithModSlice(0, pDcmp.FullModLen()))
 	}
 
-	scaler := crt.NewScaler(fullOp.Slice(pDcmp.AuxModLen(), pDcmp.FullModLen()), fullOp)
+	scaler := crt.NewScaler(fullOp.WithModSlice(pDcmp.AuxModLen(), pDcmp.FullModLen()), fullOp)
 	return rlwe.NewElementFrom(scaler.Scale(pSum, dft.FormNTT), 0)
 }
 
@@ -56,7 +56,7 @@ func TestDecompose(t *testing.T) {
 		dcmp := rlwe.NewDecomposer(params)
 
 		baseLen := rSrc.SampleN(1, len(q))
-		baseOp := params.Operator().Slice(len(params.AuxMod()), len(params.AuxMod())+baseLen)
+		baseOp := params.Op().WithModSlice(len(params.AuxMod()), len(params.AuxMod())+baseLen)
 
 		p := rlwe.NewPolyCustom(params.Rank(), baseLen, 0, dft.FormCoeff)
 		us.SampleTo(p.Value, q[:baseLen])
@@ -77,7 +77,7 @@ func TestDecompose(t *testing.T) {
 		dcmp := rlwe.NewDecomposer(params)
 
 		baseLen := rSrc.SampleN(1, len(q))
-		baseOp := params.Operator().Slice(len(params.AuxMod()), len(params.AuxMod())+baseLen)
+		baseOp := params.Op().WithModSlice(len(params.AuxMod()), len(params.AuxMod())+baseLen)
 
 		p := rlwe.NewPolyCustom(params.Rank(), baseLen, 0, dft.FormCoeff)
 		us.SampleTo(p.Value, q[:baseLen])

@@ -182,8 +182,8 @@ func (r *LongDivReducer) Mod() []*num.Modulus {
 	return r.mod
 }
 
-// Slice slices the modulus of [LongDivReducer] and returns the new [LongDivReducer].
-func (r *LongDivReducer) Slice(lo, hi int) *LongDivReducer {
+// WithModSlice slices the modulus of [LongDivReducer] and returns the new [LongDivReducer].
+func (r *LongDivReducer) WithModSlice(lo, hi int) *LongDivReducer {
 	if lo == 0 && hi == len(r.mod) {
 		return r
 	}
@@ -578,8 +578,8 @@ func (r *CyclotomicReducer) Mod() []*num.Modulus {
 	return r.mod
 }
 
-// Slice slices the modulus of [CyclotomicReducer] and returns the new [CyclotomicReducer].
-func (r *CyclotomicReducer) Slice(lo, hi int) *CyclotomicReducer {
+// WithModSlice slices the modulus of [CyclotomicReducer] and returns the new [CyclotomicReducer].
+func (r *CyclotomicReducer) WithModSlice(lo, hi int) *CyclotomicReducer {
 	if lo == 0 && hi == len(r.mod) {
 		return r
 	}
@@ -1041,7 +1041,7 @@ func (r *Reducer) ReduceTo(pOut, p *Element) {
 	pOut.Form = dft.FormCoeff
 }
 
-// Params returns the ring parameters.
+// Params returns the [dft.RingParameters].
 func (r *Reducer) Params() dft.RingParameters {
 	return r.params
 }
@@ -1056,8 +1056,8 @@ func (r *Reducer) Mod() []*num.Modulus {
 	return r.mod
 }
 
-// Slice slices the modulus of [Reducer] and returns the new [Reducer].
-func (r *Reducer) Slice(lo, hi int) *Reducer {
+// WithModSlice slices the modulus of [Reducer] and returns the new [Reducer].
+func (r *Reducer) WithModSlice(lo, hi int) *Reducer {
 	if lo == 0 && hi == len(r.mod) {
 		return r
 	}

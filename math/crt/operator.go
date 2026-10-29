@@ -329,8 +329,8 @@ func (op *Operator) AutTo(pOut, p *Element, idx int) {
 	}
 }
 
-// Slice slices the modulus of [Operator] and returns the new [Operator].
-func (op *Operator) Slice(lo, hi int) *Operator {
+// WithModSlice slices the modulus of [Operator] and returns the new [Operator].
+func (op *Operator) WithModSlice(lo, hi int) *Operator {
 	if lo == 0 && hi == len(op.mod) {
 		return op
 	}

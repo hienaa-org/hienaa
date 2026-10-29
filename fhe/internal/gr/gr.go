@@ -159,19 +159,16 @@ func (gr *GaloisRing) Exp(x *Element, e uint64) *Element {
 
 // ExpTo computes xOut = x^e.
 func (gr *GaloisRing) ExpTo(xOut, x *Element, e uint64) {
-	xOutBuf := gr.poolEl.Get()
-	defer gr.poolEl.Put(xOutBuf)
-
 	xBuf := gr.poolEl.Get()
 	defer gr.poolEl.Put(xBuf)
 
-	xOutBuf.Clear()
-	xOutBuf.value.Coeffs[0][0] = 1
 	xBuf.CopyFrom(x)
+	xOut.Clear()
+	xOut.value.Coeffs[0][0] = 1
 
 	for e > 0 {
 		if e&1 == 1 {
-			gr.MulTo(xOutBuf, xOutBuf, xBuf)
+			gr.MulTo(xOut, xOut, xBuf)
 		}
 		e >>= 1
 		if e == 0 {
@@ -179,8 +176,6 @@ func (gr *GaloisRing) ExpTo(xOut, x *Element, e uint64) {
 		}
 		gr.MulTo(xBuf, xBuf, xBuf)
 	}
-
-	xOut.CopyFrom(xOutBuf)
 }
 
 // ExpBig returns x^e.
@@ -202,17 +197,14 @@ func (gr *GaloisRing) ExpBigTo(xOut, x *Element, e *big.Int) {
 	xBuf := gr.poolEl.Get()
 	defer gr.poolEl.Put(xBuf)
 
-	xOutBuf := gr.poolEl.Get()
-	defer gr.poolEl.Put(xOutBuf)
-
-	xOutBuf.Clear()
-	xOutBuf.value.Coeffs[0][0] = 1
 	xBuf.CopyFrom(x)
+	xOut.Clear()
+	xOut.value.Coeffs[0][0] = 1
 
 	exp.Set(e)
 	for exp.Sign() > 0 {
 		if exp.Bit(0) == 1 {
-			gr.MulTo(xOutBuf, xOutBuf, xBuf)
+			gr.MulTo(xOut, xOut, xBuf)
 		}
 		exp.Rsh(exp, 1)
 		if exp.Sign() == 0 {
@@ -220,8 +212,6 @@ func (gr *GaloisRing) ExpBigTo(xOut, x *Element, e *big.Int) {
 		}
 		gr.MulTo(xBuf, xBuf, xBuf)
 	}
-
-	xOut.CopyFrom(xOutBuf)
 }
 
 // IsUnit checks if x is a unit.

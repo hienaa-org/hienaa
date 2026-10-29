@@ -258,8 +258,8 @@ type Parameters struct {
 	noiseParams crt.SamplerParameters
 }
 
-// Operator is the underlying [crt.Operator].
-func (p Parameters) Operator() *crt.Operator {
+// Op is the underlying [crt.Operator].
+func (p Parameters) Op() *crt.Operator {
 	return p.crtOp
 }
 
@@ -278,11 +278,6 @@ func (p Parameters) BaseMod() []*num.Modulus {
 	return p.baseMod
 }
 
-// HasAuxMod returns whether an auxiliary modulus exists.
-func (p Parameters) HasAuxMod() bool {
-	return len(p.auxMod) > 0
-}
-
 // AuxMod is the auxiliary or "special" modulus.
 func (p Parameters) AuxMod() []*num.Modulus {
 	return p.auxMod
@@ -292,6 +287,21 @@ func (p Parameters) AuxMod() []*num.Modulus {
 // Equals to AuxMod || BaseMod.
 func (p Parameters) FullMod() []*num.Modulus {
 	return p.fullMod
+}
+
+// BaseModLen is the length of base modulus.
+func (p Parameters) BaseModLen() int {
+	return len(p.baseMod)
+}
+
+// AuxModLen is the length of auxiliary modulus.
+func (p Parameters) AuxModLen() int {
+	return len(p.auxMod)
+}
+
+// FullModLen is the length of full modulus chain.
+func (p Parameters) FullModLen() int {
+	return len(p.fullMod)
 }
 
 // BaseModBig is the product of BaseMod.

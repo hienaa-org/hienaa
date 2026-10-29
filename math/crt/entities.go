@@ -28,7 +28,7 @@ type Element struct {
 	Coeffs [][]uint64
 
 	// Form represents the [dft.Form] of the polynomial.
-	// Ignored when element type is [TypeScalar].
+	// Scalars should always maintain [dft.FormCoeff].
 	Form dft.Form
 
 	// Type is the [ElementType].
@@ -118,6 +118,15 @@ func NewPoly(rank, modLen int, form dft.Form) *Element {
 	}
 }
 
+// NewElement creates a new [Element].
+// Rank and form is ignored when the type is [TypeScalar].
+func NewElement(rank, modLen int, elType ElementType, form dft.Form) *Element {
+	if elType == TypeScalar {
+		return NewScalar(modLen)
+	}
+	return NewPoly(rank, modLen, form)
+}
+
 // SetCoeff sets the i-th coefficient to c.
 func (e *Element) SetCoeff(i int, c *Element) {
 	if !(e.Type == TypePoly && c.Type == TypeScalar) {
@@ -160,8 +169,8 @@ func (e *Element) Clear() {
 	}
 }
 
-// Slice slices the modulus of e and returns the new [Element].
-func (e *Element) Slice(lo, hi int) *Element {
+// WithModSlice slices the modulus of e and returns the new [Element].
+func (e *Element) WithModSlice(lo, hi int) *Element {
 	return &Element{
 		Coeffs: e.Coeffs[lo:hi],
 		Form:   e.Form,

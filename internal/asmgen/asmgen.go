@@ -50,8 +50,8 @@ func main() {
 		VecNegToAVX(TypeAVX2, false)
 		VecNegToAVX(TypeAVX2, true)
 
-		VecNegToAVX(TypeAVX512, true)
 		VecNegToAVX(TypeAVX512, false)
+		VecNegToAVX(TypeAVX512, true)
 
 		VecMulWordToAVX(TypeAVX2, OpPure)
 		VecMulWordToAVX(TypeAVX2, OpAdd)

@@ -110,7 +110,7 @@ func (emb *Embedder) EmbedTo(eOut, e *Element, outForm dft.Form) {
 		emb.vecEmb.EmbedTo(eOut.Coeffs, e.Coeffs)
 		eOut.Form = dft.FormCoeff
 		if outForm == dft.FormNTT {
-			emb.OpOut.Slice(0, eOut.ModLen()).FwdNTTTo(eOut, eOut)
+			emb.OpOut.WithModSlice(0, eOut.ModLen()).FwdNTTTo(eOut, eOut)
 		}
 	}
 }
@@ -740,7 +740,7 @@ func (sc *Scaler) ScaleTo(eOut, e *Element, outForm dft.Form) {
 		sc.vecSc.ScaleTo(eOut.Coeffs, e.Coeffs)
 		eOut.Form = dft.FormCoeff
 		if outForm == dft.FormNTT {
-			sc.OpOut.Slice(0, eOut.ModLen()).FwdNTTTo(eOut, eOut)
+			sc.OpOut.WithModSlice(0, eOut.ModLen()).FwdNTTTo(eOut, eOut)
 		}
 	}
 }

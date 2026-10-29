@@ -20,14 +20,14 @@ type Element struct {
 
 // NewScalar creates a new scalar [Element].
 func NewScalar(params Parameters, withAux bool) *Element {
-	if withAux && !params.HasAuxMod() {
+	if withAux && params.AuxModLen() == 0 {
 		panic("no auxiliary modulus")
 	}
 
 	if withAux {
-		return NewScalarCustom(len(params.baseMod), len(params.auxMod))
+		return NewScalarCustom(params.BaseModLen(), params.AuxModLen())
 	}
-	return NewScalarCustom(len(params.baseMod), 0)
+	return NewScalarCustom(params.BaseModLen(), 0)
 }
 
 // NewScalarCustom creates a new scalar [Element] with the given parameters.
@@ -44,14 +44,14 @@ func NewScalarCustom(baseLen, auxLen int) *Element {
 
 // NewPoly creates a new polynomial [Element].
 func NewPoly(params Parameters, withAux bool, form dft.Form) *Element {
-	if withAux && !params.HasAuxMod() {
+	if withAux && params.AuxModLen() == 0 {
 		panic("no auxiliary modulus")
 	}
 
 	if withAux {
-		return NewPolyCustom(params.Rank(), len(params.baseMod), len(params.auxMod), form)
+		return NewPolyCustom(params.Rank(), params.BaseModLen(), params.AuxModLen(), form)
 	}
-	return NewPolyCustom(params.Rank(), len(params.baseMod), 0, form)
+	return NewPolyCustom(params.Rank(), params.BaseModLen(), 0, form)
 }
 
 // NewPolyCustom creates a new polynomial [Element] with the given parameters.
@@ -66,6 +66,24 @@ func NewPolyCustom(rank, baseLen, auxLen int, form dft.Form) *Element {
 	}
 }
 
+// NewElement creates a new [Element].
+// Rank and form are ignored when the type is [crt.TypeScalar].
+func NewElement(params Parameters, withAux bool, elType crt.ElementType, form dft.Form) *Element {
+	if elType == crt.TypeScalar {
+		return NewScalar(params, withAux)
+	}
+	return NewPoly(params, withAux, form)
+}
+
+// NewElementCustom creates a new [Element] with the given parameters.
+// Rank and form are ignored when the type is [crt.TypeScalar].
+func NewElementCustom(rank, baseLen, auxLen int, elType crt.ElementType, form dft.Form) *Element {
+	if elType == crt.TypeScalar {
+		return NewScalarCustom(baseLen, auxLen)
+	}
+	return NewPolyCustom(rank, baseLen, auxLen, form)
+}
+
 // NewElementFrom creates a new [Element] from [crt.Element].
 func NewElementFrom(value *crt.Element, auxLen int) *Element {
 	if auxLen < 0 || auxLen > value.ModLen() {
@@ -78,20 +96,25 @@ func NewElementFrom(value *crt.Element, auxLen int) *Element {
 	}
 }
 
-// Type returns the [crt.ElementType] of e.
-func (e *Element) Type() crt.ElementType {
-	return e.Value.Type
-}
-
 // Rank returns the rank of e.
 func (e *Element) Rank() int {
 	return e.Value.Rank()
 }
 
 // Form returns the [dft.Form] of e.
-// Ignored when the value is scalar.
 func (e *Element) Form() dft.Form {
 	return e.Value.Form
+}
+
+// SetForm sets the [dft.Form] of e.
+// This does not change the coefficients, so it may invalidate correctness.
+func (e *Element) SetForm(form dft.Form) {
+	e.Value.Form = form
+}
+
+// Type returns the [crt.ElementType] of e.
+func (e *Element) Type() crt.ElementType {
+	return e.Value.Type
 }
 
 // FullModLen returns the full modulus length.
@@ -125,7 +148,7 @@ func (e *Element) WithModLen(baseLen, auxLen int) *Element {
 	}
 
 	return &Element{
-		Value:  e.Value.Slice(e.auxLen-auxLen, e.auxLen+baseLen),
+		Value:  e.Value.WithModSlice(e.auxLen-auxLen, e.auxLen+baseLen),
 		auxLen: auxLen,
 	}
 }
@@ -223,6 +246,12 @@ func (sk *SecretKey) Form() dft.Form {
 	return (*Element)(sk).Form()
 }
 
+// SetForm sets the [dft.Form] of sk.
+// This does not change the coefficients, so it may invalidate correctness.
+func (sk *SecretKey) SetForm(form dft.Form) {
+	(*Element)(sk).SetForm(form)
+}
+
 // FullModLen returns the full modulus length.
 func (sk *SecretKey) FullModLen() int {
 	return (*Element)(sk).FullModLen()
@@ -307,6 +336,13 @@ func (ct *Ciphertext) Form() dft.Form {
 		panic("inconsistent forms")
 	}
 	return ct.Body.Form()
+}
+
+// SetForm sets the [dft.Form] of ct.
+// This does not change the coefficients, so it may invalidate correctness.
+func (ct *Ciphertext) SetForm(form dft.Form) {
+	ct.Body.SetForm(form)
+	ct.Mask.SetForm(form)
 }
 
 // FullModLen returns the full modulus length.
@@ -409,6 +445,12 @@ func (pk *PublicKey) Form() dft.Form {
 	return (*Ciphertext)(pk).Form()
 }
 
+// SetForm sets the [dft.Form] of pk.
+// This does not change the coefficients, so it may invalidate correctness.
+func (pk *PublicKey) SetForm(form dft.Form) {
+	(*Ciphertext)(pk).SetForm(form)
+}
+
 // FullModLen returns the full modulus length.
 func (pk *PublicKey) FullModLen() int {
 	return (*Ciphertext)(pk).FullModLen()
@@ -464,22 +506,22 @@ type Vector struct {
 }
 
 // NewVector creates a new [Vector].
-func NewVector(params Parameters, length int, withAux bool, form dft.Form) *Vector {
-	if withAux && !params.HasAuxMod() {
+func NewVector(params Parameters, length int, withAux bool, elType crt.ElementType, form dft.Form) *Vector {
+	if withAux && params.AuxModLen() == 0 {
 		panic("no auxiliary modulus")
 	}
 
 	if withAux {
-		return NewVectorCustom(params.Rank(), len(params.baseMod), len(params.auxMod), length, form)
+		return NewVectorCustom(params.Rank(), params.BaseModLen(), params.AuxModLen(), length, elType, form)
 	}
-	return NewVectorCustom(params.Rank(), len(params.baseMod), 0, length, form)
+	return NewVectorCustom(params.Rank(), params.BaseModLen(), 0, length, elType, form)
 }
 
 // NewVectorCustom creates a new [Vector] with the given parameters.
-func NewVectorCustom(rank, baseLen, auxLen, length int, form dft.Form) *Vector {
+func NewVectorCustom(rank, baseLen, auxLen, length int, elType crt.ElementType, form dft.Form) *Vector {
 	value := make([]*Element, length)
 	for i := range value {
-		value[i] = NewPolyCustom(rank, baseLen, auxLen, form)
+		value[i] = NewElementCustom(rank, baseLen, auxLen, elType, form)
 	}
 
 	return &Vector{Value: value}
@@ -510,6 +552,25 @@ func (v *Vector) Form() dft.Form {
 		}
 	}
 	return form
+}
+
+// SetForm sets the [dft.Form] of v.
+// This does not change the coefficients, so it may invalidate correctness.
+func (v *Vector) SetForm(form dft.Form) {
+	for i := range v.Value {
+		v.Value[i].SetForm(form)
+	}
+}
+
+// Type returns the [crt.ElementType] of v.
+func (v *Vector) Type() crt.ElementType {
+	elType := v.Value[0].Type()
+	for i := 1; i < v.Len(); i++ {
+		if elType != v.Value[i].Type() {
+			panic("inconsistent types")
+		}
+	}
+	return elType
 }
 
 // FullModLen returns the full modulus length.
@@ -644,7 +705,7 @@ type GadgetEncryption struct {
 
 // NewGadgetEncryption creates a new [GadgetEncryption].
 func NewGadgetEncryption(params Parameters, form dft.Form) *GadgetEncryption {
-	return NewGadgetEncryptionCustom(params.Rank(), len(params.baseMod), len(params.auxMod), params.GadgetLen(), form)
+	return NewGadgetEncryptionCustom(params.Rank(), params.BaseModLen(), params.AuxModLen(), params.GadgetLen(), form)
 }
 
 // NewGadgetEncryptionCustom creates a new [GadgetEncryption] with the given parameters.
@@ -682,6 +743,14 @@ func (ct *GadgetEncryption) Form() dft.Form {
 		}
 	}
 	return form
+}
+
+// SetForm sets the [dft.Form] of ct.
+// This does not change the coefficients, so it may invalidate correctness.
+func (ct *GadgetEncryption) SetForm(form dft.Form) {
+	for i := range ct.Value {
+		ct.Value[i].SetForm(form)
+	}
 }
 
 // FullModLen returns the full modulus length.
@@ -849,6 +918,13 @@ func (ct *RGSWEncryption) Form() dft.Form {
 	return ct.Body.Form()
 }
 
+// SetForm sets the [dft.Form] of ct.
+// This does not change the coefficients, so it may invalidate correctness.
+func (ct *RGSWEncryption) SetForm(form dft.Form) {
+	ct.Body.SetForm(form)
+	ct.Mask.SetForm(form)
+}
+
 // FullModLen returns the full modulus length.
 func (ct *RGSWEncryption) FullModLen() int {
 	if ct.Body.FullModLen() != ct.Mask.FullModLen() {
@@ -925,4 +1001,291 @@ func (ct *RGSWEncryption) IsEqual(ctIn *RGSWEncryption) bool {
 // IsConsistent checks if ct has the same shape as ctIn.
 func (ct *RGSWEncryption) IsConsistent(ctIn *RGSWEncryption) bool {
 	return ct.Body.IsConsistent(ctIn.Body) && ct.Mask.IsConsistent(ctIn.Mask)
+}
+
+// KeySwitchKey is a public key for key-switching.
+type KeySwitchKey GadgetEncryption
+
+// NewKeySwitchKey creates a new [KeySwitchKey].
+func NewKeySwitchKey(params Parameters, form dft.Form) *KeySwitchKey {
+	return (*KeySwitchKey)(NewGadgetEncryption(params, form))
+}
+
+// NewKeySwitchKeyCustom creates a new [KeySwitchKey] with the given parameters.
+func NewKeySwitchKeyCustom(rank, baseLen, auxLen, gadLen int, form dft.Form) *KeySwitchKey {
+	return (*KeySwitchKey)(NewGadgetEncryptionCustom(rank, baseLen, auxLen, gadLen, form))
+}
+
+// GadgetLen returns the length of the gadget decomposition.
+func (ksk *KeySwitchKey) GadgetLen() int {
+	return (*GadgetEncryption)(ksk).GadgetLen()
+}
+
+// Rank returns the rank of ksk.
+func (ksk *KeySwitchKey) Rank() int {
+	return (*GadgetEncryption)(ksk).Rank()
+}
+
+// Form returns the [dft.Form] of ksk.
+func (ksk *KeySwitchKey) Form() dft.Form {
+	return (*GadgetEncryption)(ksk).Form()
+}
+
+// SetForm sets the [dft.Form] of ksk.
+// This does not change the coefficients, so it may invalidate correctness.
+func (ksk *KeySwitchKey) SetForm(form dft.Form) {
+	(*GadgetEncryption)(ksk).SetForm(form)
+}
+
+// FullModLen returns the full modulus length.
+func (ksk *KeySwitchKey) FullModLen() int {
+	return (*GadgetEncryption)(ksk).FullModLen()
+}
+
+// BaseModLen returns the base modulus length.
+func (ksk *KeySwitchKey) BaseModLen() int {
+	return (*GadgetEncryption)(ksk).BaseModLen()
+}
+
+// AuxModLen returns the auxiliary modulus length.
+func (ksk *KeySwitchKey) AuxModLen() int {
+	return (*GadgetEncryption)(ksk).AuxModLen()
+}
+
+// Clear clears ksk.
+func (ksk *KeySwitchKey) Clear() {
+	(*GadgetEncryption)(ksk).Clear()
+}
+
+// WithModLen returns a shallow copy with the given modulus lengths.
+//
+// Panics when baseLen or auxLen is larger than the current base or auxiliary modulus lengths.
+func (ksk *KeySwitchKey) WithModLen(baseLen, auxLen int) *KeySwitchKey {
+	return (*KeySwitchKey)((*GadgetEncryption)(ksk).WithModLen(baseLen, auxLen))
+}
+
+// Resize resizes ksk in place to the given base and auxiliary modulus lengths.
+//
+// Panics when baseLen or auxLen is invalid.
+func (ksk *KeySwitchKey) Resize(baseLen, auxLen int) {
+	(*GadgetEncryption)(ksk).Resize(baseLen, auxLen)
+}
+
+// Copy returns a copy of ksk.
+func (ksk *KeySwitchKey) Copy() *KeySwitchKey {
+	return (*KeySwitchKey)((*GadgetEncryption)(ksk).Copy())
+}
+
+// CopyFrom copies the coefficients from kskIn to ksk.
+//
+// Panics when ksk and kskIn are not consistent.
+func (ksk *KeySwitchKey) CopyFrom(kskIn *KeySwitchKey) {
+	(*GadgetEncryption)(ksk).CopyFrom((*GadgetEncryption)(kskIn))
+}
+
+// IsEqual checks if ksk is equal to kskIn.
+func (ksk *KeySwitchKey) IsEqual(kskIn *KeySwitchKey) bool {
+	return (*GadgetEncryption)(ksk).IsEqual((*GadgetEncryption)(kskIn))
+}
+
+// IsConsistent checks if ksk has the same shape as kskIn.
+func (ksk *KeySwitchKey) IsConsistent(kskIn *KeySwitchKey) bool {
+	return (*GadgetEncryption)(ksk).IsConsistent((*GadgetEncryption)(kskIn))
+}
+
+// RelinKey is a public key for relinearisation.
+type RelinKey KeySwitchKey
+
+// NewRelinKey creates a new [RelinKey].
+func NewRelinKey(params Parameters, form dft.Form) *RelinKey {
+	return (*RelinKey)(NewKeySwitchKey(params, form))
+}
+
+// NewRelinKeyCustom creates a new [RelinKey] with the given parameters.
+func NewRelinKeyCustom(rank, baseLen, auxLen, gadLen int, form dft.Form) *RelinKey {
+	return (*RelinKey)(NewKeySwitchKeyCustom(rank, baseLen, auxLen, gadLen, form))
+}
+
+// GadgetLen returns the length of the gadget decomposition.
+func (rlk *RelinKey) GadgetLen() int {
+	return (*KeySwitchKey)(rlk).GadgetLen()
+}
+
+// Rank returns the rank of rlk.
+func (rlk *RelinKey) Rank() int {
+	return (*KeySwitchKey)(rlk).Rank()
+}
+
+// Form returns the [dft.Form] of rlk.
+func (rlk *RelinKey) Form() dft.Form {
+	return (*KeySwitchKey)(rlk).Form()
+}
+
+// SetForm sets the [dft.Form] of rlk.
+// This does not change the coefficients, so it may invalidate correctness.
+func (rlk *RelinKey) SetForm(form dft.Form) {
+	(*KeySwitchKey)(rlk).SetForm(form)
+}
+
+// FullModLen returns the full modulus length.
+func (rlk *RelinKey) FullModLen() int {
+	return (*KeySwitchKey)(rlk).FullModLen()
+}
+
+// BaseModLen returns the base modulus length.
+func (rlk *RelinKey) BaseModLen() int {
+	return (*KeySwitchKey)(rlk).BaseModLen()
+}
+
+// AuxModLen returns the auxiliary modulus length.
+func (rlk *RelinKey) AuxModLen() int {
+	return (*KeySwitchKey)(rlk).AuxModLen()
+}
+
+// Clear clears rlk.
+func (rlk *RelinKey) Clear() {
+	(*KeySwitchKey)(rlk).Clear()
+}
+
+// WithModLen returns a shallow copy with the given modulus lengths.
+//
+// Panics when baseLen or auxLen is larger than the current base or auxiliary modulus lengths.
+func (rlk *RelinKey) WithModLen(baseLen, auxLen int) *RelinKey {
+	return (*RelinKey)((*KeySwitchKey)(rlk).WithModLen(baseLen, auxLen))
+}
+
+// Resize resizes rlk in place to the given base and auxiliary modulus lengths.
+//
+// Panics when baseLen or auxLen is invalid.
+func (rlk *RelinKey) Resize(baseLen, auxLen int) {
+	(*KeySwitchKey)(rlk).Resize(baseLen, auxLen)
+}
+
+// Copy returns a copy of rlk.
+func (rlk *RelinKey) Copy() *RelinKey {
+	return (*RelinKey)((*KeySwitchKey)(rlk).Copy())
+}
+
+// CopyFrom copies the coefficients from rlkIn to rlk.
+//
+// Panics when rlk and rlkIn are not consistent.
+func (rlk *RelinKey) CopyFrom(rlkIn *RelinKey) {
+	(*KeySwitchKey)(rlk).CopyFrom((*KeySwitchKey)(rlkIn))
+}
+
+// IsEqual checks if rlk is equal to rlkIn.
+func (rlk *RelinKey) IsEqual(rlkIn *RelinKey) bool {
+	return (*KeySwitchKey)(rlk).IsEqual((*KeySwitchKey)(rlkIn))
+}
+
+// IsConsistent checks if rlk has the same shape as rlkIn.
+func (rlk *RelinKey) IsConsistent(rlkIn *RelinKey) bool {
+	return (*KeySwitchKey)(rlk).IsConsistent((*KeySwitchKey)(rlkIn))
+}
+
+// AutKey is a public key for automorphism.
+type AutKey struct {
+	Value *KeySwitchKey
+	// Idx is the automorphism index.
+	Idx int
+}
+
+// NewAutKey creates a new [AutKey] with the given automorphism index.
+func NewAutKey(params Parameters, idx int, form dft.Form) *AutKey {
+	return &AutKey{
+		Value: NewKeySwitchKey(params, form),
+		Idx:   idx,
+	}
+}
+
+// NewAutKeyCustom creates a new [AutKey] with the given parameters.
+func NewAutKeyCustom(rank, baseLen, auxLen, gadLen, idx int, form dft.Form) *AutKey {
+	return &AutKey{
+		Value: NewKeySwitchKeyCustom(rank, baseLen, auxLen, gadLen, form),
+		Idx:   idx,
+	}
+}
+
+// GadgetLen returns the length of the gadget decomposition.
+func (atk *AutKey) GadgetLen() int {
+	return atk.Value.GadgetLen()
+}
+
+// Rank returns the rank of atk.
+func (atk *AutKey) Rank() int {
+	return atk.Value.Rank()
+}
+
+// Form returns the [dft.Form] of atk.
+func (atk *AutKey) Form() dft.Form {
+	return atk.Value.Form()
+}
+
+// SetForm sets the [dft.Form] of atk.
+// This does not change the coefficients, so it may invalidate correctness.
+func (atk *AutKey) SetForm(form dft.Form) {
+	atk.Value.SetForm(form)
+}
+
+// FullModLen returns the full modulus length.
+func (atk *AutKey) FullModLen() int {
+	return atk.Value.FullModLen()
+}
+
+// BaseModLen returns the base modulus length.
+func (atk *AutKey) BaseModLen() int {
+	return atk.Value.BaseModLen()
+}
+
+// AuxModLen returns the auxiliary modulus length.
+func (atk *AutKey) AuxModLen() int {
+	return atk.Value.AuxModLen()
+}
+
+// Clear clears the coefficients of atk, preserving its automorphism index.
+func (atk *AutKey) Clear() {
+	atk.Value.Clear()
+}
+
+// WithModLen returns a shallow copy with the given modulus lengths.
+//
+// Panics when baseLen or auxLen is larger than the current base or auxiliary modulus lengths.
+func (atk *AutKey) WithModLen(baseLen, auxLen int) *AutKey {
+	return &AutKey{
+		Value: atk.Value.WithModLen(baseLen, auxLen),
+		Idx:   atk.Idx,
+	}
+}
+
+// Resize resizes atk in place to the given base and auxiliary modulus lengths.
+//
+// Panics when baseLen or auxLen is invalid.
+func (atk *AutKey) Resize(baseLen, auxLen int) {
+	atk.Value.Resize(baseLen, auxLen)
+}
+
+// Copy returns a copy of atk.
+func (atk *AutKey) Copy() *AutKey {
+	return &AutKey{
+		Value: atk.Value.Copy(),
+		Idx:   atk.Idx,
+	}
+}
+
+// CopyFrom copies the coefficients and automorphism index from atkIn to atk.
+//
+// Panics when atk and atkIn are not consistent.
+func (atk *AutKey) CopyFrom(atkIn *AutKey) {
+	atk.Value.CopyFrom(atkIn.Value)
+	atk.Idx = atkIn.Idx
+}
+
+// IsEqual checks if atk is equal to atkIn, including its automorphism index.
+func (atk *AutKey) IsEqual(atkIn *AutKey) bool {
+	return atk.Value.IsEqual(atkIn.Value) && atk.Idx == atkIn.Idx
+}
+
+// IsConsistent checks if atk has the same shape as atkIn.
+func (atk *AutKey) IsConsistent(atkIn *AutKey) bool {
+	return atk.Value.IsConsistent(atkIn.Value)
 }

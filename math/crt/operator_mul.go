@@ -575,7 +575,7 @@ func (op *anyCyclotomicMulOperator) slice(lo, hi int) *anyCyclotomicMulOperator 
 		ambNTT:    op.ambNTT,
 		embedder:  op.embedder[lo:hi],
 
-		reducer: op.reducer.Slice(lo, hi),
+		reducer: op.reducer.WithModSlice(lo, hi),
 
 		pool: op.pool,
 	}
@@ -889,7 +889,7 @@ func (op *reduceMulOperator) slice(lo, hi int) *reduceMulOperator {
 		ambNTT:    op.ambNTT,
 		embedder:  op.embedder[lo:hi],
 
-		reducer: op.reducer.Slice(lo, hi),
+		reducer: op.reducer.WithModSlice(lo, hi),
 
 		pool: op.pool,
 	}

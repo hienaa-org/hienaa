@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	GaussianTailCut = 12
+	gaussianTailCut = 12
 )
 
 // SamplerParameters is the parameters for [Sampler].
@@ -131,6 +131,10 @@ type RoundedGaussianSamplerParameters struct {
 
 // Sampler returns the [Sampler].
 func (p RoundedGaussianSamplerParameters) Sampler() Sampler {
+	if p.StdDev < 0 || math.IsNaN(p.StdDev) || math.IsInf(p.StdDev, 0) {
+		panic("stdDev must be finite and nonnegative")
+	}
+
 	return &RoundedGaussianSampler{
 		baseSampler: csprng.NewRoundedGaussianSampler(),
 		stdDev:      p.StdDev,
@@ -139,7 +143,7 @@ func (p RoundedGaussianSamplerParameters) Sampler() Sampler {
 
 // Bound returns the inf-norm bound of the sampler.
 func (p RoundedGaussianSamplerParameters) Bound() float64 {
-	return p.StdDev * GaussianTailCut
+	return p.StdDev * gaussianTailCut
 }
 
 // Variance returns the inf-norm bound of the variance of the sampler.
@@ -357,7 +361,7 @@ func (s *RoundedGaussianSampler) Sample(rank int, mod []*num.Modulus) *Element {
 func (s *RoundedGaussianSampler) SampleTo(pOut *Element, mod []*num.Modulus) {
 	checkPolyShape(pOut.Rank(), len(mod), pOut)
 
-	if math.Log2(s.stdDev) <= num.MaxModulusBits {
+	if num.Log2(gaussianTailCut)+math.Log2(s.stdDev) <= num.MaxModulusBits {
 		s.sampleFloat64To(pOut, mod, s.stdDev)
 	} else {
 		s.sampleBigFloatTo(pOut, mod, s.stdDev)

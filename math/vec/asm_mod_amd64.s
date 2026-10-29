@@ -919,42 +919,6 @@ leftover_loop_end:
 	VZEROUPPER
 	RET
 
-// func negWordToAVX512(vOut []uint64, v []uint64)
-// Requires: AVX, AVX512F
-TEXT ·negWordToAVX512(SB), NOSPLIT, $0-48
-	VPXORQ Z0, Z0, Z0
-	MOVQ   vOut_len+8(FP), AX
-	MOVQ   vOut_base+0(FP), CX
-	MOVQ   v_base+24(FP), DX
-	MOVQ   AX, BX
-	SHRQ   $0x03, BX
-	SHLQ   $0x03, BX
-	XORQ   SI, SI
-	JMP    loop_end
-
-loop_body:
-	VMOVDQU64 (DX)(SI*8), Z1
-	VPSUBQ    Z1, Z0, Z1
-	VMOVDQU64 Z1, (CX)(SI*8)
-	ADDQ      $0x08, SI
-
-loop_end:
-	CMPQ SI, BX
-	JL   loop_body
-	JMP  leftover_loop_end
-
-leftover_loop_body:
-	MOVQ (DX)(SI*8), BX
-	NEGQ BX
-	MOVQ BX, (CX)(SI*8)
-	ADDQ $0x01, SI
-
-leftover_loop_end:
-	CMPQ SI, AX
-	JL   leftover_loop_body
-	VZEROUPPER
-	RET
-
 // func negToAVX512(vOut []uint64, v []uint64, q uint64)
 // Requires: AVX, AVX512F, CMOV
 TEXT ·negToAVX512(SB), NOSPLIT, $0-56
@@ -993,6 +957,42 @@ leftover_loop_body:
 
 leftover_loop_end:
 	CMPQ DI, CX
+	JL   leftover_loop_body
+	VZEROUPPER
+	RET
+
+// func negWordToAVX512(vOut []uint64, v []uint64)
+// Requires: AVX, AVX512F
+TEXT ·negWordToAVX512(SB), NOSPLIT, $0-48
+	VPXORQ Z0, Z0, Z0
+	MOVQ   vOut_len+8(FP), AX
+	MOVQ   vOut_base+0(FP), CX
+	MOVQ   v_base+24(FP), DX
+	MOVQ   AX, BX
+	SHRQ   $0x03, BX
+	SHLQ   $0x03, BX
+	XORQ   SI, SI
+	JMP    loop_end
+
+loop_body:
+	VMOVDQU64 (DX)(SI*8), Z1
+	VPSUBQ    Z1, Z0, Z1
+	VMOVDQU64 Z1, (CX)(SI*8)
+	ADDQ      $0x08, SI
+
+loop_end:
+	CMPQ SI, BX
+	JL   loop_body
+	JMP  leftover_loop_end
+
+leftover_loop_body:
+	MOVQ (DX)(SI*8), BX
+	NEGQ BX
+	MOVQ BX, (CX)(SI*8)
+	ADDQ $0x01, SI
+
+leftover_loop_end:
+	CMPQ SI, AX
 	JL   leftover_loop_body
 	VZEROUPPER
 	RET

@@ -2,7 +2,7 @@ package crt
 
 import "github.com/hienaa-org/hienaa/math/dft"
 
-// checkElementShape panics if e is not consistent with given ring parameters and modulus.
+// checkElementShape panics if e is not consistent.
 func checkElementShape(rank, modLen int, e *Element) {
 	if e.Type == TypeScalar {
 		if e.Rank() != 1 || e.ModLen() != modLen {
@@ -13,7 +13,7 @@ func checkElementShape(rank, modLen int, e *Element) {
 	}
 }
 
-// checkPolyShape panics if p does not have the given rank and modulus length.
+// checkPolyShape panics if p is not consistent.
 func checkPolyShape(rank, modLen int, p *Element) {
 	if p.Rank() != rank || p.ModLen() != modLen {
 		panic("inconsistent inputs")

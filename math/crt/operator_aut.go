@@ -325,7 +325,7 @@ func (op *anyCyclotomicAutOperator) slice(lo, hi int) *anyCyclotomicAutOperator 
 		mod:           op.mod[lo:hi],
 		isNTTFriendly: op.isNTTFriendly[lo:hi],
 
-		reducer: op.reducer.Slice(lo, hi),
+		reducer: op.reducer.WithModSlice(lo, hi),
 
 		primeExpMods: op.primeExpMods,
 		rootExps:     op.rootExps,
