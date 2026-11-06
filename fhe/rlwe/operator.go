@@ -162,8 +162,6 @@ func (op *Operator) NegTo(ctOut, ct *Ciphertext) {
 }
 
 // Mul returns ct * e.
-//
-// Assumes that inputs do not overlap.
 func (op *Operator) Mul(ct *Ciphertext, e *Element) *Ciphertext {
 	ctOut := NewCiphertextCustom(op.params.Rank(), ct.BaseModLen(), ct.AuxModLen(), dft.FormCoeff)
 	op.MulTo(ctOut, ct, e)
@@ -171,36 +169,69 @@ func (op *Operator) Mul(ct *Ciphertext, e *Element) *Ciphertext {
 }
 
 // MulTo computes ctOut = ct * e.
-//
-// Assumes that inputs do not overlap.
 func (op *Operator) MulTo(ctOut, ct *Ciphertext, e *Element) {
 	checkCiphertextShape(op.params, ctOut)
 	checkCiphertextShape(op.params, ct)
 
-	op.plainOp.MulTo(ctOut.Body, ct.Body, e)
-	op.plainOp.MulTo(ctOut.Mask, ct.Mask, e)
+	switch {
+	case e.Type() == crt.TypeScalar:
+		op.plainOp.MulTo(ctOut.Body, ct.Body, e)
+		op.plainOp.MulTo(ctOut.Mask, ct.Mask, e)
+
+	case e.Type() == crt.TypePoly:
+		eBufFull := op.poolPoly.Get()
+		defer op.poolPoly.Put(eBufFull)
+
+		eBuf := eBufFull.WithModLen(e.BaseModLen(), e.AuxModLen())
+		eBuf.CopyFrom(e)
+
+		op.plainOp.MulTo(ctOut.Body, ct.Body, eBuf)
+		op.plainOp.MulTo(ctOut.Mask, ct.Mask, eBuf)
+	}
 }
 
 // MulAddTo computes ctOut += ct * e.
-//
-// Assumes that inputs do not overlap.
 func (op *Operator) MulAddTo(ctOut, ct *Ciphertext, e *Element) {
 	checkCiphertextShape(op.params, ctOut)
 	checkCiphertextShape(op.params, ct)
 
-	op.plainOp.MulAddTo(ctOut.Body, ct.Body, e)
-	op.plainOp.MulAddTo(ctOut.Mask, ct.Mask, e)
+	switch {
+	case e.Type() == crt.TypeScalar:
+		op.plainOp.MulAddTo(ctOut.Body, ct.Body, e)
+		op.plainOp.MulAddTo(ctOut.Mask, ct.Mask, e)
+
+	case e.Type() == crt.TypePoly:
+		eBufFull := op.poolPoly.Get()
+		defer op.poolPoly.Put(eBufFull)
+
+		eBuf := eBufFull.WithModLen(e.BaseModLen(), e.AuxModLen())
+		eBuf.CopyFrom(e)
+
+		op.plainOp.MulAddTo(ctOut.Body, ct.Body, eBuf)
+		op.plainOp.MulAddTo(ctOut.Mask, ct.Mask, eBuf)
+	}
 }
 
 // MulSubTo computes ctOut -= ct * e.
-//
-// Assumes that inputs do not overlap.
 func (op *Operator) MulSubTo(ctOut, ct *Ciphertext, e *Element) {
 	checkCiphertextShape(op.params, ctOut)
 	checkCiphertextShape(op.params, ct)
 
-	op.plainOp.MulSubTo(ctOut.Body, ct.Body, e)
-	op.plainOp.MulSubTo(ctOut.Mask, ct.Mask, e)
+	switch {
+	case e.Type() == crt.TypeScalar:
+		op.plainOp.MulSubTo(ctOut.Body, ct.Body, e)
+		op.plainOp.MulSubTo(ctOut.Mask, ct.Mask, e)
+
+	case e.Type() == crt.TypePoly:
+		eBufFull := op.poolPoly.Get()
+		defer op.poolPoly.Put(eBufFull)
+
+		eBuf := eBufFull.WithModLen(e.BaseModLen(), e.AuxModLen())
+		eBuf.CopyFrom(e)
+
+		op.plainOp.MulSubTo(ctOut.Body, ct.Body, eBuf)
+		op.plainOp.MulSubTo(ctOut.Mask, ct.Mask, eBuf)
+	}
 }
 
 // Tensor returns ct0 * ct1.
@@ -267,15 +298,15 @@ func (op *Operator) ScaleTo(ctOut, ct *Ciphertext, outForm dft.Form) {
 	op.plainOp.ScaleTo(ctOut.Mask, ct.Mask, outForm)
 }
 
-// GadgetProd returns p * ctGadEnc.
-func (op *Operator) GadgetProd(p *Element, ctGadEnc *GadgetEncryption, outForm dft.Form) *Ciphertext {
+// GadProd returns p * ctGadEnc.
+func (op *Operator) GadProd(p *Element, ctGadEnc *GadgetEncryption, outForm dft.Form) *Ciphertext {
 	ctOut := NewCiphertextCustom(op.params.Rank(), p.BaseModLen(), 0, dft.FormCoeff)
-	op.GadgetProdTo(ctOut, p, ctGadEnc, outForm)
+	op.GadProdTo(ctOut, p, ctGadEnc, outForm)
 	return ctOut
 }
 
-// GadgetProdTo computes ctOut = p * ctGadEnc.
-func (op *Operator) GadgetProdTo(ctOut *Ciphertext, p *Element, ctGadEnc *GadgetEncryption, outForm dft.Form) {
+// GadProdTo computes ctOut = p * ctGadEnc.
+func (op *Operator) GadProdTo(ctOut *Ciphertext, p *Element, ctGadEnc *GadgetEncryption, outForm dft.Form) {
 	checkCiphertextShape(op.params, ctOut)
 	if ctOut.AuxModLen() > 0 {
 		panic("inconsistent inputs")
@@ -285,7 +316,7 @@ func (op *Operator) GadgetProdTo(ctOut *Ciphertext, p *Element, ctGadEnc *Gadget
 	defer op.poolRLWE.Put(ctOutAuxFull)
 
 	ctOutAux := ctOutAuxFull.WithModLen(ctOut.BaseModLen(), op.params.AuxModLen())
-	op.GadgetProdLazyTo(ctOutAux, p, ctGadEnc, outForm)
+	op.GadProdLazyTo(ctOutAux, p, ctGadEnc, outForm)
 
 	if op.params.AuxModLen() > 0 {
 		op.ScaleTo(ctOut, ctOutAux, outForm)
@@ -295,17 +326,17 @@ func (op *Operator) GadgetProdTo(ctOut *Ciphertext, p *Element, ctGadEnc *Gadget
 	ctOut.CopyFrom(ctOutAux)
 }
 
-// GadgetProdHoisted returns pDcmp * ctGadEnc.
+// GadProdHoisted returns pDcmp * ctGadEnc.
 // pDcmp is a precomputed gadget decomposition.
-func (op *Operator) GadgetProdHoisted(pDcmp *Vector, ctGadEnc *GadgetEncryption, outForm dft.Form) *Ciphertext {
+func (op *Operator) GadProdHoisted(pDcmp *Vector, ctGadEnc *GadgetEncryption, outForm dft.Form) *Ciphertext {
 	ctOut := NewCiphertextCustom(op.params.Rank(), pDcmp.BaseModLen(), 0, dft.FormCoeff)
-	op.GadgetProdHoistedTo(ctOut, pDcmp, ctGadEnc, outForm)
+	op.GadProdHoistedTo(ctOut, pDcmp, ctGadEnc, outForm)
 	return ctOut
 }
 
-// GadgetProdHoistedTo computes ctOut = pDcmp * ctGadEnc.
+// GadProdHoistedTo computes ctOut = pDcmp * ctGadEnc.
 // pDcmp is a precomputed gadget decomposition.
-func (op *Operator) GadgetProdHoistedTo(ctOut *Ciphertext, pDcmp *Vector, ctGadEnc *GadgetEncryption, outForm dft.Form) {
+func (op *Operator) GadProdHoistedTo(ctOut *Ciphertext, pDcmp *Vector, ctGadEnc *GadgetEncryption, outForm dft.Form) {
 	checkCiphertextShape(op.params, ctOut)
 	if ctOut.AuxModLen() > 0 {
 		panic("inconsistent inputs")
@@ -315,7 +346,7 @@ func (op *Operator) GadgetProdHoistedTo(ctOut *Ciphertext, pDcmp *Vector, ctGadE
 	defer op.poolRLWE.Put(ctOutAuxFull)
 
 	ctOutAux := ctOutAuxFull.WithModLen(ctOut.BaseModLen(), pDcmp.AuxModLen())
-	op.GadgetProdHoistedLazyTo(ctOutAux, pDcmp, ctGadEnc, outForm)
+	op.GadProdHoistedLazyTo(ctOutAux, pDcmp, ctGadEnc, outForm)
 
 	if op.params.AuxModLen() > 0 {
 		op.ScaleTo(ctOut, ctOutAux, outForm)
@@ -325,17 +356,17 @@ func (op *Operator) GadgetProdHoistedTo(ctOut *Ciphertext, pDcmp *Vector, ctGadE
 	ctOut.CopyFrom(ctOutAux)
 }
 
-// GadgetProdLazy returns p * ctGadEnc,
+// GadProdLazy returns p * ctGadEnc,
 // but the output modulus includes the auxiliary modulus.
-func (op *Operator) GadgetProdLazy(p *Element, ctGadEnc *GadgetEncryption, outForm dft.Form) *Ciphertext {
+func (op *Operator) GadProdLazy(p *Element, ctGadEnc *GadgetEncryption, outForm dft.Form) *Ciphertext {
 	ctOut := NewCiphertextCustom(op.params.Rank(), p.BaseModLen(), op.params.AuxModLen(), dft.FormCoeff)
-	op.GadgetProdLazyTo(ctOut, p, ctGadEnc, outForm)
+	op.GadProdLazyTo(ctOut, p, ctGadEnc, outForm)
 	return ctOut
 }
 
-// GadgetProdLazyTo computes ctOut = p * ctGadEnc,
+// GadProdLazyTo computes ctOut = p * ctGadEnc,
 // but the modulus of ctOut includes the auxiliary modulus.
-func (op *Operator) GadgetProdLazyTo(ctOut *Ciphertext, p *Element, ctGadEnc *GadgetEncryption, outForm dft.Form) {
+func (op *Operator) GadProdLazyTo(ctOut *Ciphertext, p *Element, ctGadEnc *GadgetEncryption, outForm dft.Form) {
 	checkCiphertextShape(op.params, ctOut)
 	checkElementShape(op.params, p)
 	checkCiphertextShape(op.params, ctGadEnc)
@@ -355,22 +386,22 @@ func (op *Operator) GadgetProdLazyTo(ctOut *Ciphertext, p *Element, ctGadEnc *Ga
 	pDcmp := pDcmpFull.Slice(0, op.dcmp.DecomposeLen(p.BaseModLen())).WithModLen(p.BaseModLen(), op.params.AuxModLen())
 
 	op.dcmp.DecomposeTo(pDcmp, p, dft.FormNTT)
-	op.GadgetProdHoistedLazyTo(ctOut, pDcmp, ctGadEnc, outForm)
+	op.GadProdHoistedLazyTo(ctOut, pDcmp, ctGadEnc, outForm)
 }
 
-// GadgetProdHoistedLazy returns pDcmp * ctGadEnc,
+// GadProdHoistedLazy returns pDcmp * ctGadEnc,
 // but the output modulus includes the auxiliary modulus.
 // pDcmp is a precomputed gadget decomposition.
-func (op *Operator) GadgetProdHoistedLazy(pDcmp *Vector, ctGadEnc *GadgetEncryption, outForm dft.Form) *Ciphertext {
+func (op *Operator) GadProdHoistedLazy(pDcmp *Vector, ctGadEnc *GadgetEncryption, outForm dft.Form) *Ciphertext {
 	ctOut := NewCiphertextCustom(op.params.Rank(), pDcmp.BaseModLen(), pDcmp.AuxModLen(), dft.FormCoeff)
-	op.GadgetProdHoistedLazyTo(ctOut, pDcmp, ctGadEnc, outForm)
+	op.GadProdHoistedLazyTo(ctOut, pDcmp, ctGadEnc, outForm)
 	return ctOut
 }
 
-// GadgetProdHoistedLazyTo computes ctOut = pDcmp * ctGadEnc,
+// GadProdHoistedLazyTo computes ctOut = pDcmp * ctGadEnc,
 // but the modulus of ctOut includes the auxiliary modulus.
 // pDcmp is a precomputed gadget decomposition.
-func (op *Operator) GadgetProdHoistedLazyTo(ctOut *Ciphertext, pDcmp *Vector, ctGadEnc *GadgetEncryption, outForm dft.Form) {
+func (op *Operator) GadProdHoistedLazyTo(ctOut *Ciphertext, pDcmp *Vector, ctGadEnc *GadgetEncryption, outForm dft.Form) {
 	checkCiphertextShape(op.params, ctOut)
 	checkElementShape(op.params, pDcmp)
 	checkCiphertextShape(op.params, ctGadEnc)
@@ -422,7 +453,7 @@ func (op *Operator) KeySwitchTo(ctOut, ct *Ciphertext, ksk *KeySwitchKey, outFor
 		ctBody.CopyFrom(ct.Body)
 	}
 
-	op.GadgetProdTo(ctOut, ct.Mask, (*GadgetEncryption)(ksk), outForm)
+	op.GadProdTo(ctOut, ct.Mask, (*GadgetEncryption)(ksk), outForm)
 	op.plainOp.AddTo(ctOut.Body, ctOut.Body, ctBody)
 }
 
@@ -450,7 +481,7 @@ func (op *Operator) KeySwitchHoistedTo(ctOut, ct *Ciphertext, ctMaskDcmp *Vector
 		ctBody.CopyFrom(ct.Body)
 	}
 
-	op.GadgetProdHoistedTo(ctOut, ctMaskDcmp, (*GadgetEncryption)(ksk), outForm)
+	op.GadProdHoistedTo(ctOut, ctMaskDcmp, (*GadgetEncryption)(ksk), outForm)
 	op.plainOp.AddTo(ctOut.Body, ctOut.Body, ctBody)
 }
 
@@ -475,7 +506,7 @@ func (op *Operator) KeySwitchLazyTo(ctOut, ct *Ciphertext, ksk *KeySwitchKey, ou
 	sc := crt.NewScaler(opOut, opIn).WithPool(op.plainOp.poolEmb)
 	sc.ScaleTo(ctBody.Value, ct.Body.Value, outForm)
 
-	op.GadgetProdLazyTo(ctOut, ct.Mask, (*GadgetEncryption)(ksk), outForm)
+	op.GadProdLazyTo(ctOut, ct.Mask, (*GadgetEncryption)(ksk), outForm)
 	op.plainOp.AddTo(ctOut.Body, ctOut.Body, ctBody)
 }
 
@@ -502,7 +533,7 @@ func (op *Operator) KeySwitchHoistedLazyTo(ctOut, ct *Ciphertext, ctMaskDcmp *Ve
 	sc := crt.NewScaler(opOut, opIn).WithPool(op.plainOp.poolEmb)
 	sc.ScaleTo(ctBody.Value, ct.Body.Value, outForm)
 
-	op.GadgetProdHoistedLazyTo(ctOut, ctMaskDcmp, (*GadgetEncryption)(ksk), outForm)
+	op.GadProdHoistedLazyTo(ctOut, ctMaskDcmp, (*GadgetEncryption)(ksk), outForm)
 	op.plainOp.AddTo(ctOut.Body, ctOut.Body, ctBody)
 }
 
@@ -584,4 +615,130 @@ func (op *Operator) AutHoistedLazyTo(ctOut, ct *Ciphertext, ctMaskDcmp *Vector, 
 
 	op.plainOp.AutTo(ctOut.Body, ctOut.Body, atk.Idx)
 	op.plainOp.AutTo(ctOut.Mask, ctOut.Mask, atk.Idx)
+}
+
+// ExtProd returns ct * ctRGSW.
+// ct must not have auxiliary modulus, and ctRGSW must be in NTT form.
+func (op *Operator) ExtProd(ct *Ciphertext, ctRGSW *RGSWEncryption, outForm dft.Form) *Ciphertext {
+	ctOut := NewCiphertextCustom(op.params.Rank(), ct.BaseModLen(), 0, dft.FormCoeff)
+	op.ExtProdTo(ctOut, ct, ctRGSW, outForm)
+	return ctOut
+}
+
+// ExtProdTo computes ctOut = ct * ctRGSW.
+func (op *Operator) ExtProdTo(ctOut, ct *Ciphertext, ctRGSW *RGSWEncryption, outForm dft.Form) {
+	checkCiphertextShape(op.params, ctOut)
+	if ctOut.AuxModLen() > 0 {
+		panic("inconsistent inputs")
+	}
+
+	ctOutAuxFull := op.poolRLWE.Get()
+	defer op.poolRLWE.Put(ctOutAuxFull)
+
+	ctOutAux := ctOutAuxFull.WithModLen(ctOut.BaseModLen(), op.params.AuxModLen())
+	op.ExtProdLazyTo(ctOutAux, ct, ctRGSW, outForm)
+
+	if op.params.AuxModLen() > 0 {
+		op.ScaleTo(ctOut, ctOutAux, outForm)
+		return
+	}
+
+	ctOut.CopyFrom(ctOutAux)
+}
+
+// ExtProdHoisted returns ct * ctRGSW.
+// ctBodyDcmp and ctMaskDcmp are precomputed gadget decompositions of ct.Body and ct.Mask in NTT form.
+func (op *Operator) ExtProdHoisted(ctBodyDcmp, ctMaskDcmp *Vector, ctRGSW *RGSWEncryption, outForm dft.Form) *Ciphertext {
+	ctOut := NewCiphertextCustom(op.params.Rank(), ctBodyDcmp.BaseModLen(), 0, dft.FormCoeff)
+	op.ExtProdHoistedTo(ctOut, ctBodyDcmp, ctMaskDcmp, ctRGSW, outForm)
+	return ctOut
+}
+
+// ExtProdHoistedTo computes ctOut = ct * ctRGSW.
+// ctBodyDcmp and ctMaskDcmp are precomputed gadget decompositions of ct.Body and ct.Mask in NTT form.
+func (op *Operator) ExtProdHoistedTo(ctOut *Ciphertext, ctBodyDcmp, ctMaskDcmp *Vector, ctRGSW *RGSWEncryption, outForm dft.Form) {
+	checkCiphertextShape(op.params, ctOut)
+	if ctOut.AuxModLen() > 0 {
+		panic("inconsistent inputs")
+	}
+
+	ctOutAuxFull := op.poolRLWE.Get()
+	defer op.poolRLWE.Put(ctOutAuxFull)
+
+	ctOutAux := ctOutAuxFull.WithModLen(ctOut.BaseModLen(), ctBodyDcmp.AuxModLen())
+	op.ExtProdHoistedLazyTo(ctOutAux, ctBodyDcmp, ctMaskDcmp, ctRGSW, outForm)
+
+	if op.params.AuxModLen() > 0 {
+		op.ScaleTo(ctOut, ctOutAux, outForm)
+		return
+	}
+
+	ctOut.CopyFrom(ctOutAux)
+}
+
+// ExtProdLazy returns ct * ctRGSW,
+// but the output modulus includes the auxiliary modulus.
+// ct must not have auxiliary modulus, and ctRGSW must be in NTT form.
+func (op *Operator) ExtProdLazy(ct *Ciphertext, ctRGSW *RGSWEncryption, outForm dft.Form) *Ciphertext {
+	ctOut := NewCiphertextCustom(op.params.Rank(), ct.BaseModLen(), op.params.AuxModLen(), dft.FormCoeff)
+	op.ExtProdLazyTo(ctOut, ct, ctRGSW, outForm)
+	return ctOut
+}
+
+// ExtProdLazyTo computes ctOut = ct * ctRGSW,
+// but the modulus of ctOut includes the auxiliary modulus.
+func (op *Operator) ExtProdLazyTo(ctOut, ct *Ciphertext, ctRGSW *RGSWEncryption, outForm dft.Form) {
+	checkCiphertextShape(op.params, ctOut)
+	checkCiphertextShape(op.params, ct)
+	checkCiphertextShape(op.params, ctRGSW)
+	if ct.AuxModLen() > 0 {
+		panic("inconsistent inputs")
+	}
+
+	ctBodyDcmpFull := op.poolPolyDcmp.Get()
+	defer op.poolPolyDcmp.Put(ctBodyDcmpFull)
+	ctMaskDcmpFull := op.poolPolyDcmp.Get()
+	defer op.poolPolyDcmp.Put(ctMaskDcmpFull)
+
+	ctBodyDcmp := ctBodyDcmpFull.Slice(0, op.dcmp.DecomposeLen(ct.BaseModLen())).WithModLen(ct.BaseModLen(), op.params.AuxModLen())
+	ctMaskDcmp := ctMaskDcmpFull.Slice(0, op.dcmp.DecomposeLen(ct.BaseModLen())).WithModLen(ct.BaseModLen(), op.params.AuxModLen())
+
+	op.dcmp.DecomposeTo(ctBodyDcmp, ct.Body, dft.FormNTT)
+	op.dcmp.DecomposeTo(ctMaskDcmp, ct.Mask, dft.FormNTT)
+	op.ExtProdHoistedLazyTo(ctOut, ctBodyDcmp, ctMaskDcmp, ctRGSW, outForm)
+}
+
+// ExtProdHoistedLazy returns ct * ctRGSW,
+// but the output modulus includes the auxiliary modulus.
+// ctBodyDcmp and ctMaskDcmp are precomputed gadget decompositions of ct.Body and ct.Mask in NTT form.
+func (op *Operator) ExtProdHoistedLazy(ctBodyDcmp, ctMaskDcmp *Vector, ctRGSW *RGSWEncryption, outForm dft.Form) *Ciphertext {
+	ctOut := NewCiphertextCustom(op.params.Rank(), ctBodyDcmp.BaseModLen(), ctBodyDcmp.AuxModLen(), dft.FormCoeff)
+	op.ExtProdHoistedLazyTo(ctOut, ctBodyDcmp, ctMaskDcmp, ctRGSW, outForm)
+	return ctOut
+}
+
+// ExtProdHoistedLazyTo computes ctOut = ct * ctRGSW,
+// but the modulus of ctOut includes the auxiliary modulus.
+// ctBodyDcmp and ctMaskDcmp are precomputed gadget decompositions of ct.Body and ct.Mask in NTT form.
+func (op *Operator) ExtProdHoistedLazyTo(ctOut *Ciphertext, ctBodyDcmp, ctMaskDcmp *Vector, ctRGSW *RGSWEncryption, outForm dft.Form) {
+	checkCiphertextShape(op.params, ctOut)
+	checkCiphertextShape(op.params, ctRGSW)
+	if ctBodyDcmp.Type() != crt.TypePoly || ctMaskDcmp.Type() != crt.TypePoly {
+		panic("inconsistent types")
+	}
+
+	ctBodyFull := op.poolRLWE.Get()
+	defer op.poolRLWE.Put(ctBodyFull)
+	ctMaskFull := op.poolRLWE.Get()
+	defer op.poolRLWE.Put(ctMaskFull)
+
+	ctBody := ctBodyFull.WithModLen(ctOut.BaseModLen(), ctOut.AuxModLen())
+	ctMask := ctMaskFull.WithModLen(ctOut.BaseModLen(), ctOut.AuxModLen())
+	op.GadProdHoistedLazyTo(ctBody, ctBodyDcmp, ctRGSW.BodyStack, dft.FormNTT)
+	op.GadProdHoistedLazyTo(ctMask, ctMaskDcmp, ctRGSW.MaskStack, dft.FormNTT)
+
+	op.AddTo(ctOut, ctBody, ctMask)
+	if outForm == dft.FormCoeff {
+		op.InvNTTTo(ctOut, ctOut)
+	}
 }

@@ -19,8 +19,12 @@ func checkCiphertextShape(params Parameters, ct ciphertextShape) {
 		panic("inconsistent inputs")
 	}
 	switch ct := ct.(type) {
-	case *GadgetEncryption, *RGSWEncryption:
-		if ct.AuxModLen() != params.AuxModLen() {
+	case *GadgetEncryption:
+		if len(ct.Value) != params.GadgetLen() || ct.AuxModLen() != params.AuxModLen() {
+			panic("inconsistent inputs")
+		}
+	case *RGSWEncryption:
+		if len(ct.BodyStack.Value) != params.GadgetLen() || len(ct.MaskStack.Value) != params.GadgetLen() || ct.AuxModLen() != params.AuxModLen() {
 			panic("inconsistent inputs")
 		}
 	default:

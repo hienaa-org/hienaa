@@ -303,7 +303,12 @@ func (sk *SecretKey) IsConsistent(skIn *SecretKey) bool {
 
 // Ciphertext is an RLWE ciphertext.
 type Ciphertext struct {
-	Body, Mask *Element
+	// Body is a "b" component of a ciphertext.
+	// Equals -Mask * SecretKey + Plaintext + Noise.
+	Body *Element
+	// Mask is the "a" component of a ciphertext,
+	// usually a uniformly random element.
+	Mask *Element
 }
 
 // NewCiphertext creates a new [Ciphertext].
@@ -700,6 +705,8 @@ func (v *Vector) IsConsistent(vIn *Vector) bool {
 
 // GadgetEncryption is a gadget encryption.
 type GadgetEncryption struct {
+	// Value contains the underlying RLWE encryptions,
+	// each encrypting GadgetVector[i] * Plaintext.
 	Value []*Ciphertext
 }
 
@@ -875,84 +882,87 @@ func (ct *GadgetEncryption) IsConsistent(ctIn *GadgetEncryption) bool {
 
 // RGSWEncryption is a Ring-GSW encryption.
 type RGSWEncryption struct {
-	Body, Mask *GadgetEncryption
+	// BodyStack is an encryption of GadgetVector * Plaintext.
+	BodyStack *GadgetEncryption
+	// MaskStack is an encryption of GadgetVector * Plaintext * SecretKey.
+	MaskStack *GadgetEncryption
 }
 
 // NewRGSWEncryption creates a new [RGSWEncryption].
 func NewRGSWEncryption(params Parameters, form dft.Form) *RGSWEncryption {
 	return &RGSWEncryption{
-		Body: NewGadgetEncryption(params, form),
-		Mask: NewGadgetEncryption(params, form),
+		BodyStack: NewGadgetEncryption(params, form),
+		MaskStack: NewGadgetEncryption(params, form),
 	}
 }
 
 // NewRGSWEncryptionCustom creates a new [RGSWEncryption] with the given parameters.
 func NewRGSWEncryptionCustom(rank, baseLen, auxLen, gadLen int, form dft.Form) *RGSWEncryption {
 	return &RGSWEncryption{
-		Body: NewGadgetEncryptionCustom(rank, baseLen, auxLen, gadLen, form),
-		Mask: NewGadgetEncryptionCustom(rank, baseLen, auxLen, gadLen, form),
+		BodyStack: NewGadgetEncryptionCustom(rank, baseLen, auxLen, gadLen, form),
+		MaskStack: NewGadgetEncryptionCustom(rank, baseLen, auxLen, gadLen, form),
 	}
 }
 
 // GadgetLen returns the length of the gadget decomposition.
 func (ct *RGSWEncryption) GadgetLen() int {
-	if ct.Body.GadgetLen() != ct.Mask.GadgetLen() {
+	if ct.BodyStack.GadgetLen() != ct.MaskStack.GadgetLen() {
 		panic("inconsistent gadget length")
 	}
-	return ct.Body.GadgetLen()
+	return ct.BodyStack.GadgetLen()
 }
 
 // Rank returns the rank of ct.
 func (ct *RGSWEncryption) Rank() int {
-	if ct.Body.Rank() != ct.Mask.Rank() {
+	if ct.BodyStack.Rank() != ct.MaskStack.Rank() {
 		panic("inconsistent rank")
 	}
-	return ct.Body.Rank()
+	return ct.BodyStack.Rank()
 }
 
 // Form returns the [dft.Form] of ct.
 func (ct *RGSWEncryption) Form() dft.Form {
-	if ct.Body.Form() != ct.Mask.Form() {
+	if ct.BodyStack.Form() != ct.MaskStack.Form() {
 		panic("inconsistent forms")
 	}
-	return ct.Body.Form()
+	return ct.BodyStack.Form()
 }
 
 // SetForm sets the [dft.Form] of ct.
 // This does not change the coefficients, so it may invalidate correctness.
 func (ct *RGSWEncryption) SetForm(form dft.Form) {
-	ct.Body.SetForm(form)
-	ct.Mask.SetForm(form)
+	ct.BodyStack.SetForm(form)
+	ct.MaskStack.SetForm(form)
 }
 
 // FullModLen returns the full modulus length.
 func (ct *RGSWEncryption) FullModLen() int {
-	if ct.Body.FullModLen() != ct.Mask.FullModLen() {
+	if ct.BodyStack.FullModLen() != ct.MaskStack.FullModLen() {
 		panic("inconsistent modulus length")
 	}
-	return ct.Body.FullModLen()
+	return ct.BodyStack.FullModLen()
 }
 
 // BaseModLen returns the base modulus length.
 func (ct *RGSWEncryption) BaseModLen() int {
-	if ct.Body.BaseModLen() != ct.Mask.BaseModLen() {
+	if ct.BodyStack.BaseModLen() != ct.MaskStack.BaseModLen() {
 		panic("inconsistent modulus length")
 	}
-	return ct.Body.BaseModLen()
+	return ct.BodyStack.BaseModLen()
 }
 
 // AuxModLen returns the auxiliary modulus length.
 func (ct *RGSWEncryption) AuxModLen() int {
-	if ct.Body.AuxModLen() != ct.Mask.AuxModLen() {
+	if ct.BodyStack.AuxModLen() != ct.MaskStack.AuxModLen() {
 		panic("inconsistent modulus length")
 	}
-	return ct.Body.AuxModLen()
+	return ct.BodyStack.AuxModLen()
 }
 
 // Clear clears ct.
 func (ct *RGSWEncryption) Clear() {
-	ct.Body.Clear()
-	ct.Mask.Clear()
+	ct.BodyStack.Clear()
+	ct.MaskStack.Clear()
 }
 
 // WithModLen returns a shallow copy with the given modulus lengths.
@@ -960,8 +970,8 @@ func (ct *RGSWEncryption) Clear() {
 // Panics when baseLen or auxLen is larger than the current base or auxiliary modulus lengths.
 func (ct *RGSWEncryption) WithModLen(baseLen, auxLen int) *RGSWEncryption {
 	return &RGSWEncryption{
-		Body: ct.Body.WithModLen(baseLen, auxLen),
-		Mask: ct.Mask.WithModLen(baseLen, auxLen),
+		BodyStack: ct.BodyStack.WithModLen(baseLen, auxLen),
+		MaskStack: ct.MaskStack.WithModLen(baseLen, auxLen),
 	}
 }
 
@@ -969,15 +979,15 @@ func (ct *RGSWEncryption) WithModLen(baseLen, auxLen int) *RGSWEncryption {
 //
 // Panics when baseLen or auxLen is negative.
 func (ct *RGSWEncryption) Resize(baseLen, auxLen int) {
-	ct.Body.Resize(baseLen, auxLen)
-	ct.Mask.Resize(baseLen, auxLen)
+	ct.BodyStack.Resize(baseLen, auxLen)
+	ct.MaskStack.Resize(baseLen, auxLen)
 }
 
 // Copy returns a copy of ct.
 func (ct *RGSWEncryption) Copy() *RGSWEncryption {
 	return &RGSWEncryption{
-		Body: ct.Body.Copy(),
-		Mask: ct.Mask.Copy(),
+		BodyStack: ct.BodyStack.Copy(),
+		MaskStack: ct.MaskStack.Copy(),
 	}
 }
 
@@ -989,18 +999,18 @@ func (ct *RGSWEncryption) CopyFrom(ctIn *RGSWEncryption) {
 		panic("inconsistent inputs")
 	}
 
-	ct.Body.CopyFrom(ctIn.Body)
-	ct.Mask.CopyFrom(ctIn.Mask)
+	ct.BodyStack.CopyFrom(ctIn.BodyStack)
+	ct.MaskStack.CopyFrom(ctIn.MaskStack)
 }
 
 // IsEqual checks if ct is equal to ctIn.
 func (ct *RGSWEncryption) IsEqual(ctIn *RGSWEncryption) bool {
-	return ct.Body.IsEqual(ctIn.Body) && ct.Mask.IsEqual(ctIn.Mask)
+	return ct.BodyStack.IsEqual(ctIn.BodyStack) && ct.MaskStack.IsEqual(ctIn.MaskStack)
 }
 
 // IsConsistent checks if ct has the same shape as ctIn.
 func (ct *RGSWEncryption) IsConsistent(ctIn *RGSWEncryption) bool {
-	return ct.Body.IsConsistent(ctIn.Body) && ct.Mask.IsConsistent(ctIn.Mask)
+	return ct.BodyStack.IsConsistent(ctIn.BodyStack) && ct.MaskStack.IsConsistent(ctIn.MaskStack)
 }
 
 // KeySwitchKey is a public key for key-switching.
