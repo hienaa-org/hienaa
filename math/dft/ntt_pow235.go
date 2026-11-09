@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	nttUnrollBound  = 32
+	nttUnrollBound  = 8
 	nttRecurseBound = 1024
 )
 

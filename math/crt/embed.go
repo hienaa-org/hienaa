@@ -46,7 +46,7 @@ type Embedder struct {
 }
 
 // NewEmbedder creates a new [Embedder].
-func NewEmbedder(opOut *Operator, opIn *Operator) *Embedder {
+func NewEmbedder(opOut, opIn *Operator) *Embedder {
 	if !opOut.params.IsEqual(opIn.params) {
 		panic("inconsistent parameters")
 	}
@@ -60,10 +60,21 @@ func NewEmbedder(opOut *Operator, opIn *Operator) *Embedder {
 	}
 }
 
-// WithPool sets the pool of [Embedder] and returns it.
-func (emb *Embedder) WithPool(p *pool.Pool[*[]uint64]) *Embedder {
-	emb.pool = p
-	return emb
+// NewEmbedderUnsafe creates a new [Embedder],
+// without checking the coprimality of modOut and modIn
+// and user-supplied pool.
+func NewEmbedderUnsafe(opOut, opIn *Operator, embPool *pool.Pool[*[]uint64]) *Embedder {
+	if !opOut.params.IsEqual(opIn.params) {
+		panic("inconsistent parameters")
+	}
+
+	return &Embedder{
+		OpIn:  opIn,
+		OpOut: opOut,
+
+		vecEmb: NewVecEmbedderUnsafe(opOut.mod, opIn.mod),
+		pool:   embPool,
+	}
 }
 
 // Embed returns the embedding of e to the output modulus.
@@ -372,11 +383,19 @@ type VecEmbedder struct {
 }
 
 // NewVecEmbedder creates a new [VecEmbedder].
-func NewVecEmbedder(modOut []*num.Modulus, modIn []*num.Modulus) *VecEmbedder {
+func NewVecEmbedder(modOut, modIn []*num.Modulus) *VecEmbedder {
+	if !IsCoprime(modOut) || !IsCoprime(modIn) {
+		panic("modulus must be coprime")
+	}
+
+	return NewVecEmbedderUnsafe(modOut, modIn)
+}
+
+// NewVecEmbedderUnsafe creates a new [VecEmbedder],
+// without checking the coprimality of modOut and modIn.
+func NewVecEmbedderUnsafe(modOut, modIn []*num.Modulus) *VecEmbedder {
 	if len(modOut) == 0 || len(modIn) == 0 {
 		panic("modulus must be nonempty")
-	} else if !IsCoprime(modOut) || !IsCoprime(modIn) {
-		panic("modulus must be coprime")
 	}
 
 	modInSorted := make([]*num.Modulus, len(modIn))
@@ -690,10 +709,21 @@ func NewScaler(opOut *Operator, opIn *Operator) *Scaler {
 	}
 }
 
-// WithPool sets the pool of [Scaler] and returns it.
-func (sc *Scaler) WithPool(p *pool.Pool[*[]uint64]) *Scaler {
-	sc.pool = p
-	return sc
+// NewScalerUnsafe creates a new [Scaler],
+// without checking the coprimality of modOut and modIn
+// and user-supplied pool.
+func NewScalerUnsafe(opOut *Operator, opIn *Operator, embPool *pool.Pool[*[]uint64]) *Scaler {
+	if !opOut.params.IsEqual(opIn.params) {
+		panic("inconsistent parameters")
+	}
+
+	return &Scaler{
+		OpIn:  opIn,
+		OpOut: opOut,
+
+		vecSc: NewVecScalerUnsafe(opOut.mod, opIn.mod),
+		pool:  embPool,
+	}
 }
 
 // Scale returns the scaling of e to the output modulus.
@@ -1093,12 +1123,19 @@ type VecScaler struct {
 
 // NewVecScaler creates a new [VecScaler].
 func NewVecScaler(modOut, modIn []*num.Modulus) *VecScaler {
-	if len(modOut) == 0 || len(modIn) == 0 {
-		panic("modulus must be nonempty")
-	} else if !IsCoprime(modOut) || !IsCoprime(modIn) {
+	if !IsCoprime(modOut) || !IsCoprime(modIn) {
 		panic("modulus must be coprime")
 	}
 
+	return NewVecScalerUnsafe(modOut, modIn)
+}
+
+// NewVecScalerUnsafe creates a new [VecScaler],
+// without checking the coprimality of modOut and modIn.
+func NewVecScalerUnsafe(modOut, modIn []*num.Modulus) *VecScaler {
+	if len(modOut) == 0 || len(modIn) == 0 {
+		panic("modulus must be nonempty")
+	}
 	modInSorted := make([]*num.Modulus, len(modIn))
 	copy(modInSorted, modIn)
 	slices.SortFunc(modInSorted, num.CmpModulus)

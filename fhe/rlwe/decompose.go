@@ -98,7 +98,7 @@ func newRNSDecomposer(params Parameters) *rnsDecomposer {
 		embedders[i] = make([]*crt.Embedder, end-start)
 		for j := range embedders[i] {
 			modOp := params.Op().WithModSlice(params.AuxModLen()+start, params.AuxModLen()+start+j+1)
-			embedders[i][j] = crt.NewEmbedder(params.Op(), modOp).WithPool(embPool)
+			embedders[i][j] = crt.NewEmbedderUnsafe(params.Op(), modOp, embPool)
 		}
 	}
 
@@ -147,10 +147,10 @@ func newDigitDecomposer(params Parameters) *digitDecomposer {
 	baseModOp := crt.NewOperator(params.RingParams(), []*num.Modulus{baseMod})
 	for i := range digitEmbedder {
 		modOp := params.Op().WithModSlice(params.AuxModLen(), params.AuxModLen()+i+1)
-		digitEmbedder[i] = crt.NewEmbedder(baseModOp, modOp).WithPool(embPool)
-		lastEmbedder[i] = crt.NewEmbedder(params.Op(), modOp).WithPool(embPool)
+		digitEmbedder[i] = crt.NewEmbedderUnsafe(baseModOp, modOp, embPool)
+		lastEmbedder[i] = crt.NewEmbedderUnsafe(params.Op(), modOp, embPool)
 	}
-	modEmbedder := crt.NewEmbedder(params.Op(), baseModOp).WithPool(embPool)
+	modEmbedder := crt.NewEmbedderUnsafe(params.Op(), baseModOp, embPool)
 
 	baseInv := make([]uint64, params.BaseModLen())
 	for i := range baseInv {

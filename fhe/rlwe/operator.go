@@ -78,9 +78,12 @@ func (op *Operator) FwdNTT(ct *Ciphertext) *Ciphertext {
 func (op *Operator) FwdNTTTo(ctOut, ct *Ciphertext) {
 	checkCiphertextShape(op.params, ctOut)
 	checkCiphertextShape(op.params, ct)
+	checkUnaryOperable(op.params, ctOut.Body, ct.Body)
+	checkUnaryOperable(op.params, ctOut.Mask, ct.Mask)
 
-	op.plainOp.FwdNTTTo(ctOut.Body, ct.Body)
-	op.plainOp.FwdNTTTo(ctOut.Mask, ct.Mask)
+	crtOp := op.plainOp.withModLen(ctOut.BaseModLen(), ctOut.AuxModLen())
+	crtOp.FwdNTTTo(ctOut.Body.Value, ct.Body.Value)
+	crtOp.FwdNTTTo(ctOut.Mask.Value, ct.Mask.Value)
 }
 
 // InvNTT returns InvNTT(ct).
@@ -94,9 +97,12 @@ func (op *Operator) InvNTT(ct *Ciphertext) *Ciphertext {
 func (op *Operator) InvNTTTo(ctOut, ct *Ciphertext) {
 	checkCiphertextShape(op.params, ctOut)
 	checkCiphertextShape(op.params, ct)
+	checkUnaryOperable(op.params, ctOut.Body, ct.Body)
+	checkUnaryOperable(op.params, ctOut.Mask, ct.Mask)
 
-	op.plainOp.InvNTTTo(ctOut.Body, ct.Body)
-	op.plainOp.InvNTTTo(ctOut.Mask, ct.Mask)
+	crtOp := op.plainOp.withModLen(ctOut.BaseModLen(), ctOut.AuxModLen())
+	crtOp.InvNTTTo(ctOut.Body.Value, ct.Body.Value)
+	crtOp.InvNTTTo(ctOut.Mask.Value, ct.Mask.Value)
 }
 
 // Add returns ct + e.
@@ -111,14 +117,21 @@ func (op *Operator) AddTo[T *Element | *Ciphertext](ctOut, ct *Ciphertext, e T) 
 	checkCiphertextShape(op.params, ctOut)
 	checkCiphertextShape(op.params, ct)
 
+	crtOp := op.plainOp.withModLen(ctOut.BaseModLen(), ctOut.AuxModLen())
 	switch e := any(e).(type) {
 	case *Element:
-		op.plainOp.AddTo(ctOut.Body, ct.Body, e)
+		checkBinaryOperable(op.params, ctOut.Body, ct.Body, e)
+
+		crtOp.AddTo(ctOut.Body.Value, ct.Body.Value, e.Value)
 		ctOut.Mask.CopyFrom(ct.Mask)
+
 	case *Ciphertext:
 		checkCiphertextShape(op.params, e)
-		op.plainOp.AddTo(ctOut.Body, ct.Body, e.Body)
-		op.plainOp.AddTo(ctOut.Mask, ct.Mask, e.Mask)
+		checkBinaryOperable(op.params, ctOut.Body, ct.Body, e.Body)
+		checkBinaryOperable(op.params, ctOut.Mask, ct.Mask, e.Mask)
+
+		crtOp.AddTo(ctOut.Body.Value, ct.Body.Value, e.Body.Value)
+		crtOp.AddTo(ctOut.Mask.Value, ct.Mask.Value, e.Mask.Value)
 	}
 }
 
@@ -134,14 +147,21 @@ func (op *Operator) SubTo[T *Element | *Ciphertext](ctOut, ct *Ciphertext, e T) 
 	checkCiphertextShape(op.params, ctOut)
 	checkCiphertextShape(op.params, ct)
 
+	crtOp := op.plainOp.withModLen(ctOut.BaseModLen(), ctOut.AuxModLen())
 	switch e := any(e).(type) {
 	case *Element:
-		op.plainOp.SubTo(ctOut.Body, ct.Body, e)
+		checkBinaryOperable(op.params, ctOut.Body, ct.Body, e)
+
+		crtOp.SubTo(ctOut.Body.Value, ct.Body.Value, e.Value)
 		ctOut.Mask.CopyFrom(ct.Mask)
+
 	case *Ciphertext:
 		checkCiphertextShape(op.params, e)
-		op.plainOp.SubTo(ctOut.Body, ct.Body, e.Body)
-		op.plainOp.SubTo(ctOut.Mask, ct.Mask, e.Mask)
+		checkBinaryOperable(op.params, ctOut.Body, ct.Body, e.Body)
+		checkBinaryOperable(op.params, ctOut.Mask, ct.Mask, e.Mask)
+
+		crtOp.SubTo(ctOut.Body.Value, ct.Body.Value, e.Body.Value)
+		crtOp.SubTo(ctOut.Mask.Value, ct.Mask.Value, e.Mask.Value)
 	}
 }
 
@@ -156,9 +176,11 @@ func (op *Operator) Neg(ct *Ciphertext) *Ciphertext {
 func (op *Operator) NegTo(ctOut, ct *Ciphertext) {
 	checkCiphertextShape(op.params, ctOut)
 	checkCiphertextShape(op.params, ct)
+	checkUnaryOperable(op.params, ctOut.Body, ct.Body)
 
-	op.plainOp.NegTo(ctOut.Body, ct.Body)
-	op.plainOp.NegTo(ctOut.Mask, ct.Mask)
+	crtOp := op.plainOp.withModLen(ctOut.BaseModLen(), ctOut.AuxModLen())
+	crtOp.NegTo(ctOut.Body.Value, ct.Body.Value)
+	crtOp.NegTo(ctOut.Mask.Value, ct.Mask.Value)
 }
 
 // Mul returns ct * e.
@@ -172,21 +194,22 @@ func (op *Operator) Mul(ct *Ciphertext, e *Element) *Ciphertext {
 func (op *Operator) MulTo(ctOut, ct *Ciphertext, e *Element) {
 	checkCiphertextShape(op.params, ctOut)
 	checkCiphertextShape(op.params, ct)
+	checkBinaryOperable(op.params, ctOut.Body, ct.Body, e)
 
+	crtOp := op.plainOp.withModLen(ctOut.BaseModLen(), ctOut.AuxModLen())
 	switch {
 	case e.Type() == crt.TypeScalar:
-		op.plainOp.MulTo(ctOut.Body, ct.Body, e)
-		op.plainOp.MulTo(ctOut.Mask, ct.Mask, e)
+		crtOp.MulTo(ctOut.Body.Value, ct.Body.Value, e.Value)
+		crtOp.MulTo(ctOut.Mask.Value, ct.Mask.Value, e.Value)
 
 	case e.Type() == crt.TypePoly:
 		eBufFull := op.poolPoly.Get()
 		defer op.poolPoly.Put(eBufFull)
-
 		eBuf := eBufFull.WithModLen(e.BaseModLen(), e.AuxModLen())
 		eBuf.CopyFrom(e)
 
-		op.plainOp.MulTo(ctOut.Body, ct.Body, eBuf)
-		op.plainOp.MulTo(ctOut.Mask, ct.Mask, eBuf)
+		crtOp.MulTo(ctOut.Body.Value, ct.Body.Value, eBuf.Value)
+		crtOp.MulTo(ctOut.Mask.Value, ct.Mask.Value, eBuf.Value)
 	}
 }
 
@@ -194,21 +217,22 @@ func (op *Operator) MulTo(ctOut, ct *Ciphertext, e *Element) {
 func (op *Operator) MulAddTo(ctOut, ct *Ciphertext, e *Element) {
 	checkCiphertextShape(op.params, ctOut)
 	checkCiphertextShape(op.params, ct)
+	checkBinaryOperable(op.params, ctOut.Body, ct.Body, e)
 
+	crtOp := op.plainOp.withModLen(ctOut.BaseModLen(), ctOut.AuxModLen())
 	switch {
 	case e.Type() == crt.TypeScalar:
-		op.plainOp.MulAddTo(ctOut.Body, ct.Body, e)
-		op.plainOp.MulAddTo(ctOut.Mask, ct.Mask, e)
+		crtOp.MulAddTo(ctOut.Body.Value, ct.Body.Value, e.Value)
+		crtOp.MulAddTo(ctOut.Mask.Value, ct.Mask.Value, e.Value)
 
 	case e.Type() == crt.TypePoly:
 		eBufFull := op.poolPoly.Get()
 		defer op.poolPoly.Put(eBufFull)
-
 		eBuf := eBufFull.WithModLen(e.BaseModLen(), e.AuxModLen())
 		eBuf.CopyFrom(e)
 
-		op.plainOp.MulAddTo(ctOut.Body, ct.Body, eBuf)
-		op.plainOp.MulAddTo(ctOut.Mask, ct.Mask, eBuf)
+		crtOp.MulAddTo(ctOut.Body.Value, ct.Body.Value, eBuf.Value)
+		crtOp.MulAddTo(ctOut.Mask.Value, ct.Mask.Value, eBuf.Value)
 	}
 }
 
@@ -216,21 +240,23 @@ func (op *Operator) MulAddTo(ctOut, ct *Ciphertext, e *Element) {
 func (op *Operator) MulSubTo(ctOut, ct *Ciphertext, e *Element) {
 	checkCiphertextShape(op.params, ctOut)
 	checkCiphertextShape(op.params, ct)
+	checkBinaryOperable(op.params, ctOut.Body, ct.Body, e)
+	checkBinaryOperable(op.params, ctOut.Mask, ct.Mask, e)
 
+	crtOp := op.plainOp.withModLen(ctOut.BaseModLen(), ctOut.AuxModLen())
 	switch {
 	case e.Type() == crt.TypeScalar:
-		op.plainOp.MulSubTo(ctOut.Body, ct.Body, e)
-		op.plainOp.MulSubTo(ctOut.Mask, ct.Mask, e)
+		crtOp.MulSubTo(ctOut.Body.Value, ct.Body.Value, e.Value)
+		crtOp.MulSubTo(ctOut.Mask.Value, ct.Mask.Value, e.Value)
 
 	case e.Type() == crt.TypePoly:
 		eBufFull := op.poolPoly.Get()
 		defer op.poolPoly.Put(eBufFull)
-
 		eBuf := eBufFull.WithModLen(e.BaseModLen(), e.AuxModLen())
 		eBuf.CopyFrom(e)
 
-		op.plainOp.MulSubTo(ctOut.Body, ct.Body, eBuf)
-		op.plainOp.MulSubTo(ctOut.Mask, ct.Mask, eBuf)
+		crtOp.MulSubTo(ctOut.Body.Value, ct.Body.Value, eBuf.Value)
+		crtOp.MulSubTo(ctOut.Mask.Value, ct.Mask.Value, eBuf.Value)
 	}
 }
 
@@ -251,14 +277,20 @@ func (op *Operator) TensorTo(ctVecOut *Vector, ct0, ct1 *Ciphertext) {
 	checkCiphertextShape(op.params, ctVecOut)
 	checkCiphertextShape(op.params, ct0)
 	checkCiphertextShape(op.params, ct1)
+
 	if ctVecOut.Len() != 3 {
 		panic("inconsistent inputs")
 	}
+	checkBinaryOperable(op.params, ctVecOut.Value[0], ct0.Body, ct1.Body)
+	checkBinaryOperable(op.params, ctVecOut.Value[1], ct0.Body, ct1.Mask)
+	checkBinaryOperable(op.params, ctVecOut.Value[1], ct0.Mask, ct1.Body)
+	checkBinaryOperable(op.params, ctVecOut.Value[2], ct0.Mask, ct1.Mask)
 
-	op.plainOp.MulTo(ctVecOut.Value[0], ct0.Body, ct1.Body)
-	op.plainOp.MulTo(ctVecOut.Value[1], ct0.Body, ct1.Mask)
-	op.plainOp.MulAddTo(ctVecOut.Value[1], ct0.Mask, ct1.Body)
-	op.plainOp.MulTo(ctVecOut.Value[2], ct0.Mask, ct1.Mask)
+	crtOp := op.plainOp.withModLen(ctVecOut.BaseModLen(), ctVecOut.AuxModLen())
+	crtOp.MulTo(ctVecOut.Value[0].Value, ct0.Body.Value, ct1.Body.Value)
+	crtOp.MulTo(ctVecOut.Value[1].Value, ct0.Body.Value, ct1.Mask.Value)
+	crtOp.MulAddTo(ctVecOut.Value[1].Value, ct0.Mask.Value, ct1.Body.Value)
+	crtOp.MulTo(ctVecOut.Value[2].Value, ct0.Mask.Value, ct1.Mask.Value)
 }
 
 // CanAut returns if automorphism X -> X^idx is valid.
@@ -278,8 +310,12 @@ func (op *Operator) EmbedTo(ctOut, ct *Ciphertext, outForm dft.Form) {
 	checkCiphertextShape(op.params, ctOut)
 	checkCiphertextShape(op.params, ct)
 
-	op.plainOp.EmbedTo(ctOut.Body, ct.Body, outForm)
-	op.plainOp.EmbedTo(ctOut.Mask, ct.Mask, outForm)
+	opIn := op.plainOp.withModLen(ct.BaseModLen(), ct.AuxModLen())
+	opOut := op.plainOp.withModLen(ctOut.BaseModLen(), ctOut.AuxModLen())
+	emb := crt.NewEmbedderUnsafe(opOut, opIn, op.plainOp.poolEmb)
+
+	emb.EmbedTo(ctOut.Body.Value, ct.Body.Value, outForm)
+	emb.EmbedTo(ctOut.Mask.Value, ct.Mask.Value, outForm)
 }
 
 // Scale returns a scaling of ct to base modulus length outBaseLen without auxiliary modulus.
@@ -294,8 +330,12 @@ func (op *Operator) ScaleTo(ctOut, ct *Ciphertext, outForm dft.Form) {
 	checkCiphertextShape(op.params, ctOut)
 	checkCiphertextShape(op.params, ct)
 
-	op.plainOp.ScaleTo(ctOut.Body, ct.Body, outForm)
-	op.plainOp.ScaleTo(ctOut.Mask, ct.Mask, outForm)
+	opIn := op.plainOp.withModLen(ct.BaseModLen(), ct.AuxModLen())
+	opOut := op.plainOp.withModLen(ctOut.BaseModLen(), ctOut.AuxModLen())
+	sc := crt.NewScalerUnsafe(opOut, opIn, op.plainOp.poolEmb)
+
+	sc.ScaleTo(ctOut.Body.Value, ct.Body.Value, outForm)
+	sc.ScaleTo(ctOut.Mask.Value, ct.Mask.Value, outForm)
 }
 
 // GadProd returns p * ctGadEnc.
@@ -314,10 +354,9 @@ func (op *Operator) GadProdTo(ctOut *Ciphertext, p *Element, ctGadEnc *GadgetEnc
 
 	ctOutAuxFull := op.poolRLWE.Get()
 	defer op.poolRLWE.Put(ctOutAuxFull)
-
 	ctOutAux := ctOutAuxFull.WithModLen(ctOut.BaseModLen(), op.params.AuxModLen())
-	op.GadProdLazyTo(ctOutAux, p, ctGadEnc, outForm)
 
+	op.GadProdLazyTo(ctOutAux, p, ctGadEnc, outForm)
 	if op.params.AuxModLen() > 0 {
 		op.ScaleTo(ctOut, ctOutAux, outForm)
 		return
@@ -344,10 +383,9 @@ func (op *Operator) GadProdHoistedTo(ctOut *Ciphertext, pDcmp *Vector, ctGadEnc 
 
 	ctOutAuxFull := op.poolRLWE.Get()
 	defer op.poolRLWE.Put(ctOutAuxFull)
-
 	ctOutAux := ctOutAuxFull.WithModLen(ctOut.BaseModLen(), pDcmp.AuxModLen())
-	op.GadProdHoistedLazyTo(ctOutAux, pDcmp, ctGadEnc, outForm)
 
+	op.GadProdHoistedLazyTo(ctOutAux, pDcmp, ctGadEnc, outForm)
 	if op.params.AuxModLen() > 0 {
 		op.ScaleTo(ctOut, ctOutAux, outForm)
 		return
@@ -412,20 +450,23 @@ func (op *Operator) GadProdHoistedLazyTo(ctOut *Ciphertext, pDcmp *Vector, ctGad
 
 	ctOutBufFull := op.poolRLWE.Get()
 	defer op.poolRLWE.Put(ctOutBufFull)
-
 	ctOutBuf := ctOutBufFull.WithModLen(ctOut.BaseModLen(), ctOut.AuxModLen())
-	op.plainOp.MulTo(ctOutBuf.Body, pDcmp.Value[0], ctGadEnc.Value[0].Body.WithModLen(pDcmp.BaseModLen(), pDcmp.AuxModLen()))
-	op.plainOp.MulTo(ctOutBuf.Mask, pDcmp.Value[0], ctGadEnc.Value[0].Mask.WithModLen(pDcmp.BaseModLen(), pDcmp.AuxModLen()))
+
+	crtOp := op.plainOp.withModLen(ctOut.BaseModLen(), ctOut.AuxModLen())
+	crtOp.MulTo(ctOutBuf.Body.Value, pDcmp.Value[0].Value, ctGadEnc.Value[0].Body.WithModLen(pDcmp.BaseModLen(), pDcmp.AuxModLen()).Value)
+	crtOp.MulTo(ctOutBuf.Mask.Value, pDcmp.Value[0].Value, ctGadEnc.Value[0].Mask.WithModLen(pDcmp.BaseModLen(), pDcmp.AuxModLen()).Value)
 	for i := 1; i < pDcmp.Len(); i++ {
-		op.plainOp.MulAddTo(ctOutBuf.Body, pDcmp.Value[i], ctGadEnc.Value[i].Body.WithModLen(pDcmp.BaseModLen(), pDcmp.AuxModLen()))
-		op.plainOp.MulAddTo(ctOutBuf.Mask, pDcmp.Value[i], ctGadEnc.Value[i].Mask.WithModLen(pDcmp.BaseModLen(), pDcmp.AuxModLen()))
+		crtOp.MulAddTo(ctOutBuf.Body.Value, pDcmp.Value[i].Value, ctGadEnc.Value[i].Body.WithModLen(pDcmp.BaseModLen(), pDcmp.AuxModLen()).Value)
+		crtOp.MulAddTo(ctOutBuf.Mask.Value, pDcmp.Value[i].Value, ctGadEnc.Value[i].Mask.WithModLen(pDcmp.BaseModLen(), pDcmp.AuxModLen()).Value)
 	}
 
 	switch {
 	case ctOutBuf.Form() == dft.FormNTT && outForm == dft.FormCoeff:
-		op.InvNTTTo(ctOut, ctOutBuf)
+		crtOp.InvNTTTo(ctOut.Body.Value, ctOutBuf.Body.Value)
+		crtOp.InvNTTTo(ctOut.Mask.Value, ctOutBuf.Mask.Value)
 	case ctOutBuf.Form() == dft.FormCoeff && outForm == dft.FormNTT:
-		op.FwdNTTTo(ctOut, ctOutBuf)
+		crtOp.FwdNTTTo(ctOut.Body.Value, ctOutBuf.Body.Value)
+		crtOp.FwdNTTTo(ctOut.Mask.Value, ctOutBuf.Mask.Value)
 	case ctOutBuf.Form() == outForm:
 		ctOut.CopyFrom(ctOutBuf)
 	}
@@ -442,19 +483,20 @@ func (op *Operator) KeySwitch(ct *Ciphertext, ksk *KeySwitchKey, outForm dft.For
 func (op *Operator) KeySwitchTo(ctOut, ct *Ciphertext, ksk *KeySwitchKey, outForm dft.Form) {
 	ctBodyFull := op.poolPoly.Get()
 	defer op.poolPoly.Put(ctBodyFull)
-
 	ctBody := ctBodyFull.WithModLen(ct.BaseModLen(), ct.AuxModLen())
+
+	crtOp := op.plainOp.withModLen(ct.BaseModLen(), ct.AuxModLen())
 	switch {
 	case ct.Form() == dft.FormNTT && outForm == dft.FormCoeff:
-		op.plainOp.InvNTTTo(ctBody, ct.Body)
+		crtOp.InvNTTTo(ctBody.Value, ct.Body.Value)
 	case ct.Form() == dft.FormCoeff && outForm == dft.FormNTT:
-		op.plainOp.FwdNTTTo(ctBody, ct.Body)
+		crtOp.FwdNTTTo(ctBody.Value, ct.Body.Value)
 	case ct.Form() == outForm:
 		ctBody.CopyFrom(ct.Body)
 	}
 
 	op.GadProdTo(ctOut, ct.Mask, (*GadgetEncryption)(ksk), outForm)
-	op.plainOp.AddTo(ctOut.Body, ctOut.Body, ctBody)
+	crtOp.AddTo(ctOut.Body.Value, ctOut.Body.Value, ctBody.Value)
 }
 
 // KeySwitchHoisted returns the key-switched ct using ksk.
@@ -470,19 +512,21 @@ func (op *Operator) KeySwitchHoisted(ct *Ciphertext, ctMaskDcmp *Vector, ksk *Ke
 func (op *Operator) KeySwitchHoistedTo(ctOut, ct *Ciphertext, ctMaskDcmp *Vector, ksk *KeySwitchKey, outForm dft.Form) {
 	ctBodyFull := op.poolPoly.Get()
 	defer op.poolPoly.Put(ctBodyFull)
-
 	ctBody := ctBodyFull.WithModLen(ct.BaseModLen(), ct.AuxModLen())
+
+	crtOp := op.plainOp.withModLen(ct.BaseModLen(), ct.AuxModLen())
 	switch {
 	case ct.Form() == dft.FormNTT && outForm == dft.FormCoeff:
-		op.plainOp.InvNTTTo(ctBody, ct.Body)
+		crtOp.InvNTTTo(ctBody.Value, ct.Body.Value)
 	case ct.Form() == dft.FormCoeff && outForm == dft.FormNTT:
-		op.plainOp.FwdNTTTo(ctBody, ct.Body)
+		crtOp.FwdNTTTo(ctBody.Value, ct.Body.Value)
 	case ct.Form() == outForm:
 		ctBody.CopyFrom(ct.Body)
 	}
 
 	op.GadProdHoistedTo(ctOut, ctMaskDcmp, (*GadgetEncryption)(ksk), outForm)
-	op.plainOp.AddTo(ctOut.Body, ctOut.Body, ctBody)
+	checkBinaryOperable(op.params, ctOut.Body, ctOut.Body, ctBody)
+	crtOp.AddTo(ctOut.Body.Value, ctOut.Body.Value, ctBody.Value)
 }
 
 // KeySwitchLazy returns the key-switched ct using ksk,
@@ -498,16 +542,15 @@ func (op *Operator) KeySwitchLazy(ct *Ciphertext, ksk *KeySwitchKey, outForm dft
 func (op *Operator) KeySwitchLazyTo(ctOut, ct *Ciphertext, ksk *KeySwitchKey, outForm dft.Form) {
 	ctBodyFull := op.poolPoly.Get()
 	defer op.poolPoly.Put(ctBodyFull)
-
 	ctBody := ctBodyFull.WithModLen(ct.BaseModLen(), op.params.AuxModLen())
 
 	opIn := op.plainOp.withModLen(ct.BaseModLen(), 0)
 	opOut := op.plainOp.withModLen(ct.BaseModLen(), op.params.AuxModLen())
-	sc := crt.NewScaler(opOut, opIn).WithPool(op.plainOp.poolEmb)
+	sc := crt.NewScalerUnsafe(opOut, opIn, op.plainOp.poolEmb)
 	sc.ScaleTo(ctBody.Value, ct.Body.Value, outForm)
 
 	op.GadProdLazyTo(ctOut, ct.Mask, (*GadgetEncryption)(ksk), outForm)
-	op.plainOp.AddTo(ctOut.Body, ctOut.Body, ctBody)
+	opOut.AddTo(ctOut.Body.Value, ctOut.Body.Value, ctBody.Value)
 }
 
 // KeySwitchHoistedLazy returns the key-switched ct using ksk,
@@ -525,16 +568,15 @@ func (op *Operator) KeySwitchHoistedLazy(ct *Ciphertext, ctMaskDcmp *Vector, ksk
 func (op *Operator) KeySwitchHoistedLazyTo(ctOut, ct *Ciphertext, ctMaskDcmp *Vector, ksk *KeySwitchKey, outForm dft.Form) {
 	ctBodyFull := op.poolPoly.Get()
 	defer op.poolPoly.Put(ctBodyFull)
-
 	ctBody := ctBodyFull.WithModLen(ct.BaseModLen(), ctMaskDcmp.AuxModLen())
 
 	opIn := op.plainOp.withModLen(ct.BaseModLen(), 0)
 	opOut := op.plainOp.withModLen(ct.BaseModLen(), ctMaskDcmp.AuxModLen())
-	sc := crt.NewScaler(opOut, opIn).WithPool(op.plainOp.poolEmb)
+	sc := crt.NewScalerUnsafe(opOut, opIn, op.plainOp.poolEmb)
 	sc.ScaleTo(ctBody.Value, ct.Body.Value, outForm)
 
 	op.GadProdHoistedLazyTo(ctOut, ctMaskDcmp, (*GadgetEncryption)(ksk), outForm)
-	op.plainOp.AddTo(ctOut.Body, ctOut.Body, ctBody)
+	opOut.AddTo(ctOut.Body.Value, ctOut.Body.Value, ctBody.Value)
 }
 
 // Aut returns ct(X^idx).
@@ -551,8 +593,9 @@ func (op *Operator) AutTo(ctOut, ct *Ciphertext, atk *AutKey, outForm dft.Form) 
 
 	op.KeySwitchTo(ctOut, ct, atk.Value, outForm)
 
-	op.plainOp.AutTo(ctOut.Body, ctOut.Body, atk.Idx)
-	op.plainOp.AutTo(ctOut.Mask, ctOut.Mask, atk.Idx)
+	crtOp := op.plainOp.withModLen(ctOut.BaseModLen(), ctOut.AuxModLen())
+	crtOp.AutTo(ctOut.Body.Value, ctOut.Body.Value, atk.Idx)
+	crtOp.AutTo(ctOut.Mask.Value, ctOut.Mask.Value, atk.Idx)
 }
 
 // AutHoisted returns ct(X^idx).
@@ -571,8 +614,9 @@ func (op *Operator) AutHoistedTo(ctOut, ct *Ciphertext, ctMaskDcmp *Vector, atk 
 
 	op.KeySwitchHoistedTo(ctOut, ct, ctMaskDcmp, atk.Value, outForm)
 
-	op.plainOp.AutTo(ctOut.Body, ctOut.Body, atk.Idx)
-	op.plainOp.AutTo(ctOut.Mask, ctOut.Mask, atk.Idx)
+	crtOp := op.plainOp.withModLen(ctOut.BaseModLen(), ctOut.AuxModLen())
+	crtOp.AutTo(ctOut.Body.Value, ctOut.Body.Value, atk.Idx)
+	crtOp.AutTo(ctOut.Mask.Value, ctOut.Mask.Value, atk.Idx)
 }
 
 // AutLazy returns ct(X^idx),
@@ -591,8 +635,9 @@ func (op *Operator) AutLazyTo(ctOut, ct *Ciphertext, atk *AutKey, outForm dft.Fo
 
 	op.KeySwitchLazyTo(ctOut, ct, atk.Value, outForm)
 
-	op.plainOp.AutTo(ctOut.Body, ctOut.Body, atk.Idx)
-	op.plainOp.AutTo(ctOut.Mask, ctOut.Mask, atk.Idx)
+	crtOp := op.plainOp.withModLen(ctOut.BaseModLen(), ctOut.AuxModLen())
+	crtOp.AutTo(ctOut.Body.Value, ctOut.Body.Value, atk.Idx)
+	crtOp.AutTo(ctOut.Mask.Value, ctOut.Mask.Value, atk.Idx)
 }
 
 // AutHoistedLazy returns ct(X^idx),
@@ -613,8 +658,9 @@ func (op *Operator) AutHoistedLazyTo(ctOut, ct *Ciphertext, ctMaskDcmp *Vector, 
 
 	op.KeySwitchHoistedLazyTo(ctOut, ct, ctMaskDcmp, atk.Value, outForm)
 
-	op.plainOp.AutTo(ctOut.Body, ctOut.Body, atk.Idx)
-	op.plainOp.AutTo(ctOut.Mask, ctOut.Mask, atk.Idx)
+	crtOp := op.plainOp.withModLen(ctOut.BaseModLen(), ctOut.AuxModLen())
+	crtOp.AutTo(ctOut.Body.Value, ctOut.Body.Value, atk.Idx)
+	crtOp.AutTo(ctOut.Mask.Value, ctOut.Mask.Value, atk.Idx)
 }
 
 // ExtProd returns ct * ctRGSW.
@@ -634,10 +680,9 @@ func (op *Operator) ExtProdTo(ctOut, ct *Ciphertext, ctRGSW *RGSWEncryption, out
 
 	ctOutAuxFull := op.poolRLWE.Get()
 	defer op.poolRLWE.Put(ctOutAuxFull)
-
 	ctOutAux := ctOutAuxFull.WithModLen(ctOut.BaseModLen(), op.params.AuxModLen())
-	op.ExtProdLazyTo(ctOutAux, ct, ctRGSW, outForm)
 
+	op.ExtProdLazyTo(ctOutAux, ct, ctRGSW, outForm)
 	if op.params.AuxModLen() > 0 {
 		op.ScaleTo(ctOut, ctOutAux, outForm)
 		return
@@ -664,10 +709,9 @@ func (op *Operator) ExtProdHoistedTo(ctOut *Ciphertext, ctBodyDcmp, ctMaskDcmp *
 
 	ctOutAuxFull := op.poolRLWE.Get()
 	defer op.poolRLWE.Put(ctOutAuxFull)
-
 	ctOutAux := ctOutAuxFull.WithModLen(ctOut.BaseModLen(), ctBodyDcmp.AuxModLen())
-	op.ExtProdHoistedLazyTo(ctOutAux, ctBodyDcmp, ctMaskDcmp, ctRGSW, outForm)
 
+	op.ExtProdHoistedLazyTo(ctOutAux, ctBodyDcmp, ctMaskDcmp, ctRGSW, outForm)
 	if op.params.AuxModLen() > 0 {
 		op.ScaleTo(ctOut, ctOutAux, outForm)
 		return
@@ -699,7 +743,6 @@ func (op *Operator) ExtProdLazyTo(ctOut, ct *Ciphertext, ctRGSW *RGSWEncryption,
 	defer op.poolPolyDcmp.Put(ctBodyDcmpFull)
 	ctMaskDcmpFull := op.poolPolyDcmp.Get()
 	defer op.poolPolyDcmp.Put(ctMaskDcmpFull)
-
 	ctBodyDcmp := ctBodyDcmpFull.Slice(0, op.dcmp.DecomposeLen(ct.BaseModLen())).WithModLen(ct.BaseModLen(), op.params.AuxModLen())
 	ctMaskDcmp := ctMaskDcmpFull.Slice(0, op.dcmp.DecomposeLen(ct.BaseModLen())).WithModLen(ct.BaseModLen(), op.params.AuxModLen())
 
@@ -731,14 +774,17 @@ func (op *Operator) ExtProdHoistedLazyTo(ctOut *Ciphertext, ctBodyDcmp, ctMaskDc
 	defer op.poolRLWE.Put(ctBodyFull)
 	ctMaskFull := op.poolRLWE.Get()
 	defer op.poolRLWE.Put(ctMaskFull)
-
 	ctBody := ctBodyFull.WithModLen(ctOut.BaseModLen(), ctOut.AuxModLen())
 	ctMask := ctMaskFull.WithModLen(ctOut.BaseModLen(), ctOut.AuxModLen())
+
 	op.GadProdHoistedLazyTo(ctBody, ctBodyDcmp, ctRGSW.BodyStack, dft.FormNTT)
 	op.GadProdHoistedLazyTo(ctMask, ctMaskDcmp, ctRGSW.MaskStack, dft.FormNTT)
 
-	op.AddTo(ctOut, ctBody, ctMask)
+	crtOp := op.plainOp.withModLen(ctOut.BaseModLen(), ctOut.AuxModLen())
+	crtOp.AddTo(ctOut.Body.Value, ctBody.Body.Value, ctMask.Body.Value)
+	crtOp.AddTo(ctOut.Mask.Value, ctBody.Mask.Value, ctMask.Mask.Value)
 	if outForm == dft.FormCoeff {
-		op.InvNTTTo(ctOut, ctOut)
+		crtOp.InvNTTTo(ctOut.Body.Value, ctOut.Body.Value)
+		crtOp.InvNTTTo(ctOut.Mask.Value, ctOut.Mask.Value)
 	}
 }

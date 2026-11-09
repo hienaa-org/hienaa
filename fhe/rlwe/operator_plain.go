@@ -188,7 +188,7 @@ func (op *PlainOperator) EmbedTo(eOut, e *Element, outForm dft.Form) {
 	opIn := op.withModLen(e.BaseModLen(), e.AuxModLen())
 	opOut := op.withModLen(eOut.BaseModLen(), eOut.AuxModLen())
 
-	emb := crt.NewEmbedder(opOut, opIn).WithPool(op.poolEmb)
+	emb := crt.NewEmbedderUnsafe(opOut, opIn, op.poolEmb)
 	emb.EmbedTo(eOut.Value, e.Value, outForm)
 }
 
@@ -209,6 +209,6 @@ func (op *PlainOperator) ScaleTo(eOut, e *Element, outForm dft.Form) {
 	opIn := op.withModLen(e.BaseModLen(), e.AuxModLen())
 	opOut := op.withModLen(eOut.BaseModLen(), eOut.AuxModLen())
 
-	sc := crt.NewScaler(opOut, opIn).WithPool(op.poolEmb)
+	sc := crt.NewScalerUnsafe(opOut, opIn, op.poolEmb)
 	sc.ScaleTo(eOut.Value, e.Value, outForm)
 }

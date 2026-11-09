@@ -277,8 +277,8 @@ func (enc *Encryptor) encryptSecretKeyTo(ctOut *Ciphertext, pt *Element, outForm
 
 	noiseFull := enc.poolPoly.Get()
 	defer enc.poolPoly.Put(noiseFull)
-
 	noise := noiseFull.WithModLen(ctOut.BaseModLen(), ctOut.AuxModLen())
+
 	enc.noiseSampler.SampleTo(noise.Value, ctMod)
 
 	if ptBuf != nil {
@@ -325,8 +325,8 @@ func (enc *Encryptor) encryptPublicKeyTo(ctOut *Ciphertext, pt *Element, outForm
 
 	auxKeyFull := enc.poolPoly.Get()
 	defer enc.poolPoly.Put(auxKeyFull)
-
 	auxKey := auxKeyFull.WithModLen(ctOut.BaseModLen(), ctOut.AuxModLen())
+
 	enc.auxKeySampler.SampleTo(auxKey.Value, ctMod)
 	enc.plainOp.FwdNTTTo(auxKey, auxKey)
 
@@ -337,8 +337,8 @@ func (enc *Encryptor) encryptPublicKeyTo(ctOut *Ciphertext, pt *Element, outForm
 
 	noiseFull := enc.poolRLWE.Get()
 	defer enc.poolRLWE.Put(noiseFull)
-
 	noise := noiseFull.WithModLen(ctOut.BaseModLen(), ctOut.AuxModLen())
+
 	enc.noiseSampler.SampleTo(noise.Body.Value, ctMod)
 	enc.noiseSampler.SampleTo(noise.Mask.Value, ctMod)
 
@@ -387,6 +387,7 @@ func (enc *Encryptor) PhaseTo(pOut *Element, ct *Ciphertext) {
 	ctNTTFull := enc.poolRLWE.Get()
 	defer enc.poolRLWE.Put(ctNTTFull)
 	ctNTT := ctNTTFull.WithModLen(ct.BaseModLen(), ct.AuxModLen())
+
 	switch {
 	case ct.Form() == dft.FormCoeff:
 		enc.plainOp.FwdNTTTo(ctNTT.Body, ct.Body)

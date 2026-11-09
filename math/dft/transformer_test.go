@@ -123,7 +123,6 @@ func testNTT(t *testing.T, params dft.RingParameters) {
 		pOutFull := expandAutFixedPoly(params, pOut, q)
 		assert.Equal(t, mulReduce(p0Full, p1Full, pMod, q), pOutFull)
 	}
-
 }
 
 func TestCyclotomicNTT(t *testing.T) {

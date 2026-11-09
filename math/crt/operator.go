@@ -234,10 +234,18 @@ func (op *Operator) Neg(e *Element) *Element {
 func (op *Operator) NegTo(eOut, e *Element) {
 	checkUnaryOperable(op.params.Rank(), len(op.mod), eOut, e)
 
-	for i := range op.mod {
-		vec.NegTo(eOut.Coeffs[i], e.Coeffs[i], op.mod[i])
+	switch {
+	case e.Type == TypeScalar:
+		for i := range op.mod {
+			eOut.Coeffs[i][0] = num.Neg(e.Coeffs[i][0], op.mod[i])
+		}
+
+	case e.Type == TypePoly:
+		for i := range op.mod {
+			vec.NegTo(eOut.Coeffs[i], e.Coeffs[i], op.mod[i])
+		}
+		eOut.Form = e.Form
 	}
-	eOut.Form = e.Form
 }
 
 // Mul returns eOut = e0 * e1.

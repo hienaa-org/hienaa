@@ -7,7 +7,6 @@ import (
 )
 
 // fwdNTTInPlacePow2Unroll computes the NTT transform in-place for power-of-two length coefficients.
-// Assumes len(coeffs) >= 32.
 func fwdNTTInPlacePow2Unroll(coeffs, tw, twS []uint64, q uint64) {
 	twoQ := q << 1
 
@@ -101,7 +100,6 @@ func fwdNTTInPlacePow2Unroll(coeffs, tw, twS []uint64, q uint64) {
 }
 
 // invNTTInPlacePow2Unroll computes the Inverse NTT transform in-place for power-of-two length coefficients.
-// Assumes len(coeffs) >= 32.
 func invNTTInPlacePow2Unroll(coeffs, twInv, twInvS []uint64, q uint64) {
 	twoQ := q << 1
 
