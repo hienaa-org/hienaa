@@ -4,6 +4,8 @@ import (
 	"math/bits"
 	"math/rand/v2"
 	"slices"
+
+	"github.com/hienaa-org/hienaa/math/internal/modops"
 )
 
 var (
@@ -34,10 +36,10 @@ func isPrimeUint64(x uint64) bool {
 
 	tests := []uint64{2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37}
 	for _, a := range tests {
-		n := Exp(a, d, x)
+		n := modops.AnyExp(a, d, x)
 		var y uint64
 		for i := 0; i < s; i++ {
-			y = Mul(n, n, x)
+			y = modops.AnyMul(n, n, x)
 			if y == 1 && n != 1 && n != x-1 {
 				return false
 			}
@@ -97,7 +99,7 @@ func NextPrime[T Integer](x, skip T) T {
 	}
 
 	if x < 2 {
-		x = T(Reduce(x, uint64(skip)))
+		x = T(modops.AnyReduce(x, uint64(skip)))
 	}
 
 	for t := x; ; t += skip {
@@ -234,14 +236,14 @@ func factorRecurse(x uint64, factors map[uint64]uint64) {
 	for g == 1 {
 		t = y
 		for i := uint64(0); i < r; i++ {
-			y = Add(Mul(y, y, x), c, x)
+			y = modops.AnyAdd(modops.AnyMul(y, y, x), c, x)
 		}
 		var k uint64
 		for k < r && g == 1 {
 			ys = y
 			for i := uint64(0); i < min(m, r-k); i++ {
-				y = Add(Mul(y, y, x), c, x)
-				q = Mul(q, subAbs(y, t), x)
+				y = modops.AnyAdd(modops.AnyMul(y, y, x), c, x)
+				q = modops.AnyMul(q, subAbs(y, t), x)
 			}
 			g = GCD(q, x)
 			k += m
@@ -251,7 +253,7 @@ func factorRecurse(x uint64, factors map[uint64]uint64) {
 
 	if g == x {
 		for {
-			ys = Add(Mul(ys, ys, x), c, x)
+			ys = modops.AnyAdd(modops.AnyMul(ys, ys, x), c, x)
 			g = GCD(subAbs(ys, t), x)
 
 			if g > 1 {
@@ -283,11 +285,11 @@ func Order[T Integer](x, q T) T {
 	}
 
 	q64 := uint64(q)
-	r := Reduce(x, q64)
+	r := modops.AnyReduce(x, q64)
 	ord := Totient(q64)
 	primes, _ := Factor(ord)
 	for _, p := range primes {
-		for p > 1 && ord%p == 0 && Exp(r, ord/p, q64) == 1 {
+		for p > 1 && ord%p == 0 && modops.AnyExp(r, ord/p, q64) == 1 {
 			ord /= p
 		}
 	}
@@ -323,32 +325,32 @@ func Generators(q uint64) []uint64 {
 	primes, exps := Factor(q)
 	pExp := make([]uint64, len(primes))
 	for i := range pExp {
-		pExp[i] = Exp[*Modulus](primes[i], exps[i], nil)
+		pExp[i] = Exp(primes[i], exps[i], nil)
 	}
 
 	subGens := make([]uint64, len(primes))
 	crt := make([]uint64, len(primes))
 	for i := range subGens {
 		subGens[i] = primitiveRoot(primes[i], pExp[i])
-		crt[i] = Mul(q/pExp[i], Inv(q/pExp[i], pExp[i]), q)
+		crt[i] = modops.AnyMul(q/pExp[i], modops.AnyInv(q/pExp[i], pExp[i]), q)
 	}
 
 	gens := make([]uint64, len(subGens))
 	for i := range gens {
 		for j := range crt {
 			if j == i {
-				gens[i] = Add(gens[i], Mul(subGens[j], crt[j], q), q)
+				gens[i] = modops.AnyAdd(gens[i], modops.AnyMul(subGens[j], crt[j], q), q)
 			} else {
-				gens[i] = Add(gens[i], crt[j], q)
+				gens[i] = modops.AnyAdd(gens[i], crt[j], q)
 			}
 		}
 	}
 
 	if pExp[0]%8 == 0 {
 		gens = append([]uint64{0}, gens...)
-		gens[0] = Mul(5, crt[0], q)
+		gens[0] = modops.AnyMul(5, crt[0], q)
 		for i := 1; i < len(crt); i++ {
-			gens[0] = Add(gens[0], crt[i], q)
+			gens[0] = modops.AnyAdd(gens[0], crt[i], q)
 		}
 	} else if gens[0] == 1 {
 		gens = gens[1:]
@@ -375,12 +377,12 @@ func primitiveRoot(p, pExp uint64) uint64 {
 	for {
 		ok := true
 		for _, t := range testPows {
-			if Exp(g, t, pExp) == 1 {
+			if modops.AnyExp(g, t, pExp) == 1 {
 				ok = false
 				break
 			}
 		}
-		if ok && Exp(g, phi, pExp) == 1 {
+		if ok && modops.AnyExp(g, phi, pExp) == 1 {
 			return g
 		}
 		g++
@@ -403,7 +405,7 @@ func NthRoot(n uint64, g []uint64, q uint64) uint64 {
 	primePows := make([]uint64, len(primes))
 	ords := make([]uint64, len(primes))
 	for i := range primePows {
-		primePows[i] = Exp[*Modulus](primes[i], exps[i], nil)
+		primePows[i] = Exp(primes[i], exps[i], nil)
 		ords[i] = primePows[i] - primePows[i]/primes[i]
 	}
 
@@ -428,7 +430,7 @@ func NthRoot(n uint64, g []uint64, q uint64) uint64 {
 	r, ord := uint64(1), uint64(1)
 	for i := range ords {
 		d := GCD(n, ords[i])
-		r = Mul(r, Exp(g[i], ords[i]/d, q), q)
+		r = modops.AnyMul(r, modops.AnyExp(g[i], ords[i]/d, q), q)
 		ord = LCM(ord, d)
 	}
 

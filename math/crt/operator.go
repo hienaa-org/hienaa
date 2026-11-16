@@ -43,7 +43,7 @@ type Operator struct {
 func NewOperator(params dft.RingParameters, mod []*num.Modulus) *Operator {
 	if len(mod) == 0 {
 		panic("empty modulus")
-	} else if !IsCoprime(mod) {
+	} else if !num.IsCoprime(mod) {
 		panic("modulus must be coprime")
 	}
 
@@ -69,7 +69,7 @@ func NewOperator(params dft.RingParameters, mod []*num.Modulus) *Operator {
 	}
 
 	var reducer *CyclotomicReducer
-	if params.RingType() == dft.TypeCyclotomic && !num.IsPowerOfTwo(params.CycloIndex()) {
+	if params.RingType() == dft.TypeCyclotomic && !num.IsPowerOfTwo(params.CycloIdx()) {
 		reducer = NewCyclotomicReducer(params, mod)
 	}
 
@@ -394,7 +394,7 @@ func (op *Operator) Append(opIn *Operator) *Operator {
 	}
 
 	modOut := slices.Concat(op.mod, opIn.mod)
-	if !IsCoprime(modOut) {
+	if !num.IsCoprime(modOut) {
 		panic("modulus must be coprime")
 	}
 
@@ -446,7 +446,7 @@ func (op *Operator) Append(opIn *Operator) *Operator {
 // Panics when the resulting moduli are not pairwise coprime.
 func (op *Operator) AppendTmpMod(mod *num.Modulus) *Operator {
 	modOut := slices.Concat(op.mod, []*num.Modulus{mod})
-	if !IsCoprime(modOut) {
+	if !num.IsCoprime(modOut) {
 		panic("modulus must be coprime")
 	}
 

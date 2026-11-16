@@ -384,7 +384,7 @@ type VecEmbedder struct {
 
 // NewVecEmbedder creates a new [VecEmbedder].
 func NewVecEmbedder(modOut, modIn []*num.Modulus) *VecEmbedder {
-	if !IsCoprime(modOut) || !IsCoprime(modIn) {
+	if !num.IsCoprime(modOut) || !num.IsCoprime(modIn) {
 		panic("modulus must be coprime")
 	}
 
@@ -1123,7 +1123,7 @@ type VecScaler struct {
 
 // NewVecScaler creates a new [VecScaler].
 func NewVecScaler(modOut, modIn []*num.Modulus) *VecScaler {
-	if !IsCoprime(modOut) || !IsCoprime(modIn) {
+	if !num.IsCoprime(modOut) || !num.IsCoprime(modIn) {
 		panic("modulus must be coprime")
 	}
 

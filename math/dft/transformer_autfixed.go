@@ -194,7 +194,7 @@ func newPrimeAutFixedTransformer(params RingParameters, mod *num.Modulus) *prime
 	modRootPowSum := make([]uint64, ambRank)
 	modRootPowInvSum := make([]uint64, ambRank)
 
-	cycloRootPowRank := num.Exp(cycloRoot, uint64(params.rank), uint64(params.cycloIdx))
+	cycloRootPowRank := num.Exp(cycloRoot, uint64(params.rank), params.cycloIdxMod)
 	modRootPow := modRoot
 	modRootPowInv := num.Inv(modRoot, mod)
 

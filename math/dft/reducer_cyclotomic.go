@@ -43,7 +43,7 @@ func newCyclotomicReducer(params RingParameters, mod *num.Modulus) *cyclotomicRe
 	primes, _ := num.Factor(params.cycloIdx)
 
 	var redDeg, leastFac int
-	if params.cycloIdx%2 == 1 {
+	if params.cycloIdx&1 == 1 {
 		leastFac = primes[0]
 		redDeg = params.cycloIdx - params.cycloIdx/leastFac
 	} else {
@@ -111,7 +111,7 @@ func (r *cyclotomicReducer) reduceTo(pOut, p []uint64) {
 	defer r.pool.Put(pInPtr)
 
 	copy(pIn, p)
-	if cycloIdx%2 == 1 {
+	if cycloIdx&1 == 1 {
 		skip := cycloIdx / r.leastFac
 
 		for i := 0; i < r.leastFac-1; i++ {
@@ -125,7 +125,7 @@ func (r *cyclotomicReducer) reduceTo(pOut, p []uint64) {
 		clear(pIn[cycloIdx/2:])
 
 		for i := 0; i < r.leastFac-1; i++ {
-			if i%2 == 0 {
+			if i&1 == 0 {
 				vec.SubTo(pIn[i*skip:(i+1)*skip], pIn[i*skip:(i+1)*skip], pIn[cycloIdx/2-skip:cycloIdx/2], r.mod)
 			} else {
 				vec.AddTo(pIn[i*skip:(i+1)*skip], pIn[i*skip:(i+1)*skip], pIn[cycloIdx/2-skip:cycloIdx/2], r.mod)

@@ -111,3 +111,15 @@ func DivRound[T Integer](x, y T) T {
 	}
 	return q
 }
+
+// IsCoprime checks if all values in mod is pairwise coprime.
+func IsCoprime(mod []*Modulus) bool {
+	for i := range mod {
+		for j := range mod {
+			if i != j && GCD(mod[i].Value(), mod[j].Value()) != 1 {
+				return false
+			}
+		}
+	}
+	return true
+}

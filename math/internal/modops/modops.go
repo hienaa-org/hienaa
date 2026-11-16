@@ -276,3 +276,62 @@ func AnyMul(x0, x1, q uint64) uint64 {
 	xOutHi, xOutLo := bits.Mul64(x0, x1)
 	return bits.Rem64(xOutHi, xOutLo, q)
 }
+
+// AnyReduce returns x mod q for arbitrary uint64 inputs.
+func AnyReduce[T Integer](x T, q uint64) uint64 {
+	if x < 0 {
+		return Neg((uint64(^x)+1)%q, q)
+	}
+	return uint64(x) % q
+}
+
+// AnyExp returns x^e mod q for arbitrary uint64 inputs.
+func AnyExp(x, e, q uint64) uint64 {
+	r := uint64(1)
+	for e > 0 {
+		if e&1 == 1 {
+			r = AnyMul(r, x, q)
+		}
+		e >>= 1
+		if e == 0 {
+			break
+		}
+		x = AnyMul(x, x, q)
+	}
+	return r
+}
+
+// AnyInv returns the inverse of x mod q for arbitrary uint64 inputs.
+//
+// Panics if no inverse exists.
+func AnyInv(x, q uint64) uint64 {
+	rr, r := x, q
+
+	ssSign, sSign := true, true
+	ss, s := uint64(1), uint64(0)
+
+	for r != 0 {
+		quo := rr / r
+		rr, r = r, rr-quo*r
+		if sSign != ssSign {
+			ss, s = s, ss+quo*s
+			ssSign, sSign = sSign, ssSign
+		} else {
+			if ss > quo*s {
+				ss, s = s, ss-quo*s
+			} else {
+				ss, s = s, quo*s-ss
+				ssSign, sSign = sSign, !sSign
+			}
+		}
+	}
+
+	if rr != 1 {
+		panic("input not invertible")
+	}
+
+	if !ssSign {
+		return AnyNeg(ss, q)
+	}
+	return ss
+}

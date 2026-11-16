@@ -16,7 +16,7 @@ const (
 )
 
 func addSubTypeOf(params dft.RingParameters) addSubType {
-	if params.RingType() == dft.TypeAutFixed && num.IsPrime(params.CycloIndex()) {
+	if params.RingType() == dft.TypeAutFixed && num.IsPrime(params.CycloIdx()) {
 		return typePrimeAutFixedAddSub
 	}
 	return typeTrivialAddSub

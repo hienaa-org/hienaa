@@ -32,7 +32,7 @@ func NewLongDivReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *LongDi
 		panic("maxRank must be greater than or equal to modPoly degree")
 	} else if modPoly[len(modPoly)-1] != 1 {
 		panic("modPoly must be monic")
-	} else if !IsCoprime(mod) {
+	} else if !num.IsCoprime(mod) {
 		panic("modulus must be coprime")
 	}
 
@@ -209,7 +209,7 @@ func (r *LongDivReducer) Append(rIn *LongDivReducer) *LongDivReducer {
 	}
 
 	modOut := slices.Concat(r.mod, rIn.mod)
-	if !IsCoprime(modOut) {
+	if !num.IsCoprime(modOut) {
 		panic("modulus must be coprime")
 	}
 
@@ -230,7 +230,7 @@ func (r *LongDivReducer) Append(rIn *LongDivReducer) *LongDivReducer {
 // Panics when the resulting moduli are not pairwise coprime.
 func (r *LongDivReducer) AppendTmpMod(mod *num.Modulus) *LongDivReducer {
 	modOut := slices.Concat(r.mod, []*num.Modulus{mod})
-	if !IsCoprime(modOut) {
+	if !num.IsCoprime(modOut) {
 		panic("modulus must be coprime")
 	}
 
@@ -294,15 +294,15 @@ type CyclotomicReducer struct {
 
 // NewCyclotomicReducer creates a new [CyclotomicReducer].
 func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *CyclotomicReducer {
-	if !IsCoprime(mod) {
+	if !num.IsCoprime(mod) {
 		panic("modulus must be coprime")
 	}
 
-	cycloIdx, rank := params.CycloIndex(), params.Rank()
+	cycloIdx, rank := params.CycloIdx(), params.Rank()
 	primes, _ := num.Factor(cycloIdx)
 
 	var redDeg, leastFac int
-	if cycloIdx%2 == 1 || len(primes) == 1 {
+	if cycloIdx&1 == 1 || len(primes) == 1 {
 		leastFac = primes[0]
 		redDeg = cycloIdx - cycloIdx/leastFac
 	} else {
@@ -310,7 +310,7 @@ func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *Cyclot
 		redDeg = cycloIdx/2 - (cycloIdx/2)/leastFac
 	}
 
-	isTrivial := redDeg == rank
+	isTrivial := cycloIdx == 1 || redDeg == rank
 
 	var ambModLen []int
 	var ambMod []*num.Modulus
@@ -329,14 +329,14 @@ func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *Cyclot
 		degNextParams := dft.NewCyclicParameters(degNext)
 
 		ambExpFactorBits := num.Log2(max(diffDegNext, degNext))
-		ambMod = ambientNTTPrimes(params, ambExpFactorBits+2*num.MaxModulusBits)
+		ambMod = dft.AmbientNTTPrimes(params, ambExpFactorBits+2*num.MaxModulusBits)
 
 		ambModLen = make([]int, len(mod))
 		for i := range mod {
 			if dft.IsNTTFriendly(diffDegNextParams, mod[i]) && dft.IsNTTFriendly(degNextParams, mod[i]) {
 				continue
 			}
-			ambModLen[i] = ambientModLen(ambMod, ambExpFactorBits+2*num.Log2(mod[i].Value()))
+			ambModLen[i] = dft.AmbientModLen(ambMod, ambExpFactorBits+2*num.Log2(mod[i].Value()))
 		}
 
 		diffDegNextAmbNTT = make([]*dft.Transformer, len(ambMod))
@@ -439,7 +439,12 @@ func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *Cyclot
 
 // reduceTo reduces p to pOut with the idx-th modulus.
 func (r *CyclotomicReducer) reduceTo(pOut, p []uint64, idx int) {
-	cycloIdx, rank := r.params.CycloIndex(), r.params.Rank()
+	cycloIdx, rank := r.params.CycloIdx(), r.params.Rank()
+	if cycloIdx == 1 {
+		copy(pOut, p)
+		clear(pOut[len(p):])
+		return
+	}
 
 	pInPtr := r.pool.Get()
 	pIn := (*pInPtr)[0][:cycloIdx]
@@ -447,7 +452,7 @@ func (r *CyclotomicReducer) reduceTo(pOut, p []uint64, idx int) {
 
 	copy(pIn, p)
 	clear(pIn[len(p):])
-	if cycloIdx%2 == 1 {
+	if cycloIdx&1 == 1 {
 		skip := cycloIdx / r.leastFac
 
 		for i := 0; i < r.leastFac-1; i++ {
@@ -461,7 +466,7 @@ func (r *CyclotomicReducer) reduceTo(pOut, p []uint64, idx int) {
 		clear(pIn[cycloIdx/2:])
 
 		for i := 0; i < r.leastFac-1; i++ {
-			if i%2 == 0 {
+			if i&1 == 0 {
 				vec.SubTo(pIn[i*skip:(i+1)*skip], pIn[i*skip:(i+1)*skip], pIn[cycloIdx/2-skip:cycloIdx/2], r.mod[idx])
 			} else {
 				vec.AddTo(pIn[i*skip:(i+1)*skip], pIn[i*skip:(i+1)*skip], pIn[cycloIdx/2-skip:cycloIdx/2], r.mod[idx])
@@ -563,7 +568,7 @@ func (r *CyclotomicReducer) ReduceTo(pOut, p *Element) {
 
 	if p.Form == dft.FormNTT {
 		panic("inputs must be in Coeff form")
-	} else if p.Rank() > r.params.CycloIndex() {
+	} else if p.Rank() > r.params.CycloIdx() {
 		panic("rank must be less than or equal to cycloIdx")
 	}
 
@@ -651,7 +656,7 @@ func (r *CyclotomicReducer) Append(rIn *CyclotomicReducer) *CyclotomicReducer {
 	}
 
 	modOut := slices.Concat(r.mod, rIn.mod)
-	if !IsCoprime(modOut) {
+	if !num.IsCoprime(modOut) {
 		panic("modulus must be coprime")
 	}
 
@@ -690,7 +695,7 @@ func (r *CyclotomicReducer) Append(rIn *CyclotomicReducer) *CyclotomicReducer {
 // Panics when the resulting moduli are not pairwise coprime.
 func (r *CyclotomicReducer) AppendTmpMod(mod *num.Modulus) *CyclotomicReducer {
 	modOut := slices.Concat(r.mod, []*num.Modulus{mod})
-	if !IsCoprime(modOut) {
+	if !num.IsCoprime(modOut) {
 		panic("modulus must be coprime")
 	}
 
@@ -709,7 +714,7 @@ func (r *CyclotomicReducer) AppendTmpMod(mod *num.Modulus) *CyclotomicReducer {
 	}
 
 	ambExpFactorBits := num.Log2(max(r.diffDegNextAmbNTT[0].Params().Rank(), r.degNextAmbNTT[0].Params().Rank()))
-	ambModLen := ambientModLen(r.ambMod, ambExpFactorBits+2*num.Log2(mod.Value()))
+	ambModLen := dft.AmbientModLen(r.ambMod, ambExpFactorBits+2*num.Log2(mod.Value()))
 
 	embedder := NewVecEmbedder([]*num.Modulus{mod}, r.ambMod[:ambModLen])
 
@@ -813,7 +818,7 @@ func NewReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *Reducer {
 		panic("maxRank must be greater than modPoly degree")
 	} else if modPoly[len(modPoly)-1] != 1 {
 		panic("modPoly must be monic")
-	} else if !IsCoprime(mod) {
+	} else if !num.IsCoprime(mod) {
 		panic("modulus must be coprime")
 	}
 
@@ -827,14 +832,14 @@ func NewReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *Reducer {
 	degNextParams := dft.NewCyclicParameters(degNext)
 
 	ambParams := dft.NewCyclicParameters(2 * max(diffDegNext, degNext))
-	ambMod := ambientNTTPrimes(ambParams, num.Log2(ambParams.Rank())+2*num.MaxModulusBits)
+	ambMod := dft.AmbientNTTPrimes(ambParams, num.Log2(ambParams.Rank())+2*num.MaxModulusBits)
 
 	ambModLen := make([]int, len(mod))
 	for i := range mod {
 		if dft.IsNTTFriendly(diffDegNextParams, mod[i]) && dft.IsNTTFriendly(degNextParams, mod[i]) {
 			continue
 		}
-		ambModLen[i] = ambientModLen(ambMod, num.Log2(ambParams.Rank())+2*num.Log2(mod[i].Value()))
+		ambModLen[i] = dft.AmbientModLen(ambMod, num.Log2(ambParams.Rank())+2*num.Log2(mod[i].Value()))
 	}
 
 	diffDegNextAmbNTT := make([]*dft.Transformer, len(ambMod))
@@ -1096,7 +1101,7 @@ func (r *Reducer) Append(rIn *Reducer) *Reducer {
 	}
 
 	modOut := slices.Concat(r.mod, rIn.mod)
-	if !IsCoprime(modOut) {
+	if !num.IsCoprime(modOut) {
 		panic("modulus must be coprime")
 	}
 
@@ -1132,12 +1137,12 @@ func (r *Reducer) Append(rIn *Reducer) *Reducer {
 // Panics when the resulting moduli are not pairwise coprime.
 func (r *Reducer) AppendTmpMod(mod *num.Modulus) *Reducer {
 	modOut := slices.Concat(r.mod, []*num.Modulus{mod})
-	if !IsCoprime(modOut) {
+	if !num.IsCoprime(modOut) {
 		panic("modulus must be coprime")
 	}
 
 	ambExpFactorBits := num.Log2(2 * max(r.diffDegNext, r.degNext))
-	ambModLen := ambientModLen(r.ambMod, ambExpFactorBits+2*num.Log2(mod.Value()))
+	ambModLen := dft.AmbientModLen(r.ambMod, ambExpFactorBits+2*num.Log2(mod.Value()))
 
 	embedder := NewVecEmbedder([]*num.Modulus{mod}, r.ambMod[:ambModLen])
 

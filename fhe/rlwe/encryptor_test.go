@@ -25,7 +25,7 @@ func checkBound(v []*big.Int, bound float64) bool {
 }
 
 func expansionFactor(params dft.RingParameters) float64 {
-	N, M := params.Rank(), params.CycloIndex()
+	N, M := params.Rank(), params.CycloIdx()
 	switch params.RingType() {
 	case dft.TypeCyclic:
 		return float64(N)

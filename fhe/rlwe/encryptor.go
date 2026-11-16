@@ -435,9 +435,11 @@ func (enc *Encryptor) GenAutKey(idx int) *AutKey {
 		panic("encryptor must have secret key")
 	}
 
-	cycloIdx64 := uint64(enc.params.RingParams().CycloIndex())
-	idx64 := num.Reduce(idx, cycloIdx64)
-	idxInv := int(num.Inv(idx64, cycloIdx64))
+	idxInv := 1
+	if enc.params.RingParams().CycloIdx() != 1 {
+		idxMod := enc.params.RingParams().CycloIdxMod()
+		idxInv = int(num.Inv(num.Reduce(idx, idxMod), idxMod))
+	}
 
 	skAut := enc.poolPoly.Get()
 	defer enc.poolPoly.Put(skAut)

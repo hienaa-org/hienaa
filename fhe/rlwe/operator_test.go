@@ -350,7 +350,7 @@ func testOperator(t *testing.T, ringParams dft.RingParameters) {
 	t.Run("Aut", func(t *testing.T) {
 		var idx int
 		for {
-			idx = rSrc.SampleN(1, ringParams.CycloIndex())
+			idx = rSrc.SampleN(1, ringParams.CycloIdx())
 			if op.CanAut(idx) {
 				break
 			}

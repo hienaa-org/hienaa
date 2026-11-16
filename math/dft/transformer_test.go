@@ -59,7 +59,7 @@ func reduce(p0, p1 []uint64, q *num.Modulus) []uint64 {
 
 func expandAutFixedPoly(params dft.RingParameters, p []uint64, q *num.Modulus) []uint64 {
 	var pFull []uint64
-	if num.IsPowerOfTwo(params.CycloIndex()) {
+	if num.IsPowerOfTwo(params.CycloIdx()) {
 		pFull = make([]uint64, params.Rank()<<1)
 		copy(pFull[:params.Rank()], p)
 		pFull[params.Rank()] = 0
@@ -67,19 +67,19 @@ func expandAutFixedPoly(params dft.RingParameters, p []uint64, q *num.Modulus) [
 			pFull[i+params.Rank()] = num.Neg(p[params.Rank()-i], q)
 		}
 	} else {
-		pFull = make([]uint64, params.CycloIndex())
-		root := num.Generators(uint64(params.CycloIndex()))[0]
+		pFull = make([]uint64, params.CycloIdx())
+		root := num.Generators(uint64(params.CycloIdx()))[0]
 		idx := uint64(1)
-		for i := 0; i < (params.CycloIndex()-1)/params.Rank(); i++ {
+		for i := 0; i < (params.CycloIdx()-1)/params.Rank(); i++ {
 			for j := 0; j < params.Rank(); j++ {
 				pFull[idx] = p[j]
-				idx = num.Mul(idx, root, uint64(params.CycloIndex()))
+				idx = num.Mul(idx, root, params.CycloIdxMod())
 			}
 		}
-		for i := 0; i < params.CycloIndex()-1; i++ {
-			pFull[i] = num.Sub(pFull[i], pFull[params.CycloIndex()-1], q)
+		for i := 0; i < params.CycloIdx()-1; i++ {
+			pFull[i] = num.Sub(pFull[i], pFull[params.CycloIdx()-1], q)
 		}
-		pFull = pFull[:params.CycloIndex()-1]
+		pFull = pFull[:params.CycloIdx()-1]
 	}
 	return pFull
 }

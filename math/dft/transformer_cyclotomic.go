@@ -85,8 +85,7 @@ type anyCyclotomicTransformer struct {
 
 // newAnyCyclotomicTransformer creates a new [anyCyclotomicTransformer].
 func newAnyCyclotomicTransformer(params RingParameters, mod *num.Modulus) *anyCyclotomicTransformer {
-	cycloIdx64 := uint64(params.cycloIdx)
-	primes, exps := num.Factor(cycloIdx64)
+	primes, exps := num.Factor(uint64(params.cycloIdx))
 
 	dims := make([]uint64, len(primes))
 	for i := range dims {
@@ -105,7 +104,7 @@ func newAnyCyclotomicTransformer(params RingParameters, mod *num.Modulus) *anyCy
 		}
 	}
 
-	root := num.Generators(cycloIdx64)
+	root := num.Generators(uint64(params.cycloIdx))
 	idx := make([]uint64, params.rank)
 
 	idxDigits := make([]uint64, len(dims))
@@ -117,13 +116,14 @@ func newAnyCyclotomicTransformer(params RingParameters, mod *num.Modulus) *anyCy
 		}
 		idxOut := uint64(1)
 		for j := range dims {
-			idxOut = num.Mul(idxOut, num.Exp(root[j], idxDigits[j], cycloIdx64), cycloIdx64)
+			idxOut = num.Mul(idxOut, num.Exp(root[j], idxDigits[j], params.cycloIdxMod), params.cycloIdxMod)
 		}
 		idx[i] = idxOut
 	}
 
 	if num.IsProdPowerOf(params.cycloIdx, cyclicNTTFactors) {
 		cycloIdxFactors := make([]uint64, len(cyclicNTTFactors))
+		cycloIdxFactorsMod := make([]*num.Modulus, len(cyclicNTTFactors))
 		exps := make([]uint64, len(cyclicNTTFactors))
 
 		t := params.cycloIdx
@@ -134,6 +134,9 @@ func newAnyCyclotomicTransformer(params RingParameters, mod *num.Modulus) *anyCy
 				cycloIdxFactors[i] *= uint64(f)
 				exps[i]++
 			}
+			if cycloIdxFactors[i] != 1 {
+				cycloIdxFactorsMod[i] = num.NewModulus(cycloIdxFactors[i])
+			}
 		}
 
 		for i := 0; i < params.rank; i++ {
@@ -142,7 +145,7 @@ func newAnyCyclotomicTransformer(params RingParameters, mod *num.Modulus) *anyCy
 			for j := range cycloIdxFactors {
 				var t, r uint64
 				if cycloIdxFactors[j] != 1 {
-					t = num.Mul(idxOut, num.Inv(cycloIdx64/cycloIdxFactors[j], cycloIdxFactors[j]), cycloIdxFactors[j])
+					t = num.Mul(idxOut, num.Inv(uint64(params.cycloIdx)/cycloIdxFactors[j], cycloIdxFactorsMod[j]), cycloIdxFactorsMod[j])
 				}
 
 				for range exps[j] {

@@ -184,7 +184,7 @@ func (p ParametersLiteral) Compile() Parameters {
 
 	case DigitGadgetParameters:
 		for i := range p.BaseModulus {
-			if p.BaseModulus[i].Value()%2 == 0 {
+			if p.BaseModulus[i].Value()&1 == 0 {
 				panic("base modulus should be odd in digit decomposition")
 			}
 		}

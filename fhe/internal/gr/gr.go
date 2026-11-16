@@ -27,6 +27,14 @@ type GaloisRing struct {
 
 // NewGaloisRing creates a new [GaloisRing].
 func NewGaloisRing(modulus uint64, rank int) *GaloisRing {
+	primes, _ := num.Factor(modulus)
+	modPoly := irreduciblePoly(primes[0], rank)
+	return NewGaloisRingCustom(modulus, modPoly)
+}
+
+// NewGaloisRingCustom creates a new [GaloisRing] with custom modPoly.
+// Assumes that modPoly is irreducible.
+func NewGaloisRingCustom(modulus uint64, modPoly []int64) *GaloisRing {
 	primes, exps := num.Factor(modulus)
 	if len(primes) != 1 {
 		panic("modulus must be a prime power")
@@ -36,7 +44,7 @@ func NewGaloisRing(modulus uint64, rank int) *GaloisRing {
 
 	prime, exp := primes[0], exps[0]
 	q := num.NewModulus(modulus)
-	modPoly := irreduciblePoly(prime, rank)
+	rank := len(modPoly) - 1
 
 	ord := new(big.Int).SetUint64(prime)
 	ord.Exp(ord, big.NewInt(int64(exp-1)*int64(rank)), nil)
@@ -151,66 +159,63 @@ func (gr *GaloisRing) MulSubTo(xOut, x0, x1 *Element) {
 }
 
 // Exp returns x^e.
-func (gr *GaloisRing) Exp(x *Element, e uint64) *Element {
+func (gr *GaloisRing) Exp[T uint64 | *big.Int](x *Element, e T) *Element {
 	xOut := gr.NewElement()
 	gr.ExpTo(xOut, x, e)
 	return xOut
 }
 
 // ExpTo computes xOut = x^e.
-func (gr *GaloisRing) ExpTo(xOut, x *Element, e uint64) {
-	xBuf := gr.poolEl.Get()
-	defer gr.poolEl.Put(xBuf)
+func (gr *GaloisRing) ExpTo[T uint64 | *big.Int](xOut, x *Element, e T) {
+	e64, eIsUint64 := any(e).(uint64)
+	eBig, _ := any(e).(*big.Int)
 
-	xBuf.CopyFrom(x)
-	xOut.Clear()
-	xOut.value.Coeffs[0][0] = 1
+	switch {
+	case eIsUint64:
+		xBuf := gr.poolEl.Get()
+		defer gr.poolEl.Put(xBuf)
 
-	for e > 0 {
-		if e&1 == 1 {
-			gr.MulTo(xOut, xOut, xBuf)
+		xBuf.CopyFrom(x)
+		xOut.Clear()
+		xOut.value.Coeffs[0][0] = 1
+
+		for e64 > 0 {
+			if e64&1 == 1 {
+				gr.MulTo(xOut, xOut, xBuf)
+			}
+			e64 >>= 1
+			if e64 == 0 {
+				break
+			}
+			gr.MulTo(xBuf, xBuf, xBuf)
 		}
-		e >>= 1
-		if e == 0 {
-			break
+
+	case !eIsUint64:
+		if eBig.Sign() < 0 {
+			panic("e must be nonnegative")
 		}
-		gr.MulTo(xBuf, xBuf, xBuf)
-	}
-}
 
-// ExpBig returns x^e.
-func (gr *GaloisRing) ExpBig(x *Element, e *big.Int) *Element {
-	xOut := gr.NewElement()
-	gr.ExpBigTo(xOut, x, e)
-	return xOut
-}
+		exp := gr.poolBig.Get()
+		defer gr.poolBig.Put(exp)
 
-// ExpBigTo computes xOut = x^e.
-func (gr *GaloisRing) ExpBigTo(xOut, x *Element, e *big.Int) {
-	if e.Sign() < 0 {
-		panic("e must be nonnegative")
-	}
+		xBuf := gr.poolEl.Get()
+		defer gr.poolEl.Put(xBuf)
 
-	exp := gr.poolBig.Get()
-	defer gr.poolBig.Put(exp)
+		xBuf.CopyFrom(x)
+		xOut.Clear()
+		xOut.value.Coeffs[0][0] = 1
 
-	xBuf := gr.poolEl.Get()
-	defer gr.poolEl.Put(xBuf)
-
-	xBuf.CopyFrom(x)
-	xOut.Clear()
-	xOut.value.Coeffs[0][0] = 1
-
-	exp.Set(e)
-	for exp.Sign() > 0 {
-		if exp.Bit(0) == 1 {
-			gr.MulTo(xOut, xOut, xBuf)
+		exp.Set(eBig)
+		for exp.Sign() > 0 {
+			if exp.Bit(0) == 1 {
+				gr.MulTo(xOut, xOut, xBuf)
+			}
+			exp.Rsh(exp, 1)
+			if exp.Sign() == 0 {
+				break
+			}
+			gr.MulTo(xBuf, xBuf, xBuf)
 		}
-		exp.Rsh(exp, 1)
-		if exp.Sign() == 0 {
-			break
-		}
-		gr.MulTo(xBuf, xBuf, xBuf)
 	}
 }
 
@@ -236,5 +241,5 @@ func (gr *GaloisRing) InvTo(xOut, x *Element) {
 	if !gr.IsUnit(x) {
 		panic("input not invertible")
 	}
-	gr.ExpBigTo(xOut, x, gr.invExp)
+	gr.ExpTo(xOut, x, gr.invExp)
 }

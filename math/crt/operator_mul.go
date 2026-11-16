@@ -18,7 +18,7 @@ const (
 )
 
 func mulTypeOf(params dft.RingParameters) mulType {
-	if params.RingType() == dft.TypeCyclotomic && !num.IsPowerOfTwo(params.CycloIndex()) {
+	if params.RingType() == dft.TypeCyclotomic && !num.IsPowerOfTwo(params.CycloIdx()) {
 		return typeAnyCyclotomicMul
 	}
 
@@ -51,13 +51,13 @@ func newTrivialMulOperator(params dft.RingParameters, mod []*num.Modulus) *trivi
 		expFac = uint64(params.Rank())
 	case dft.TypeAutFixed:
 		if num.IsPowerOfTwo(params.Rank()) {
-			expFac = uint64(params.CycloIndex()) >> 1
+			expFac = uint64(params.CycloIdx()) >> 1
 		} else {
-			expFac = 2*uint64(params.CycloIndex()) - 2
+			expFac = 2*uint64(params.CycloIdx()) - 2
 		}
 	}
 
-	ambMod := ambientNTTPrimes(params, num.Log2(expFac)+2*num.MaxModulusBits)
+	ambMod := dft.AmbientNTTPrimes(params, num.Log2(expFac)+2*num.MaxModulusBits)
 	ambNTT := make([]*dft.Transformer, len(ambMod))
 	for i := range ambMod {
 		ambNTT[i] = dft.NewTransformer(params, ambMod[i])
@@ -68,7 +68,7 @@ func newTrivialMulOperator(params dft.RingParameters, mod []*num.Modulus) *trivi
 		if dft.IsNTTFriendly(params, mod[i]) {
 			continue
 		}
-		ambModLen[i] = ambientModLen(ambMod, num.Log2(expFac)+2*num.Log2(mod[i].Value()))
+		ambModLen[i] = dft.AmbientModLen(ambMod, num.Log2(expFac)+2*num.Log2(mod[i].Value()))
 	}
 
 	embedder := make([]*VecEmbedder, len(mod))
@@ -296,7 +296,7 @@ func (op *trivialMulOperator) append(opIn *trivialMulOperator) *trivialMulOperat
 }
 
 func (op *trivialMulOperator) appendTmpMod(mod *num.Modulus) *trivialMulOperator {
-	ambModLen := ambientModLen(op.ambMod, num.Log2(op.expFac)+2*num.Log2(mod.Value()))
+	ambModLen := dft.AmbientModLen(op.ambMod, num.Log2(op.expFac)+2*num.Log2(mod.Value()))
 	embedder := NewVecEmbedder([]*num.Modulus{mod}, op.ambMod[:ambModLen])
 
 	return &trivialMulOperator{
@@ -330,9 +330,9 @@ type anyCyclotomicMulOperator struct {
 
 // newAnyCyclotomicMulOperator creates a new [anyCyclotomicMulOperator].
 func newAnyCyclotomicMulOperator(params dft.RingParameters, mod []*num.Modulus, reducer *CyclotomicReducer) *anyCyclotomicMulOperator {
-	ambParams := dft.NewCyclicParameters(params.CycloIndex())
-	ambExpFac := uint64(params.CycloIndex())
-	ambMod := ambientNTTPrimes(ambParams, num.Log2(ambExpFac)+2*num.MaxModulusBits)
+	ambParams := dft.NewCyclicParameters(params.CycloIdx())
+	ambExpFac := uint64(params.CycloIdx())
+	ambMod := dft.AmbientNTTPrimes(ambParams, num.Log2(ambExpFac)+2*num.MaxModulusBits)
 	ambNTT := make([]*dft.Transformer, len(ambMod))
 	for i := range ambMod {
 		ambNTT[i] = dft.NewTransformer(ambParams, ambMod[i])
@@ -343,7 +343,7 @@ func newAnyCyclotomicMulOperator(params dft.RingParameters, mod []*num.Modulus, 
 		if dft.IsNTTFriendly(params, mod[i]) {
 			continue
 		}
-		ambModLen[i] = ambientModLen(ambMod, num.Log2(ambExpFac)+2*num.Log2(mod[i].Value()))
+		ambModLen[i] = dft.AmbientModLen(ambMod, num.Log2(ambExpFac)+2*num.Log2(mod[i].Value()))
 	}
 
 	embedder := make([]*VecEmbedder, len(mod))
@@ -598,8 +598,8 @@ func (op *anyCyclotomicMulOperator) append(opIn *anyCyclotomicMulOperator) *anyC
 }
 
 func (op *anyCyclotomicMulOperator) appendTmpMod(mod *num.Modulus) *anyCyclotomicMulOperator {
-	ambExpFac := uint64(op.params.CycloIndex())
-	ambModLen := ambientModLen(op.ambMod, num.Log2(ambExpFac)+2*num.Log2(mod.Value()))
+	ambExpFac := uint64(op.params.CycloIdx())
+	ambModLen := dft.AmbientModLen(op.ambMod, num.Log2(ambExpFac)+2*num.Log2(mod.Value()))
 
 	embedder := NewVecEmbedder([]*num.Modulus{mod}, op.ambMod[:ambModLen])
 
@@ -639,7 +639,7 @@ type reduceMulOperator struct {
 // newReduceMulOperator creates a new [reduceMulOperator].
 func newReduceMulOperator(mod []*num.Modulus, modPoly []int64, reducer *Reducer) *reduceMulOperator {
 	ambParams := dft.NewCyclicParameters(num.NextProdPower(2*len(modPoly)-1, []int{2}))
-	ambMod := ambientNTTPrimes(ambParams, num.Log2(ambParams.Rank())+2*num.MaxModulusBits)
+	ambMod := dft.AmbientNTTPrimes(ambParams, num.Log2(ambParams.Rank())+2*num.MaxModulusBits)
 	ambNTT := make([]*dft.Transformer, len(ambMod))
 	for i := range ambMod {
 		ambNTT[i] = dft.NewTransformer(ambParams, ambMod[i])
@@ -652,7 +652,7 @@ func newReduceMulOperator(mod []*num.Modulus, modPoly []int64, reducer *Reducer)
 			ntt[i] = dft.NewTransformer(ambParams, mod[i])
 			continue
 		}
-		ambModLen[i] = ambientModLen(ambMod, num.Log2(ambParams.Rank())+2*num.Log2(mod[i].Value()))
+		ambModLen[i] = dft.AmbientModLen(ambMod, num.Log2(ambParams.Rank())+2*num.Log2(mod[i].Value()))
 	}
 
 	embedder := make([]*VecEmbedder, len(mod))
@@ -915,7 +915,7 @@ func (op *reduceMulOperator) append(opIn *reduceMulOperator) *reduceMulOperator 
 }
 
 func (op *reduceMulOperator) appendTmpMod(mod *num.Modulus) *reduceMulOperator {
-	ambModLen := ambientModLen(op.ambMod, num.Log2(op.ambParams.Rank())+2*num.Log2(mod.Value()))
+	ambModLen := dft.AmbientModLen(op.ambMod, num.Log2(op.ambParams.Rank())+2*num.Log2(mod.Value()))
 
 	embedder := NewVecEmbedder([]*num.Modulus{mod}, op.ambMod[:ambModLen])
 

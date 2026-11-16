@@ -283,10 +283,11 @@ func newAnyCyclicTransformer(params RingParameters, mod *num.Modulus) *anyCyclic
 	zz := num.NthRoot(2*uint64(params.rank), root, mod.Value())
 	zzInv := num.Inv(zz, mod)
 
+	rankDoubleMod := num.NewModulus(uint64(params.rank) << 1)
 	z := make([]uint64, params.rank)
 	zInv := make([]uint64, params.rank)
 	for i := uint64(0); i < uint64(params.rank); i++ {
-		idx := num.Mul(i, i, uint64(params.rank)<<1)
+		idx := num.Mul(i, i, rankDoubleMod)
 		z[i] = num.Exp(zz, idx, mod)
 		zInv[i] = num.Exp(zzInv, idx, mod)
 	}

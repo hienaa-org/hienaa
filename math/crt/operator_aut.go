@@ -22,13 +22,13 @@ const (
 func autTypeOf(params dft.RingParameters) autType {
 	switch params.RingType() {
 	case dft.TypeCyclotomic:
-		if num.IsPowerOfTwo(params.CycloIndex()) {
+		if num.IsPowerOfTwo(params.CycloIdx()) {
 			return typePow2CyclotomicAut
 		}
 		return typeAnyCyclotomicAut
 
 	case dft.TypeAutFixed:
-		if num.IsPowerOfTwo(params.CycloIndex()) {
+		if num.IsPowerOfTwo(params.CycloIdx()) {
 			return typePow2AutFixedAut
 		}
 		return typePrimeAutFixedAut
@@ -66,19 +66,27 @@ func newPow2CyclotomicAutOperator(params dft.RingParameters, mod []*num.Modulus)
 }
 
 func (op *pow2CyclotomicAutOperator) canAut(idx int) bool {
-	idx64 := num.Reduce(idx, uint64(op.params.CycloIndex()))
-	return idx64%2 == 1
+	if op.params.CycloIdx() == 1 {
+		return true
+	}
+	idx64 := num.Reduce(idx, op.params.CycloIdxMod())
+	return idx64&1 == 1
 }
 
 func (op *pow2CyclotomicAutOperator) autTo(pOut, p *Element, idx int) {
 	checkUnaryOperable(op.params.Rank(), len(op.mod), pOut, p)
 
+	if op.params.CycloIdx() == 1 {
+		pOut.CopyFrom(p)
+		return
+	}
+
 	if !op.canAut(idx) {
 		panic("invalid automorphism index")
 	}
 
-	cycloIdx64, rank64 := uint64(op.params.CycloIndex()), uint64(op.params.Rank())
-	idx64 := num.Reduce(idx, cycloIdx64)
+	cycloIdx64, rank64 := uint64(op.params.CycloIdx()), uint64(op.params.Rank())
+	idx64 := num.Reduce(idx, op.params.CycloIdxMod())
 
 	if idx64 == 1 {
 		pOut.CopyFrom(p)
@@ -174,7 +182,7 @@ func newAnyCyclotomicAutOperator(params dft.RingParameters, mod []*num.Modulus, 
 		isNTTFriendly[i] = dft.IsNTTFriendly(params, mod[i])
 	}
 
-	primes, exps := num.Factor(uint64(params.CycloIndex()))
+	primes, exps := num.Factor(uint64(params.CycloIdx()))
 	pExpMods := make([]*num.Modulus, len(primes))
 	rootExps := make([][]uint64, len(primes))
 	dims := make([]int, len(primes))
@@ -214,7 +222,7 @@ func newAnyCyclotomicAutOperator(params dft.RingParameters, mod []*num.Modulus, 
 
 	return &anyCyclotomicAutOperator{
 		params:        params,
-		cycloIdxMod:   num.NewModulus(params.CycloIndex()),
+		cycloIdxMod:   num.NewModulus(params.CycloIdx()),
 		mod:           mod,
 		isNTTFriendly: isNTTFriendly,
 
@@ -225,7 +233,7 @@ func newAnyCyclotomicAutOperator(params dft.RingParameters, mod []*num.Modulus, 
 		dims:         dims,
 
 		pool: pool.NewPool(func() *[]uint64 {
-			v := make([]uint64, params.CycloIndex())
+			v := make([]uint64, params.CycloIdx())
 			return &v
 		}),
 		poolDigits: pool.NewPool(func() *[]int {
@@ -236,9 +244,8 @@ func newAnyCyclotomicAutOperator(params dft.RingParameters, mod []*num.Modulus, 
 }
 
 func (op *anyCyclotomicAutOperator) canAut(idx int) bool {
-	cycloIdx64 := uint64(op.params.CycloIndex())
-	idx64 := num.Reduce(idx, cycloIdx64)
-	return num.GCD(idx64, cycloIdx64) == 1
+	idx64 := num.Reduce(idx, op.params.CycloIdxMod())
+	return num.GCD(idx64, uint64(op.params.CycloIdx())) == 1
 }
 
 func (op *anyCyclotomicAutOperator) autTo(pOut, p *Element, idx int) {
@@ -248,8 +255,7 @@ func (op *anyCyclotomicAutOperator) autTo(pOut, p *Element, idx int) {
 		panic("invalid automorphism index")
 	}
 
-	cycloIdx64 := uint64(op.params.CycloIndex())
-	idx64 := num.Reduce(idx, cycloIdx64)
+	idx64 := num.Reduce(idx, op.params.CycloIdxMod())
 
 	if idx64 == 1 {
 		pOut.CopyFrom(p)
@@ -401,7 +407,7 @@ func newPow2AutFixedAutOperator(params dft.RingParameters, mod []*num.Modulus) *
 }
 
 func (op *pow2AutFixedAutOperator) canAut(idx int) bool {
-	idx64 := num.Reduce(idx, uint64(op.params.CycloIndex()))
+	idx64 := num.Reduce(idx, op.params.CycloIdxMod())
 	return idx64%4 == 1
 }
 
@@ -412,8 +418,8 @@ func (op *pow2AutFixedAutOperator) autTo(pOut, p *Element, idx int) {
 		panic("invalid automorphism index")
 	}
 
-	cycloIdx64, rank64 := uint64(op.params.CycloIndex()), uint64(op.params.Rank())
-	idx64 := num.Reduce(idx, cycloIdx64)
+	cycloIdx64, rank64 := uint64(op.params.CycloIdx()), uint64(op.params.Rank())
+	idx64 := num.Reduce(idx, op.params.CycloIdxMod())
 
 	if idx64 == 1 {
 		pOut.CopyFrom(p)
@@ -514,17 +520,17 @@ func newPrimeAutFixedAutOperator(params dft.RingParameters, mod []*num.Modulus) 
 		isNTTFriendly[i] = dft.IsNTTFriendly(params, mod[i])
 	}
 
-	cycloIdx64 := uint64(params.CycloIndex())
+	cycloIdx64 := uint64(params.CycloIdx())
 	root := num.Generators(cycloIdx64)[0]
-	rootInv := num.Inv(root, cycloIdx64)
+	rootInv := num.Inv(root, params.CycloIdxMod())
 
 	rootPow := make([]uint64, params.Rank())
 	rootPowInv := make([]uint64, params.Rank())
 	rootPow[0] = 1
 	rootPowInv[0] = 1
 	for i := 1; i < params.Rank(); i++ {
-		rootPow[i] = num.Mul(rootPow[i-1], root, cycloIdx64)
-		rootPowInv[i] = num.Mul(rootPowInv[i-1], rootInv, cycloIdx64)
+		rootPow[i] = num.Mul(rootPow[i-1], root, params.CycloIdxMod())
+		rootPowInv[i] = num.Mul(rootPowInv[i-1], rootInv, params.CycloIdxMod())
 	}
 
 	return &primeAutFixedAutOperator{
@@ -543,7 +549,7 @@ func newPrimeAutFixedAutOperator(params dft.RingParameters, mod []*num.Modulus) 
 }
 
 func (op *primeAutFixedAutOperator) canAut(idx int) bool {
-	idx64 := num.Reduce(idx, uint64(op.params.CycloIndex()))
+	idx64 := num.Reduce(idx, op.params.CycloIdxMod())
 	return slices.Contains(op.rootPow, idx64) || slices.Contains(op.rootPowInv, idx64)
 }
 
@@ -554,8 +560,8 @@ func (op *primeAutFixedAutOperator) autTo(pOut, p *Element, idx int) {
 		panic("invalid automorphism index")
 	}
 
-	cycloIdx64, rank := uint64(op.params.CycloIndex()), op.params.Rank()
-	idx64 := num.Reduce(idx, cycloIdx64)
+	rank := op.params.Rank()
+	idx64 := num.Reduce(idx, op.params.CycloIdxMod())
 
 	pBufPtr := op.pool.Get()
 	pBuf := *pBufPtr
@@ -564,7 +570,7 @@ func (op *primeAutFixedAutOperator) autTo(pOut, p *Element, idx int) {
 	rotIdx := slices.Index(op.rootPow, idx64)
 	if rotIdx == -1 {
 		rotIdx = slices.Index(op.rootPowInv, idx64)
-		rotIdx = (op.params.Rank() - rotIdx) % op.params.Rank()
+		rotIdx = (rank - rotIdx) % rank
 	}
 
 	for i := range op.mod {
