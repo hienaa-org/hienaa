@@ -7,19 +7,17 @@ import (
 	"github.com/hienaa-org/hienaa/math/num"
 )
 
-// Encryptor encrypts and decrypts RLWE ciphertexts.
+// Encryptor encrypts and decrypts RLWE ciphertexts with a secret key.
 type Encryptor struct {
 	params Parameters
 
 	sk *Element
-	pk *Ciphertext
 
 	plainOp *PlainOperator
 	dcmp    *Decomposer
 
-	maskSampler   *crt.UniformSampler
-	auxKeySampler crt.Sampler
-	noiseSampler  crt.Sampler
+	maskSampler  *crt.UniformSampler
+	noiseSampler crt.Sampler
 
 	poolScalar *pool.Pool[*Element]
 	poolPoly   *pool.Pool[*Element]
@@ -38,43 +36,27 @@ func NewEncryptor(params Parameters) *Encryptor {
 	return newEncryptorWithKey(params, sk)
 }
 
-// NewEncryptorWithKey creates a new [Encryptor] with supplied key.
+// NewEncryptorWithKey creates a new [Encryptor] with the supplied secret key.
 // The supplied key is copied.
-// The keys are assumed to be in full modulus.
-func NewEncryptorWithKey[K *SecretKey | *PublicKey](params Parameters, key K) *Encryptor {
-	switch key := any(key).(type) {
-	case *SecretKey:
-		checkElementShape(params, (*Element)(key))
-		if key.FullModLen() != params.FullModLen() || key.Value.Type != crt.TypePoly {
-			panic("inconsistent inputs")
-		}
-
-		sk := key.Copy()
-		if sk.Form() == dft.FormCoeff {
-			params.crtOp.FwdNTTTo(sk.Value, sk.Value)
-		}
-		return newEncryptorWithKey(params, sk)
-
-	case *PublicKey:
-		checkCiphertextShape(params, (*Ciphertext)(key))
-		if key.FullModLen() != params.FullModLen() {
-			panic("inconsistent inputs")
-		}
-
-		pk := key.Copy()
-		if pk.Form() == dft.FormCoeff {
-			params.crtOp.FwdNTTTo(pk.Body.Value, pk.Body.Value)
-			params.crtOp.FwdNTTTo(pk.Mask.Value, pk.Mask.Value)
-		}
-		return newEncryptorWithKey(params, pk)
+// The key is assumed to be in full modulus.
+func NewEncryptorWithKey(params Parameters, key *SecretKey) *Encryptor {
+	checkElementShape(params, (*Element)(key))
+	if key.FullModLen() != params.FullModLen() || key.Value.Type != crt.TypePoly {
+		panic("inconsistent inputs")
 	}
 
-	return nil
+	sk := key.Copy()
+	if sk.Form() == dft.FormCoeff {
+		params.crtOp.FwdNTTTo(sk.Value, sk.Value)
+	}
+	return newEncryptorWithKey(params, sk)
 }
 
-func newEncryptorWithKey[K *SecretKey | *PublicKey](params Parameters, key K) *Encryptor {
-	enc := &Encryptor{
+func newEncryptorWithKey(params Parameters, key *SecretKey) *Encryptor {
+	return &Encryptor{
 		params: params,
+
+		sk: (*Element)(key),
 
 		plainOp: NewPlainOperator(params),
 		dcmp:    NewDecomposer(params),
@@ -92,27 +74,11 @@ func newEncryptorWithKey[K *SecretKey | *PublicKey](params Parameters, key K) *E
 			return NewCiphertext(params, params.AuxModLen() > 0, dft.FormCoeff)
 		}),
 	}
-
-	switch key := any(key).(type) {
-	case *SecretKey:
-		enc.sk = (*Element)(key)
-	case *PublicKey:
-		enc.pk = (*Ciphertext)(key)
-		enc.auxKeySampler = params.secretKeyParams.Sampler()
-	}
-
-	return enc
 }
 
 // Params returns the [Parameters] of the encryptor.
 func (enc *Encryptor) Params() Parameters {
 	return enc.params
-}
-
-// PublicKey returns the [PublicKey] of the encryptor.
-// It returns nil if enc is not a public-key encryptor.
-func (enc *Encryptor) PublicKey() *PublicKey {
-	return (*PublicKey)(enc.pk)
 }
 
 // PlainOp returns the [PlainOperator] of the encryptor.
@@ -123,11 +89,6 @@ func (enc *Encryptor) PlainOp() *PlainOperator {
 // Decomposer returns the [Decomposer] of the encryptor.
 func (enc *Encryptor) Decomposer() *Decomposer {
 	return enc.dcmp
-}
-
-// HasPublicKey returns if enc is a public key encryptor.
-func (enc *Encryptor) HasPublicKey() bool {
-	return enc.pk != nil
 }
 
 // Encrypt returns an encryption of pt.
@@ -160,11 +121,7 @@ func (enc *Encryptor) EncryptTo[C *Ciphertext | *GadgetEncryption | *RGSWEncrypt
 
 	switch {
 	case ctOutIsRLWE:
-		if enc.HasPublicKey() {
-			enc.encryptPublicKeyTo(ctOutRLWE, pt, outForm)
-		} else {
-			enc.encryptSecretKeyTo(ctOutRLWE, pt, outForm)
-		}
+		enc.encryptSecretKeyTo(ctOutRLWE, pt, outForm)
 
 	case ctOutIsGadEnc:
 		checkCiphertextShape(enc.params, ctOutGadEnc)
@@ -300,69 +257,6 @@ func (enc *Encryptor) encryptSecretKeyTo(ctOut *Ciphertext, pt *Element, outForm
 	enc.plainOp.AddTo(ctOut.Body, ctOut.Body, noise)
 }
 
-func (enc *Encryptor) encryptPublicKeyTo(ctOut *Ciphertext, pt *Element, outForm dft.Form) {
-	checkCiphertextShape(enc.params, ctOut)
-	if pt != nil {
-		checkElementShape(enc.params, pt)
-	}
-
-	ptBuf := pt
-	if pt != nil {
-		var ptBufFull *Element
-		switch {
-		case pt.Type() == crt.TypeScalar:
-			ptBufFull = enc.poolScalar.Get()
-			defer enc.poolScalar.Put(ptBufFull)
-		case pt.Type() == crt.TypePoly:
-			ptBufFull = enc.poolPoly.Get()
-			defer enc.poolPoly.Put(ptBufFull)
-		}
-		ptBuf = ptBufFull.WithModLen(pt.BaseModLen(), pt.AuxModLen())
-		ptBuf.CopyFrom(pt)
-	}
-
-	ctMod := enc.params.fullMod[enc.params.AuxModLen()-ctOut.AuxModLen() : enc.params.AuxModLen()+ctOut.BaseModLen()]
-
-	auxKeyFull := enc.poolPoly.Get()
-	defer enc.poolPoly.Put(auxKeyFull)
-	auxKey := auxKeyFull.WithModLen(ctOut.BaseModLen(), ctOut.AuxModLen())
-
-	enc.auxKeySampler.SampleTo(auxKey.Value, ctMod)
-	enc.plainOp.FwdNTTTo(auxKey, auxKey)
-
-	ctOut.Clear()
-	ctOut.SetForm(dft.FormNTT)
-	enc.plainOp.MulSubTo(ctOut.Mask, auxKey, enc.pk.Mask.WithModLen(ctOut.BaseModLen(), ctOut.AuxModLen()))
-	enc.plainOp.MulSubTo(ctOut.Body, auxKey, enc.pk.Body.WithModLen(ctOut.BaseModLen(), ctOut.AuxModLen()))
-
-	noiseFull := enc.poolRLWE.Get()
-	defer enc.poolRLWE.Put(noiseFull)
-	noise := noiseFull.WithModLen(ctOut.BaseModLen(), ctOut.AuxModLen())
-
-	enc.noiseSampler.SampleTo(noise.Body.Value, ctMod)
-	enc.noiseSampler.SampleTo(noise.Mask.Value, ctMod)
-
-	if ptBuf != nil {
-		if ptBuf.Type() == crt.TypePoly && ptBuf.Form() == dft.FormNTT {
-			enc.plainOp.AddTo(ctOut.Body, ctOut.Body, ptBuf)
-		} else {
-			enc.plainOp.AddTo(noise.Body, noise.Body, ptBuf)
-		}
-	}
-
-	switch {
-	case outForm == dft.FormCoeff:
-		enc.plainOp.InvNTTTo(ctOut.Mask, ctOut.Mask)
-		enc.plainOp.InvNTTTo(ctOut.Body, ctOut.Body)
-	case outForm == dft.FormNTT:
-		enc.plainOp.FwdNTTTo(noise.Body, noise.Body)
-		enc.plainOp.FwdNTTTo(noise.Mask, noise.Mask)
-	}
-
-	enc.plainOp.AddTo(ctOut.Body, ctOut.Body, noise.Body)
-	enc.plainOp.AddTo(ctOut.Mask, ctOut.Mask, noise.Mask)
-}
-
 // Phase returns ct.Body + ct.Mask * sk.
 // Output is always in Coeff form.
 func (enc *Encryptor) Phase(ct *Ciphertext) *Element {
@@ -374,10 +268,6 @@ func (enc *Encryptor) Phase(ct *Ciphertext) *Element {
 // PhaseTo computes pOut = ct.Body + ct.Mask * sk.
 // Output is always in Coeff form.
 func (enc *Encryptor) PhaseTo(pOut *Element, ct *Ciphertext) {
-	if enc.sk == nil {
-		panic("encryptor must have secret key")
-	}
-
 	checkElementShape(enc.params, pOut)
 	checkCiphertextShape(enc.params, ct)
 	if pOut.Type() != crt.TypePoly {
@@ -404,10 +294,6 @@ func (enc *Encryptor) PhaseTo(pOut *Element, ct *Ciphertext) {
 // GenPublicKey generates a new [PublicKey].
 // The output is always in NTT form.
 func (enc *Encryptor) GenPublicKey() *PublicKey {
-	if enc.sk == nil {
-		panic("encryptor must have secret key")
-	}
-
 	pk := NewPublicKey(enc.params, enc.params.AuxModLen() > 0, dft.FormCoeff)
 	enc.EncryptTo((*Ciphertext)(pk), nil, dft.FormNTT)
 	return pk
@@ -416,10 +302,6 @@ func (enc *Encryptor) GenPublicKey() *PublicKey {
 // GenRelinKey generates a new [RelinKey].
 // The output is always in NTT form.
 func (enc *Encryptor) GenRelinKey() *RelinKey {
-	if enc.sk == nil {
-		panic("encryptor must have secret key")
-	}
-
 	rlk := NewRelinKey(enc.params, dft.FormNTT)
 	enc.EncryptTo((*GadgetEncryption)(rlk), nil, dft.FormNTT)
 	for i := 0; i < enc.params.GadgetLen(); i++ {
@@ -431,10 +313,6 @@ func (enc *Encryptor) GenRelinKey() *RelinKey {
 // GenAutKey generates a new [AutKey] corresponding to idx.
 // The output is always in NTT form.
 func (enc *Encryptor) GenAutKey(idx int) *AutKey {
-	if enc.sk == nil {
-		panic("encryptor must have secret key")
-	}
-
 	idxInv := 1
 	if enc.params.RingParams().CycloIdx() != 1 {
 		idxMod := enc.params.RingParams().CycloIdxMod()

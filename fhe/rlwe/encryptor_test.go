@@ -213,7 +213,7 @@ func testEncryptor(t *testing.T, ringParams dft.RingParameters) {
 		})
 	})
 
-	encPub := rlwe.NewEncryptorWithKey(enc.Params(), enc.GenPublicKey())
+	encPub := rlwe.NewPublicEncryptor(enc.Params(), enc.GenPublicKey())
 	skBound := enc.Params().SecretKeyParams().Bound()
 	noiseBound = 2*expansionFactor(ringParams)*skBound*noiseBound + noiseBound
 
