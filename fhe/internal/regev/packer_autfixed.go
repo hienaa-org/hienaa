@@ -112,7 +112,7 @@ func (pck *pow2AutFixed1Mod4Packer) packTo(vPack, v []uint64) {
 
 func (pck *pow2AutFixed1Mod4Packer) unpackTo(v, vPack []uint64) {
 	if len(v)%pck.packLen != 0 || len(vPack) != pck.params.Rank() {
-		panic("input(s) shape not consistent")
+		panic("inconsistent inputs")
 	}
 
 	vBufPtr := pck.pool.Get()
@@ -193,13 +193,13 @@ func newPow2AutFixed3Mod4Packer(params dft.RingParameters, mod *num.Modulus) *po
 	packIdx := make([]int, nttRank)
 	revShiftBits := 64 - int(num.Log2(nttRank)+1)
 	for i := uint64(0); i < packLen64; i++ {
-		idx1 := int(num.Exp(5, packLen64<<1-i, nttRank64QuadMod))
-		packIdx[i] = min(idx1, nttRank<<2-idx1)
+		idx0 := int(num.Exp(5, packLen64<<1-i, nttRank64QuadMod))
+		packIdx[i] = min(idx0, nttRank<<2-idx0)
 		if nttRank != packLen {
-			idx2 := int(num.Mul(uint64(idx1), primes[0], nttRank64QuadMod))
-			idx2 = min(idx2, nttRank<<2-idx2)
-			idx1 = packIdx[i]
-			packIdx[i], packIdx[i+packLen64] = min(idx1, idx2), max(idx1, idx2)
+			idx1 := int(num.Mul(uint64(idx0), primes[0], nttRank64QuadMod))
+			idx1 = min(idx1, nttRank<<2-idx1)
+			idx0 = packIdx[i]
+			packIdx[i], packIdx[i+packLen64] = min(idx0, idx1), max(idx0, idx1)
 		}
 	}
 
@@ -267,63 +267,68 @@ func newPow2AutFixed3Mod4Packer(params dft.RingParameters, mod *num.Modulus) *po
 	}
 }
 
-func (p *pow2AutFixed3Mod4Packer) packTo(vPack, v []uint64) {
-	if len(vPack) != p.params.Rank() || len(v) > p.packLen {
+func (pck *pow2AutFixed3Mod4Packer) packTo(vPack, v []uint64) {
+	if len(vPack) != pck.params.Rank() || len(v) > pck.packLen {
 		panic("inconsistent inputs")
 	}
 
-	vBufPtr := p.pool.Get()
+	vBufPtr := pck.pool.Get()
 	vBuf := *vBufPtr
-	defer p.pool.Put(vBufPtr)
+	defer pck.pool.Put(vBufPtr)
 
-	for i := 0; i < p.packLen; i++ {
-		idx := p.packIdx[i]
+	for i := 0; i < pck.packLen; i++ {
+		idx := pck.packIdx[i]
 		vBuf[idx].Real = v[i%len(v)]
 		vBuf[idx].Imag = 0
 
-		if p.packLen != p.nttRank {
-			idx = p.packIdx[i+p.packLen]
+		if pck.packLen != pck.nttRank {
+			idx = pck.packIdx[i+pck.packLen]
 			vBuf[idx].Real = v[i%len(v)]
 			vBuf[idx].Imag = 0
 		}
 	}
 
-	invNTTGaussIntInPlacePow2(vBuf, p.twInv, p.twInvS, p.mod)
+	invNTTGaussIntInPlacePow2(vBuf, pck.twInv, pck.twInvS, pck.mod.Value())
 
 	clear(vPack)
-	skip := p.params.Rank() / p.nttRank
+	skip := pck.params.Rank() / pck.nttRank
 	vPack[0] = vBuf[0].Real << 1
-	for i := 1; i < p.nttRank; i++ {
-		u := gnum.SMulLazy(vBuf[p.nttRank-i], p.tw[0], p.twS[0], p.mod)
-		vPack[i*skip] = vBuf[i].Real + u.Real
+	twoQ := pck.mod.Value() << 1
+	for i := 1; i < pck.nttRank; i++ {
+		uReal := num.SMulLazy(vBuf[pck.nttRank-i].Real, pck.tw[0].Real, pck.twS[0].Real, pck.mod) + twoQ
+		uReal -= num.SMulLazy(vBuf[pck.nttRank-i].Imag, pck.tw[0].Imag, pck.twS[0].Imag, pck.mod)
+		if uReal >= twoQ {
+			uReal -= twoQ
+		}
+		vPack[i*skip] = vBuf[i].Real + uReal
 	}
 
-	vec.MulTo(vPack, vPack, p.rankInv, p.mod)
+	vec.MulTo(vPack, vPack, pck.rankInv, pck.mod)
 }
 
-func (p *pow2AutFixed3Mod4Packer) unpackTo(v, vPack []uint64) {
-	if len(v)%p.packLen != 0 || len(vPack) != p.params.Rank() {
-		panic("input(s) shape not consistent")
+func (pck *pow2AutFixed3Mod4Packer) unpackTo(v, vPack []uint64) {
+	if len(v)%pck.packLen != 0 || len(vPack) != pck.params.Rank() {
+		panic("inconsistent inputs")
 	}
 
-	vBufPtr := p.pool.Get()
+	vBufPtr := pck.pool.Get()
 	vBuf := *vBufPtr
-	defer p.pool.Put(vBufPtr)
+	defer pck.pool.Put(vBufPtr)
 
-	skip := p.params.Rank() / p.nttRank
+	skip := pck.params.Rank() / pck.nttRank
 	vBuf[0].Real = vPack[0]
 	vBuf[0].Imag = 0
-	for i := 1; i < p.nttRank; i++ {
-		real := num.SMul(vPack[(p.nttRank-i)*skip], p.tw[0].Real, p.twS[0].Real, p.mod)
-		imag := num.SMul(vPack[(p.nttRank-i)*skip], p.tw[0].Imag, p.twS[0].Imag, p.mod)
-		vBuf[i].Real = num.Sub(vPack[i*skip], real, p.mod)
-		vBuf[i].Imag = num.Neg(imag, p.mod)
+	for i := 1; i < pck.nttRank; i++ {
+		uReal := num.SMul(vPack[(pck.nttRank-i)*skip], pck.tw[0].Real, pck.twS[0].Real, pck.mod)
+		uImag := num.SMul(vPack[(pck.nttRank-i)*skip], pck.tw[0].Imag, pck.twS[0].Imag, pck.mod)
+		vBuf[i].Real = num.Sub(vPack[i*skip], uReal, pck.mod)
+		vBuf[i].Imag = num.Neg(uImag, pck.mod)
 	}
 
-	fwdNTTGaussIntInPlacePow2(vBuf, p.tw, p.twS, p.mod)
+	fwdNTTGaussIntInPlacePow2(vBuf, pck.tw, pck.twS, pck.mod.Value())
 
 	for i := 0; i < len(v); i++ {
-		v[i] = num.Reduce4Q(vBuf[p.packIdx[i]].Real, p.mod)
+		v[i] = num.Reduce4Q(vBuf[pck.packIdx[i]].Real, pck.mod)
 	}
 }
 

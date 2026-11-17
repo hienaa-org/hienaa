@@ -143,7 +143,7 @@ type pow2Cyclotomic3Mod4Packer struct {
 
 	// packLen is the packing length.
 	packLen int
-	// packIdx is the index mapping for the packing.
+	// packIdx is the index mapping for the packing in bit-reversed NTT order.
 	packIdx []int
 
 	// cube is the form of the hypercube structure.
@@ -165,6 +165,8 @@ type pow2Cyclotomic3Mod4Packer struct {
 
 	// rankInv is the modular inverse of the rank.
 	rankInv uint64
+	// rankInvS is the Shoup form of rankInv.
+	rankInvS uint64
 
 	pool *pool.Pool[*[]gnum.GaussianInt]
 }
@@ -181,11 +183,12 @@ func newPow2Cyclotomic3Mod4Packer(params dft.RingParameters, mod *num.Modulus) *
 	packLen64 := uint64(packLen)
 	packLenQuadMod := num.NewModulus(packLen64 << 2)
 	packIdx := make([]int, packLen<<1)
+	revShiftBits := 64 - uint64(num.Log2(packLen<<1))
 	for i := uint64(0); i < packLen64; i++ {
-		packIdx[i] = int(num.Exp(5, packLen64<<1-i, packLenQuadMod))
-		packIdx[i+packLen64] = int(num.Mul(uint64(packIdx[i]), primes[0], packLenQuadMod))
-		packIdx[i] >>= 1
-		packIdx[i+packLen64] >>= 1
+		idx0 := num.Exp(5, packLen64<<1-i, packLenQuadMod)
+		idx1 := num.Mul(idx0, primes[0], packLenQuadMod)
+		packIdx[i] = int(bits.Reverse64(idx0>>1) >> revShiftBits)
+		packIdx[i+packLen64] = int(bits.Reverse64(idx1>>1) >> revShiftBits)
 	}
 
 	root := gaussIntNthRoot(packLen<<2, mod)
@@ -212,6 +215,9 @@ func newPow2Cyclotomic3Mod4Packer(params dft.RingParameters, mod *num.Modulus) *
 		cubeMod = num.NewModulus(packLen)
 	}
 
+	rankInv := num.Inv(uint64(packLen<<1), mod)
+	rankInvS := num.SForm(rankInv, mod)
+
 	return &pow2Cyclotomic3Mod4Packer{
 		params: params,
 		mod:    mod,
@@ -228,7 +234,8 @@ func newPow2Cyclotomic3Mod4Packer(params dft.RingParameters, mod *num.Modulus) *
 		twInv:  twInv,
 		twInvS: twInvS,
 
-		rankInv: num.Inv(uint64(packLen<<1), mod),
+		rankInv:  rankInv,
+		rankInvS: rankInvS,
 
 		pool: pool.NewPool(func() *[]gnum.GaussianInt {
 			v := make([]gnum.GaussianInt, packLen<<1)
@@ -237,17 +244,17 @@ func newPow2Cyclotomic3Mod4Packer(params dft.RingParameters, mod *num.Modulus) *
 	}
 }
 
-func (p *pow2Cyclotomic3Mod4Packer) packTo(vPack, v []uint64) {
-	if len(vPack) != p.params.Rank() || len(v) > p.packLen {
+func (pck *pow2Cyclotomic3Mod4Packer) packTo(vPack, v []uint64) {
+	if len(vPack) != pck.params.Rank() || len(v) > pck.packLen {
 		panic("inconsistent inputs")
 	}
 
-	vBufPtr := p.pool.Get()
+	vBufPtr := pck.pool.Get()
 	vBuf := *vBufPtr
-	defer p.pool.Put(vBufPtr)
+	defer pck.pool.Put(vBufPtr)
 
-	for i := 0; i < p.packLen; i++ {
-		idx0, idx1 := p.packIdx[i], p.packIdx[i+p.packLen]
+	for i := 0; i < pck.packLen; i++ {
+		idx0, idx1 := pck.packIdx[i], pck.packIdx[i+pck.packLen]
 
 		vBuf[idx0].Real = v[i%len(v)]
 		vBuf[idx0].Imag = 0
@@ -256,37 +263,35 @@ func (p *pow2Cyclotomic3Mod4Packer) packTo(vPack, v []uint64) {
 		vBuf[idx1].Imag = 0
 	}
 
-	vec.RadixReverseInPlace(vBuf, 2)
-	invNTTGaussIntInPlacePow2(vBuf, p.twInv, p.twInvS, p.mod)
+	invNTTGaussIntInPlacePow2(vBuf, pck.twInv, pck.twInvS, pck.mod.Value())
 
 	clear(vPack)
-	skip := p.params.Rank() / (p.packLen << 1)
+	skip := pck.params.Rank() / (pck.packLen << 1)
 	for i := range vBuf {
-		vPack[i*skip] = num.Mul(vBuf[i].Real, p.rankInv, p.mod)
+		vPack[i*skip] = num.SMul(vBuf[i].Real, pck.rankInv, pck.rankInvS, pck.mod)
 	}
 }
 
-func (p *pow2Cyclotomic3Mod4Packer) unpackTo(v, vPack []uint64) {
-	if len(v)%p.packLen != 0 || len(vPack) != p.params.Rank() {
+func (pck *pow2Cyclotomic3Mod4Packer) unpackTo(v, vPack []uint64) {
+	if len(v)%pck.packLen != 0 || len(vPack) != pck.params.Rank() {
 		panic("inconsistent inputs")
 	}
 
-	vBufPtr := p.pool.Get()
+	vBufPtr := pck.pool.Get()
 	vBuf := *vBufPtr
-	defer p.pool.Put(vBufPtr)
+	defer pck.pool.Put(vBufPtr)
 	clear(vBuf)
 
-	skip := p.params.Rank() / (p.packLen << 1)
+	skip := pck.params.Rank() / (pck.packLen << 1)
 	for i := range vBuf {
 		vBuf[i].Real = vPack[i*skip]
 		vBuf[i].Imag = 0
 	}
 
-	fwdNTTGaussIntInPlacePow2(vBuf, p.tw, p.twS, p.mod)
-	vec.RadixReverseInPlace(vBuf, 2)
+	fwdNTTGaussIntInPlacePow2(vBuf, pck.tw, pck.twS, pck.mod.Value())
 
 	for i := range v {
-		v[i] = num.Reduce4Q(vBuf[p.packIdx[i]].Real, p.mod)
+		v[i] = num.Reduce4Q(vBuf[pck.packIdx[i]].Real, pck.mod)
 	}
 }
 

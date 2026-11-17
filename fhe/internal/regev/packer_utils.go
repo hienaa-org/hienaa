@@ -211,30 +211,30 @@ func resolutionOfUnity(params dft.RingParameters, prime, exp uint64) []uint64 {
 	rFactor.InvTo(remEl, remEl)
 
 	// Compute the resolution of unity.
-	tf := crt.NewOperator(dft.NewCyclicParameters(num.NextProdPower(params.CycloIdx()+1, []int{2})), []*num.Modulus{modulus})
-	resolPoly := tf.NewPoly(dft.FormCoeff)
-	remInvPoly := tf.NewPoly(dft.FormCoeff)
+	ntt := crt.NewOperator(dft.NewCyclicParameters(num.NextProdPower(params.CycloIdx()+1, []int{2})), []*num.Modulus{modulus})
+	resolPoly := ntt.NewPoly(dft.FormCoeff)
+	remInvPoly := ntt.NewPoly(dft.FormCoeff)
 
 	// resolPoly = quoPoly * remEl.
 	copy(resolPoly.Coeffs[0][:len(quoPoly.Coeffs[0])], quoPoly.Coeffs[0])
 	copy(remInvPoly.Coeffs[0][:len(remEl.Coeffs())], remEl.Coeffs())
 
-	tf.FwdNTTTo(resolPoly, resolPoly)
-	tf.FwdNTTTo(remInvPoly, remInvPoly)
-	tf.MulTo(resolPoly, resolPoly, remInvPoly)
-	tf.InvNTTTo(resolPoly, resolPoly)
+	ntt.FwdNTTTo(resolPoly, resolPoly)
+	ntt.FwdNTTTo(remInvPoly, remInvPoly)
+	ntt.MulTo(resolPoly, resolPoly, remInvPoly)
+	ntt.InvNTTTo(resolPoly, resolPoly)
 
 	// Extract the meaningful values.
-	resolution := make([]uint64, rank)
+	resol := make([]uint64, rank)
 	gen := num.Generators(uint64(params.CycloIdx()))[0]
 	idx := uint64(1)
 	for i := 0; i < rank; i++ {
-		resolution[i] = resolPoly.Coeffs[0][idx] + modulus.Value() - resolPoly.Coeffs[0][0]
-		if resolution[i] >= modulus.Value() {
-			resolution[i] -= modulus.Value()
+		resol[i] = resolPoly.Coeffs[0][idx] + modulus.Value() - resolPoly.Coeffs[0][0]
+		if resol[i] >= modulus.Value() {
+			resol[i] -= modulus.Value()
 		}
 		idx = num.Mul(idx, gen, params.CycloIdxMod())
 	}
 
-	return resolution
+	return resol
 }

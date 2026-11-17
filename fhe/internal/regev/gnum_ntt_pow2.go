@@ -1,18 +1,16 @@
 package regev
 
 import (
+	"math/bits"
 	"unsafe"
 
 	"github.com/hienaa-org/hienaa/fhe/internal/gnum"
-	"github.com/hienaa-org/hienaa/math/num"
 )
 
 const nttUnrollBound = 8
 
-// fwdNTTGaussIntInPlacePow2 computes the Gaussian Integer NTT transform in-place for power-of-two length coefficients.
-// twS contains the component-wise Shoup forms of tw.
-// Each component of the inputs and outputs is in [0, 4q).
-func fwdNTTGaussIntInPlacePow2(coeffs, tw, twS []gnum.GaussianInt, q *num.Modulus) {
+// fwdNTTGaussIntInPlacePow2 computes the NTT transform in-place for power-of-two length coefficients.
+func fwdNTTGaussIntInPlacePow2(coeffs, tw, twS []gnum.GaussianInt, q uint64) {
 	if len(coeffs) <= nttUnrollBound {
 		fwdNTTGaussIntInPlacePow2Ref(coeffs, tw, twS, q)
 		return
@@ -20,23 +18,36 @@ func fwdNTTGaussIntInPlacePow2(coeffs, tw, twS []gnum.GaussianInt, q *num.Modulu
 	fwdNTTGaussIntInPlacePow2Unroll(coeffs, tw, twS, q)
 }
 
-// fwdButterflyGaussIntPow2 returns the Gaussian Integer Harvey butterfly.
-func fwdButterflyGaussIntPow2(u, v, w, wS gnum.GaussianInt, q *num.Modulus, twoQ uint64) (gnum.GaussianInt, gnum.GaussianInt) {
-	v = gnum.SMulLazy(v, w, wS, q)
+// fwdButterflyGaussIntPow2 returns the Harvey butterfly.
+func fwdButterflyGaussIntPow2(u, v, w, wS gnum.GaussianInt, q, twoQ uint64) (gnum.GaussianInt, gnum.GaussianInt) {
+	quo, _ := bits.Mul64(v.Real, wS.Real)
+	vwReal := v.Real*w.Real - quo*q + twoQ
+	quo, _ = bits.Mul64(v.Imag, wS.Imag)
+	vwReal -= v.Imag*w.Imag - quo*q
+	quo, _ = bits.Mul64(v.Real, wS.Imag)
+	vwImag := v.Real*w.Imag - quo*q
+	quo, _ = bits.Mul64(v.Imag, wS.Real)
+	vwImag += v.Imag*w.Real - quo*q
+	if vwReal >= twoQ {
+		vwReal -= twoQ
+	}
+	if vwImag >= twoQ {
+		vwImag -= twoQ
+	}
 	if u.Real >= twoQ {
 		u.Real -= twoQ
 	}
 	if u.Imag >= twoQ {
 		u.Imag -= twoQ
 	}
-	return gnum.GaussianInt{Real: u.Real + v.Real, Imag: u.Imag + v.Imag},
-		gnum.GaussianInt{Real: u.Real - v.Real + twoQ, Imag: u.Imag - v.Imag + twoQ}
+	return gnum.GaussianInt{Real: u.Real + vwReal, Imag: u.Imag + vwImag},
+		gnum.GaussianInt{Real: u.Real - vwReal + twoQ, Imag: u.Imag - vwImag + twoQ}
 }
 
-// fwdNTTGaussIntInPlacePow2Ref computes the Gaussian Integer NTT transform in-place for power-of-two length coefficients.
-func fwdNTTGaussIntInPlacePow2Ref(coeffs, tw, twS []gnum.GaussianInt, q *num.Modulus) {
+// fwdNTTGaussIntInPlacePow2Ref computes the NTT transform in-place for power-of-two length coefficients.
+func fwdNTTGaussIntInPlacePow2Ref(coeffs, tw, twS []gnum.GaussianInt, q uint64) {
 	N := len(coeffs)
-	twoQ := q.Value() << 1
+	twoQ := q << 1
 
 	t := N
 	for m := 1; m <= N/2; m <<= 1 {
@@ -52,11 +63,8 @@ func fwdNTTGaussIntInPlacePow2Ref(coeffs, tw, twS []gnum.GaussianInt, q *num.Mod
 	}
 }
 
-// invNTTGaussIntInPlacePow2 computes the inverse Gaussian Integer NTT transform in-place for power-of-two length coefficients.
-// twInvS contains the component-wise Shoup forms of twInv.
-// Each component of the inputs and outputs is in [0, 2q).
-// The result is not normalized by the inverse of len(coeffs).
-func invNTTGaussIntInPlacePow2(coeffs, twInv, twInvS []gnum.GaussianInt, q *num.Modulus) {
+// invNTTGaussIntInPlacePow2 computes the inverse NTT transform in-place for power-of-two length coefficients.
+func invNTTGaussIntInPlacePow2(coeffs, twInv, twInvS []gnum.GaussianInt, q uint64) {
 	if len(coeffs) <= nttUnrollBound {
 		invNTTGaussIntInPlacePow2Ref(coeffs, twInv, twInvS, q)
 		return
@@ -64,8 +72,8 @@ func invNTTGaussIntInPlacePow2(coeffs, twInv, twInvS []gnum.GaussianInt, q *num.
 	invNTTGaussIntInPlacePow2Unroll(coeffs, twInv, twInvS, q)
 }
 
-// invButterflyGaussIntPow2 returns the inverse Gaussian Integer Harvey butterfly.
-func invButterflyGaussIntPow2(u, v, w, wS gnum.GaussianInt, q *num.Modulus, twoQ uint64) (gnum.GaussianInt, gnum.GaussianInt) {
+// invButterflyGaussIntPow2 returns the inverse Harvey butterfly.
+func invButterflyGaussIntPow2(u, v, w, wS gnum.GaussianInt, q, twoQ uint64) (gnum.GaussianInt, gnum.GaussianInt) {
 	u, v = gnum.GaussianInt{Real: u.Real + v.Real, Imag: u.Imag + v.Imag},
 		gnum.GaussianInt{Real: u.Real - v.Real + twoQ, Imag: u.Imag - v.Imag + twoQ}
 	if u.Real >= twoQ {
@@ -74,13 +82,27 @@ func invButterflyGaussIntPow2(u, v, w, wS gnum.GaussianInt, q *num.Modulus, twoQ
 	if u.Imag >= twoQ {
 		u.Imag -= twoQ
 	}
-	return u, gnum.SMulLazy(v, w, wS, q)
+	quo, _ := bits.Mul64(v.Real, wS.Real)
+	vwReal := v.Real*w.Real - quo*q + twoQ
+	quo, _ = bits.Mul64(v.Imag, wS.Imag)
+	vwReal -= v.Imag*w.Imag - quo*q
+	quo, _ = bits.Mul64(v.Real, wS.Imag)
+	vwImag := v.Real*w.Imag - quo*q
+	quo, _ = bits.Mul64(v.Imag, wS.Real)
+	vwImag += v.Imag*w.Real - quo*q
+	if vwReal >= twoQ {
+		vwReal -= twoQ
+	}
+	if vwImag >= twoQ {
+		vwImag -= twoQ
+	}
+	return u, gnum.GaussianInt{Real: vwReal, Imag: vwImag}
 }
 
-// invNTTGaussIntInPlacePow2Ref computes the inverse Gaussian Integer NTT transform in-place for power-of-two length coefficients.
-func invNTTGaussIntInPlacePow2Ref(coeffs, twInv, twInvS []gnum.GaussianInt, q *num.Modulus) {
+// invNTTGaussIntInPlacePow2Ref computes the inverse NTT transform in-place for power-of-two length coefficients.
+func invNTTGaussIntInPlacePow2Ref(coeffs, twInv, twInvS []gnum.GaussianInt, q uint64) {
 	N := len(coeffs)
-	twoQ := q.Value() << 1
+	twoQ := q << 1
 
 	t := 1
 	for m := N / 2; m >= 1; m >>= 1 {
@@ -96,10 +118,10 @@ func invNTTGaussIntInPlacePow2Ref(coeffs, twInv, twInvS []gnum.GaussianInt, q *n
 	}
 }
 
-// fwdNTTGaussIntInPlacePow2Unroll computes the Gaussian Integer NTT transform in-place for power-of-two length coefficients.
+// fwdNTTGaussIntInPlacePow2Unroll computes the NTT transform in-place for power-of-two length coefficients.
 // Assumes len(coeffs) > [nttUnrollBound].
-func fwdNTTGaussIntInPlacePow2Unroll(coeffs, tw, twS []gnum.GaussianInt, q *num.Modulus) {
-	twoQ := q.Value() << 1
+func fwdNTTGaussIntInPlacePow2Unroll(coeffs, tw, twS []gnum.GaussianInt, q uint64) {
+	twoQ := q << 1
 
 	N := len(coeffs)
 	L := unsafe.Sizeof(gnum.GaussianInt{})
@@ -190,10 +212,10 @@ func fwdNTTGaussIntInPlacePow2Unroll(coeffs, tw, twS []gnum.GaussianInt, q *num.
 	}
 }
 
-// invNTTGaussIntInPlacePow2Unroll computes the inverse Gaussian Integer NTT transform in-place for power-of-two length coefficients.
+// invNTTGaussIntInPlacePow2Unroll computes the Inverse NTT transform in-place for power-of-two length coefficients.
 // Assumes len(coeffs) > [nttUnrollBound].
-func invNTTGaussIntInPlacePow2Unroll(coeffs, twInv, twInvS []gnum.GaussianInt, q *num.Modulus) {
-	twoQ := q.Value() << 1
+func invNTTGaussIntInPlacePow2Unroll(coeffs, twInv, twInvS []gnum.GaussianInt, q uint64) {
+	twoQ := q << 1
 
 	N := len(coeffs)
 	L := unsafe.Sizeof(gnum.GaussianInt{})
