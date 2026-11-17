@@ -71,14 +71,14 @@ func expansionFactor(params dft.RingParameters) float64 {
 }
 
 func testEncryptor(t *testing.T, ringParams dft.RingParameters) {
-	q, qAux := rlwe.FindNTTPrimes(ringParams, float64(rSrc.SampleN(100, 800)), float64(rSrc.SampleN(100, 800)))
+	baseModLen, auxModLen := rSrc.SampleN(1, 10), rSrc.SampleN(2, 10)
 	params := rlwe.ParametersLiteral{
-		RingParams:  ringParams,
-		BaseModulus: q,
-		AuxModulus:  qAux,
+		RingParams: ringParams,
+		LogBaseMod: float64(baseModLen * num.MaxModulusBits),
+		LogAuxMod:  float64(auxModLen * num.MaxModulusBits),
 
 		GadgetParams: rlwe.RNSGadgetParametersLiteral{
-			ChunkSize: rSrc.SampleN(1, len(qAux)),
+			ChunkSize: rSrc.SampleN(1, auxModLen),
 		},
 		SecretKeyParams: crt.TernarySamplerParameters{
 			Positive: 0.25,
@@ -99,8 +99,8 @@ func testEncryptor(t *testing.T, ringParams dft.RingParameters) {
 	us := crt.UniformSamplerParameters{}.Sampler()
 	noiseBound := params.NoiseParams().Bound()
 
-	baseLen := rSrc.SampleN(1, len(q)+1)
-	baseCvt := crt.NewBigConverter(params.Op().WithModSlice(len(qAux), len(qAux)+baseLen))
+	baseLen := rSrc.SampleN(1, params.BaseModLen()+1)
+	baseCvt := crt.NewBigConverter(params.Op().WithModSlice(params.AuxModLen(), params.AuxModLen()+baseLen))
 	fullCvt := crt.NewBigConverter(params.Op())
 
 	t.Run("SecretKey", func(t *testing.T) {
@@ -115,7 +115,7 @@ func testEncryptor(t *testing.T, ringParams dft.RingParameters) {
 		t.Run("Encrypt", func(t *testing.T) {
 			t.Run("Scalar", func(t *testing.T) {
 				pt := rlwe.NewScalarCustom(baseLen, 0)
-				us.SampleTo(pt.Value, q[:baseLen])
+				us.SampleTo(pt.Value, params.BaseMod()[:baseLen])
 
 				ct := enc.Encrypt[*rlwe.Ciphertext](pt, dft.FormNTT)
 				ptOut := enc.Phase(ct)
@@ -126,7 +126,7 @@ func testEncryptor(t *testing.T, ringParams dft.RingParameters) {
 
 			t.Run("Poly", func(t *testing.T) {
 				pt := rlwe.NewPolyCustom(params.Rank(), baseLen, 0, dft.FormCoeff)
-				us.SampleTo(pt.Value, q[:baseLen])
+				us.SampleTo(pt.Value, params.BaseMod()[:baseLen])
 
 				ct := enc.Encrypt[*rlwe.Ciphertext](pt, dft.FormNTT)
 				ptOut := enc.Phase(ct)
@@ -229,7 +229,7 @@ func testEncryptor(t *testing.T, ringParams dft.RingParameters) {
 		t.Run("Encrypt", func(t *testing.T) {
 			t.Run("Scalar", func(t *testing.T) {
 				pt := rlwe.NewScalarCustom(baseLen, 0)
-				us.SampleTo(pt.Value, q[:baseLen])
+				us.SampleTo(pt.Value, params.BaseMod()[:baseLen])
 
 				ct := encPub.Encrypt[*rlwe.Ciphertext](pt, dft.FormNTT)
 				ptOut := enc.Phase(ct)
@@ -240,7 +240,7 @@ func testEncryptor(t *testing.T, ringParams dft.RingParameters) {
 
 			t.Run("Poly", func(t *testing.T) {
 				pt := rlwe.NewPolyCustom(params.Rank(), baseLen, 0, dft.FormCoeff)
-				us.SampleTo(pt.Value, q[:baseLen])
+				us.SampleTo(pt.Value, params.BaseMod()[:baseLen])
 
 				ct := encPub.Encrypt[*rlwe.Ciphertext](pt, dft.FormNTT)
 				ptOut := enc.Phase(ct)

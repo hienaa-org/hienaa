@@ -101,13 +101,18 @@ func (DigitGadgetParameters) isGadgetParams() {}
 type ParametersLiteral struct {
 	// RingParams is the parameters for underlying ring.
 	RingParams dft.RingParameters
-	// BaseModulus is the modulus for encryption.
-	BaseModulus []*num.Modulus
-	// AuxModulus is the auxiliary or "special" modulus.
-	AuxModulus []*num.Modulus
+	// LogBaseMod is the bit length of base modulus.
+	LogBaseMod float64
+	// LogAuxMod is the bit length of auxililary modulus.
+	LogAuxMod float64
+
+	// baseMod is the base modulus. This overrides LogBaseModulus.
+	baseMod []*num.Modulus
+	// auxMod is the auxiliary modulus. This overrides LogAuxModulus.
+	auxMod []*num.Modulus
 
 	// GadgetParams is the parameters for the gadget.
-	// If nil, RNS gadget with chunk size 1 is used.
+	// If nil, RNS gadget with chunk size same as max(1, auxiliary modulus length) is used.
 	GadgetParams GadgetParametersLiteral
 	// SecretKeyParams is the parameters for secret key sampler.
 	SecretKeyParams crt.SamplerParameters
@@ -115,33 +120,92 @@ type ParametersLiteral struct {
 	NoiseParams crt.SamplerParameters
 }
 
+// WithBaseMod overrides LogBaseMod and sets the base modulus directly.
+// Must be called before compile.
+func (p ParametersLiteral) WithBaseMod[Q uint64 | *num.Modulus](baseMod []Q) ParametersLiteral {
+	if baseMod == nil {
+		p.baseMod = nil
+		return p
+	}
+
+	switch baseMod := any(baseMod).(type) {
+	case []uint64:
+		p.baseMod = make([]*num.Modulus, len(baseMod))
+		for i := range baseMod {
+			p.baseMod[i] = num.NewModulus(baseMod[i])
+		}
+	case []*num.Modulus:
+		p.baseMod = baseMod
+	}
+	return p
+}
+
+// WithAuxMod overrides LogAuxMod and sets the auxiliary modulus directly.
+// Must be called before compile.
+func (p ParametersLiteral) WithAuxMod[Q uint64 | *num.Modulus](auxMod []Q) ParametersLiteral {
+	if auxMod == nil {
+		p.auxMod = nil
+		return p
+	}
+
+	switch auxMod := any(auxMod).(type) {
+	case []uint64:
+		p.auxMod = make([]*num.Modulus, len(auxMod))
+		for i := range auxMod {
+			p.auxMod[i] = num.NewModulus(auxMod[i])
+		}
+	case []*num.Modulus:
+		p.auxMod = auxMod
+	}
+	return p
+}
+
 // Compile compiles [ParametersLiteral] to [Parameters].
 // Panics when non-sensible values exist.
 func (p ParametersLiteral) Compile() Parameters {
-	if len(p.BaseModulus) == 0 {
-		panic("BaseModulus should be non-empty")
+	var baseMod, auxMod []*num.Modulus
+	switch {
+	case p.baseMod == nil && p.auxMod == nil:
+		baseMod, auxMod = FindNTTPrimes(p.RingParams, float64(p.LogBaseMod), float64(p.LogAuxMod))
+
+	case p.baseMod == nil && p.auxMod != nil:
+		auxMod = p.auxMod
+		auxModMap := make(map[uint64]struct{}, len(auxMod))
+		for i := range auxMod {
+			auxModMap[auxMod[i].Value()] = struct{}{}
+		}
+		baseMod = prevPrimes(p.RingParams, p.LogBaseMod, auxModMap)
+
+	case p.baseMod != nil && p.auxMod == nil:
+		baseMod = p.baseMod
+		baseModMap := make(map[uint64]struct{}, len(baseMod))
+		for i := range baseMod {
+			baseModMap[baseMod[i].Value()] = struct{}{}
+		}
+		auxMod = prevPrimes(p.RingParams, p.LogAuxMod, baseModMap)
+
+	case p.baseMod != nil && p.auxMod != nil:
+		baseMod, auxMod = p.baseMod, p.auxMod
 	}
 
-	gadgetParamsLiteral := p.GadgetParams
-	if gadgetParamsLiteral == nil {
-		gadgetParamsLiteral = RNSGadgetParametersLiteral{ChunkSize: 1}
+	if len(baseMod) == 0 {
+		panic("base modulus must be nonempty")
 	}
-	gadgetParams := gadgetParamsLiteral.Compile()
 
-	fullMod := make([]*num.Modulus, 0, len(p.AuxModulus)+len(p.BaseModulus))
-	fullMod = append(fullMod, p.AuxModulus...)
-	fullMod = append(fullMod, p.BaseModulus...)
+	fullMod := make([]*num.Modulus, 0, len(auxMod)+len(baseMod))
+	fullMod = append(fullMod, auxMod...)
+	fullMod = append(fullMod, baseMod...)
 
 	tmpBig := new(big.Int)
 	baseModBig := big.NewInt(1)
-	for i := range p.BaseModulus {
-		tmpBig.SetUint64(p.BaseModulus[i].Value())
+	for i := range baseMod {
+		tmpBig.SetUint64(baseMod[i].Value())
 		baseModBig.Mul(baseModBig, tmpBig)
 	}
 
 	auxModBig := big.NewInt(1)
-	for i := range p.AuxModulus {
-		tmpBig.SetUint64(p.AuxModulus[i].Value())
+	for i := range auxMod {
+		tmpBig.SetUint64(auxMod[i].Value())
 		auxModBig.Mul(auxModBig, tmpBig)
 	}
 
@@ -150,20 +214,26 @@ func (p ParametersLiteral) Compile() Parameters {
 	_ = p.SecretKeyParams.Sampler()
 	_ = p.NoiseParams.Sampler()
 
+	gadgetParamsLiteral := p.GadgetParams
+	if gadgetParamsLiteral == nil {
+		gadgetParamsLiteral = RNSGadgetParametersLiteral{ChunkSize: max(1, len(auxMod))}
+	}
+	gadgetParams := gadgetParamsLiteral.Compile()
+
 	var gadgetVec []*Element
 	switch gadgetParams := gadgetParams.(type) {
 	case RNSGadgetParameters:
-		gadgetVec = make([]*Element, num.DivCeil(len(p.BaseModulus), gadgetParams.chunkSize))
+		gadgetVec = make([]*Element, num.DivCeil(len(baseMod), gadgetParams.chunkSize))
 		g, chunk := new(big.Int), new(big.Int)
 		for i := range gadgetVec {
 			start := i * gadgetParams.chunkSize
-			end := min((i+1)*gadgetParams.chunkSize, len(p.BaseModulus))
+			end := min((i+1)*gadgetParams.chunkSize, len(baseMod))
 
 			g.SetUint64(1)
 			chunk.SetUint64(1)
 
-			for j := range p.BaseModulus {
-				tmpBig.SetUint64(p.BaseModulus[j].Value())
+			for j := range baseMod {
+				tmpBig.SetUint64(baseMod[j].Value())
 				if start <= j && j < end {
 					chunk.Mul(chunk, tmpBig)
 				} else {
@@ -178,46 +248,46 @@ func (p ParametersLiteral) Compile() Parameters {
 
 			gadgetVec[i] = &Element{
 				Value:  crt.NewScalarFrom(g, fullMod),
-				auxLen: len(p.AuxModulus),
+				auxLen: len(auxMod),
 			}
 		}
 
 	case DigitGadgetParameters:
-		for i := range p.BaseModulus {
-			if p.BaseModulus[i].Value()&1 == 0 {
+		for i := range baseMod {
+			if baseMod[i].Value()&1 == 0 {
 				panic("base modulus should be odd in digit decomposition")
 			}
 		}
 
 		modBitLen := 0
-		for _, q := range p.BaseModulus {
+		for _, q := range baseMod {
 			modBitLen += bits.Len64(q.Value() - 1)
 		}
 		gadgetVec = make([]*Element, num.DivCeil(modBitLen, gadgetParams.logDigitBase))
 
 		g := new(big.Int).Set(auxModBig)
-		if len(p.AuxModulus) == 0 {
+		if len(auxMod) == 0 {
 			g.SetUint64(1)
 		}
 
 		for i := range gadgetVec {
 			gadgetVec[i] = &Element{
 				Value:  crt.NewScalarFrom(g, fullMod),
-				auxLen: len(p.AuxModulus),
+				auxLen: len(auxMod),
 			}
 			g.Lsh(g, uint(gadgetParams.logDigitBase))
 		}
 	}
 
-	if len(p.AuxModulus) == 0 {
+	if len(auxMod) == 0 {
 		auxModBig.SetUint64(0)
 	}
 
 	return Parameters{
 		crtOp:   crt.NewOperator(p.RingParams, fullMod),
 		fullMod: fullMod,
-		baseMod: fullMod[len(p.AuxModulus):],
-		auxMod:  fullMod[:len(p.AuxModulus)],
+		baseMod: fullMod[len(auxMod):],
+		auxMod:  fullMod[:len(auxMod)],
 
 		fullModBig: fullModBig,
 		baseModBig: baseModBig,

@@ -11,7 +11,7 @@ import (
 // The logarithms of the products of baseMod and auxMod are smaller but as close as possible
 // to baseModBits and auxModBits respectively.
 func FindNTTPrimes(params dft.RingParameters, baseModBits, auxModBits float64) (baseMod []*num.Modulus, auxMod []*num.Modulus) {
-	found := make(map[uint64]struct{})
+	found := make(map[uint64]struct{}, 0)
 	return prevPrimes(params, baseModBits, found), prevPrimes(params, auxModBits, found)
 }
 
@@ -33,7 +33,15 @@ func prevPrimes(params dft.RingParameters, totalBits float64, found map[uint64]s
 		if start > p {
 			panic("no previous prime exists")
 		}
-		if _, ok := found[p]; ok {
+
+		isCoprime := true
+		for pFound := range found {
+			if num.GCD(pFound, p) != 1 {
+				isCoprime = false
+				break
+			}
+		}
+		if !isCoprime {
 			continue
 		}
 

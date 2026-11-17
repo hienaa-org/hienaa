@@ -16,14 +16,14 @@ var (
 )
 
 func testOperator(t *testing.T, ringParams dft.RingParameters) {
-	q, qAux := rlwe.FindNTTPrimes(ringParams, float64(rSrc.SampleN(100, 800)), float64(rSrc.SampleN(100, 800)))
+	baseModLen, auxModLen := rSrc.SampleN(2, 10), rSrc.SampleN(2, 10)
 	params := rlwe.ParametersLiteral{
-		RingParams:  ringParams,
-		BaseModulus: q,
-		AuxModulus:  qAux,
+		RingParams: ringParams,
+		LogBaseMod: float64(baseModLen * num.MaxModulusBits),
+		LogAuxMod:  float64(auxModLen * num.MaxModulusBits),
 
 		GadgetParams: rlwe.RNSGadgetParametersLiteral{
-			ChunkSize: rSrc.SampleN(1, len(qAux)),
+			ChunkSize: rSrc.SampleN(1, auxModLen),
 		},
 		SecretKeyParams: crt.TernarySamplerParameters{
 			Positive: 0.25,
@@ -47,13 +47,13 @@ func testOperator(t *testing.T, ringParams dft.RingParameters) {
 	noiseBound := params.NoiseParams().Bound()
 	expFac := expansionFactor(ringParams)
 
-	baseLen := rSrc.SampleN(1, len(q)+1)
-	baseCvt := crt.NewBigConverter(params.Op().WithModSlice(len(qAux), len(qAux)+baseLen))
+	baseLen := rSrc.SampleN(1, params.BaseModLen()+1)
+	baseCvt := crt.NewBigConverter(params.Op().WithModSlice(params.AuxModLen(), params.AuxModLen()+baseLen))
 
 	pt0 := rlwe.NewPolyCustom(params.Rank(), baseLen, 0, dft.FormCoeff)
 	pt1 := rlwe.NewPolyCustom(params.Rank(), baseLen, 0, dft.FormCoeff)
-	us.SampleTo(pt0.Value, q[:baseLen])
-	us.SampleTo(pt1.Value, q[:baseLen])
+	us.SampleTo(pt0.Value, params.BaseMod()[:baseLen])
+	us.SampleTo(pt1.Value, params.BaseMod()[:baseLen])
 	pt0NTT := pOp.FwdNTT(pt0)
 	pt1NTT := pOp.FwdNTT(pt1)
 
@@ -72,7 +72,7 @@ func testOperator(t *testing.T, ringParams dft.RingParameters) {
 
 		t.Run("Scalar", func(t *testing.T) {
 			s := rlwe.NewScalarCustom(baseLen, 0)
-			us.SampleTo(s.Value, q[:baseLen])
+			us.SampleTo(s.Value, params.BaseMod()[:baseLen])
 
 			ctOut := op.Add(ct0, s)
 			ptOut := enc.Phase(ctOut)
@@ -108,7 +108,7 @@ func testOperator(t *testing.T, ringParams dft.RingParameters) {
 
 		t.Run("Scalar", func(t *testing.T) {
 			s := rlwe.NewScalarCustom(baseLen, 0)
-			us.SampleTo(s.Value, q[:baseLen])
+			us.SampleTo(s.Value, params.BaseMod()[:baseLen])
 
 			ctOut := op.Sub(ct0, s)
 			ptOut := enc.Phase(ctOut)
@@ -143,7 +143,7 @@ func testOperator(t *testing.T, ringParams dft.RingParameters) {
 
 	t.Run("Mul", func(t *testing.T) {
 		t.Run("Scalar", func(t *testing.T) {
-			s := rlwe.NewElementFrom(crt.NewScalarFrom(2, q[:baseLen]), 0)
+			s := rlwe.NewElementFrom(crt.NewScalarFrom(2, params.BaseMod()[:baseLen]), 0)
 
 			ctOut := op.Mul(ct0, s)
 			ptOut := enc.Phase(ctOut)
@@ -154,7 +154,7 @@ func testOperator(t *testing.T, ringParams dft.RingParameters) {
 		})
 
 		t.Run("Poly", func(t *testing.T) {
-			pt := rlwe.NewElementFrom(ts.Sample(params.Rank(), q[:baseLen]), 0)
+			pt := rlwe.NewElementFrom(ts.Sample(params.Rank(), params.BaseMod()[:baseLen]), 0)
 			pOp.FwdNTTTo(pt, pt)
 
 			ctOut := op.Mul(ct0, pt)
@@ -169,7 +169,7 @@ func testOperator(t *testing.T, ringParams dft.RingParameters) {
 
 	t.Run("MulAdd", func(t *testing.T) {
 		t.Run("Scalar", func(t *testing.T) {
-			s := rlwe.NewElementFrom(crt.NewScalarFrom(2, q[:baseLen]), 0)
+			s := rlwe.NewElementFrom(crt.NewScalarFrom(2, params.BaseMod()[:baseLen]), 0)
 
 			ctOut := ct0.Copy()
 			op.MulAddTo(ctOut, ct1, s)
@@ -182,7 +182,7 @@ func testOperator(t *testing.T, ringParams dft.RingParameters) {
 		})
 
 		t.Run("Poly", func(t *testing.T) {
-			pt := rlwe.NewElementFrom(ts.Sample(params.Rank(), q[:baseLen]), 0)
+			pt := rlwe.NewElementFrom(ts.Sample(params.Rank(), params.BaseMod()[:baseLen]), 0)
 			pOp.FwdNTTTo(pt, pt)
 
 			ctOut := ct0.Copy()
@@ -199,7 +199,7 @@ func testOperator(t *testing.T, ringParams dft.RingParameters) {
 
 	t.Run("MulSub", func(t *testing.T) {
 		t.Run("Scalar", func(t *testing.T) {
-			s := rlwe.NewElementFrom(crt.NewScalarFrom(2, q[:baseLen]), 0)
+			s := rlwe.NewElementFrom(crt.NewScalarFrom(2, params.BaseMod()[:baseLen]), 0)
 
 			ctOut := ct0.Copy()
 			op.MulSubTo(ctOut, ct1, s)
@@ -212,7 +212,7 @@ func testOperator(t *testing.T, ringParams dft.RingParameters) {
 		})
 
 		t.Run("Poly", func(t *testing.T) {
-			pt := rlwe.NewElementFrom(ts.Sample(params.Rank(), q[:baseLen]), 0)
+			pt := rlwe.NewElementFrom(ts.Sample(params.Rank(), params.BaseMod()[:baseLen]), 0)
 			pOp.FwdNTTTo(pt, pt)
 
 			ctOut := ct0.Copy()
@@ -229,14 +229,14 @@ func testOperator(t *testing.T, ringParams dft.RingParameters) {
 
 	t.Run("Scale", func(t *testing.T) {
 		t.Run("Aux", func(t *testing.T) {
-			pt := rlwe.NewPolyCustom(params.Rank(), baseLen, len(qAux), dft.FormCoeff)
-			us.SampleTo(pt.Value, params.FullMod()[:len(qAux)+baseLen])
+			pt := rlwe.NewPolyCustom(params.Rank(), baseLen, params.AuxModLen(), dft.FormCoeff)
+			us.SampleTo(pt.Value, params.FullMod()[:params.AuxModLen()+baseLen])
 
 			ct := enc.Encrypt[*rlwe.Ciphertext](pt, dft.FormNTT)
 			ctOut := op.Scale(ct, baseLen, dft.FormNTT)
 			ptOut := enc.Phase(ctOut)
 			ptOutRef := rlwe.NewPolyCustom(params.Rank(), baseLen, 0, dft.FormCoeff)
-			sc := crt.NewVecScaler(q[:baseLen], params.FullMod()[:len(qAux)+baseLen])
+			sc := crt.NewVecScaler(params.BaseMod()[:baseLen], params.FullMod()[:params.AuxModLen()+baseLen])
 			sc.ScaleTo(ptOutRef.Value.Coeffs, pt.Value.Coeffs)
 
 			diff := pOp.Sub(ptOut, ptOutRef)
@@ -244,12 +244,12 @@ func testOperator(t *testing.T, ringParams dft.RingParameters) {
 		})
 
 		t.Run("Decrease", func(t *testing.T) {
-			oldLen := rSrc.SampleN(2, len(q)+1)
+			oldLen := rSrc.SampleN(2, params.BaseModLen()+1)
 			newLen := rSrc.SampleN(1, oldLen)
-			cvt := crt.NewBigConverter(params.Op().WithModSlice(len(qAux), len(qAux)+newLen))
+			cvt := crt.NewBigConverter(params.Op().WithModSlice(params.AuxModLen(), params.AuxModLen()+newLen))
 
 			pt := rlwe.NewPolyCustom(params.Rank(), oldLen, 0, dft.FormCoeff)
-			us.SampleTo(pt.Value, q[:oldLen])
+			us.SampleTo(pt.Value, params.BaseMod()[:oldLen])
 
 			ct := enc.Encrypt[*rlwe.Ciphertext](pt, dft.FormNTT)
 			ctOut := op.Scale(ct, newLen, dft.FormCoeff)
@@ -258,7 +258,7 @@ func testOperator(t *testing.T, ringParams dft.RingParameters) {
 
 			ptOut := enc.Phase(ctOut)
 			ptOutRef := rlwe.NewPolyCustom(params.Rank(), newLen, 0, dft.FormCoeff)
-			sc := crt.NewVecScaler(q[:newLen], q[:oldLen])
+			sc := crt.NewVecScaler(params.BaseMod()[:newLen], params.BaseMod()[:oldLen])
 			sc.ScaleTo(ptOutRef.Value.Coeffs, pt.Value.Coeffs)
 
 			diff := pOp.Sub(ptOut, ptOutRef)
@@ -266,17 +266,17 @@ func testOperator(t *testing.T, ringParams dft.RingParameters) {
 		})
 
 		t.Run("Increase", func(t *testing.T) {
-			newLen := rSrc.SampleN(2, len(q)+1)
+			newLen := rSrc.SampleN(2, params.BaseModLen()+1)
 			oldLen := rSrc.SampleN(1, newLen)
 
 			pt := rlwe.NewPolyCustom(params.Rank(), oldLen, 0, dft.FormCoeff)
-			us.SampleTo(pt.Value, q[:oldLen])
+			us.SampleTo(pt.Value, params.BaseMod()[:oldLen])
 
 			ct := enc.Encrypt[*rlwe.Ciphertext](pt, dft.FormNTT)
 			ctOut := op.Scale(ct, newLen, dft.FormNTT)
 			ptOut := enc.Phase(ctOut)
 			ptOutRef := rlwe.NewPolyCustom(params.Rank(), newLen, 0, dft.FormCoeff)
-			sc := crt.NewVecScaler(q[:newLen], q[:oldLen])
+			sc := crt.NewVecScaler(params.BaseMod()[:newLen], params.BaseMod()[:oldLen])
 			sc.ScaleTo(ptOutRef.Value.Coeffs, enc.Phase(ct).Value.Coeffs)
 
 			assert.Equal(t, ptOutRef, ptOut)
@@ -290,7 +290,7 @@ func testOperator(t *testing.T, ringParams dft.RingParameters) {
 	})
 
 	t.Run("GadProd", func(t *testing.T) {
-		pt := rlwe.NewElementFrom(ts.Sample(params.Rank(), params.FullMod()), len(qAux))
+		pt := rlwe.NewElementFrom(ts.Sample(params.Rank(), params.FullMod()), params.AuxModLen())
 		pOp.FwdNTTTo(pt, pt)
 		ctGad := enc.Encrypt[*rlwe.GadgetEncryption](pt, dft.FormNTT)
 
@@ -366,7 +366,7 @@ func testOperator(t *testing.T, ringParams dft.RingParameters) {
 	})
 
 	t.Run("ExtProd", func(t *testing.T) {
-		pt := rlwe.NewElementFrom(ts.Sample(params.Rank(), params.FullMod()), len(qAux))
+		pt := rlwe.NewElementFrom(ts.Sample(params.Rank(), params.FullMod()), params.AuxModLen())
 		pOp.FwdNTTTo(pt, pt)
 		ctRGSW := enc.Encrypt[*rlwe.RGSWEncryption](pt, dft.FormNTT)
 

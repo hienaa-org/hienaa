@@ -22,18 +22,11 @@ func recompose(params rlwe.Parameters, pDcmp *rlwe.Vector, gadVec []*rlwe.Elemen
 }
 
 func TestDecompose(t *testing.T) {
-	M := rSrc.SampleN(4, 1<<10)
-	ringParams := dft.NewCyclotomicParameters(M)
-	q, qAux := rlwe.FindNTTPrimes(ringParams, float64(rSrc.SampleN(100, 800)), float64(rSrc.SampleN(100, 800)))
-
 	paramsLiteral := rlwe.ParametersLiteral{
-		RingParams:  ringParams,
-		BaseModulus: q,
-		AuxModulus:  qAux,
+		RingParams: dft.NewCyclotomicParameters(rSrc.SampleN(1<<2, 1<<10)),
+		LogBaseMod: float64(rSrc.SampleN(1, 10) * num.MaxModulusBits),
+		LogAuxMod:  float64(rSrc.SampleN(1, 10) * num.MaxModulusBits),
 
-		GadgetParams: rlwe.RNSGadgetParametersLiteral{
-			ChunkSize: 2,
-		},
 		SecretKeyParams: crt.TernarySamplerParameters{
 			Positive: 0.25,
 			Negative: 0.25,
@@ -49,17 +42,17 @@ func TestDecompose(t *testing.T) {
 	t.Run("type=RNS", func(t *testing.T) {
 		paramsLiteral := paramsLiteral
 		paramsLiteral.GadgetParams = rlwe.RNSGadgetParametersLiteral{
-			ChunkSize: rSrc.SampleN(1, len(q)),
+			ChunkSize: rSrc.SampleN(1, int(paramsLiteral.LogBaseMod/num.MaxModulusBits)+1),
 		}
 		params := paramsLiteral.Compile()
 
 		dcmp := rlwe.NewDecomposer(params)
 
-		baseLen := rSrc.SampleN(1, len(q))
-		baseOp := params.Op().WithModSlice(len(params.AuxMod()), len(params.AuxMod())+baseLen)
+		baseLen := rSrc.SampleN(1, params.BaseModLen()+1)
+		baseOp := params.Op().WithModSlice(params.AuxModLen(), params.AuxModLen()+baseLen)
 
 		p := rlwe.NewPolyCustom(params.Rank(), baseLen, 0, dft.FormCoeff)
-		us.SampleTo(p.Value, q[:baseLen])
+		us.SampleTo(p.Value, params.BaseMod()[:baseLen])
 		pDcmp := dcmp.Decompose(p, dft.FormNTT)
 		pRcmp := recompose(params, pDcmp, params.GadgetVec())
 
@@ -76,11 +69,11 @@ func TestDecompose(t *testing.T) {
 
 		dcmp := rlwe.NewDecomposer(params)
 
-		baseLen := rSrc.SampleN(1, len(q))
-		baseOp := params.Op().WithModSlice(len(params.AuxMod()), len(params.AuxMod())+baseLen)
+		baseLen := rSrc.SampleN(1, params.BaseModLen()+1)
+		baseOp := params.Op().WithModSlice(params.AuxModLen(), params.AuxModLen()+baseLen)
 
 		p := rlwe.NewPolyCustom(params.Rank(), baseLen, 0, dft.FormCoeff)
-		us.SampleTo(p.Value, q[:baseLen])
+		us.SampleTo(p.Value, params.BaseMod()[:baseLen])
 		pDcmp := dcmp.Decompose(p, dft.FormNTT)
 		pRcmp := recompose(params, pDcmp, params.GadgetVec())
 
