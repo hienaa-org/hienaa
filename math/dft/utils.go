@@ -1,6 +1,8 @@
 package dft
 
 import (
+	"math"
+
 	"github.com/hienaa-org/hienaa/math/num"
 	"github.com/hienaa-org/hienaa/math/vec"
 )
@@ -129,4 +131,104 @@ func quotient(p0, p1 []uint64, mod *num.Modulus) []uint64 {
 	}
 
 	return quo
+}
+
+// ExpansionFactor estimates the expansion factor of the ring, defined as
+// max_{f, g} ||fg||_∞ / ||f||_∞ ||g||_∞.
+//
+// The computation may be slow, and the result may not be exact due to numerical errors and estimations.
+// If the factor is too large, it returns +Inf.
+func ExpansionFactor(params RingParameters) float64 {
+	return ExpansionFactorSparse(params, params.rank)
+}
+
+// ExpansionFactorSparse estimates the expansion factor of the ring, defined as
+// max_{f, g} ||fg||_∞ / ||f||_∞ ||g||_∞, when the hamming weight of f is hw.
+//
+// The computation may be slow, and the result may not be exact due to numerical errors and estimations.
+// If the factor is too large, it returns +Inf.
+func ExpansionFactorSparse(params RingParameters, hw int) float64 {
+	if hw < 0 || hw > params.rank {
+		panic("hamming weight must be in [0, rank]")
+	}
+
+	if hw == 0 {
+		return 0
+	}
+
+	switch params.ringType {
+	case TypeCyclotomic:
+		return cyclotomicExpansionFactor(params, hw)
+	case TypeCyclic:
+		return cyclicExpansionFactor(hw)
+	case TypeAutFixed:
+		return autFixedExpansionFactor(params, hw)
+	case TypeOther:
+		return otherExpansionFactor(params, hw)
+	}
+	return math.Inf(1)
+}
+
+func cyclotomicExpansionFactor(params RingParameters, hw int) float64 {
+	if params.cycloIdx == 1 {
+		return 1
+	}
+
+	if num.IsPowerOfTwo(params.cycloIdx) {
+		return float64(hw)
+	}
+
+	if num.IsPrime(params.cycloIdx) {
+		return min(2*float64(hw), 2*float64(params.rank)-1)
+	}
+
+	return otherExpansionFactor(params, hw)
+}
+
+func cyclicExpansionFactor(hw int) float64 {
+	return float64(hw)
+}
+
+func autFixedExpansionFactor(params RingParameters, hw int) float64 {
+	if num.IsPowerOfTwo(params.cycloIdx) {
+		return min(2*float64(hw), 2*float64(params.rank)-1)
+	}
+
+	fold := (params.cycloIdx - 1) / params.rank
+	return min(2*float64(fold)*float64(hw), 2*float64(params.cycloIdx-fold)-1)
+}
+
+func otherExpansionFactor(params RingParameters, hw int) float64 {
+	modPoly := vec.Cast[float64](params.modPoly)
+	rem := make([]float64, params.rank)
+	sums := make([]float64, params.rank)
+
+	for i := 0; i < params.rank; i++ {
+		sums[i] = float64(min(i+1, hw))
+	}
+	rem[params.rank-1] = 1
+
+	for d := params.rank; d < 2*params.rank-1; d++ {
+		lc := rem[params.rank-1]
+		if math.IsInf(lc, 0) || math.IsNaN(lc) {
+			return math.Inf(1)
+		}
+		weight := float64(min((2*params.rank-1)-d, hw))
+		for i := params.rank - 1; i > 0; i-- {
+			rem[i] = rem[i-1] - lc*modPoly[i]
+			sums[i] += math.Abs(rem[i]) * weight
+		}
+		rem[0] = -lc * modPoly[0]
+		sums[0] += math.Abs(rem[0]) * weight
+	}
+
+	var factor float64
+	for _, sum := range sums {
+		factor = max(factor, sum)
+	}
+
+	if math.IsNaN(factor) {
+		return math.Inf(1)
+	}
+	return factor
 }

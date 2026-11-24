@@ -1,2 +1,2 @@
-// Package rlwe implements the base operations over Ring Learning With Error (RLWE) encryptions.
+// Package rlwe implements basic operations on Ring Learning With Errors (RLWE) ciphertexts.
 package rlwe

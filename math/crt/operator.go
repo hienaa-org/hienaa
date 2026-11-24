@@ -249,6 +249,7 @@ func (op *Operator) NegTo(eOut, e *Element) {
 }
 
 // Mul returns eOut = e0 * e1.
+// When e0, e1 are all [TypePoly], they should be in NTT form.
 func (op *Operator) Mul(e0, e1 *Element) *Element {
 	eOut := newBinaryOpOut(e0, e1)
 	op.MulTo(eOut, e0, e1)
@@ -256,6 +257,7 @@ func (op *Operator) Mul(e0, e1 *Element) *Element {
 }
 
 // MulTo computes eOut = e0 * e1.
+// When e0, e1 are all [TypePoly], they should be in NTT form.
 func (op *Operator) MulTo(eOut, e0, e1 *Element) {
 	switch op.mulType {
 	case typeTrivialMul:
@@ -268,6 +270,7 @@ func (op *Operator) MulTo(eOut, e0, e1 *Element) {
 }
 
 // MulAddTo computes eOut += e0 * e1.
+// When eOut, e0, e1 are all [TypePoly], they should be in NTT form.
 func (op *Operator) MulAddTo(eOut, e0, e1 *Element) {
 	switch op.mulType {
 	case typeTrivialMul:
@@ -280,6 +283,7 @@ func (op *Operator) MulAddTo(eOut, e0, e1 *Element) {
 }
 
 // MulSubTo computes eOut -= e0 * e1.
+// When eOut, e0, e1 are all [TypePoly], they should be in NTT form.
 func (op *Operator) MulSubTo(eOut, e0, e1 *Element) {
 	switch op.mulType {
 	case typeTrivialMul:

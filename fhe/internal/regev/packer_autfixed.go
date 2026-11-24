@@ -39,10 +39,8 @@ func newPow2AutFixed1Mod4Packer(params dft.RingParameters, mod *num.Modulus) *po
 	primes, _ := num.Factor(mod.Value())
 	packLen := params.CycloIdx() >> 2
 	for i := range primes {
-		bits := bits.TrailingZeros64(primes[i]-1) - 2
-		if packLen > (1 << bits) {
-			packLen = 1 << bits
-		}
+		logPackLen := bits.TrailingZeros64(primes[i]-1) - 2
+		packLen = int(min(uint64(packLen), uint64(1)<<logPackLen))
 	}
 
 	packLen64 := uint64(packLen)
@@ -92,6 +90,11 @@ func (pck *pow2AutFixed1Mod4Packer) packTo(vPack, v []uint64) {
 		panic("inconsistent inputs")
 	}
 
+	if len(v) == 0 {
+		clear(vPack)
+		return
+	}
+
 	vBufPtr := pck.pool.Get()
 	vBuf := *vBufPtr
 	defer pck.pool.Put(vBufPtr)
@@ -111,7 +114,7 @@ func (pck *pow2AutFixed1Mod4Packer) packTo(vPack, v []uint64) {
 }
 
 func (pck *pow2AutFixed1Mod4Packer) unpackTo(v, vPack []uint64) {
-	if len(v)%pck.packLen != 0 || len(vPack) != pck.params.Rank() {
+	if len(v) == 0 || pck.packLen%len(v) != 0 || len(vPack) != pck.params.Rank() {
 		panic("inconsistent inputs")
 	}
 
@@ -180,12 +183,10 @@ func newPow2AutFixed3Mod4Packer(params dft.RingParameters, mod *num.Modulus) *po
 	primes, _ := num.Factor(mod.Value())
 	packLen := params.CycloIdx() >> 2
 	logPackLen := bits.TrailingZeros64(primes[0]+1) - 1
-	if packLen > (1 << logPackLen) {
-		packLen = 1 << logPackLen
-	}
+	packLen = int(min(uint64(packLen), uint64(1)<<logPackLen))
 
 	nttRank := packLen
-	if int(primes[0])%params.CycloIdx() != params.CycloIdx()-1 {
+	if primes[0]%uint64(params.CycloIdx()) != uint64(params.CycloIdx())-1 {
 		packLen >>= 1
 	}
 
@@ -272,6 +273,11 @@ func (pck *pow2AutFixed3Mod4Packer) packTo(vPack, v []uint64) {
 		panic("inconsistent inputs")
 	}
 
+	if len(v) == 0 {
+		clear(vPack)
+		return
+	}
+
 	vBufPtr := pck.pool.Get()
 	vBuf := *vBufPtr
 	defer pck.pool.Put(vBufPtr)
@@ -307,7 +313,7 @@ func (pck *pow2AutFixed3Mod4Packer) packTo(vPack, v []uint64) {
 }
 
 func (pck *pow2AutFixed3Mod4Packer) unpackTo(v, vPack []uint64) {
-	if len(v)%pck.packLen != 0 || len(vPack) != pck.params.Rank() {
+	if len(v) == 0 || pck.packLen%len(v) != 0 || len(vPack) != pck.params.Rank() {
 		panic("inconsistent inputs")
 	}
 
@@ -412,7 +418,7 @@ func newPrimeAutFixedPacker(params dft.RingParameters, mod *num.Modulus) *primeA
 	}
 
 	ambParams := dft.NewCyclicParameters(ambRank)
-	maxBits := 2*num.Log2(mod.Value()) + num.Log2(ambRank)
+	maxBits := 2*num.Log2(mod.Value()) + num.Log2(ambRank) + 1
 	ambMod := dft.AmbientNTTPrimes(ambParams, maxBits)
 	ambNTT := make([]*dft.Transformer, len(ambMod))
 	for i := range ambMod {

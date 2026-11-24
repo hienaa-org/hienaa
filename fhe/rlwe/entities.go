@@ -138,6 +138,8 @@ func (e *Element) Clear() {
 }
 
 // WithModLen returns a shallow copy with the given modulus lengths.
+// The result shares the backing slice with the original,
+// so operations such as Resize may invalidate the original value.
 //
 // Panics when baseLen or auxLen is larger than the current base or auxiliary modulus lengths.
 func (e *Element) WithModLen(baseLen, auxLen int) *Element {
@@ -273,6 +275,8 @@ func (sk *SecretKey) Clear() {
 }
 
 // WithModLen returns a shallow copy with the given modulus lengths.
+// The result shares the backing slice with the original,
+// so operations such as Resize may invalidate the original value.
 //
 // Panics when baseLen or auxLen is larger than the current base or auxiliary modulus lengths.
 func (sk *SecretKey) WithModLen(baseLen, auxLen int) *SecretKey {
@@ -381,6 +385,8 @@ func (ct *Ciphertext) Clear() {
 }
 
 // WithModLen returns a shallow copy with the given modulus lengths.
+// The result shares the backing slice with the original,
+// so operations such as Resize may invalidate the original value.
 //
 // Panics when baseLen or auxLen is larger than the current base or auxiliary modulus lengths.
 func (ct *Ciphertext) WithModLen(baseLen, auxLen int) *Ciphertext {
@@ -477,6 +483,8 @@ func (pk *PublicKey) Clear() {
 }
 
 // WithModLen returns a shallow copy with the given modulus lengths.
+// The result shares the backing slice with the original,
+// so operations such as Resize may invalidate the original value.
 //
 // Panics when baseLen or auxLen is larger than the current base or auxiliary modulus lengths.
 func (pk *PublicKey) WithModLen(baseLen, auxLen int) *PublicKey {
@@ -624,6 +632,8 @@ func (v *Vector) Slice(lo, hi int) *Vector {
 }
 
 // WithModLen returns a shallow copy with the given modulus lengths.
+// The result shares the backing slice with the original,
+// so operations such as Resize may invalidate the original value.
 //
 // Panics when baseLen or auxLen is larger than the current base or auxiliary modulus lengths.
 func (v *Vector) WithModLen(baseLen, auxLen int) *Vector {
@@ -705,8 +715,8 @@ func (v *Vector) IsConsistent(vIn *Vector) bool {
 
 // GadgetEncryption is a gadget encryption.
 type GadgetEncryption struct {
-	// Value contains the underlying RLWE encryptions,
-	// each encrypting GadgetVector[i] * Plaintext.
+	// Value[i] encrypts g[i] times the plaintext, where g is the vector
+	// returned by [Parameters.GadgetVec].
 	Value []*Ciphertext
 }
 
@@ -801,6 +811,8 @@ func (ct *GadgetEncryption) Clear() {
 }
 
 // WithModLen returns a shallow copy with the given modulus lengths.
+// The result shares the backing slice with the original,
+// so operations such as Resize may invalidate the original value.
 //
 // Panics when baseLen or auxLen is larger than the current base or auxiliary modulus lengths.
 func (ct *GadgetEncryption) WithModLen(baseLen, auxLen int) *GadgetEncryption {
@@ -882,9 +894,9 @@ func (ct *GadgetEncryption) IsConsistent(ctIn *GadgetEncryption) bool {
 
 // RGSWEncryption is a Ring-GSW encryption.
 type RGSWEncryption struct {
-	// BodyStack is an encryption of GadgetVector * Plaintext.
+	// BodyStack is a gadget encryption of the plaintext.
 	BodyStack *GadgetEncryption
-	// MaskStack is an encryption of GadgetVector * Plaintext * SecretKey.
+	// MaskStack is a gadget encryption of the plaintext times the secret key.
 	MaskStack *GadgetEncryption
 }
 
@@ -966,6 +978,8 @@ func (ct *RGSWEncryption) Clear() {
 }
 
 // WithModLen returns a shallow copy with the given modulus lengths.
+// The result shares the backing slice with the original,
+// so operations such as Resize may invalidate the original value.
 //
 // Panics when baseLen or auxLen is larger than the current base or auxiliary modulus lengths.
 func (ct *RGSWEncryption) WithModLen(baseLen, auxLen int) *RGSWEncryption {
@@ -1068,6 +1082,8 @@ func (ksk *KeySwitchKey) Clear() {
 }
 
 // WithModLen returns a shallow copy with the given modulus lengths.
+// The result shares the backing slice with the original,
+// so operations such as Resize may invalidate the original value.
 //
 // Panics when baseLen or auxLen is larger than the current base or auxiliary modulus lengths.
 func (ksk *KeySwitchKey) WithModLen(baseLen, auxLen int) *KeySwitchKey {
@@ -1158,6 +1174,8 @@ func (rlk *RelinKey) Clear() {
 }
 
 // WithModLen returns a shallow copy with the given modulus lengths.
+// The result shares the backing slice with the original,
+// so operations such as Resize may invalidate the original value.
 //
 // Panics when baseLen or auxLen is larger than the current base or auxiliary modulus lengths.
 func (rlk *RelinKey) WithModLen(baseLen, auxLen int) *RelinKey {
@@ -1258,6 +1276,8 @@ func (atk *AutKey) Clear() {
 }
 
 // WithModLen returns a shallow copy with the given modulus lengths.
+// The result shares the backing slice with the original,
+// so operations such as Resize may invalidate the original value.
 //
 // Panics when baseLen or auxLen is larger than the current base or auxiliary modulus lengths.
 func (atk *AutKey) WithModLen(baseLen, auxLen int) *AutKey {

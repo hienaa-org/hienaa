@@ -15,7 +15,7 @@ var (
 )
 
 func TestReduce(t *testing.T) {
-	q := num.NewModulus(1 + (rSrc.Uint64N(num.MaxModulus-1) | 1))
+	q := num.NewModulus((2 + rSrc.Uint64N(num.MaxModulus-2)) | 1)
 
 	x64 := rSrc.Uint64()
 	x128Hi := rSrc.Uint64()

@@ -18,7 +18,7 @@ const (
 	typePow2AutFixed
 	// typePrimeAutFixed is a prime order fixed automorphism subring.
 	typePrimeAutFixed
-	// typeNone is a invalid type.
+	// typeNone is an invalid type.
 	typeNone
 )
 

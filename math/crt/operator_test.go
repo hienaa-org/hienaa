@@ -81,7 +81,7 @@ func expandAutFixedPoly(params dft.RingParameters, p []uint64, q *num.Modulus) [
 }
 
 func testOperator(t *testing.T, params dft.RingParameters) {
-	q := []*num.Modulus{num.NewModulus(num.NextPrime(1<<40, 1))}
+	q := []*num.Modulus{num.NewModulus(num.NextPrime[uint64](1<<40, 1))}
 	if params.RingType() != dft.TypeOther {
 		q = append(q, dft.PrevNTTPrimes(params, 40, 1)[0])
 	}
@@ -222,7 +222,7 @@ func TestAutFixedOperator(t *testing.T) {
 		primes, exps := num.Factor(M - 1)
 		fold := 1
 		for i := range primes {
-			e := rSrc.SampleN(0, uint64(exps[i]))
+			e := rSrc.SampleN(0, exps[i]+1)
 			for range e {
 				fold *= primes[i]
 			}
@@ -264,7 +264,7 @@ func benchmarkOperator(b *testing.B, params dft.RingParameters) {
 				}
 			}
 		} else {
-			q = []*num.Modulus{num.NewModulus(1<<(num.MaxModulusBits-1) + 1)}
+			q = []*num.Modulus{num.NewModulus[uint64](1<<(num.MaxModulusBits-1) + 1)}
 		}
 
 		b.Run(fmt.Sprintf("Mod=%v", modType), func(b *testing.B) {

@@ -28,7 +28,7 @@ func irreduciblePoly(p uint64, r int) []int64 {
 	f[r] = 1
 	for {
 		for i := 0; i < r; i++ {
-			f[i] = rSrc.SampleN(-int64(p>>1), int64(p>>1))
+			f[i] = rSrc.SampleN(0, int64(p))
 		}
 		if isIrreducible(f, q) {
 			return f

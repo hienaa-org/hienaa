@@ -27,11 +27,9 @@ type Modulus struct {
 	// Zero if modulus is even.
 	inv uint64
 
-	// divHi is a constant used for Barrett reduction.
-	// Equals to floor(2^128 / modulus).
+	// divHi is the high word of floor(2^128 / modulus) for Barrett reduction.
 	divHi uint64
-	// divLo is a constant used for Barrett reduction.
-	// Equals to floor(2^128 / modulus).
+	// divLo is the low word of floor(2^128 / modulus) for Barrett reduction.
 	divLo uint64
 }
 
@@ -40,7 +38,7 @@ func NewModulus[T Integer](mod T) *Modulus {
 	if mod <= 1 {
 		panic("modulus must be greater than 1")
 	} else if uint64(mod) > MaxModulus {
-		panic("modulus must be less or equal than MaxModulus")
+		panic("modulus must be less than or equal to MaxModulus")
 	}
 
 	q := uint64(mod)

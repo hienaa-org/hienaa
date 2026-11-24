@@ -13,7 +13,7 @@ const (
 	typePow2Cyclotomic1Mod4 packerType = iota
 	// typePow2Cyclotomic3Mod4 is a power-of-two cyclotomic ring with modulus 3 mod 4.
 	typePow2Cyclotomic3Mod4
-	// typeAnyCyclotomic is an aribtrary index cyclotomic ring.
+	// typeAnyCyclotomic is an arbitrary index cyclotomic ring.
 	typeAnyCyclotomic
 	// typePow2AutFixed1Mod4 is a power-of-two conjugate invariant ring with modulus 1 mod 4.
 	typePow2AutFixed1Mod4
@@ -23,11 +23,11 @@ const (
 	typePrimeAutFixed
 	// typeTrivial is a trivial packer.
 	typeTrivial
-	// typeNone is a invalid type.
+	// typeNone is an invalid type.
 	typeNone
 )
 
-// packerTypeOf returns the [packerType] of [RingParameters].
+// packerTypeOf returns the [packerType] of [dft.RingParameters].
 func packerTypeOf(params dft.RingParameters, mod *num.Modulus) packerType {
 	switch params.RingType() {
 	case dft.TypeCyclotomic:
@@ -72,9 +72,10 @@ func packerTypeOf(params dft.RingParameters, mod *num.Modulus) packerType {
 
 			if is1Mod4 {
 				return typePow2AutFixed1Mod4
-			} else if len(primes) == 1 {
+			} else if len(primes) == 1 && primes[0] != 2 {
 				return typePow2AutFixed3Mod4
 			}
+			return typeTrivial
 
 		case num.IsPrime(params.CycloIdx()):
 			primes, _ := num.Factor(mod.Value())

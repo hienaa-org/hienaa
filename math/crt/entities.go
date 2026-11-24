@@ -119,7 +119,7 @@ func NewPoly(rank, modLen int, form dft.Form) *Element {
 }
 
 // NewElement creates a new [Element].
-// Rank and form is ignored when the type is [TypeScalar].
+// Rank and form are ignored when the type is [TypeScalar].
 func NewElement(rank, modLen int, elType ElementType, form dft.Form) *Element {
 	if elType == TypeScalar {
 		return NewScalar(modLen)

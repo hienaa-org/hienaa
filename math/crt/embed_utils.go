@@ -31,6 +31,14 @@ func embedToModOut(x uint64, qOut, qOutDivHi, qIn, halfQIn uint64) uint64 {
 	return modops.Neg(modops.BMod64(qIn-x, qOut, qOutDivHi), qOut)
 }
 
+// embedToModOutNoReduce returns balanced x mod qOut for x in [0, qIn), when qOut > qIn.
+func embedToModOutNoReduce(x uint64, qOut, qIn, halfQIn uint64) uint64 {
+	if x > halfQIn {
+		x += qOut - qIn
+	}
+	return x
+}
+
 // isMixedRadixNegative checks if i-th index of v is negative in signed mixed radix representation.
 func isMixedRadixNegative[T *[embedBatch]uint64 | []uint64](v []T, i int, half []uint64) uint64 {
 	for j := len(v) - 1; j >= 0; j-- {

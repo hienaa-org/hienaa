@@ -37,10 +37,8 @@ func newPow2Cyclotomic1Mod4Packer(params dft.RingParameters, mod *num.Modulus) *
 	primes, _ := num.Factor(mod.Value())
 	packLen := params.CycloIdx() >> 1
 	for i := range primes {
-		bits := bits.TrailingZeros64(primes[i]-1) - 1
-		if packLen > (1 << bits) {
-			packLen = 1 << bits
-		}
+		logPackLen := bits.TrailingZeros64(primes[i]-1) - 1
+		packLen = int(min(uint64(packLen), uint64(1)<<logPackLen))
 	}
 
 	packLen64 := uint64(packLen)
@@ -82,6 +80,11 @@ func (pck *pow2Cyclotomic1Mod4Packer) packTo(vPack, v []uint64) {
 		panic("inconsistent inputs")
 	}
 
+	if len(v) == 0 {
+		clear(vPack)
+		return
+	}
+
 	vBufPtr := pck.pool.Get()
 	vBuf := *vBufPtr
 	defer pck.pool.Put(vBufPtr)
@@ -101,7 +104,7 @@ func (pck *pow2Cyclotomic1Mod4Packer) packTo(vPack, v []uint64) {
 }
 
 func (pck *pow2Cyclotomic1Mod4Packer) unpackTo(v, vPack []uint64) {
-	if len(v)%pck.packLen != 0 || len(vPack) != pck.params.Rank() {
+	if len(v) == 0 || pck.packLen%len(v) != 0 || len(vPack) != pck.params.Rank() {
 		panic("inconsistent inputs")
 	}
 
@@ -176,9 +179,7 @@ func newPow2Cyclotomic3Mod4Packer(params dft.RingParameters, mod *num.Modulus) *
 	primes, _ := num.Factor(mod.Value())
 	packLen := params.CycloIdx() >> 2
 	logPackLen := bits.TrailingZeros64(primes[0]+1) - 1
-	if packLen > (1 << logPackLen) {
-		packLen = 1 << logPackLen
-	}
+	packLen = int(min(uint64(packLen), uint64(1)<<logPackLen))
 
 	packLen64 := uint64(packLen)
 	packLenQuadMod := num.NewModulus(packLen64 << 2)
@@ -249,6 +250,11 @@ func (pck *pow2Cyclotomic3Mod4Packer) packTo(vPack, v []uint64) {
 		panic("inconsistent inputs")
 	}
 
+	if len(v) == 0 {
+		clear(vPack)
+		return
+	}
+
 	vBufPtr := pck.pool.Get()
 	vBuf := *vBufPtr
 	defer pck.pool.Put(vBufPtr)
@@ -273,7 +279,7 @@ func (pck *pow2Cyclotomic3Mod4Packer) packTo(vPack, v []uint64) {
 }
 
 func (pck *pow2Cyclotomic3Mod4Packer) unpackTo(v, vPack []uint64) {
-	if len(v)%pck.packLen != 0 || len(vPack) != pck.params.Rank() {
+	if len(v) == 0 || pck.packLen%len(v) != 0 || len(vPack) != pck.params.Rank() {
 		panic("inconsistent inputs")
 	}
 

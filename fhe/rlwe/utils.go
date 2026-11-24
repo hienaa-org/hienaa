@@ -8,7 +8,7 @@ import (
 )
 
 // FindNTTPrimes returns distinct NTT-friendly base and auxiliary prime moduli for the given parameters.
-// The logarithms of the products of baseMod and auxMod are smaller but as close as possible
+// The logarithms of the products of baseMod and auxMod are smaller but close
 // to baseModBits and auxModBits respectively.
 func FindNTTPrimes(params dft.RingParameters, baseModBits, auxModBits float64) (baseMod []*num.Modulus, auxMod []*num.Modulus) {
 	found := make(map[uint64]struct{}, 0)

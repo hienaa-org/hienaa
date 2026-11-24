@@ -354,7 +354,7 @@ func TestAutFixedEncryptor(t *testing.T) {
 		primes, exps := num.Factor(M - 1)
 		fold := 1
 		for i := range primes {
-			e := rSrc.SampleN(0, exps[i])
+			e := rSrc.SampleN(0, exps[i]+1)
 			for j := 0; j < e; j++ {
 				fold *= primes[i]
 			}

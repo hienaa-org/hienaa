@@ -14,8 +14,8 @@ import (
 // bufSize is the default buffer size of [UniformSampler].
 const bufSize = 8192
 
-// UniformSampler samples values from uniform distribution.
-// This uses AES-CTR as a underlying prng.
+// UniformSampler samples values from a uniform distribution.
+// It uses AES-CTR as its underlying PRNG.
 type UniformSampler struct {
 	prng cipher.Stream
 

@@ -153,7 +153,7 @@ type primeAutFixedTransformer struct {
 
 	ambNTT *pow235CyclicTransformer
 
-	// isPow2 is true of the rank is power-of-two.
+	// isPow2 is true if the rank is a power of two.
 	isPow2 bool
 
 	// root is the sum of powers of primitive root.

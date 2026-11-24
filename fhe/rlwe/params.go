@@ -103,12 +103,12 @@ type ParametersLiteral struct {
 	RingParams dft.RingParameters
 	// LogBaseMod is the bit length of base modulus.
 	LogBaseMod float64
-	// LogAuxMod is the bit length of auxililary modulus.
+	// LogAuxMod is the bit length of auxiliary modulus.
 	LogAuxMod float64
 
-	// baseMod is the base modulus. This overrides LogBaseModulus.
+	// baseMod is the base modulus. This overrides LogBaseMod.
 	baseMod []*num.Modulus
-	// auxMod is the auxiliary modulus. This overrides LogAuxModulus.
+	// auxMod is the auxiliary modulus. This overrides LogAuxMod.
 	auxMod []*num.Modulus
 
 	// GadgetParams is the parameters for the gadget.
@@ -266,9 +266,6 @@ func (p ParametersLiteral) Compile() Parameters {
 		gadgetVec = make([]*Element, num.DivCeil(modBitLen, gadgetParams.logDigitBase))
 
 		g := new(big.Int).Set(auxModBig)
-		if len(auxMod) == 0 {
-			g.SetUint64(1)
-		}
 
 		for i := range gadgetVec {
 			gadgetVec[i] = &Element{
@@ -277,10 +274,6 @@ func (p ParametersLiteral) Compile() Parameters {
 			}
 			g.Lsh(g, uint(gadgetParams.logDigitBase))
 		}
-	}
-
-	if len(auxMod) == 0 {
-		auxModBig.SetUint64(0)
 	}
 
 	return Parameters{
@@ -306,9 +299,9 @@ type Parameters struct {
 	crtOp *crt.Operator
 	// fullMod is the full modulus chain.
 	fullMod []*num.Modulus
-	// BaseModulus is the Modulus for encryption.
+	// baseMod is the base modulus chain for encryption.
 	baseMod []*num.Modulus
-	// AuxModulus is the auxiliary or "special" modulus.
+	// auxMod is the auxiliary or "special" modulus chain.
 	auxMod []*num.Modulus
 
 	// fullModBig is a product of fullMod.

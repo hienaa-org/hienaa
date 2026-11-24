@@ -23,7 +23,9 @@ var (
 	})
 )
 
-// NewEmbedderPool creates a new [pool.Pool] that can be used in [Embedder].
+// NewEmbedderPool creates a new [pool.Pool] that can be used in [Embedder] or [Scaler].
+// modLen should be greater than or equal to the length of the modIn
+// of every Embedder or Scaler sharing this pool.
 func NewEmbedderPool(rank, modLen int) *pool.Pool[*[]uint64] {
 	return pool.NewPool(func() *[]uint64 {
 		v := make([]uint64, max(rank, modLen))
@@ -157,7 +159,7 @@ func (emb *Embedder) embedNTTTo(pOutNTT, pNTT *Element) {
 
 	if inLen == 1 {
 		qv := emb.vecEmb.modInSorted[0].Value()
-		halfQv := qv >> 1
+		qvHalf := qv >> 1
 
 		r := unsafe.Pointer(unsafe.SliceData(pInvNTT.Coeffs[0]))
 
@@ -169,18 +171,31 @@ func (emb *Embedder) embedNTTTo(pOutNTT, pNTT *Element) {
 				wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(i)*L))
 
 				qOut := emb.vecEmb.modOut[j].Value()
-				qOutDiv, _ := emb.vecEmb.modOut[j].Div()
 
 				if emb.vecEmb.idx[j] != 0 {
-					wOut[0] = embedToModOut(wIn[0], qOut, qOutDiv, qv, halfQv)
-					wOut[1] = embedToModOut(wIn[1], qOut, qOutDiv, qv, halfQv)
-					wOut[2] = embedToModOut(wIn[2], qOut, qOutDiv, qv, halfQv)
-					wOut[3] = embedToModOut(wIn[3], qOut, qOutDiv, qv, halfQv)
+					if qOut > qv {
+						wOut[0] = embedToModOutNoReduce(wIn[0], qOut, qv, qvHalf)
+						wOut[1] = embedToModOutNoReduce(wIn[1], qOut, qv, qvHalf)
+						wOut[2] = embedToModOutNoReduce(wIn[2], qOut, qv, qvHalf)
+						wOut[3] = embedToModOutNoReduce(wIn[3], qOut, qv, qvHalf)
 
-					wOut[4] = embedToModOut(wIn[4], qOut, qOutDiv, qv, halfQv)
-					wOut[5] = embedToModOut(wIn[5], qOut, qOutDiv, qv, halfQv)
-					wOut[6] = embedToModOut(wIn[6], qOut, qOutDiv, qv, halfQv)
-					wOut[7] = embedToModOut(wIn[7], qOut, qOutDiv, qv, halfQv)
+						wOut[4] = embedToModOutNoReduce(wIn[4], qOut, qv, qvHalf)
+						wOut[5] = embedToModOutNoReduce(wIn[5], qOut, qv, qvHalf)
+						wOut[6] = embedToModOutNoReduce(wIn[6], qOut, qv, qvHalf)
+						wOut[7] = embedToModOutNoReduce(wIn[7], qOut, qv, qvHalf)
+					} else {
+						qOutDiv, _ := emb.vecEmb.modOut[j].Div()
+
+						wOut[0] = embedToModOut(wIn[0], qOut, qOutDiv, qv, qvHalf)
+						wOut[1] = embedToModOut(wIn[1], qOut, qOutDiv, qv, qvHalf)
+						wOut[2] = embedToModOut(wIn[2], qOut, qOutDiv, qv, qvHalf)
+						wOut[3] = embedToModOut(wIn[3], qOut, qOutDiv, qv, qvHalf)
+
+						wOut[4] = embedToModOut(wIn[4], qOut, qOutDiv, qv, qvHalf)
+						wOut[5] = embedToModOut(wIn[5], qOut, qOutDiv, qv, qvHalf)
+						wOut[6] = embedToModOut(wIn[6], qOut, qOutDiv, qv, qvHalf)
+						wOut[7] = embedToModOut(wIn[7], qOut, qOutDiv, qv, qvHalf)
+					}
 				}
 			}
 		}
@@ -192,7 +207,7 @@ func (emb *Embedder) embedNTTTo(pOutNTT, pNTT *Element) {
 					qOut := emb.vecEmb.modOut[j].Value()
 					qOutDiv, _ := emb.vecEmb.modOut[j].Div()
 
-					pOutNTT.Coeffs[j][i] = embedToModOut(c, qOut, qOutDiv, qv, halfQv)
+					pOutNTT.Coeffs[j][i] = embedToModOut(c, qOut, qOutDiv, qv, qvHalf)
 				}
 			}
 		}
@@ -281,14 +296,18 @@ func (emb *Embedder) embedScalarTo(cOut, c *Element) {
 	if inLen == 1 {
 		x := c.Coeffs[0][0]
 		qv := vecEmb.modInSorted[0].Value()
-		halfQv := qv >> 1
+		qvHalf := qv >> 1
 		for i := 0; i < outLen; i++ {
 			if vecEmb.idx[i] == 0 {
 				cOut.Coeffs[i][0] = x
 			} else {
 				qOut := vecEmb.modOut[i].Value()
-				qOutDivHi, _ := vecEmb.modOut[i].Div()
-				cOut.Coeffs[i][0] = embedToModOut(x, qOut, qOutDivHi, qv, halfQv)
+				if qOut > qv {
+					cOut.Coeffs[i][0] = embedToModOutNoReduce(x, qOut, qv, qvHalf)
+				} else {
+					qOutDivHi, _ := vecEmb.modOut[i].Div()
+					cOut.Coeffs[i][0] = embedToModOut(x, qOut, qOutDivHi, qv, qvHalf)
+				}
 			}
 		}
 		return
@@ -507,7 +526,7 @@ func (emb *VecEmbedder) EmbedTo(vOut, v [][]uint64) {
 
 	if inLen == 1 {
 		qv := emb.modInSorted[0].Value()
-		halfQv := qv >> 1
+		qvHalf := qv >> 1
 
 		vBuf := embed64Pool.Get()
 		defer embed64Pool.Put(vBuf)
@@ -528,15 +547,27 @@ func (emb *VecEmbedder) EmbedTo(vOut, v [][]uint64) {
 				if emb.idx[j] == 0 {
 					copy(wOut[:], vBuf[:])
 				} else {
-					wOut[0] = embedToModOut(vBuf[0], qOut, qOutDivHi, qv, halfQv)
-					wOut[1] = embedToModOut(vBuf[1], qOut, qOutDivHi, qv, halfQv)
-					wOut[2] = embedToModOut(vBuf[2], qOut, qOutDivHi, qv, halfQv)
-					wOut[3] = embedToModOut(vBuf[3], qOut, qOutDivHi, qv, halfQv)
+					if qOut > qv {
+						wOut[0] = embedToModOutNoReduce(vBuf[0], qOut, qv, qvHalf)
+						wOut[1] = embedToModOutNoReduce(vBuf[1], qOut, qv, qvHalf)
+						wOut[2] = embedToModOutNoReduce(vBuf[2], qOut, qv, qvHalf)
+						wOut[3] = embedToModOutNoReduce(vBuf[3], qOut, qv, qvHalf)
 
-					wOut[4] = embedToModOut(vBuf[4], qOut, qOutDivHi, qv, halfQv)
-					wOut[5] = embedToModOut(vBuf[5], qOut, qOutDivHi, qv, halfQv)
-					wOut[6] = embedToModOut(vBuf[6], qOut, qOutDivHi, qv, halfQv)
-					wOut[7] = embedToModOut(vBuf[7], qOut, qOutDivHi, qv, halfQv)
+						wOut[4] = embedToModOutNoReduce(vBuf[4], qOut, qv, qvHalf)
+						wOut[5] = embedToModOutNoReduce(vBuf[5], qOut, qv, qvHalf)
+						wOut[6] = embedToModOutNoReduce(vBuf[6], qOut, qv, qvHalf)
+						wOut[7] = embedToModOutNoReduce(vBuf[7], qOut, qv, qvHalf)
+					} else {
+						wOut[0] = embedToModOut(vBuf[0], qOut, qOutDivHi, qv, qvHalf)
+						wOut[1] = embedToModOut(vBuf[1], qOut, qOutDivHi, qv, qvHalf)
+						wOut[2] = embedToModOut(vBuf[2], qOut, qOutDivHi, qv, qvHalf)
+						wOut[3] = embedToModOut(vBuf[3], qOut, qOutDivHi, qv, qvHalf)
+
+						wOut[4] = embedToModOut(vBuf[4], qOut, qOutDivHi, qv, qvHalf)
+						wOut[5] = embedToModOut(vBuf[5], qOut, qOutDivHi, qv, qvHalf)
+						wOut[6] = embedToModOut(vBuf[6], qOut, qOutDivHi, qv, qvHalf)
+						wOut[7] = embedToModOut(vBuf[7], qOut, qOutDivHi, qv, qvHalf)
+					}
 				}
 			}
 		}
@@ -548,8 +579,12 @@ func (emb *VecEmbedder) EmbedTo(vOut, v [][]uint64) {
 					vOut[j][i] = c
 				} else {
 					qOut := emb.modOut[j].Value()
-					qOutDivHi, _ := emb.modOut[j].Div()
-					vOut[j][i] = embedToModOut(c, qOut, qOutDivHi, qv, halfQv)
+					if qOut > qv {
+						vOut[j][i] = embedToModOutNoReduce(c, qOut, qv, qvHalf)
+					} else {
+						qOutDivHi, _ := emb.modOut[j].Div()
+						vOut[j][i] = embedToModOut(c, qOut, qOutDivHi, qv, qvHalf)
+					}
 				}
 			}
 		}
@@ -880,23 +915,44 @@ func (sc *Scaler) scaleNTTTo(pOutNTT, pNTT *Element) {
 			qOut := sc.vecSc.modOut[i].Value()
 			qOutDivHi, _ := sc.vecSc.modOut[i].Div()
 
-			for j := 0; j < M; j += 8 {
-				wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(j)*L))
-				w := (*[8]uint64)(unsafe.Add(r, uintptr(j)*L))
+			if qOut > qLast {
+				for j := 0; j < M; j += 8 {
+					wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(j)*L))
+					w := (*[8]uint64)(unsafe.Add(r, uintptr(j)*L))
 
-				wOut[0] = embedToModOut(w[0], qOut, qOutDivHi, qLast, qLastHalf)
-				wOut[1] = embedToModOut(w[1], qOut, qOutDivHi, qLast, qLastHalf)
-				wOut[2] = embedToModOut(w[2], qOut, qOutDivHi, qLast, qLastHalf)
-				wOut[3] = embedToModOut(w[3], qOut, qOutDivHi, qLast, qLastHalf)
+					wOut[0] = embedToModOutNoReduce(w[0], qOut, qLast, qLastHalf)
+					wOut[1] = embedToModOutNoReduce(w[1], qOut, qLast, qLastHalf)
+					wOut[2] = embedToModOutNoReduce(w[2], qOut, qLast, qLastHalf)
+					wOut[3] = embedToModOutNoReduce(w[3], qOut, qLast, qLastHalf)
 
-				wOut[4] = embedToModOut(w[4], qOut, qOutDivHi, qLast, qLastHalf)
-				wOut[5] = embedToModOut(w[5], qOut, qOutDivHi, qLast, qLastHalf)
-				wOut[6] = embedToModOut(w[6], qOut, qOutDivHi, qLast, qLastHalf)
-				wOut[7] = embedToModOut(w[7], qOut, qOutDivHi, qLast, qLastHalf)
-			}
+					wOut[4] = embedToModOutNoReduce(w[4], qOut, qLast, qLastHalf)
+					wOut[5] = embedToModOutNoReduce(w[5], qOut, qLast, qLastHalf)
+					wOut[6] = embedToModOutNoReduce(w[6], qOut, qLast, qLastHalf)
+					wOut[7] = embedToModOutNoReduce(w[7], qOut, qLast, qLastHalf)
+				}
 
-			for j := M; j < len(pOutNTT.Coeffs[i]); j++ {
-				pOutNTT.Coeffs[i][j] = embedToModOut(pNTTCopy.Coeffs[0][j], qOut, qOutDivHi, qLast, qLastHalf)
+				for j := M; j < len(pOutNTT.Coeffs[i]); j++ {
+					pOutNTT.Coeffs[i][j] = embedToModOutNoReduce(pNTTCopy.Coeffs[0][j], qOut, qLast, qLastHalf)
+				}
+
+			} else {
+				for j := 0; j < M; j += 8 {
+					wOut := (*[8]uint64)(unsafe.Add(rOut, uintptr(j)*L))
+					w := (*[8]uint64)(unsafe.Add(r, uintptr(j)*L))
+					wOut[0] = embedToModOut(w[0], qOut, qOutDivHi, qLast, qLastHalf)
+					wOut[1] = embedToModOut(w[1], qOut, qOutDivHi, qLast, qLastHalf)
+					wOut[2] = embedToModOut(w[2], qOut, qOutDivHi, qLast, qLastHalf)
+					wOut[3] = embedToModOut(w[3], qOut, qOutDivHi, qLast, qLastHalf)
+
+					wOut[4] = embedToModOut(w[4], qOut, qOutDivHi, qLast, qLastHalf)
+					wOut[5] = embedToModOut(w[5], qOut, qOutDivHi, qLast, qLastHalf)
+					wOut[6] = embedToModOut(w[6], qOut, qOutDivHi, qLast, qLastHalf)
+					wOut[7] = embedToModOut(w[7], qOut, qOutDivHi, qLast, qLastHalf)
+				}
+
+				for j := M; j < len(pOutNTT.Coeffs[i]); j++ {
+					pOutNTT.Coeffs[i][j] = embedToModOut(pNTTCopy.Coeffs[0][j], qOut, qOutDivHi, qLast, qLastHalf)
+				}
 			}
 		}
 	} else {
@@ -1011,11 +1067,15 @@ func (sc *Scaler) scaleScalarTo(cOut, c *Element) {
 	if inLen-gcdLen == 1 {
 		x := cBuf[0]
 		qv := sc.vecSc.modInComp[0].Value()
-		halfQv := qv >> 1
+		qvHalf := qv >> 1
 		for i := 0; i < outLen; i++ {
 			qOut := sc.vecSc.modOut[i].Value()
-			qOutDivHi, _ := sc.vecSc.modOut[i].Div()
-			cOut.Coeffs[i][0] = embedToModOut(x, qOut, qOutDivHi, qv, halfQv)
+			if qOut > qv {
+				cOut.Coeffs[i][0] = embedToModOutNoReduce(x, qOut, qv, qvHalf)
+			} else {
+				qOutDivHi, _ := sc.vecSc.modOut[i].Div()
+				cOut.Coeffs[i][0] = embedToModOut(x, qOut, qOutDivHi, qv, qvHalf)
+			}
 		}
 	} else {
 		for i := 0; i < inLen-gcdLen; i++ {
@@ -1494,16 +1554,30 @@ func (sc *VecScaler) ScaleTo(vOut, v [][]uint64) {
 				qOut := sc.modOut[i].Value()
 				qOutDivHi, _ := sc.modOut[i].Div()
 
-				for j := 0; j < embedBatch; j += 8 {
-					wOut[j+0] = embedToModOut(wBuf[j+0], qOut, qOutDivHi, qLast, qLastHalf)
-					wOut[j+1] = embedToModOut(wBuf[j+1], qOut, qOutDivHi, qLast, qLastHalf)
-					wOut[j+2] = embedToModOut(wBuf[j+2], qOut, qOutDivHi, qLast, qLastHalf)
-					wOut[j+3] = embedToModOut(wBuf[j+3], qOut, qOutDivHi, qLast, qLastHalf)
+				if qOut > qLast {
+					for j := 0; j < embedBatch; j += 8 {
+						wOut[j+0] = embedToModOutNoReduce(wBuf[j+0], qOut, qLast, qLastHalf)
+						wOut[j+1] = embedToModOutNoReduce(wBuf[j+1], qOut, qLast, qLastHalf)
+						wOut[j+2] = embedToModOutNoReduce(wBuf[j+2], qOut, qLast, qLastHalf)
+						wOut[j+3] = embedToModOutNoReduce(wBuf[j+3], qOut, qLast, qLastHalf)
 
-					wOut[j+4] = embedToModOut(wBuf[j+4], qOut, qOutDivHi, qLast, qLastHalf)
-					wOut[j+5] = embedToModOut(wBuf[j+5], qOut, qOutDivHi, qLast, qLastHalf)
-					wOut[j+6] = embedToModOut(wBuf[j+6], qOut, qOutDivHi, qLast, qLastHalf)
-					wOut[j+7] = embedToModOut(wBuf[j+7], qOut, qOutDivHi, qLast, qLastHalf)
+						wOut[j+4] = embedToModOutNoReduce(wBuf[j+4], qOut, qLast, qLastHalf)
+						wOut[j+5] = embedToModOutNoReduce(wBuf[j+5], qOut, qLast, qLastHalf)
+						wOut[j+6] = embedToModOutNoReduce(wBuf[j+6], qOut, qLast, qLastHalf)
+						wOut[j+7] = embedToModOutNoReduce(wBuf[j+7], qOut, qLast, qLastHalf)
+					}
+				} else {
+					for j := 0; j < embedBatch; j += 8 {
+						wOut[j+0] = embedToModOut(wBuf[j+0], qOut, qOutDivHi, qLast, qLastHalf)
+						wOut[j+1] = embedToModOut(wBuf[j+1], qOut, qOutDivHi, qLast, qLastHalf)
+						wOut[j+2] = embedToModOut(wBuf[j+2], qOut, qOutDivHi, qLast, qLastHalf)
+						wOut[j+3] = embedToModOut(wBuf[j+3], qOut, qOutDivHi, qLast, qLastHalf)
+
+						wOut[j+4] = embedToModOut(wBuf[j+4], qOut, qOutDivHi, qLast, qLastHalf)
+						wOut[j+5] = embedToModOut(wBuf[j+5], qOut, qOutDivHi, qLast, qLastHalf)
+						wOut[j+6] = embedToModOut(wBuf[j+6], qOut, qOutDivHi, qLast, qLastHalf)
+						wOut[j+7] = embedToModOut(wBuf[j+7], qOut, qOutDivHi, qLast, qLastHalf)
+					}
 				}
 			}
 		} else {
@@ -1579,10 +1653,16 @@ func (sc *VecScaler) ScaleTo(vOut, v [][]uint64) {
 
 	if inLen-gcdLen == 1 {
 		for i := 0; i < outLen; i++ {
-			for j := 0; j < len(v[0])-M; j++ {
-				qOut := sc.modOut[i].Value()
-				qOutDivHi, _ := sc.modOut[i].Div()
-				vOut[i][j+M] = embedToModOut(vBuf[0][j], qOut, qOutDivHi, qLast, qLastHalf)
+			qOut := sc.modOut[i].Value()
+			qOutDivHi, _ := sc.modOut[i].Div()
+			if qOut > qLast {
+				for j := 0; j < len(v[0])-M; j++ {
+					vOut[i][j+M] = embedToModOutNoReduce(vBuf[0][j], qOut, qLast, qLastHalf)
+				}
+			} else {
+				for j := 0; j < len(v[0])-M; j++ {
+					vOut[i][j+M] = embedToModOut(vBuf[0][j], qOut, qOutDivHi, qLast, qLastHalf)
+				}
 			}
 		}
 	} else {

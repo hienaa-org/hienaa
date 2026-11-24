@@ -91,6 +91,11 @@ func (enc *Encryptor) Decomposer() *Decomposer {
 	return enc.dcmp
 }
 
+// Key returns the [SecretKey] of the encryptor.
+func (enc *Encryptor) Key() *SecretKey {
+	return (*SecretKey)(enc.sk)
+}
+
 // Encrypt returns an encryption of pt.
 // If pt is nil, it outputs a zero encryption.
 func (enc *Encryptor) Encrypt[C *Ciphertext | *GadgetEncryption | *RGSWEncryption](pt *Element, outForm dft.Form) C {
@@ -104,9 +109,9 @@ func (enc *Encryptor) Encrypt[C *Ciphertext | *GadgetEncryption | *RGSWEncryptio
 	case *Ciphertext:
 		ctOut = any(NewCiphertextCustom(enc.params.Rank(), baseLen, auxLen, dft.FormCoeff)).(C)
 	case *GadgetEncryption:
-		ctOut = any(NewGadgetEncryptionCustom(enc.params.Rank(), baseLen, auxLen, enc.params.GadgetLen(), dft.FormCoeff)).(C)
+		ctOut = any(NewGadgetEncryptionCustom(enc.params.Rank(), baseLen, enc.params.AuxModLen(), enc.params.GadgetLen(), dft.FormCoeff)).(C)
 	case *RGSWEncryption:
-		ctOut = any(NewRGSWEncryptionCustom(enc.params.Rank(), baseLen, auxLen, enc.params.GadgetLen(), dft.FormCoeff)).(C)
+		ctOut = any(NewRGSWEncryptionCustom(enc.params.Rank(), baseLen, enc.params.AuxModLen(), enc.params.GadgetLen(), dft.FormCoeff)).(C)
 	}
 	enc.EncryptTo(ctOut, pt, outForm)
 	return ctOut
@@ -125,6 +130,7 @@ func (enc *Encryptor) EncryptTo[C *Ciphertext | *GadgetEncryption | *RGSWEncrypt
 
 	case ctOutIsGadEnc:
 		checkCiphertextShape(enc.params, ctOutGadEnc)
+
 		if pt == nil {
 			for i := 0; i < enc.params.GadgetLen(); i++ {
 				enc.EncryptTo(ctOutGadEnc.Value[i], pt, outForm)
@@ -132,8 +138,9 @@ func (enc *Encryptor) EncryptTo[C *Ciphertext | *GadgetEncryption | *RGSWEncrypt
 			return
 		}
 
-		var ptBufFull *Element
-		var ptCopyFull *Element
+		checkElementShape(enc.params, pt)
+
+		var ptBufFull, ptCopyFull *Element
 		switch {
 		case pt.Type() == crt.TypeScalar:
 			ptBufFull = enc.poolScalar.Get()
@@ -148,7 +155,16 @@ func (enc *Encryptor) EncryptTo[C *Ciphertext | *GadgetEncryption | *RGSWEncrypt
 		}
 		ptBuf := ptBufFull.WithModLen(ctOutGadEnc.BaseModLen(), ctOutGadEnc.AuxModLen())
 		ptCopy := ptCopyFull.WithModLen(ctOutGadEnc.BaseModLen(), ctOutGadEnc.AuxModLen())
-		ptCopy.CopyFrom(pt)
+
+		if pt.AuxModLen() == 0 {
+			ptCopy.WithModLen(ptCopy.BaseModLen(), 0).CopyFrom(pt)
+			for i := 0; i < ptCopy.AuxModLen(); i++ {
+				clear(ptCopy.Value.Coeffs[i])
+			}
+			ptCopy.SetForm(pt.Form())
+		} else {
+			ptCopy.CopyFrom(pt)
+		}
 
 		for i := 0; i < enc.params.GadgetLen(); i++ {
 			enc.plainOp.MulTo(ptBuf, enc.params.gadgetVec[i].WithModLen(ctOutGadEnc.BaseModLen(), ctOutGadEnc.AuxModLen()), ptCopy)
@@ -157,6 +173,7 @@ func (enc *Encryptor) EncryptTo[C *Ciphertext | *GadgetEncryption | *RGSWEncrypt
 
 	case ctOutIsRGSW:
 		checkCiphertextShape(enc.params, ctOutRGSW)
+
 		if pt == nil {
 			for i := 0; i < enc.params.GadgetLen(); i++ {
 				enc.EncryptTo(ctOutRGSW.BodyStack.Value[i], pt, outForm)
@@ -165,8 +182,9 @@ func (enc *Encryptor) EncryptTo[C *Ciphertext | *GadgetEncryption | *RGSWEncrypt
 			return
 		}
 
-		var ptBufFull *Element
-		var ptCopyFull *Element
+		checkElementShape(enc.params, pt)
+
+		var ptBufFull, ptCopyFull *Element
 		switch {
 		case pt.Type() == crt.TypeScalar:
 			ptBufFull = enc.poolScalar.Get()
@@ -182,7 +200,16 @@ func (enc *Encryptor) EncryptTo[C *Ciphertext | *GadgetEncryption | *RGSWEncrypt
 		ptBuf := ptBufFull.WithModLen(ctOutRGSW.BaseModLen(), ctOutRGSW.AuxModLen())
 		ptCopy := ptCopyFull.WithModLen(ctOutRGSW.BaseModLen(), ctOutRGSW.AuxModLen())
 
-		ptCopy.CopyFrom(pt)
+		if pt.AuxModLen() == 0 {
+			ptCopy.WithModLen(ptCopy.BaseModLen(), 0).CopyFrom(pt)
+			for i := 0; i < ptCopy.AuxModLen(); i++ {
+				clear(ptCopy.Value.Coeffs[i])
+			}
+			ptCopy.SetForm(pt.Form())
+		} else {
+			ptCopy.CopyFrom(pt)
+		}
+
 		if pt.Type() == crt.TypePoly && pt.Form() != outForm {
 			switch {
 			case outForm == dft.FormCoeff:
@@ -313,6 +340,10 @@ func (enc *Encryptor) GenRelinKey() *RelinKey {
 // GenAutKey generates a new [AutKey] corresponding to idx.
 // The output is always in NTT form.
 func (enc *Encryptor) GenAutKey(idx int) *AutKey {
+	if !enc.plainOp.CanAut(idx) {
+		panic("invalid automorphism index")
+	}
+
 	idxInv := 1
 	if enc.params.RingParams().CycloIdx() != 1 {
 		idxMod := enc.params.RingParams().CycloIdxMod()

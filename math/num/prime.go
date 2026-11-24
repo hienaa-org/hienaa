@@ -14,13 +14,13 @@ var (
 	}
 )
 
-// IsPrime checks of x is prime.
-// Any x <= 1 are not considered prime.
+// IsPrime reports whether x is prime.
+// Values less than or equal to 1 are not prime.
 func IsPrime[T Integer](x T) bool {
 	return (x > 1) && isPrimeUint64(uint64(x))
 }
 
-// isPrimeUint64 checks of x is prime.
+// isPrimeUint64 reports whether x is prime.
 // 0 and 1 are not considered prime.
 func isPrimeUint64(x uint64) bool {
 	for _, p := range smallPrimes {
@@ -141,7 +141,7 @@ func IsProdPowerOf[T Integer](x T, factors []T) bool {
 	return search(x)
 }
 
-// NextProdPower returns the smallest number larger or equal than x
+// NextProdPower returns the smallest number greater than or equal to x
 // that can be expressed as a product of the powers of given factors.
 func NextProdPower[T Integer](x T, factors []T) T {
 	best, isFound := T(1), x <= 1

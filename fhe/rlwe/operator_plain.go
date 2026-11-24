@@ -193,8 +193,6 @@ func (op *PlainOperator) EmbedTo(eOut, e *Element, outForm dft.Form) {
 }
 
 // Scale returns a scaling of e to modulus length outBaseLen and outAuxLen.
-//
-// Panics when e has auxiliary modulus.
 func (op *PlainOperator) Scale(e *Element, outBaseLen, outAuxLen int, outForm dft.Form) *Element {
 	eOut := NewElementCustom(e.Rank(), outBaseLen, outAuxLen, e.Type(), outForm)
 	op.ScaleTo(eOut, e, outForm)

@@ -158,7 +158,6 @@ func (op *pow2CyclotomicAutOperator) appendTmpMod(mod *num.Modulus) *pow2Cycloto
 // anyCyclotomicAutOperator is an AutOperator for [typeAnyCyclotomicAut].
 type anyCyclotomicAutOperator struct {
 	params        dft.RingParameters
-	cycloIdxMod   *num.Modulus
 	mod           []*num.Modulus
 	isNTTFriendly []bool
 
@@ -222,7 +221,6 @@ func newAnyCyclotomicAutOperator(params dft.RingParameters, mod []*num.Modulus, 
 
 	return &anyCyclotomicAutOperator{
 		params:        params,
-		cycloIdxMod:   num.NewModulus(params.CycloIdx()),
 		mod:           mod,
 		isNTTFriendly: isNTTFriendly,
 
@@ -315,7 +313,7 @@ func (op *anyCyclotomicAutOperator) autTo(pOut, p *Element, idx int) {
 			var idxOut uint64
 			for j := uint64(0); j < uint64(op.params.Rank()); j++ {
 				pBuf[idxOut] = pRow[j]
-				idxOut = num.Add(idxOut, idx64, op.cycloIdxMod)
+				idxOut = num.Add(idxOut, idx64, op.params.CycloIdxMod())
 			}
 			op.reducer.reduceTo(pOutRow, pBuf, i)
 		}
@@ -327,7 +325,6 @@ func (op *anyCyclotomicAutOperator) autTo(pOut, p *Element, idx int) {
 func (op *anyCyclotomicAutOperator) slice(lo, hi int) *anyCyclotomicAutOperator {
 	return &anyCyclotomicAutOperator{
 		params:        op.params,
-		cycloIdxMod:   op.cycloIdxMod,
 		mod:           op.mod[lo:hi],
 		isNTTFriendly: op.isNTTFriendly[lo:hi],
 
@@ -345,7 +342,6 @@ func (op *anyCyclotomicAutOperator) slice(lo, hi int) *anyCyclotomicAutOperator 
 func (op *anyCyclotomicAutOperator) append(opIn *anyCyclotomicAutOperator) *anyCyclotomicAutOperator {
 	return &anyCyclotomicAutOperator{
 		params:        op.params,
-		cycloIdxMod:   op.cycloIdxMod,
 		mod:           slices.Concat(op.mod, opIn.mod),
 		isNTTFriendly: slices.Concat(op.isNTTFriendly, opIn.isNTTFriendly),
 
@@ -363,7 +359,6 @@ func (op *anyCyclotomicAutOperator) append(opIn *anyCyclotomicAutOperator) *anyC
 func (op *anyCyclotomicAutOperator) appendTmpMod(mod *num.Modulus) *anyCyclotomicAutOperator {
 	return &anyCyclotomicAutOperator{
 		params:        op.params,
-		cycloIdxMod:   op.cycloIdxMod,
 		mod:           slices.Concat(op.mod, []*num.Modulus{mod}),
 		isNTTFriendly: slices.Concat(op.isNTTFriendly, []bool{false}),
 
@@ -407,8 +402,7 @@ func newPow2AutFixedAutOperator(params dft.RingParameters, mod []*num.Modulus) *
 }
 
 func (op *pow2AutFixedAutOperator) canAut(idx int) bool {
-	idx64 := num.Reduce(idx, op.params.CycloIdxMod())
-	return idx64%4 == 1
+	return idx&1 == 1
 }
 
 func (op *pow2AutFixedAutOperator) autTo(pOut, p *Element, idx int) {

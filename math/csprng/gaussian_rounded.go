@@ -121,8 +121,8 @@ func (s *RoundedGaussianSampler) normFloat() float64 {
 	}
 }
 
-// Sample returns a int64 value sampled from rounded gaussian distribution
-// with given standard deviation.
+// Sample returns an int64 sampled from a rounded Gaussian distribution
+// with the given standard deviation.
 // For large standard deviation, it heuristically samples the lower bits as uniform.
 // If the output is not representable in int64, it overflows.
 //
@@ -153,8 +153,8 @@ func (s *RoundedGaussianSampler) Sample(stdDev float64) int64 {
 	return hi<<logBound + lo
 }
 
-// SampleBig returns a *[big.Int] value sampled from an approximate rounded gaussian distribution
-// with given standard deviation.
+// SampleBig returns a *[big.Int] value sampled from an approximate rounded Gaussian distribution
+// with the given standard deviation.
 // For large standard deviation, it heuristically samples the lower bits as uniform.
 //
 // Panics when stdDev is negative or invalid.

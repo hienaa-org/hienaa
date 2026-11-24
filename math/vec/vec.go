@@ -1,8 +1,8 @@
 // Package vec implements vector operations acting on slices.
 //
 // Operations usually take two forms: for example,
-//   - Add(v0, v1) adds v0, v1, allocates a new vector to store the result and returns it.
-//   - AddTo(vOut, v0, v1) adds v0, v1 and writes the result to pre-allocated vOut without returning.
+//   - Add(v0, v1, q) returns a new vector containing the sum of v0 and v1 modulo q.
+//   - AddTo(vOut, v0, v1, q) writes the same sum to the pre-allocated vOut.
 //
 // Note that in most cases, v0, v1, and vOut can be identical,
 // but partially overlapping slices may produce wrong results.

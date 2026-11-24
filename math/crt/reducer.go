@@ -329,14 +329,14 @@ func NewCyclotomicReducer(params dft.RingParameters, mod []*num.Modulus) *Cyclot
 		degNextParams := dft.NewCyclicParameters(degNext)
 
 		ambExpFactorBits := num.Log2(max(diffDegNext, degNext))
-		ambMod = dft.AmbientNTTPrimes(params, ambExpFactorBits+2*num.MaxModulusBits)
+		ambMod = dft.AmbientNTTPrimes(params, 1+ambExpFactorBits+2*num.MaxModulusBits)
 
 		ambModLen = make([]int, len(mod))
 		for i := range mod {
 			if dft.IsNTTFriendly(diffDegNextParams, mod[i]) && dft.IsNTTFriendly(degNextParams, mod[i]) {
 				continue
 			}
-			ambModLen[i] = dft.AmbientModLen(ambMod, ambExpFactorBits+2*num.Log2(mod[i].Value()))
+			ambModLen[i] = dft.AmbientModLen(ambMod, 1+ambExpFactorBits+2*num.Log2(mod[i].Value()))
 		}
 
 		diffDegNextAmbNTT = make([]*dft.Transformer, len(ambMod))
@@ -552,7 +552,7 @@ func (r *CyclotomicReducer) reduceTo(pOut, p []uint64, idx int) {
 
 // Reduce reduces p.
 //
-// Panics when p is in NTT form, or p.Rank() exceeds r.params.CycloIndex().
+// Panics when p is in NTT form, or p.Rank() exceeds r.params.CycloIdx().
 func (r *CyclotomicReducer) Reduce(p *Element) *Element {
 	pOut := NewPoly(r.params.Rank(), p.ModLen(), dft.FormCoeff)
 	r.ReduceTo(pOut, p)
@@ -561,7 +561,7 @@ func (r *CyclotomicReducer) Reduce(p *Element) *Element {
 
 // ReduceTo reduces p to pOut.
 //
-// Panics when p is in NTT form, or p.Rank() exceeds r.params.CycloIndex().
+// Panics when p is in NTT form, or p.Rank() exceeds r.params.CycloIdx().
 func (r *CyclotomicReducer) ReduceTo(pOut, p *Element) {
 	checkPolyShape(p.Rank(), len(r.mod), p)
 	checkPolyShape(r.params.Rank(), len(r.mod), pOut)
@@ -714,7 +714,7 @@ func (r *CyclotomicReducer) AppendTmpMod(mod *num.Modulus) *CyclotomicReducer {
 	}
 
 	ambExpFactorBits := num.Log2(max(r.diffDegNextAmbNTT[0].Params().Rank(), r.degNextAmbNTT[0].Params().Rank()))
-	ambModLen := dft.AmbientModLen(r.ambMod, ambExpFactorBits+2*num.Log2(mod.Value()))
+	ambModLen := dft.AmbientModLen(r.ambMod, 1+ambExpFactorBits+2*num.Log2(mod.Value()))
 
 	embedder := NewVecEmbedder([]*num.Modulus{mod}, r.ambMod[:ambModLen])
 
@@ -832,14 +832,14 @@ func NewReducer(maxRank int, mod []*num.Modulus, modPoly []int64) *Reducer {
 	degNextParams := dft.NewCyclicParameters(degNext)
 
 	ambParams := dft.NewCyclicParameters(2 * max(diffDegNext, degNext))
-	ambMod := dft.AmbientNTTPrimes(ambParams, num.Log2(ambParams.Rank())+2*num.MaxModulusBits)
+	ambMod := dft.AmbientNTTPrimes(ambParams, 1+num.Log2(ambParams.Rank())+2*num.MaxModulusBits)
 
 	ambModLen := make([]int, len(mod))
 	for i := range mod {
 		if dft.IsNTTFriendly(diffDegNextParams, mod[i]) && dft.IsNTTFriendly(degNextParams, mod[i]) {
 			continue
 		}
-		ambModLen[i] = dft.AmbientModLen(ambMod, num.Log2(ambParams.Rank())+2*num.Log2(mod[i].Value()))
+		ambModLen[i] = dft.AmbientModLen(ambMod, 1+num.Log2(ambParams.Rank())+2*num.Log2(mod[i].Value()))
 	}
 
 	diffDegNextAmbNTT := make([]*dft.Transformer, len(ambMod))
@@ -1142,7 +1142,7 @@ func (r *Reducer) AppendTmpMod(mod *num.Modulus) *Reducer {
 	}
 
 	ambExpFactorBits := num.Log2(2 * max(r.diffDegNext, r.degNext))
-	ambModLen := dft.AmbientModLen(r.ambMod, ambExpFactorBits+2*num.Log2(mod.Value()))
+	ambModLen := dft.AmbientModLen(r.ambMod, 1+ambExpFactorBits+2*num.Log2(mod.Value()))
 
 	embedder := NewVecEmbedder([]*num.Modulus{mod}, r.ambMod[:ambModLen])
 
