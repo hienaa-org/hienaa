@@ -89,7 +89,7 @@ type rnsDecomposer struct {
 func newRNSDecomposer(params Parameters) *rnsDecomposer {
 	chunkSize := params.gadgetParams.(RNSGadgetParameters).chunkSize
 
-	embPool := crt.NewEmbedderPool(params.Rank(), params.FullModLen())
+	poolEmb := crt.NewEmbedderPool(params.Rank(), params.FullModLen())
 
 	embedders := make([][]*crt.Embedder, params.GadgetLen())
 	for i := range embedders {
@@ -98,7 +98,7 @@ func newRNSDecomposer(params Parameters) *rnsDecomposer {
 		embedders[i] = make([]*crt.Embedder, end-start)
 		for j := range embedders[i] {
 			modOp := params.Op().WithModSlice(params.AuxModLen()+start, params.AuxModLen()+start+j+1)
-			embedders[i][j] = crt.NewEmbedderUnsafe(params.Op(), modOp, embPool)
+			embedders[i][j] = crt.NewEmbedderUnsafe(params.Op(), modOp, poolEmb)
 		}
 	}
 
@@ -140,17 +140,17 @@ func newDigitDecomposer(params Parameters) *digitDecomposer {
 	logDigitBase := params.gadgetParams.(DigitGadgetParameters).logDigitBase
 	baseMod := num.NewModulus(uint64(1) << logDigitBase)
 
-	embPool := crt.NewEmbedderPool(params.Rank(), params.FullModLen())
+	poolEmb := crt.NewEmbedderPool(params.Rank(), params.FullModLen())
 
 	digitEmbedder := make([]*crt.Embedder, params.BaseModLen())
 	lastEmbedder := make([]*crt.Embedder, params.BaseModLen())
 	baseModOp := crt.NewOperator(params.RingParams(), []*num.Modulus{baseMod})
 	for i := range digitEmbedder {
 		modOp := params.Op().WithModSlice(params.AuxModLen(), params.AuxModLen()+i+1)
-		digitEmbedder[i] = crt.NewEmbedderUnsafe(baseModOp, modOp, embPool)
-		lastEmbedder[i] = crt.NewEmbedderUnsafe(params.Op(), modOp, embPool)
+		digitEmbedder[i] = crt.NewEmbedderUnsafe(baseModOp, modOp, poolEmb)
+		lastEmbedder[i] = crt.NewEmbedderUnsafe(params.Op(), modOp, poolEmb)
 	}
-	modEmbedder := crt.NewEmbedderUnsafe(params.Op(), baseModOp, embPool)
+	modEmbedder := crt.NewEmbedderUnsafe(params.Op(), baseModOp, poolEmb)
 
 	baseInv := make([]uint64, params.BaseModLen())
 	for i := range baseInv {

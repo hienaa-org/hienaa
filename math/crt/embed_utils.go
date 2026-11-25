@@ -4,24 +4,7 @@ import (
 	"github.com/hienaa-org/hienaa/internal/pool"
 	"github.com/hienaa-org/hienaa/math/dft"
 	"github.com/hienaa-org/hienaa/math/internal/modops"
-	"github.com/hienaa-org/hienaa/math/num"
 )
-
-// halfProductMixedRadix returns the mixed-radix digits of floor(prod(mod) / 2).
-func halfProductMixedRadix(mod []*num.Modulus) []uint64 {
-	half := make([]uint64, len(mod))
-	isOdd := true
-	for i := len(mod) - 1; i >= 0; i-- {
-		qv := mod[i].Value()
-		if isOdd {
-			half[i] = qv >> 1
-		}
-		if qv&1 == 0 {
-			isOdd = false
-		}
-	}
-	return half
-}
 
 // embedToModOut returns balanced x mod qOut for x in [0, qIn).
 func embedToModOut(x uint64, qOut, qOutDivHi, qIn, halfQIn uint64) uint64 {
@@ -37,22 +20,6 @@ func embedToModOutNoReduce(x uint64, qOut, qIn, halfQIn uint64) uint64 {
 		x += qOut - qIn
 	}
 	return x
-}
-
-// isMixedRadixNegative checks if i-th index of v is negative in signed mixed radix representation.
-func isMixedRadixNegative[T *[embedBatch]uint64 | []uint64](v []T, i int, half []uint64) uint64 {
-	for j := len(v) - 1; j >= 0; j-- {
-		x := v[j][i]
-		qHalf := half[j]
-
-		if x > qHalf {
-			return 1
-		}
-		if x < qHalf {
-			return 0
-		}
-	}
-	return 0
 }
 
 // getPolyFromPool fetches a polynomial [Element] with given rank, modLen and [dft.Form] from pool.
